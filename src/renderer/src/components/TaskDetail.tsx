@@ -25,7 +25,6 @@ import { useTaskStore } from '../stores/useTaskStore'
 import { formatDue, todayAt, tomorrowAt } from '../lib/dates'
 import { useFocusTrap } from '../lib/useFocusTrap'
 import { useMediaQuery } from '../lib/useMediaQuery'
-import { PolarisMark } from './PolarisMark'
 
 type TaskPatch = Partial<
   Pick<
@@ -186,7 +185,7 @@ export function TaskDetail() {
     if (paletteOpen && selectedTaskId) selectTask(null)
   }, [paletteOpen, selectedTaskId, selectTask])
 
-  if (!wide && !task) return null
+  if (!task) return null
 
   return (
     <>
@@ -203,31 +202,16 @@ export function TaskDetail() {
         tabIndex={-1}
         role={wide ? 'region' : 'dialog'}
         aria-modal={wide ? undefined : true}
-        aria-label={task ? undefined : '任务详情'}
-        aria-labelledby={task ? 'task-detail-heading' : undefined}
+        aria-labelledby="task-detail-heading"
       >
-        {task ? (
-          <TaskDetailBody
-            key={task.id}
-            task={task}
-            titleRef={titleRef}
-            closeRef={closeRef}
-          />
-        ) : (
-          <DetailEmpty />
-        )}
+        <TaskDetailBody
+          key={task.id}
+          task={task}
+          titleRef={titleRef}
+          closeRef={closeRef}
+        />
       </aside>
     </>
-  )
-}
-
-function DetailEmpty() {
-  return (
-    <div className="detail-empty">
-      <PolarisMark size={30} />
-      <div className="detail-empty-title">选择一条任务查看详情</div>
-      <div className="detail-empty-desc">从左侧点选，或按 N 新建一条任务</div>
-    </div>
   )
 }
 
@@ -501,29 +485,29 @@ function TaskDetailBody({ task, titleRef, closeRef }: BodyProps) {
           {project?.name ?? '无项目'}
         </span>
         <div className="detail-header-right">
-          {saveStatus !== 'idle' && (
-            <span
-              className={`detail-save-status ${saveStatus}`}
-              role="status"
-              aria-live="polite"
-            >
-              {saveStatus === 'saving'
-                ? '保存中…'
-                : saveStatus === 'saved'
-                  ? '已保存'
-                  : '保存失败'}
-              {saveStatus === 'error' && (
-                <button
-                  className="detail-retry"
-                  onClick={() => {
-                    void flushAll()
-                  }}
-                >
-                  重试
-                </button>
-              )}
-            </span>
-          )}
+          <span
+            className={`detail-save-status ${saveStatus}`}
+            role="status"
+            aria-live="polite"
+          >
+            {saveStatus === 'saving'
+              ? '保存中…'
+              : saveStatus === 'saved'
+                ? '已保存'
+                : saveStatus === 'error'
+                  ? '保存失败'
+                  : ''}
+            {saveStatus === 'error' && (
+              <button
+                className="detail-retry"
+                onClick={() => {
+                  void flushAll()
+                }}
+              >
+                重试
+              </button>
+            )}
+          </span>
           <button className="detail-close" onClick={() => void close()} aria-label="关闭详情">
             <X size={16} strokeWidth={1.8} aria-hidden="true" />
           </button>

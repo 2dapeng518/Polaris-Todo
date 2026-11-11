@@ -12,6 +12,9 @@ import { useTaskStore } from './stores/useTaskStore'
 export default function App() {
   const load = useTaskStore((state) => state.load)
   const loading = useTaskStore((state) => state.loading)
+  const inspectorOpen = useTaskStore((state) =>
+    state.tasks.some((task) => task.id === state.selectedTaskId)
+  )
 
   useEffect(() => {
     void load()
@@ -39,7 +42,7 @@ export default function App() {
             <span>正在载入 Polaris…</span>
           </div>
         ) : (
-          <div className="app-body">
+          <div className={`app-body${inspectorOpen ? ' has-inspector' : ''}`}>
             <Sidebar />
             <TaskView />
             <TaskDetail />
