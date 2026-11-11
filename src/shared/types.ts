@@ -1,0 +1,83 @@
+export type Task = {
+  id: string
+  title: string
+  notes: string
+  completed: boolean
+  dueAt: string | null
+  remindAt: string | null
+  remindedAt: string | null
+  recurrenceRule: string | null
+  projectId: string | null
+  priority: number
+  createdAt: string
+  updatedAt: string
+}
+
+export type Project = {
+  id: string
+  name: string
+  color: string
+  sortOrder: number
+  createdAt: string
+  updatedAt: string
+}
+
+export type CreateTaskInput = {
+  title: string
+  dueAt?: string | null
+  remindAt?: string | null
+  recurrenceRule?: string | null
+  projectId?: string | null
+  priority?: number
+}
+
+export type UpdateTaskInput = {
+  id: string
+  title?: string
+  notes?: string
+  completed?: boolean
+  dueAt?: string | null
+  remindAt?: string | null
+  recurrenceRule?: string | null
+  projectId?: string | null
+  priority?: number
+}
+
+export type CreateProjectInput = {
+  name: string
+  color: string
+}
+
+export type AppView = 'today' | 'upcoming' | 'all' | 'completed'
+
+export type AppTheme = 'dark' | 'light'
+
+export type AutoStartState = {
+  enabled: boolean
+  supported: boolean
+  error?: string
+}
+
+export type PolarisApi = {
+  tasks: {
+    list: () => Promise<Task[]>
+    create: (input: CreateTaskInput) => Promise<Task>
+    update: (input: UpdateTaskInput) => Promise<Task>
+    toggle: (id: string, completed: boolean) => Promise<Task>
+    remove: (id: string) => Promise<void>
+    restore: (id: string) => Promise<Task>
+  }
+  projects: {
+    list: () => Promise<Project[]>
+    create: (input: CreateProjectInput) => Promise<Project>
+  }
+  app: {
+    platform: string
+    setTheme: (theme: AppTheme) => Promise<void>
+    getAutoStart: () => Promise<AutoStartState>
+    setAutoStart: (enabled: boolean) => Promise<AutoStartState>
+  }
+  reminder: {
+    dismiss: () => Promise<void>
+  }
+}

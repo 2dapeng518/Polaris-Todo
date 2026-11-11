@@ -1,0 +1,40 @@
+appId: com.polaris.todo
+productName: Polaris
+directories:
+  buildResources: build
+  output: dist
+files:
+  - "**/*"
+  - "!src/**/*"
+  - "!scripts/**/*"
+  - "!build/**/*"
+  - "!dist/**/*"
+  - "!*.md"
+  - "!screenshot*.png"
+  - "!electron.vite.config.ts"
+  - "!tsconfig*.json"
+  - "!electron-builder.yml"
+  - "!package-lock.json"
+  - "!out/**/*.map"
+asarUnpack:
+  - "**/*.node"
+electronLanguages:
+  - zh-CN
+  - en-US
+win:
+  icon: build/icon.ico
+  target:
+    - target: nsis
+      arch:
+        - x64
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  installerIcon: build/icon.ico
+  uninstallerIcon: build/icon.ico
+  installerHeaderIcon: build/icon.ico
+  language: "2052"
+  artifactName: "Polaris-Setup-${version}.${ext}"
