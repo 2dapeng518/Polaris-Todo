@@ -135,6 +135,7 @@ Rules:
 |-------|-----|------|
 | `--background` | `#F4F3EF` | Page background |
 | `--surface1` | `#FBFAF7` | Cards and floating panels |
+| `--panel-bg` | `#FBFAF7` | Opaque task inspector |
 | `--surface2` | `#E5E1D8` | Inputs and secondary surfaces |
 | `--surface3` | `#D2CEC3` | Wells and tertiary surfaces |
 | `--border` | `#E5E1D8` | Subtle borders |
@@ -161,6 +162,7 @@ Rules:
 |-------|-----|------|
 | `--background` | `#080A0F` | Page background |
 | `--surface1` | `#0D1018` | Cards and floating panels |
+| `--panel-bg` | `#0B0E15` | Opaque task inspector |
 | `--surface2` | `#12161F` | Inputs and secondary surfaces |
 | `--surface3` | `#1E2430` | Wells and tertiary surfaces |
 | `--border` | `#1E2430` | Subtle borders |

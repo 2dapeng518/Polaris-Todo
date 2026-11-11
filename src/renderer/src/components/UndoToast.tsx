@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { Repeat2, Trash2, X } from 'lucide-react'
 import { useTaskStore } from '../stores/useTaskStore'
@@ -12,7 +12,6 @@ export function UndoToast() {
   const undoDelete = useTaskStore((state) => state.undoDelete)
   const clearPendingDeletion = useTaskStore((state) => state.clearPendingDeletion)
   const clearNotice = useTaskStore((state) => state.clearNotice)
-  const undoRef = useRef<HTMLButtonElement | null>(null)
   const [paused, setPaused] = useState(false)
 
   useEffect(() => {
@@ -24,12 +23,6 @@ export function UndoToast() {
     const timer = window.setTimeout(() => clearPendingDeletion(), DISMISS_AFTER)
     return () => window.clearTimeout(timer)
   }, [pending, paused, clearPendingDeletion])
-
-  useEffect(() => {
-    if (!pending) return
-    const timer = window.setTimeout(() => undoRef.current?.focus(), 80)
-    return () => window.clearTimeout(timer)
-  }, [pending])
 
   useEffect(() => {
     if (!notice) return
@@ -73,11 +66,7 @@ export function UndoToast() {
             <Trash2 size={14} aria-hidden="true" />
             <span className="toast-message">已删除「{pending.title}」</span>
             <kbd className="toast-key">Ctrl Z</kbd>
-            <button
-              ref={undoRef}
-              className="toast-action"
-              onClick={() => void undoDelete()}
-            >
+            <button className="toast-action" onClick={() => void undoDelete()}>
               撤销
             </button>
           </motion.div>

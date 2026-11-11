@@ -123,7 +123,11 @@ async function captureRecurrenceScreenshot(filename: string): Promise<void> {
   )
   await new Promise((resolve) => setTimeout(resolve, 600))
   await mainWindow.webContents.executeJavaScript(
-    `[...document.querySelectorAll('.detail-chip')].find((el) => el.textContent === '每周')?.click()`
+    `[...document.querySelectorAll('.detail-row')].find((el) => el.textContent.includes('重复'))?.click()`
+  )
+  await new Promise((resolve) => setTimeout(resolve, 350))
+  await mainWindow.webContents.executeJavaScript(
+    `(() => { const chip = [...document.querySelectorAll('.detail-chip')].find((el) => el.textContent === '每周'); if (chip) { chip.focus(); chip.click(); } })()`
   )
   await new Promise((resolve) => setTimeout(resolve, 500))
   await captureTo(filename)
@@ -159,16 +163,14 @@ async function captureReminderDetailScreenshot(filename: string): Promise<void> 
   )
   await new Promise((resolve) => setTimeout(resolve, 600))
   await mainWindow.webContents.executeJavaScript(
-    `document.querySelector('.detail-reminder-toggle')?.click()`
+    `[...document.querySelectorAll('.detail-row')].find((el) => el.textContent.includes('提醒'))?.click()`
   )
   await new Promise((resolve) => setTimeout(resolve, 350))
   await captureTo(filename)
 
-  await mainWindow.webContents.executeJavaScript(`(() => {
-    const toggle = document.querySelector('.detail-reminder-toggle');
-    if (toggle && toggle.classList.contains('active')) toggle.click();
-    document.querySelector('.detail-close')?.click();
-  })()`)
+  await mainWindow.webContents.executeJavaScript(
+    `document.querySelector('.detail-close')?.click()`
+  )
   await new Promise((resolve) => setTimeout(resolve, 300))
 }
 
@@ -301,6 +303,14 @@ async function captureDemo(mode: string): Promise<void> {
       await captureToastScreenshot('screenshot-toast.png')
     } else if (mode === 'recurrence') {
       await captureRecurrenceScreenshot('screenshot-recurrence.png')
+    } else if (mode === 'narrow') {
+      mainWindow.setSize(1100, 800)
+      await new Promise((resolve) => setTimeout(resolve, 500))
+      await mainWindow.webContents.executeJavaScript(
+        `document.querySelector('.task-title')?.click()`
+      )
+      await new Promise((resolve) => setTimeout(resolve, 700))
+      await captureTo('screenshot-narrow.png')
     } else {
       await captureTo('screenshot.png')
     }
@@ -338,6 +348,22 @@ async function runSmokeTest(): Promise<void> {
       };
 
       await waitFor(() => document.querySelector('.quick-add input'));
+      const leftovers = (await window.polaris.tasks.list()).filter((task) =>
+        /^(冒烟测试|重复提示|重复冒烟) /.test(task.title)
+      );
+      if (leftovers.length) {
+        const leftoverTitles = new Set(leftovers.map((task) => task.title));
+        for (const task of leftovers) await window.polaris.tasks.remove(task.id);
+        window.dispatchEvent(new Event('focus'));
+        await waitFor(
+          () =>
+            ![...document.querySelectorAll('.task-title')].some((el) =>
+              leftoverTitles.has(el.textContent?.trim() ?? '')
+            ),
+          4000
+        );
+        await sleep(100);
+      }
       const initial = document.querySelectorAll('.task-title').length;
       const title = '冒烟测试 ' + Date.now();
       const quick = document.querySelector('.quick-add input');
@@ -350,7 +376,7 @@ async function runSmokeTest(): Promise<void> {
       const findRow = () => [...document.querySelectorAll('.task-item')].find((el) => el.textContent.includes(title));
       const row = findRow();
       row.querySelector('.task-title').click();
-      await waitFor(() => document.querySelector('.detail-drawer'));
+      await waitFor(() => document.querySelector('.detail-title'));
       await sleep(150);
       const detailOpened = document.querySelector('.detail-title')?.value === title;
       const notes = document.querySelector('.detail-notes');
@@ -359,11 +385,10 @@ async function runSmokeTest(): Promise<void> {
       noteSetter.call(notes, '冒烟备注');
       notes.dispatchEvent(new Event('input', { bubbles: true }));
       await sleep(100);
-      notes.blur();
-      await sleep(500);
-      const detailEditSaved = (await window.polaris.tasks.list()).find((task) => task.title === title)?.notes === '冒烟备注';
       window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
-      await sleep(500);
+      await sleep(700);
+      const detailEditSaved = (await window.polaris.tasks.list()).find((task) => task.title === title)?.notes === '冒烟备注';
+      const detailClosed = !document.querySelector('.detail-title');
 
       const rowAgain = findRow();
       rowAgain.querySelector('.task-check').click();
@@ -462,6 +487,7 @@ async function runSmokeTest(): Promise<void> {
         afterAdd,
         detailOpened,
         detailEditSaved,
+        detailClosed,
         done,
         persisted,
         commandCount,
@@ -479,6 +505,7 @@ async function runSmokeTest(): Promise<void> {
       result.afterAdd === result.initial + 1 &&
       result.detailOpened === true &&
       result.detailEditSaved === true &&
+      result.detailClosed === true &&
       result.done === true &&
       result.persisted === true &&
       result.commandCount === 1 &&

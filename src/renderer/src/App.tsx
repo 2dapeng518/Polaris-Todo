@@ -42,9 +42,9 @@ export default function App() {
           <div className="app-body">
             <Sidebar />
             <TaskView />
+            <TaskDetail />
           </div>
         )}
-        <TaskDetail />
         <CommandPalette />
         <UndoToast />
       </div>

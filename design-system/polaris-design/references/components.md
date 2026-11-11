@@ -95,21 +95,31 @@ Chips are not pills. Only status badges use the 999px pill.
 
 ## 6. OVERLAYS
 
-### Detail drawer
+### Task detail inspector
+
+Wide windows (≥1180px) use a persistent 360px third column. It is an inline landmark, not a modal: opaque `--panel-bg`, 1px left `--border-visible`, no shadow, no blur, `role="region"`. List rows remain interactive and no focus trap is used.
+
+Below 1180px it becomes a `min(400px, viewport - 32px)` modal sheet with a scrim, Level 3 shadow, `role="dialog"`, a focus trap, and focus restoration to the task row.
 
 | Property | Value |
 |----------|-------|
-| Width | 380px |
-| Position | Fixed, below the 48px titlebar |
-| Background | `--surface1` at 96% |
+| Background | `--panel-bg`, opaque in both themes |
 | Border | 1px left `--border-visible` |
-| Shadow | Level 3 |
-| Scrim | Light: `rgba(23,26,33,.16)`; dark: `rgba(3,5,9,.22)` |
-| Radius | 0 (full-height panel) |
-| Focus | Trap inside; focus the close button on open; restore the task row on close |
-| Close | X button, Escape |
+| Radius | 0 |
+| Header | 48px; project name + close |
+| Body | scrolls; 16px 20px 20px |
+| Footer | 40px, fixed; ghost delete + Esc hint |
+| Title | Manrope 24px / 1.2 / 600, max 2 lines |
+| Summary | 11px `--text3`, one line |
+| Actions | 32px; one solid accent, others ghost |
+| Notes | 13px; empty one line, max 40vh |
+| Schedule rows | 36px; label 64px / 11px, value 13px |
+| Popover | 280px, Level 2 shadow, `role="dialog"` |
+| Chips | 28px; priority segments 30px |
+| Delete | Ghost footer, danger on hover/focus, 6s undo |
+| Focus | Wide: no trap; narrow: trap and restore |
 
-Sections: 16px vertical padding, 1px `--border` dividers. Labels 11px / 600 / `--text3`. Footer anchored to the bottom with `margin-top: auto`.
+The six repeated fields stay readable: project and priority are inline one-click controls; deadline, reminder, and recurrence use human-readable rows with anchored popovers. The footer never scrolls with the body.
 
 ### Command palette
 
@@ -148,7 +158,7 @@ No gradients. No glass on the row. The panel itself is opaque.
 | Shadow | Level 2 |
 | Font | Inter 12px / `--text1` |
 | Action | `--accent` text, 1px accent border, 8px radius |
-| Auto-dismiss | 5000ms |
+| Auto-dismiss | 6000ms |
 | Live region | `aria-live="polite"`, `aria-atomic="true"` |
 
 Only destructive actions get a toast. Success is silent; the result is visible in the UI.
