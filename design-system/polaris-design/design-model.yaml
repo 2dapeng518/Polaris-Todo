@@ -113,6 +113,7 @@ tokens:
     light:
       background: "#F4F3EF"
       surface1: "{paper.100}"
+      panel_bg: "{paper.100}"
       surface2: "{paper.200}"
       surface3: "{paper.300}"
       border: "{paper.200}"
@@ -141,6 +142,7 @@ tokens:
     dark:
       background: "#080A0F"
       surface1: "{ink.900}"
+      panel_bg: "#0B0E15"
       surface2: "{ink.800}"
       surface3: "{ink.700}"
       border: "{ink.700}"
@@ -330,13 +332,16 @@ components:
     scrim: "rgba(3, 5, 9, 0.48)"
     active_row: "{accent_subtle}"
     width: "640px"
-  detail_drawer:
+  detail_inspector:
     source: "observed"
-    background: "{surface1}"
-    width: "380px"
+    background: "{panel_bg}"
+    width_wide: "360px"
+    width_narrow: "400px"
     scrim: "rgba(23, 26, 33, 0.16)"
     radius: "0"
-    shadow: "{shadow.3}"
+    shadow_narrow: "{shadow.3}"
+    popover_shadow: "{shadow.2}"
+    row_height: "36px"
   reminder_card:
     source: "observed"
     background: "{surface1}"
@@ -352,7 +357,7 @@ components:
     radius: "{radii.component}"
     shadow: "{shadow.2}"
     action: "{accent}"
-    auto_dismiss: "5000ms"
+    auto_dismiss: "6000ms"
   switch:
     source: "observed"
     track_off: "{surface2}"

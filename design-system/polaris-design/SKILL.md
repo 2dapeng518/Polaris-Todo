@@ -28,7 +28,7 @@ The primary tension is **technical precision softened by human calm**. Dense eno
 3. **Type does the hierarchy.** Manrope for display, Inter for body, Noto Sans SC for Chinese, Geist Mono for counts and timestamps. Weight and scale carry hierarchy; color and boxes do not. Chinese labels never go below 11px.
 4. **Quiet surfaces.** Inline rows use a surface tint and a 1px border, never a shadow. Shadows belong only to floating surfaces: quick add, command palette, detail drawer, reminder card, toast. Radii are 6 / 8 / 12 / 16, never pills for task rows.
 5. **Motion confirms, never decorates.** 120ms micro, 200ms standard, 320ms emphasis. Springs are soft (list 420/36, sheet 380/40, palette 500/40). Reduced motion renders the final state immediately. Animate one or two key elements per view, never every row.
-6. **Keyboard is a first-class surface.** Every custom control has a visible focus ring. Drawers, palettes, and dialogs trap focus and restore it on close. Destructive actions get an undo path. Icon-only controls have an accessible name and decorative icons are hidden from the accessibility tree.
+6. **Keyboard is a first-class surface.** Every custom control has a visible focus ring. Modal drawers, palettes, and dialogs trap focus and restore it on close. A persistent inline inspector is a landmark, not a modal: it must not trap focus, and it must return focus to the list when it closes. Destructive actions get an undo path. Icon-only controls have an accessible name and decorative icons are hidden from the accessibility tree.
 
 ---
 
@@ -42,7 +42,7 @@ The primary tension is **technical precision softened by human calm**. Dense eno
 - No continuous decorative animation. Loading indicators may spin; nothing else loops.
 - No overshoot springs on dense task lists.
 - No icon-only control without `aria-label`; no decorative icon without `aria-hidden="true"`.
-- No modal, drawer, or palette without a focus trap and focus restoration.
+- No modal, drawer, or palette without a focus trap and focus restoration. A persistent inline inspector is exempt because it is not modal; it still needs an accessible name and a clear focus return.
 - No focus left behind a scrim; no sticky surface covering a focused control.
 - No color-only state. Completed, priority, and project meaning also carry a shape, label, or icon.
 - No full-window Mica or transparency. A titlebar-only Mica experiment is allowed with a solid fallback; the content stays opaque.

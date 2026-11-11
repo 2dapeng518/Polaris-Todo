@@ -21,7 +21,7 @@ npm run build:win   # build + electron-builder NSIS -> dist/
 ```
 
 - There is no ESLint, Prettier, or unit-test runner. `npm run smoke` is the only automated check and exits non-zero on failure. Run `npm run build && npm run smoke` after behavior changes.
-- `npm run smoke` drives the real UI through `webContents.executeJavaScript` against the local userData database: quick add, detail edit, complete, delete/undo, command palette, theme, auto-start, recurrence, and the recurrence notice. It cleans up its tasks and restores theme/auto-start. Assertions live in `runSmokeTest()` in `src/main/index.ts`.
+- `npm run smoke` drives the real UI through `webContents.executeJavaScript` against a temporary userData profile, so it does not touch a running app's database: quick add, detail edit, Esc save, complete, delete/undo, command palette, theme, auto-start, recurrence, and the recurrence notice. It cleans up its tasks and restores theme/auto-start. Assertions live in `runSmokeTest()` in `src/main/index.ts`.
 - Screenshots: after `npm run build`, run `POLARIS_SHOT=<mode> npx electron .`; it writes `screenshot*.png` to the repo root. Modes are the `captureDemo` branches (`detail`, `palette`, `projects`, `reminder`, `reminder-detail`, `settings`, `toast`, `recurrence`, each with a `light-` variant; anything else captures the main view). `POLARIS_SCREENSHOT=1` captures only the main window and quits.
 - Packaging is unsigned and per-user. Verify with `dist/win-unpacked/Polaris.exe`; do not install/uninstall the app unless asked.
 - If the Electron binary is missing after install (npm 11 blocks lifecycle scripts), run `node node_modules/electron/install.js`. The `allowScripts` list in `package.json` whitelists packages that need install scripts.
@@ -48,7 +48,8 @@ npm run build:win   # build + electron-builder NSIS -> dist/
 
 ## Renderer
 
-- No router. `useTaskStore` (Zustand) owns tasks, projects, view, project filter, selection, and palette; `TaskView` derives the visible and completed lists. Overlays (`TaskDetail`, `CommandPalette`, `SettingsPanel`) render from `App`/`Sidebar` and share `useFocusTrap`, which maintains a trap stack so overlapping overlays do not fight over Tab.
+- No router. `useTaskStore` (Zustand) owns tasks, projects, view, project filter, selection, and palette; `TaskView` derives the visible and completed lists. `TaskDetail` is a 360px third grid column at ≥1180px (`role="region"`, no focus trap) and a 400px modal sheet below that (`role="dialog"`, trap). `CommandPalette` and `SettingsPanel` remain traps; `useFocusTrap` maintains a trap stack so overlapping overlays do not fight over Tab.
+- Task detail autosaves title and notes with a 500ms debounce, flushes on blur/Esc/task switch/close/unmount, and serializes saves per task. Deadline, reminder, and recurrence are human-readable rows with anchored popovers; project and priority stay inline for one-click edits.
 - Theme bootstrapping happens twice on purpose: the inline script in `src/renderer/index.html` sets `data-theme` before first paint, then `useThemeStore`/`ThemeSync` keep it in sync and notify the main process. The localStorage key is `polaris-theme`.
 - Accessibility is part of the design system: keep `MotionConfig reducedMotion="user"`, visible focus rings, focus traps with focus restoration, `aria-hidden` on decorative icons, and labels on icon-only controls.
 - Styling is one stylesheet, `src/renderer/src/styles/globals.css`, using Tailwind v4 `@theme` plus CSS variables for both themes. There is no `tailwind.config.*`. Prefer existing tokens (`--text-*`, `--surface-*`, `--accent`, spacing and radius variables) over raw values.

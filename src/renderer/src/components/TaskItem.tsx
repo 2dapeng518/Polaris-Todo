@@ -1,3 +1,4 @@
+import { useRef } from 'react'
 import { motion } from 'motion/react'
 import { Bell, Check, Flag, Repeat2, Trash2 } from 'lucide-react'
 import type { Task } from '@shared/types'
@@ -17,9 +18,23 @@ export function TaskItem({ task }: { task: Task }) {
     : undefined
   const overdue = !task.completed && isOverdue(task.dueAt)
   const selected = selectedTaskId === task.id
+  const rowRef = useRef<HTMLDivElement | null>(null)
+
+  const handleDelete = async () => {
+    const row = rowRef.current
+    const sibling = row?.nextElementSibling ?? row?.previousElementSibling
+    const target = sibling?.querySelector<HTMLElement>('.task-open')
+
+    await removeTask(task.id)
+    requestAnimationFrame(() => {
+      ;(target ?? document.querySelector<HTMLElement>('.quick-add input'))?.focus()
+    })
+  }
 
   return (
     <motion.div
+      ref={rowRef}
+      data-task-id={task.id}
       layout
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
@@ -97,7 +112,7 @@ export function TaskItem({ task }: { task: Task }) {
 
       <button
         className="task-delete"
-        onClick={() => void removeTask(task.id)}
+        onClick={() => void handleDelete()}
         aria-label="删除任务"
       >
         <Trash2 size={14} strokeWidth={1.8} aria-hidden="true" />
