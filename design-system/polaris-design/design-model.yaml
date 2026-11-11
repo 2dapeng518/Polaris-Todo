@@ -1,0 +1,396 @@
+name: "Polaris"
+philosophy: "A still point for a moving day. Polaris borrows the calm of a night sky and the clarity of good paper: one star for orientation, one teal signal for action, everything else quiet. Night is cool ink; day is warm porcelain; the star is the constant."
+primary_mode: "dark"
+brand_domain: "productivity / task management"
+brand_type: "ui-rich"
+mono_for_code: false
+mono_for_metrics: true
+
+primitives:
+  colors:
+    paper: &paper
+      50: "#F4F3EF"
+      100: "#FBFAF7"
+      200: "#E5E1D8"
+      300: "#D2CEC3"
+      400: "#A9A398"
+      450: "#8F897D"
+      500: "#7C766B"
+      550: "#6B655B"
+      600: "#5F5A51"
+      700: "#46423B"
+      800: "#322F2A"
+      900: "#211F1B"
+      950: "#14120F"
+
+    ink: &ink
+      50: "#E8ECF4"
+      100: "#C7D0DC"
+      200: "#9AA4B2"
+      300: "#7A8494"
+      400: "#5B6472"
+      500: "#3E4756"
+      600: "#2A3140"
+      700: "#1E2430"
+      800: "#12161F"
+      900: "#0D1018"
+      950: "#080A0F"
+
+    neutral: *ink
+
+    brand:
+      50: "#F0FDFA"
+      100: "#CCFBF1"
+      200: "#99F6E4"
+      300: "#5EEAD4"
+      400: "#2DD4BF"
+      500: "#14B8A6"
+      600: "#0F766E"
+      700: "#115E59"
+      800: "#134E4A"
+      900: "#0A2A28"
+      950: "#041A18"
+
+    star:
+      50: "#F5F3FF"
+      100: "#EDE9FE"
+      200: "#DDD6FE"
+      300: "#C4B5FD"
+      400: "#A78BFA"
+      500: "#8B5CF6"
+      600: "#7C3AED"
+      700: "#6D28D9"
+      800: "#5B21B6"
+      900: "#4C1D95"
+      950: "#2E1065"
+
+    amber:
+      50: "#FFFBEB"
+      100: "#FEF3C7"
+      200: "#FDE68A"
+      300: "#FCD34D"
+      400: "#FBBF24"
+      500: "#D97706"
+      600: "#B45309"
+      700: "#92400E"
+      800: "#78350F"
+      900: "#451A03"
+      950: "#2A0F02"
+
+    red:
+      50: "#FFF1F2"
+      100: "#FFE4E6"
+      200: "#FECDD3"
+      300: "#FDA4AF"
+      400: "#FB7185"
+      500: "#E11D48"
+      600: "#BE123C"
+      700: "#9F1239"
+      800: "#881337"
+      900: "#4C0519"
+      950: "#2B020B"
+
+    green:
+      50: "#ECFDF5"
+      300: "#5EEAD4"
+      500: "#0F766E"
+      900: "#0A2A28"
+
+    indigo:
+      50: "#EEF2FF"
+      300: "#A5B4FC"
+      400: "#818CF8"
+      500: "#6366F1"
+      600: "#4F46E5"
+      700: "#4338CA"
+      900: "#312E81"
+
+  spacing: [0, 2, 4, 8, 12, 16, 24, 32, 48, 64, 96]
+  radii: [0, 6, 8, 12, 16, 999]
+
+tokens:
+  colors:
+    light:
+      background: "#F4F3EF"
+      surface1: "{paper.100}"
+      surface2: "{paper.200}"
+      surface3: "{paper.300}"
+      border: "{paper.200}"
+      border_visible: "{paper.300}"
+      text1: "#14120F"
+      text2: "#5F5A51"
+      text3: "{paper.550}"
+      text4: "{paper.450}"
+      accent: "{brand.600}"
+      accent_subtle: "{brand.50}"
+      on_accent: "#FFFFFF"
+      success: "{green.500}"
+      success_bg: "{green.50}"
+      warning: "{amber.600}"
+      warning_bg: "{amber.50}"
+      error: "{red.600}"
+      error_bg: "{red.50}"
+      attention: "{amber.600}"
+      attention_subtle: "{amber.50}"
+      star_a: "{brand.600}"
+      star_b: "{star.600}"
+      priority_low: "{indigo.600}"
+      priority_mid: "{amber.600}"
+      priority_high: "{red.600}"
+
+    dark:
+      background: "#080A0F"
+      surface1: "{ink.900}"
+      surface2: "{ink.800}"
+      surface3: "{ink.700}"
+      border: "{ink.700}"
+      border_visible: "{ink.600}"
+      text1: "#E8ECF4"
+      text2: "#9AA4B2"
+      text3: "{ink.300}"
+      text4: "{ink.400}"
+      accent: "{brand.300}"
+      accent_subtle: "{brand.900}"
+      on_accent: "#07110F"
+      success: "{brand.300}"
+      success_bg: "{brand.900}"
+      warning: "{amber.400}"
+      warning_bg: "{amber.900}"
+      error: "{red.400}"
+      error_bg: "{red.900}"
+      attention: "{amber.400}"
+      attention_subtle: "{amber.900}"
+      star_a: "{brand.300}"
+      star_b: "{star.400}"
+      priority_low: "{indigo.400}"
+      priority_mid: "{amber.400}"
+      priority_high: "{red.400}"
+
+  spacing:
+    2xs: 2
+    xs: 4
+    sm: 8
+    control: 12
+    md: 16
+    lg: 24
+    xl: 32
+    2xl: 48
+    3xl: 64
+    4xl: 96
+
+  radii:
+    element: 6
+    control: 8
+    component: 12
+    container: 16
+    pill: 999
+
+  typography:
+    display: { family: "Manrope Variable", size: "34px", weight: 600, line_height: 1.15 }
+    body: { family: "Inter Variable", size: "14px", weight: 400, line_height: 1.6 }
+    mono: { family: "Geist Mono Variable", size: "11px", weight: 400, line_height: 1.5 }
+    scale:
+      display: { size: "34px", line_height: 1.15, letter_spacing: "-0.02em", weight: 600, use: "screen titles" }
+      heading: { size: "24px", line_height: 1.2, letter_spacing: "-0.02em", weight: 600, use: "detail titles, dialog titles" }
+      subheading: { size: "18px", line_height: 1.3, letter_spacing: "-0.01em", weight: 600, use: "empty states, card titles" }
+      body: { size: "14px", line_height: 1.6, letter_spacing: "0", weight: 400, use: "task titles, body copy" }
+      body_sm: { size: "13px", line_height: 1.55, letter_spacing: "0", weight: 400, use: "notes, descriptions" }
+      caption: { size: "11px", line_height: 1.5, letter_spacing: "0", weight: 400, use: "timestamps, metadata" }
+      label: { size: "11px", line_height: 1.4, letter_spacing: "0.06em", weight: 600, use: "section labels, micro-labels" }
+
+  elevation:
+    strategy: "subtle"
+    shadows:
+      light:
+        1: "0 8px 24px -18px rgba(20, 18, 15, 0.25)"
+        2: "0 18px 50px -24px rgba(20, 18, 15, 0.30)"
+        3: "0 32px 80px -32px rgba(20, 18, 15, 0.35)"
+      dark:
+        1: "0 8px 24px -18px rgba(0, 0, 0, 0.80)"
+        2: "0 18px 50px -24px rgba(0, 0, 0, 0.80)"
+        3: "0 32px 80px -32px rgba(0, 0, 0, 0.85)"
+    rule: "Shadow is for floating surfaces only: quick add, command palette, detail drawer, reminder card, toast. Inline task rows use surface tint and a 1px border."
+
+  motion:
+    personality: "smooth"
+    easing: "cubic-bezier(0.2, 0, 0, 1)"
+    duration_fast: "120ms"
+    duration_normal: "200ms"
+    duration_slow: "320ms"
+    springs:
+      list: { stiffness: 420, damping: 36 }
+      sheet: { stiffness: 380, damping: 40 }
+      palette: { stiffness: 500, damping: 40 }
+    rule: "Animate 1-2 key elements per view. Reduced motion renders the final state immediately. No overshoot on dense task rows."
+
+  hero_stage:
+    preset: null
+    observed_style:
+      description: "A four-point north star inside a thin orbit ring, floating over a very soft aurora of teal and violet. Night is ink; day is porcelain. The empty state and onboarding use it; the working list keeps only a whisper of the aurora."
+      where_used: ["empty state", "onboarding", "titlebar mark"]
+      notes: "The star is Polaris's own mark. The field is CSS/SVG, not a third-party asset."
+    background:
+      medium: "gradient"
+      color_mode: "palette"
+      saturation: "muted"
+      light_source: "top-left"
+      falloff: "radial"
+      vignette: "off"
+      texture: "grain"
+      motion: "static"
+      intensity: "subtle"
+      safe_zone: "masked-for-text"
+      color_palette: ["#080A0F", "#0A2A28", "#5EEAD4", "#A78BFA", "#F4F3EF"]
+    hero:
+      subject: "composition"
+      placement: "center"
+      scale: "accent"
+      tint: "brand"
+    relation:
+      type: "glow"
+      bleed: 20
+    disclaimer: "The star is Polaris's own mark, rendered in CSS/SVG. No third-party art is redistributed."
+
+  iconography:
+    observed_style:
+      description: "Lucide outline icons with a 1.75px stroke override, rounded caps and a geometric-clean construction. The 20px task checkbox uses a 2.2px check as the only exception."
+      stroke_weight: "regular (1.75px)"
+      corner_treatment: "soft"
+      fill_style: "outline"
+      form_language: "geometric"
+      visual_density: "minimal to balanced"
+    fallback_kit:
+      name: "Lucide"
+      weight: "1.75px override"
+      match_score: "high"
+      match_reasoning: "Polaris already uses Lucide; the observed 1.75px stroke is a deliberate lightening of Lucide's 2px default. Keeping the same kit means no visual migration and full glyph coverage."
+      cdn: "https://unpkg.com/lucide-static@1.8.0/font/lucide.css"
+      icon_class_prefix: "icon icon-"
+    disclaimer: "Polaris uses Lucide as its actual open-source icon kit, not a proprietary set. The 1.75px stroke and the 2.2px check are the brand's overrides."
+
+components:
+  button_primary:
+    source: "observed"
+    background: "{accent}"
+    color: "{on_accent}"
+    border: "none"
+    radius: "{radii.control}"
+    height: "36px"
+    padding: "0 14px"
+    font_weight: 600
+    hover: "brightness(1.06)"
+  button_secondary:
+    source: "observed"
+    background: "{surface1}"
+    color: "{text1}"
+    border: "1px solid {border_visible}"
+    radius: "{radii.control}"
+    height: "36px"
+  button_ghost:
+    source: "observed"
+    background: "transparent"
+    color: "{text2}"
+    border: "none"
+    hover: "background: {surface2}"
+  button_destructive:
+    source: "observed"
+    background: "{error_bg}"
+    color: "{error}"
+    border: "1px solid {error}"
+    radius: "{radii.control}"
+    height: "32px"
+  input:
+    source: "observed"
+    background: "{surface2}"
+    border: "1px solid {border}"
+    focus_border: "{accent}"
+    radius: "{radii.control}"
+    height: "38px"
+  task_row:
+    source: "observed"
+    min_height: "44px"
+    padding: "12px"
+    radius: "{radii.component}"
+    hover: "{surface2}"
+    selected: "{accent_subtle}"
+    title: "{body} / {text1}"
+    meta: "{caption} / {text3}"
+  nav_item:
+    source: "observed"
+    height: "36px"
+    radius: "{radii.control}"
+    active_background: "{accent_subtle}"
+    active_text: "{text1}"
+    active_icon: "{accent}"
+  command_palette:
+    source: "observed"
+    panel_background: "{surface1}"
+    radius: "{radii.container}"
+    shadow: "{shadow.3}"
+    scrim: "rgba(3, 5, 9, 0.48)"
+    active_row: "{accent_subtle}"
+    width: "640px"
+  detail_drawer:
+    source: "observed"
+    background: "{surface1}"
+    width: "380px"
+    scrim: "rgba(23, 26, 33, 0.16)"
+    radius: "0"
+    shadow: "{shadow.3}"
+  reminder_card:
+    source: "observed"
+    background: "{surface1}"
+    radius: "{radii.container}"
+    shadow: "{shadow.3}"
+    primary: "{accent} / {on_accent}"
+    secondary: "{surface2} / {text2}"
+    width: "420px"
+    height: "212px"
+  toast:
+    source: "observed"
+    background: "{surface1}"
+    radius: "{radii.component}"
+    shadow: "{shadow.2}"
+    action: "{accent}"
+    auto_dismiss: "5000ms"
+  switch:
+    source: "observed"
+    track_off: "{surface2}"
+    track_on: "{accent}"
+    thumb: "#FFFFFF"
+    width: "38px"
+    height: "22px"
+    radius: "999px"
+  checkbox:
+    source: "observed"
+    size: "20px"
+    border: "1.5px solid {border_visible}"
+    checked_fill: "{accent}"
+    checkmark: "{on_accent}"
+    checkmark_stroke: "2.2px"
+    radius: "999px"
+  progress_ring:
+    source: "observed"
+    track: "{border}"
+    fill: "{accent}"
+    stroke: "3px"
+  empty_state:
+    source: "observed"
+    headline: "{subheading} / {text2}"
+    description: "{body} / {text3}"
+    cta: "{button_primary}"
+    hero: "{hero_stage}"
+
+app_screen:
+  archetype: "list-detail"
+  frame: "desktop"
+  frame_params:
+    title: "Polaris: 今天"
+  content_seed: "A designer's Wednesday: finish the Polaris UI, review the week's tasks, call mom."
+  required_tokens_checklist:
+    - "background, surface1, surface2, surface3, border, border_visible"
+    - "text1, text2, text3, text4"
+    - "accent, accent_subtle, success, warning, error, attention"
+    - "all typography scale tokens"
+    - "all spacing tokens used in components"
+    - "shadow 1/2/3, motion durations and springs"
