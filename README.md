@@ -219,7 +219,7 @@ build/         应用图标与安装包资源
 1. 改代码，用 `npm run dev` 验证交互。
 2. 运行 `npm run typecheck`。
 3. 运行 `npm run build && npm run smoke`。
-4. 需要看视觉结果时，构建后用 `POLARIS_SHOT=<mode> npx electron .` 截图到仓库根目录；模式包括 `detail`、`palette`、`projects`、`reminder`、`reminder-detail`、`settings`、`toast`、`recurrence`、`parse`、`parse-past`、`parse-notice`、`parse-blocked`、`due-picker`、`due-clear` 及各自的 `light-` 变体。
+4. 需要看视觉结果时，构建后用 `POLARIS_SHOT=<mode> npx electron .` 截图到仓库根目录；模式包括 `detail`、`palette`、`projects`、`reminder`、`reminder-detail`、`settings`、`toast`、`recurrence`、`parse`、`parse-past`、`parse-notice`、`parse-blocked`、`due-picker`、`due-clear` 及各自的 `light-` 变体，另有仅深色的 `narrow`（先把窗口缩到 1100×800 再截详情栏）。
 5. 发布前运行 `npm run build:win`。
 
 打包产物：
