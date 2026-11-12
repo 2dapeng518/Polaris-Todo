@@ -2535,13 +2535,16 @@ textarea {
   -webkit-app-region: no-drag;
 }
 
+/* A saturated accent fill is flat, like every other accent control in the app.
+   --inner-highlight is a bevel for translucent glass surfaces and is 90% white
+   in the day theme: laid over this fill it measured rgb(231,242,241) along the
+   top edge — a near-white rim that reads as a second outline. Keep the drop
+   shadow for lift; never add an inset highlight here. */
 .reminder-primary {
   flex: 1;
   border: 1px solid transparent;
   background: var(--accent);
-  box-shadow:
-    0 8px 20px -12px rgba(var(--shadow-rgb), 0.35),
-    inset 0 1px 0 var(--inner-highlight);
+  box-shadow: 0 8px 20px -12px rgba(var(--shadow-rgb), 0.35);
   color: var(--reminder-primary-text);
   font-weight: 600;
 }

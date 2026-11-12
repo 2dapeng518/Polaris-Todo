@@ -1291,6 +1291,11 @@ async function runSmokeTest(): Promise<void> {
       };
       const sameColor = (a, b) =>
         Boolean(a && b) && Math.abs(a.r - b.r) <= 6 && Math.abs(a.g - b.g) <= 6 && Math.abs(a.b - b.b) <= 6;
+      const accentRgb = rgbOf(getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || 'rgb(0,0,0)');
+      const accentHex = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
+      const accentParsed = accentHex.startsWith('#')
+        ? { r: parseInt(accentHex.slice(1,3),16), g: parseInt(accentHex.slice(3,5),16), b: parseInt(accentHex.slice(5,7),16), a: 1 }
+        : accentRgb;
       const ghostScan = () => {
         const bad = [];
         for (const el of document.querySelectorAll('button, input, textarea, a[href], [tabindex]:not([tabindex="-1"])')) {
@@ -1301,9 +1306,14 @@ async function runSmokeTest(): Promise<void> {
           el.focus();
           if (document.activeElement !== el) continue;
           const cs = getComputedStyle(el);
+          const fill = rgbOf(cs.backgroundColor);
+          // Checked unfocused too: the bevel is there whether or not the
+          // control has focus. A saturated accent fill must stay flat.
+          if (fill && sameColor(fill, accentParsed) && /inset/.test(cs.boxShadow)) {
+            bad.push(el.className + ' [inset-bevel]');
+          }
           if (cs.outlineStyle !== 'none' && el.matches(':focus-visible')) {
             const ring = rgbOf(cs.outlineColor);
-            const fill = rgbOf(cs.backgroundColor);
             const border = rgbOf(cs.borderTopColor);
             const offset = parseFloat(cs.outlineOffset) || 0;
             if (fill && fill.a > 0.85 && sameColor(ring, fill)) bad.push(el.className + ' [fill]');
@@ -1524,6 +1534,15 @@ async function runSmokeTest(): Promise<void> {
               const fill = cs.backgroundColor;
               b.blur();
               return style !== 'none' && ring !== fill;
+            })(),
+            buttonGeom: (() => {
+              const b = document.querySelector('.reminder-primary');
+              const r = b.getBoundingClientRect();
+              return {
+                x: r.x, y: r.y, w: r.width,
+                dpr: window.devicePixelRatio,
+                fill: getComputedStyle(b).backgroundColor
+              };
             })()
           };
         })()`)
@@ -1539,6 +1558,34 @@ async function runSmokeTest(): Promise<void> {
         const want = themeBefore === 'light' ? [251, 250, 247] : [11, 14, 21]
         const painted = Math.abs(r - want[0]) <= 1 && Math.abs(g - want[1]) <= 1 && Math.abs(b - want[2]) <= 1
 
+        // Sample 1 CSS px inside the primary button's top edge, unfocused. An
+        // inset bevel shows up here as a near-white rim; the fill must be flat.
+        const geom = shape?.buttonGeom
+        let noBevelRim = false
+        if (geom) {
+          const edge = image
+            .crop({
+              x: Math.round((geom.x + geom.w / 2) * geom.dpr),
+              y: Math.round((geom.y + 1) * geom.dpr),
+              width: 1,
+              height: 1
+            })
+            .toBitmap()
+          const m = /rgba?\((\d+),\s*(\d+),\s*(\d+)/.exec(geom.fill)
+          noBevelRim = Boolean(
+            m &&
+              Math.abs(edge[2] - Number(m[1])) <= 2 &&
+              Math.abs(edge[1] - Number(m[2])) <= 2 &&
+              Math.abs(edge[0] - Number(m[3])) <= 2
+          )
+          if (!noBevelRim) {
+            console.error(
+              'REMINDER_BEVEL_FAIL',
+              JSON.stringify({ edgeRgb: [edge[2], edge[1], edge[0]], fill: geom.fill })
+            )
+          }
+        }
+
         reminderSurfaceTested = Boolean(
           shape &&
             shape.theme === themeBefore &&
@@ -1551,6 +1598,7 @@ async function runSmokeTest(): Promise<void> {
             shape.metaShort &&
             shape.titleTwoLines &&
             shape.ringDiffersFromFill &&
+            noBevelRim &&
             painted &&
             reminder.getBackgroundColor().toLowerCase() === themeBackgroundColor().toLowerCase()
         )
@@ -1578,10 +1626,36 @@ async function runSmokeTest(): Promise<void> {
           Math.abs(fp[2] - flipWant[0]) <= 1 &&
           Math.abs(fp[1] - flipWant[1]) <= 1 &&
           Math.abs(fp[0] - flipWant[2]) <= 1
+        // Re-check the bevel in the other theme: the day theme is where the
+        // 90%-white highlight was glaring.
+        const flipGeom = await reminder.webContents.executeJavaScript(`(() => {
+          const b = document.querySelector('.reminder-primary');
+          const r = b.getBoundingClientRect();
+          return { x: r.x, y: r.y, w: r.width, dpr: window.devicePixelRatio, fill: getComputedStyle(b).backgroundColor };
+        })()`)
+        const flipEdge = flippedImage
+          .crop({
+            x: Math.round((flipGeom.x + flipGeom.w / 2) * flipGeom.dpr),
+            y: Math.round((flipGeom.y + 1) * flipGeom.dpr),
+            width: 1,
+            height: 1
+          })
+          .toBitmap()
+        const fm = /rgba?\((\d+),\s*(\d+),\s*(\d+)/.exec(flipGeom.fill)
+        const flipNoBevel = Boolean(
+          fm &&
+            Math.abs(flipEdge[2] - Number(fm[1])) <= 2 &&
+            Math.abs(flipEdge[1] - Number(fm[2])) <= 2 &&
+            Math.abs(flipEdge[0] - Number(fm[3])) <= 2
+        )
+        if (!flipNoBevel) {
+          console.error('REMINDER_BEVEL_FLIP_FAIL', JSON.stringify({ edgeRgb: [flipEdge[2], flipEdge[1], flipEdge[0]], fill: flipGeom.fill }))
+        }
         const reminderThemeSynced =
           flipped !== themeBefore &&
           flippedTheme === flipped &&
           flipPainted &&
+          flipNoBevel &&
           reminder.getBackgroundColor().toLowerCase() === themeBackgroundColor(flipped).toLowerCase()
         if (!reminderThemeSynced) {
           console.error(
