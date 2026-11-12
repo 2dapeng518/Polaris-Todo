@@ -38,7 +38,7 @@ The reminder card's primary button is 34px high and uses the same accent / on-ac
 | Error | `--error` border and helper text |
 | Disabled | Opacity 0.4 |
 
-Textarea: min-height 104px, padding 10px 12px, line-height 1.65, resize none. Date inputs use `color-scheme` per theme and a dark or light calendar icon.
+Textarea: min-height 104px, padding 10px 12px, line-height 1.65, resize none. Date and time use the in-app picker (month grid plus a segmented time field), never the native `datetime-local` popup.
 
 ## 3. TASK ROWS
 
@@ -114,7 +114,7 @@ Below 1180px it becomes a `min(400px, viewport - 32px)` modal sheet with a scrim
 | Actions | 32px; one solid accent, others ghost |
 | Notes | 13px; empty one line, max 40vh |
 | Schedule rows | 36px; label 64px / 11px, value 13px |
-| Popover | 280px, Level 2 shadow, `role="dialog"` |
+| Popover | 280px, Level 2 shadow, `role="dialog"`; due 368 / reminder 402 / confirm-clear 408, cap 420, no scrolling |
 | Chips | 28px; priority segments 30px |
 | Delete | Ghost footer, danger on hover/focus, 6s undo |
 | Focus | Wide: no trap; narrow: trap and restore |
@@ -144,7 +144,7 @@ No gradients. No glass on the row. The panel itself is opaque.
 
 ### Reminder card
 
-420 × 212px, `--surface1`, 16px radius, level 3 shadow, bottom-right of the display work area. Primary button uses `--accent` / `--on-accent`; secondary uses `--surface2` / `--text2`. The card is draggable; actions and close are not.
+420 × 212px, opaque edge-to-edge `--panel-bg` surface; corners and shadow are drawn by the OS (Windows 11 DWM), bottom-right of the display work area. One surface only — never a rounded card inset inside a padded shell. Primary button uses `--accent` / `--on-accent`; secondary uses `--surface1` / `--text2`. Title, meta and actions are `flex: none`; the project name is a single ellipsised line. The card is draggable; actions and close are not.
 
 ## 7. TOAST
 

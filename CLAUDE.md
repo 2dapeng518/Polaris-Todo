@@ -22,7 +22,7 @@ npm run build:win   # build + electron-builder NSIS -> dist/
 
 - There is no ESLint, Prettier, or unit-test runner. `npm run smoke` is the only automated check and exits non-zero on failure. Run `npm run build && npm run smoke` after behavior changes.
 - `npm run smoke` drives the real UI through `webContents.executeJavaScript` against a temporary userData profile, so it does not touch a running app's database: quick add, detail edit, Esc save, complete, delete/undo, command palette, theme, auto-start, recurrence, the recurrence notice, and quick-add parsing. It cleans up its tasks and restores theme/auto-start. Assertions live in `runSmokeTest()` in `src/main/index.ts`; the parser's table-driven and fuzz checks live in `runParseAssertions()` in the same file. Expected values are written as literals, never recomputed through the code under test. The failed-submit path is exercised by dropping the `tasks:create` IPC channel and restoring it with `registerTaskCreate()` — `contextBridge` freezes `window.polaris`, so it cannot be stubbed from the page. Height assertions use sub-pixel rects and are verified at 100/125/150/200% display scaling and under reduced motion.
-- Screenshots: after `npm run build`, run `POLARIS_SHOT=<mode> npx electron .`; it writes `screenshot*.png` to the repo root. Modes are the `captureDemo` branches (`detail`, `palette`, `projects`, `reminder`, `reminder-detail`, `settings`, `toast`, `recurrence`, `parse`, `parse-past`, `parse-notice`, `parse-blocked`, each with a `light-` variant; anything else captures the main view). `POLARIS_SCREENSHOT=1` captures only the main window and quits.
+- Screenshots: after `npm run build`, run `POLARIS_SHOT=<mode> npx electron .`; it writes `screenshot*.png` to the repo root. Modes are the `captureDemo` branches (`detail`, `palette`, `projects`, `reminder`, `reminder-detail`, `settings`, `toast`, `recurrence`, `parse`, `parse-past`, `parse-notice`, `parse-blocked`, `due-picker`, `due-clear`, each with a `light-` variant; anything else captures the main view). `POLARIS_SCREENSHOT=1` captures only the main window and quits.
 - Packaging is unsigned and per-user. Verify with `dist/win-unpacked/Polaris.exe`; do not install/uninstall the app unless asked.
 - If the Electron binary is missing after install (npm 11 blocks lifecycle scripts), run `node node_modules/electron/install.js`. The `allowScripts` list in `package.json` whitelists packages that need install scripts.
 
@@ -57,6 +57,22 @@ npm run build:win   # build + electron-builder NSIS -> dist/
 - IME: `compositionstart` freezes `parseText`, `onChange` still updates the controlled value, and the keydown guard checks `isComposing`, `keyCode === 229`, the composing ref and a 30ms post-composition grace window. Removing any of the four reintroduces mid-composition submits.
 - Esc is handled on `.quick-add-shell` and must `stopPropagation`: `TaskDetail` listens on `window` and would otherwise close the inspector instead of clearing the draft.
 - The frame lives on `.quick-add-shell` with `min-height: 56px`, not on `.quick-add`. Under fractional display scaling a 1px border snaps to a sub-pixel used value, so a fixed row height alone would not reproduce the 56px collapsed frame. Measure with `getBoundingClientRect`, not `offsetHeight`.
+
+## Date/time picker
+
+- Never use `<input type="datetime-local">`. Chromium's picker is an OS-level popup outside the page DOM: it cannot be styled, and clicking it counts as an outside click that closes the popover. `DateTimePicker.tsx` + `lib/dateTime.ts` replace it.
+- The picker lives inside the existing `.detail-popover` (280px, cap 420px). The month grid is always 42 cells so paging months never changes the height and fights the repositioning. Presets are `.detail-chip` rows, not a vertical list — five stacked reminder presets plus a calendar cannot fit 420px.
+- Day cells are `div[role="gridcell"]`, not buttons: `useFocusTrap`'s FOCUSABLE selector counts buttons regardless of `tabindex`, so 42 buttons would pollute the narrow-screen trap. Only the roving cell carries `tabindex="0"` and `data-popover-focus`.
+- Popover effects key on `popoverKind`, never the `popover` object. Repositioning creates a new object; re-arming the 30ms initial-focus timer would steal focus from the minute field or the confirm-clear cancel button.
+- There is one commit path, and it reads the instant back (`draftFrom(draftToIso(next))`). That keeps the display, `aria-valuenow` and the stored row identical across a DST gap. `TimeField` keeps its own typing text and clears it on `resetKey`, so a half-typed digit can never be shown while a different value is stored.
+- Field arrows wrap within the field; ±15 (buttons or Shift+arrows) clamps within the day; only the calendar changes the date. The ±15 buttons are real tabbable controls with `aria-label` and a keyboard equivalent.
+- Moving a due date moves the reminder by the same offset in one patch, otherwise a far-out deadline silently drops the reminder on the next recurrence.
+
+## Theme and window surfaces
+
+- `src/main/theme.ts` is the main process's only theme record, persisted in the existing `meta` table (no new migration). `initAppTheme()` runs right after `initDatabase()`. Every window is painted `themeBackgroundColor()`; a new reminder window must get the right colour on its first frame.
+- `app:set-theme` accepts changes only from the main window's `webContents`. `ThemeSync` listens for `storage` events and uses `setState`, so a reminder window follows a theme change without writing back.
+- The reminder window is one opaque `--panel-bg` surface filling 420×212. Windows 11 DWM draws the corners and shadow (`frame: false`, default `thickFrame`/`roundedCorners`); do not add `transparent` or a second inset card. `--drawer-bg` composites to pure white over `--bg` in the day theme and must not be used for a full window.
 
 ## Window lifecycle
 

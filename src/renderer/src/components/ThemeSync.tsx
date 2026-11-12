@@ -13,5 +13,19 @@ export function ThemeSync() {
     })
   }, [theme])
 
+  // Follow a theme change made in another window. setState, not setTheme: this
+  // must not write back to localStorage and start a loop. Chromium only sends
+  // the storage event to contexts that did not write it.
+  useEffect(() => {
+    const onStorage = (event: StorageEvent): void => {
+      if (event.key !== 'polaris-theme') return
+      if (event.newValue === 'light' || event.newValue === 'dark') {
+        useThemeStore.setState({ theme: event.newValue })
+      }
+    }
+    window.addEventListener('storage', onStorage)
+    return () => window.removeEventListener('storage', onStorage)
+  }, [])
+
   return null
 }
