@@ -1,6 +1,7 @@
 import { BrowserWindow, powerMonitor, screen } from 'electron'
 import { join } from 'node:path'
 import { listDueReminders, markTaskReminded } from './db'
+import { themeBackgroundColor } from './theme'
 
 let reminderWindow: BrowserWindow | null = null
 let currentTaskId: string | null = null
@@ -51,6 +52,9 @@ export function openReminderWindow(taskId: string): void {
     height: windowHeight,
     x: Math.round(x + width - windowWidth - 24),
     y: Math.round(y + height - windowHeight - 24),
+    // thickFrame stays at its default true: Windows 11 DWM uses it to draw the
+    // rounded corners and the native shadow. Do not set transparent or
+    // thickFrame:false — the renderer already fills the window edge to edge.
     frame: false,
     resizable: false,
     minimizable: false,
@@ -60,7 +64,7 @@ export function openReminderWindow(taskId: string): void {
     alwaysOnTop: true,
     movable: true,
     show: false,
-    backgroundColor: '#080A0F',
+    backgroundColor: themeBackgroundColor(),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       contextIsolation: true,

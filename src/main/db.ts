@@ -18,6 +18,21 @@ export function initDatabase(): void {
   seedIfNeeded()
 }
 
+// Small key/value reads on the meta table created by migration 1. No new
+// migration is needed for app-level settings such as the theme.
+export function getMeta(key: string): string | null {
+  const row = db.prepare('SELECT value FROM meta WHERE key = ?').get(key) as
+    | { value: string }
+    | undefined
+  return row?.value ?? null
+}
+
+export function setMeta(key: string, value: string): void {
+  db.prepare(
+    'INSERT INTO meta (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value'
+  ).run(key, value)
+}
+
 function migrate(): void {
   let version = db.pragma('user_version', { simple: true }) as number
 

@@ -1748,39 +1748,6 @@ textarea {
   font-size: 9px;
 }
 
-.detail-date-input {
-  width: 100%;
-  height: 36px;
-  padding: 0 10px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  outline: 0;
-  background: var(--surface-2);
-  color: var(--text);
-  font-size: 12px;
-  color-scheme: inherit;
-  transition: border-color 0.18s;
-}
-
-.detail-date-input:focus {
-  border-color: rgba(var(--accent-rgb), 0.3);
-}
-
-.detail-date-input:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 1px;
-}
-
-.detail-date-input::-webkit-calendar-picker-indicator {
-  opacity: 0.55;
-  filter: invert(1);
-  cursor: default;
-}
-
-[data-theme="light"] .detail-date-input::-webkit-calendar-picker-indicator {
-  filter: none;
-}
-
 .detail-popover {
   position: fixed;
   z-index: 60;
@@ -1806,41 +1773,50 @@ textarea {
   letter-spacing: 0.04em;
 }
 
-.detail-popover-list {
+.detail-popover-head {
   display: flex;
-  flex-direction: column;
-  gap: 1px;
-  margin: 4px 0 8px;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
 }
 
-.detail-popover-preset {
+.detail-popover-head > span:first-child {
+  flex: none;
+}
+
+.detail-popover-readout {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-secondary);
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.detail-popover-quick {
+  margin-bottom: 8px;
+}
+
+.detail-popover-foot {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  width: 100%;
-  height: 30px;
-  padding: 0 8px;
-  border: 0;
-  border-radius: 6px;
-  background: transparent;
-  color: var(--text-secondary);
-  font-size: 12px;
-  text-align: left;
-  cursor: default;
+  margin-top: 8px;
 }
 
-.detail-popover-preset:hover {
-  background: var(--surface-2);
-  color: var(--text);
+.detail-popover-foot .detail-popover-note {
+  flex: 1;
+  min-width: 0;
+  margin-top: 0;
 }
 
-.detail-popover-preset.active {
-  color: var(--accent);
-}
-
-.detail-popover-input {
-  margin-top: 2px;
+.detail-popover-foot .detail-popover-clear {
+  flex: none;
+  width: auto;
+  margin-top: 0;
 }
 
 .detail-popover-note {
@@ -1905,6 +1881,298 @@ textarea {
   color: var(--danger);
   font-size: 11px;
   line-height: 1.5;
+}
+
+/* ---------- in-app date/time picker ---------- */
+
+.dp {
+  display: flex;
+  flex-direction: column;
+}
+
+.dp-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  height: 24px;
+}
+
+.dp-month {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.dp-num {
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 年/月 stay on the UI font: Geist Mono has no CJK glyphs. */
+.dp-unit {
+  margin: 0 1px;
+  color: var(--text-tertiary);
+  font-size: 11px;
+}
+
+.dp-today {
+  height: 22px;
+  padding: 0 7px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-tertiary);
+  font-size: 11px;
+  cursor: default;
+  transition:
+    color 0.16s,
+    border-color 0.16s;
+}
+
+.dp-today:hover {
+  border-color: var(--line-strong);
+  color: var(--text);
+}
+
+.dp-today:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.dp-nav {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-tertiary);
+  cursor: default;
+  transition:
+    background 0.16s,
+    color 0.16s;
+}
+
+.dp-nav:hover {
+  background: var(--hover-strong);
+  color: var(--text);
+}
+
+.dp-nav:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.dp-week {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: var(--space-2xs);
+  height: 16px;
+  margin-top: var(--space-xs);
+  color: var(--text-tertiary);
+  font-size: 11px;
+  line-height: 16px;
+  text-align: center;
+}
+
+.dp-grid {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+  margin-top: var(--space-2xs);
+}
+
+.dp-row {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: var(--space-2xs);
+}
+
+.dp-day {
+  position: relative;
+  display: grid;
+  place-items: center;
+  height: 26px;
+  border-radius: 6px;
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  cursor: default;
+  transition:
+    background 0.12s,
+    color 0.12s;
+}
+
+.dp-day:hover {
+  background: var(--hover-strong);
+}
+
+.dp-day.is-outside {
+  color: var(--text-tertiary);
+}
+
+/* Three distinct shapes, so state never rests on colour alone. */
+.dp-day.is-today {
+  box-shadow: inset 0 0 0 1px var(--accent);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.dp-day.is-today::after {
+  content: '';
+  position: absolute;
+  bottom: 3px;
+  left: 50%;
+  width: 3px;
+  height: 3px;
+  border-radius: 999px;
+  background: var(--accent);
+  transform: translateX(-50%);
+}
+
+.dp-day.is-preview::before {
+  content: '';
+  position: absolute;
+  inset: 3px;
+  border: 1px dashed var(--accent);
+  border-radius: 4px;
+  pointer-events: none;
+}
+
+.dp-day.is-preview.is-today {
+  box-shadow: none;
+}
+
+.dp-day.is-preview.is-today::after {
+  content: none;
+}
+
+.dp-day.is-selected {
+  background: var(--accent);
+  color: var(--on-accent);
+  font-weight: 600;
+}
+
+.dp-day.is-selected:hover {
+  background: var(--accent);
+  filter: brightness(1.06);
+}
+
+.dp-day.is-selected.is-today::after {
+  background: var(--on-accent);
+}
+
+.dp-grid .dp-day:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.dp-grid .dp-day.is-selected:focus-visible {
+  outline-color: var(--on-accent);
+  outline-offset: -3px;
+}
+
+.dp-time {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  margin-top: 6px;
+}
+
+.dp-clock {
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  align-items: center;
+  gap: var(--space-2xs);
+  height: 28px;
+  padding: 0 var(--space-sm);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--input-bg);
+  transition: border-color 0.16s;
+}
+
+.dp-clock:focus-within {
+  border-color: var(--accent);
+}
+
+.dp-clock.is-empty .dp-part {
+  color: var(--text-tertiary);
+}
+
+.dp-part {
+  width: 26px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  outline: 0;
+}
+
+.dp-part:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.dp-colon {
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+
+.dp-meridiem {
+  position: absolute;
+  right: var(--space-sm);
+  color: var(--text-tertiary);
+  font-size: 11px;
+  pointer-events: none;
+}
+
+.dp-step {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface-1);
+  color: var(--text-secondary);
+  cursor: default;
+  transition:
+    border-color 0.16s,
+    background 0.16s,
+    color 0.16s;
+}
+
+.dp-step:hover {
+  border-color: var(--line-strong);
+  background: var(--hover);
+  color: var(--text);
+}
+
+.dp-step:disabled {
+  opacity: 0.4;
+}
+
+.dp-step:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
 }
 
 @keyframes detail-in {
@@ -2122,11 +2390,14 @@ textarea {
 
 /* ---------- reminder popup ---------- */
 
+/* One surface, edge to edge. Windows 11 DWM draws the corners and the shadow;
+   drawing a second rounded card inside a padded shell produced a frame within
+   a frame. --panel-bg is opaque and matches .detail-pane / .detail-popover;
+   --drawer-bg composited over --bg to pure white in the day theme. */
 .reminder-shell {
   display: flex;
   width: 100%;
   height: 100%;
-  padding: 10px;
   background: var(--bg);
 }
 
@@ -2135,14 +2406,44 @@ textarea {
   flex: 1;
   flex-direction: column;
   padding: 16px 20px 20px;
-  border: 1px solid var(--line-strong);
-  border-radius: 16px;
-  background: var(--drawer-bg);
-  box-shadow:
-    0 18px 50px rgba(var(--shadow-rgb), 0.35),
-    inset 0 1px 0 var(--inner-highlight);
+  border-radius: 0;
+  background: var(--panel-bg);
+  box-shadow: inset 0 1px 0 var(--inner-highlight);
   overflow: hidden;
   -webkit-app-region: drag;
+}
+
+/* A long project name must never squeeze the title flat. */
+.reminder-title {
+  flex: none;
+}
+
+.reminder-meta {
+  flex: none;
+  min-width: 0;
+}
+
+.reminder-meta > span:first-child {
+  flex: none;
+}
+
+.reminder-meta .meta-project {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.reminder-meta .meta-dot {
+  flex: none;
+}
+
+.meta-project-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.reminder-actions {
+  flex: none;
 }
 
 .reminder-header {
@@ -2159,7 +2460,7 @@ textarea {
   color: var(--accent);
   font-size: 11px;
   font-weight: 600;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.04em;
 }
 
 .reminder-close {

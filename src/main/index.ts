@@ -4,6 +4,7 @@ import { writeFile } from 'node:fs/promises'
 import { getAutoStartState, setAutoStartState } from './autostart'
 import { initDatabase } from './db'
 import { registerIpc, registerTaskCreate } from './ipc'
+import { getCurrentTheme, initAppTheme, setCurrentTheme, themeBackgroundColor } from './theme'
 import {
   checkRemindersNow,
   dismissReminder,
@@ -34,7 +35,7 @@ function createWindow(): void {
     minWidth: 980,
     minHeight: 640,
     show: false,
-    backgroundColor: '#080A0F',
+    backgroundColor: themeBackgroundColor(),
     titleBarStyle: 'hidden',
     titleBarOverlay: {
       color: '#00000000',
@@ -230,6 +231,33 @@ async function captureParseScreenshot(filename: string, text: string): Promise<v
   await captureTo(filename)
 }
 
+async function captureDuePickerScreenshot(filename: string, confirm: boolean): Promise<void> {
+  await mainWindow?.webContents.executeJavaScript(`document.querySelector('.task-title')?.click()`)
+  await new Promise((resolve) => setTimeout(resolve, 700))
+  if (confirm) {
+    await mainWindow?.webContents.executeJavaScript(`(async () => {
+      const rows = [...document.querySelectorAll('.detail-row')];
+      const repeat = rows.find((el) => el.textContent.includes('重复'));
+      repeat?.click();
+      await new Promise((r) => setTimeout(r, 300));
+      [...document.querySelectorAll('.detail-chip')].find((el) => el.textContent.includes('每天'))?.click();
+      await new Promise((r) => setTimeout(r, 300));
+    })()`)
+    await new Promise((resolve) => setTimeout(resolve, 400))
+  }
+  await mainWindow?.webContents.executeJavaScript(`(() => {
+    [...document.querySelectorAll('.detail-row')].find((el) => el.textContent.includes('截止'))?.click();
+  })()`)
+  await new Promise((resolve) => setTimeout(resolve, 450))
+  if (confirm) {
+    await mainWindow?.webContents.executeJavaScript(
+      `document.querySelector('.detail-popover-clear')?.click()`
+    )
+    await new Promise((resolve) => setTimeout(resolve, 350))
+  }
+  await captureTo(filename)
+}
+
 async function captureDemo(mode: string): Promise<void> {
   if (!mainWindow) {
     app.quit()
@@ -286,6 +314,10 @@ async function captureDemo(mode: string): Promise<void> {
         await captureToastScreenshot('screenshot-light-toast.png')
       } else if (mode === 'light-recurrence') {
         await captureRecurrenceScreenshot('screenshot-light-recurrence.png')
+      } else if (mode === 'light-due-picker') {
+        await captureDuePickerScreenshot('screenshot-light-due-picker.png', false)
+      } else if (mode === 'light-due-clear') {
+        await captureDuePickerScreenshot('screenshot-light-due-clear.png', true)
       } else if (PARSE_SHOTS[mode.slice(6)]) {
         const key = mode.slice(6)
         await captureParseScreenshot(`screenshot-light-${key}.png`, PARSE_SHOTS[key])
@@ -328,6 +360,10 @@ async function captureDemo(mode: string): Promise<void> {
       await captureToastScreenshot('screenshot-toast.png')
     } else if (mode === 'recurrence') {
       await captureRecurrenceScreenshot('screenshot-recurrence.png')
+    } else if (mode === 'due-picker') {
+      await captureDuePickerScreenshot('screenshot-due-picker.png', false)
+    } else if (mode === 'due-clear') {
+      await captureDuePickerScreenshot('screenshot-due-clear.png', true)
     } else if (PARSE_SHOTS[mode]) {
       await captureParseScreenshot(`screenshot-${mode}.png`, PARSE_SHOTS[mode])
     } else if (mode === 'narrow') {
@@ -1104,6 +1140,145 @@ async function runSmokeTest(): Promise<void> {
       [...document.querySelectorAll('.nav-item')].find((el) => el.textContent.includes('今天')).click();
       await sleep(400);
 
+      // ---------- in-app date/time picker ----------
+      const pickerSeed = new Date();
+      pickerSeed.setHours(18, 0, 0, 0);
+      const pickerTask = await window.polaris.tasks.create({
+        title: '冒烟选择器',
+        dueAt: pickerSeed.toISOString()
+      });
+      window.dispatchEvent(new Event('focus'));
+      await waitFor(() =>
+        [...document.querySelectorAll('.task-title')].some((el) => el.textContent === '冒烟选择器')
+      );
+      const openPicker = async () => {
+        [...document.querySelectorAll('.task-title')].find((el) => el.textContent === '冒烟选择器').click();
+        await waitFor(() => document.querySelector('.detail-title'));
+        await sleep(300);
+        [...document.querySelectorAll('.detail-row')].find((el) => el.textContent.includes('截止')).click();
+        await waitFor(() => document.querySelector('.dp-grid'));
+        await sleep(300);
+      };
+      const escOnce = async () => {
+        window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+        await sleep(300);
+      };
+      const storedDue = async () =>
+        (await window.polaris.tasks.list()).find((t) => t.id === pickerTask.id)?.dueAt ?? null;
+      const hourInput = () => document.querySelectorAll('.dp-part')[0];
+      const minuteInput = () => document.querySelectorAll('.dp-part')[1];
+      const typeInto = (el, value) => {
+        const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+        setter.call(el, value);
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+      };
+      const keyOn = (el, key, shift) =>
+        el.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, shiftKey: Boolean(shift) }));
+
+      await openPicker();
+      const pickerNoNativeInput = document.querySelectorAll('input[type="datetime-local"]').length === 0;
+      const pickerGridShape =
+        document.querySelectorAll('.dp-day').length === 42 &&
+        document.querySelectorAll('[role="gridcell"]').length === 42 &&
+        document.querySelectorAll('.dp-grid [tabindex="0"]').length === 1 &&
+        document.querySelectorAll('[data-popover-focus="true"]').length === 1;
+      const popEl = document.querySelector('.detail-popover');
+      const pickerFitsBudget =
+        popEl.offsetHeight <= 420 &&
+        popEl.scrollHeight === popEl.clientHeight &&
+        popEl.scrollWidth === popEl.clientWidth;
+
+      const targetCell = [...document.querySelectorAll('.dp-day:not(.is-outside):not(.is-selected)')][5];
+      const targetDate = Number(targetCell.textContent);
+      targetCell.click();
+      await sleep(500);
+      const afterPick = new Date(await storedDue());
+      const pickerDayCommit =
+        afterPick.getDate() === targetDate &&
+        afterPick.getHours() === 18 &&
+        afterPick.getMinutes() === 0 &&
+        afterPick.getSeconds() === 0 &&
+        afterPick.getMilliseconds() === 0;
+      const pickerValueInvariant =
+        Number(hourInput().getAttribute('aria-valuenow')) === afterPick.getHours() &&
+        Number(minuteInput().getAttribute('aria-valuenow')) === afterPick.getMinutes();
+
+      hourInput().focus();
+      typeInto(hourInput(), '23');
+      await sleep(300);
+      // Typing a complete hour advances focus, so bring it back before stepping.
+      hourInput().focus();
+      keyOn(hourInput(), 'ArrowUp');
+      await sleep(300);
+      const hourWrapped = Number(hourInput().getAttribute('aria-valuenow')) === 0;
+      keyOn(hourInput(), 'ArrowDown');
+      await sleep(300);
+      const hourWrappedBack = Number(hourInput().getAttribute('aria-valuenow')) === 23;
+      keyOn(hourInput(), 'ArrowUp');
+      await sleep(300);
+      minuteInput().focus();
+      typeInto(minuteInput(), '59');
+      await sleep(300);
+      keyOn(minuteInput(), 'ArrowUp');
+      await sleep(300);
+      const pickerArrowWrap =
+        hourWrapped &&
+        hourWrappedBack &&
+        Number(hourInput().getAttribute('aria-valuenow')) === 0 &&
+        Number(minuteInput().getAttribute('aria-valuenow')) === 0;
+
+      hourInput().focus();
+      typeInto(hourInput(), '18');
+      await sleep(300);
+      const advancedToMinute = document.activeElement === minuteInput();
+      typeInto(minuteInput(), '30');
+      await sleep(400);
+      const typedDue = new Date(await storedDue());
+      const pickerTypeFlow =
+        advancedToMinute && typedDue.getHours() === 18 && typedDue.getMinutes() === 30;
+
+      typeInto(minuteInput(), '50');
+      await sleep(350);
+      document.querySelectorAll('.dp-step')[1].click();
+      await sleep(400);
+      const steppedDue = new Date(await storedDue());
+      const stepCarry = steppedDue.getHours() === 19 && steppedDue.getMinutes() === 5;
+      minuteInput().focus();
+      keyOn(minuteInput(), 'ArrowUp', true);
+      await sleep(400);
+      const shiftDue = new Date(await storedDue());
+      const pickerStepSemantics =
+        stepCarry && shiftDue.getHours() === 19 && shiftDue.getMinutes() === 20;
+
+      hourInput().focus();
+      typeInto(hourInput(), '1');
+      await sleep(200);
+      document.querySelectorAll('.dp-step')[1].click();
+      await sleep(400);
+      const syncDue = new Date(await storedDue());
+      const pickerTextSync = hourInput().value === '19' && syncDue.getHours() === 19;
+
+      await escOnce();
+      const pickerEscRestores =
+        !document.querySelector('.detail-popover') && Boolean(document.querySelector('.detail-title'));
+
+      await openPicker();
+      document.querySelector('.dp-today').click();
+      await sleep(500);
+      const todayDue = new Date(await storedDue());
+      const nowReal = new Date();
+      const pickerTodayFuture =
+        todayDue.getTime() > nowReal.getTime() && todayDue.getDate() === nowReal.getDate();
+
+      document.querySelector('.detail-popover-clear').click();
+      await sleep(500);
+      const pickerClearWorks = (await storedDue()) === null;
+      await escOnce();
+      await escOnce();
+      await window.polaris.tasks.remove(pickerTask.id);
+      window.dispatchEvent(new Event('focus'));
+      await sleep(300);
+
       setInput(document.querySelector('.quick-add input'), '');
       await sleep(200);
       delete window.__polarisParseNow;
@@ -1138,6 +1313,18 @@ async function runSmokeTest(): Promise<void> {
         parseLastChipFocus,
         parseDraftSurvives,
         parseReceiptNamesProject,
+        pickerNoNativeInput,
+        pickerGridShape,
+        pickerFitsBudget,
+        pickerDayCommit,
+        pickerValueInvariant,
+        pickerArrowWrap,
+        pickerTypeFlow,
+        pickerStepSemantics,
+        pickerTextSync,
+        pickerEscRestores,
+        pickerTodayFuture,
+        pickerClearWorks,
         brand: document.querySelector('.brand-name')?.textContent?.trim(),
         viewTitle: document.querySelector('.view-title')?.textContent?.trim(),
         initial,
@@ -1220,6 +1407,139 @@ async function runSmokeTest(): Promise<void> {
       })()`)
     }
 
+    // Reminder window: one opaque surface, correct theme on the very first
+    // frame, and a title that a long project name cannot squeeze flat.
+    let reminderSurfaceTested = false
+    let reminderTaskId: string | null = null
+    const themeBefore = getCurrentTheme()
+    try {
+      const longProject = await mainWindow?.webContents.executeJavaScript(
+        `window.polaris.projects.create({ name: '冒烟超长项目名'.repeat(11) + '尾尾尾', color: '#5EEAD4' })`
+      )
+      const created = await mainWindow?.webContents.executeJavaScript(`(async () => {
+        const task = await window.polaris.tasks.create({
+          title: '冒烟提醒 这是一条用来撑满两行的超长中文任务标题所以需要写得足够长才能触发换行分支',
+          dueAt: new Date(Date.now() + 3600000).toISOString(),
+          projectId: ${JSON.stringify(longProject?.id ?? null)}
+        });
+        await window.polaris.tasks.update({
+          id: task.id,
+          remindAt: new Date(Date.now() - 60000).toISOString()
+        });
+        return task.id;
+      })()`)
+      reminderTaskId = created
+      checkRemindersNow()
+
+      const deadline = Date.now() + 8000
+      while (!getReminderWindow() && Date.now() < deadline) {
+        await new Promise((resolve) => setTimeout(resolve, 150))
+      }
+      const reminder = getReminderWindow()
+      if (reminder) {
+        await new Promise((resolve) => setTimeout(resolve, 900))
+        const shape = await reminder.webContents.executeJavaScript(`(() => {
+          const shell = document.querySelector('.reminder-shell');
+          const card = document.querySelector('.reminder-card');
+          const meta = document.querySelector('.reminder-meta');
+          const title = document.querySelector('.reminder-title');
+          if (!shell || !card || !meta || !title) return null;
+          const cs = getComputedStyle(card);
+          const rect = card.getBoundingClientRect();
+          const alpha = cs.backgroundColor.startsWith('rgb(') ? 1 : Number((cs.backgroundColor.split(',')[3] || '1').replace(')', ''));
+          const lineHeight = parseFloat(getComputedStyle(title).lineHeight);
+          return {
+            theme: document.documentElement.dataset.theme,
+            padTop: getComputedStyle(shell).paddingTop,
+            padLeft: getComputedStyle(shell).paddingLeft,
+            radius: cs.borderTopLeftRadius,
+            border: cs.borderTopWidth,
+            alpha,
+            fills: Math.abs(rect.left) < 1 && Math.abs(rect.top) < 1 &&
+              Math.abs(rect.width - window.innerWidth) < 1 && Math.abs(rect.height - window.innerHeight) < 1,
+            metaShort: meta.clientHeight <= 17,
+            titleTwoLines: title.getBoundingClientRect().height >= 2 * lineHeight - 0.5
+          };
+        })()`)
+
+        // Sample a real painted pixel inside the right padding, not a value the
+        // main process set itself.
+        const image = await reminder.webContents.capturePage()
+        const size = image.getSize()
+        const pixel = image
+          .crop({ x: size.width - 6, y: Math.floor(size.height / 2), width: 1, height: 1 })
+          .toBitmap()
+        const [b, g, r] = [pixel[0], pixel[1], pixel[2]]
+        const want = themeBefore === 'light' ? [251, 250, 247] : [11, 14, 21]
+        const painted = Math.abs(r - want[0]) <= 1 && Math.abs(g - want[1]) <= 1 && Math.abs(b - want[2]) <= 1
+
+        reminderSurfaceTested = Boolean(
+          shape &&
+            shape.theme === themeBefore &&
+            shape.padTop === '0px' &&
+            shape.padLeft === '0px' &&
+            shape.radius === '0px' &&
+            shape.border === '0px' &&
+            shape.alpha === 1 &&
+            shape.fills &&
+            shape.metaShort &&
+            shape.titleTwoLines &&
+            painted &&
+            reminder.getBackgroundColor().toLowerCase() === themeBackgroundColor().toLowerCase()
+        )
+        if (!reminderSurfaceTested) {
+          console.error('REMINDER_SURFACE_FAIL', JSON.stringify({ shape, painted, rgb: [r, g, b], want }))
+        }
+
+        // Flip the theme while the reminder is open: the other window must
+        // follow, and its painted surface must match the new theme too.
+        await mainWindow?.webContents.executeJavaScript(
+          `document.querySelector('.theme-toggle')?.click()`
+        )
+        await new Promise((resolve) => setTimeout(resolve, 900))
+        const flipped = getCurrentTheme()
+        const flippedTheme = await reminder.webContents.executeJavaScript(
+          `document.documentElement.dataset.theme`
+        )
+        const flippedImage = await reminder.webContents.capturePage()
+        const flippedSize = flippedImage.getSize()
+        const fp = flippedImage
+          .crop({ x: flippedSize.width - 6, y: Math.floor(flippedSize.height / 2), width: 1, height: 1 })
+          .toBitmap()
+        const flipWant = flipped === 'light' ? [251, 250, 247] : [11, 14, 21]
+        const flipPainted =
+          Math.abs(fp[2] - flipWant[0]) <= 1 &&
+          Math.abs(fp[1] - flipWant[1]) <= 1 &&
+          Math.abs(fp[0] - flipWant[2]) <= 1
+        const reminderThemeSynced =
+          flipped !== themeBefore &&
+          flippedTheme === flipped &&
+          flipPainted &&
+          reminder.getBackgroundColor().toLowerCase() === themeBackgroundColor(flipped).toLowerCase()
+        if (!reminderThemeSynced) {
+          console.error(
+            'REMINDER_THEME_FAIL',
+            JSON.stringify({ flipped, flippedTheme, flipPainted, rgb: [fp[2], fp[1], fp[0]], flipWant })
+          )
+        }
+        reminderSurfaceTested = reminderSurfaceTested && reminderThemeSynced
+        await mainWindow?.webContents.executeJavaScript(
+          `document.querySelector('.theme-toggle')?.click()`
+        )
+        await new Promise((resolve) => setTimeout(resolve, 600))
+      }
+    } catch (error) {
+      console.error('REMINDER_SURFACE_ERROR', error)
+    } finally {
+      dismissReminder()
+      if (reminderTaskId) {
+        await mainWindow?.webContents.executeJavaScript(
+          `window.polaris.tasks.remove(${JSON.stringify(reminderTaskId)})`
+        )
+      }
+      await new Promise((resolve) => setTimeout(resolve, 400))
+    }
+
     const originalSize = mainWindow?.getSize() ?? [1280, 800]
     const parseLayoutNarrow = await measureStrip(980, false)
     const parseLayoutWide = await measureStrip(1280, true)
@@ -1262,12 +1582,25 @@ async function runSmokeTest(): Promise<void> {
       result.parseLastChipFocus === true &&
       result.parseDraftSurvives === true &&
       result.parseReceiptNamesProject === true &&
+      result.pickerNoNativeInput === true &&
+      result.pickerGridShape === true &&
+      result.pickerFitsBudget === true &&
+      result.pickerDayCommit === true &&
+      result.pickerValueInvariant === true &&
+      result.pickerArrowWrap === true &&
+      result.pickerTypeFlow === true &&
+      result.pickerStepSemantics === true &&
+      result.pickerTextSync === true &&
+      result.pickerEscRestores === true &&
+      result.pickerTodayFuture === true &&
+      result.pickerClearWorks === true &&
       parseErrorReceipt === true &&
       parseAssertions.grammar === true &&
       parseAssertions.invariants === true &&
       parseAssertions.format === true &&
       parseLayoutNarrow === true &&
-      parseLayoutWide === true
+      parseLayoutWide === true &&
+      reminderSurfaceTested === true
 
     console.log(
       'POLARIS_SMOKE_RESULT ' +
@@ -1279,7 +1612,8 @@ async function runSmokeTest(): Promise<void> {
           parseInvariants: parseAssertions.invariants,
           parseFormatNull: parseAssertions.format,
           parseLayoutNarrow,
-          parseLayoutWide
+          parseLayoutWide,
+          reminderSurfaceTested
         })
     )
     app.exit(ok ? 0 : 1)
@@ -1328,19 +1662,23 @@ app.whenReady().then(() => {
   if (!gotSingleInstanceLock) return
 
   initDatabase()
+  initAppTheme()
   registerIpc()
 
-  ipcMain.handle('app:set-theme', (_event, theme: string) => {
+  ipcMain.handle('app:set-theme', (event, theme: string) => {
     if (theme !== 'light' && theme !== 'dark') return
-    const light = theme === 'light'
+    // Only the main window owns the global theme; a reminder window echoing its
+    // own synced value must not write it back.
+    if (!mainWindow || event.sender !== mainWindow.webContents) return
+    setCurrentTheme(theme)
 
     for (const window of BrowserWindow.getAllWindows()) {
-      window.setBackgroundColor(light ? '#F4F3EF' : '#080A0F')
+      window.setBackgroundColor(themeBackgroundColor(theme))
     }
 
-    mainWindow?.setTitleBarOverlay({
+    mainWindow.setTitleBarOverlay({
       color: '#00000000',
-      symbolColor: light ? '#4B5563' : '#9CA3AF',
+      symbolColor: theme === 'light' ? '#4B5563' : '#9CA3AF',
       height: 48
     })
   })

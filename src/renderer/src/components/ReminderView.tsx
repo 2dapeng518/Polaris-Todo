@@ -72,7 +72,7 @@ export function ReminderView({ taskId }: { taskId: string }) {
               {project && (
                 <span className="meta-project">
                   <span className="meta-dot" style={{ background: project.color }} />
-                  {project.name}
+                  <span className="meta-project-name">{project.name}</span>
                 </span>
               )}
             </div>
