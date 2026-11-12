@@ -1279,6 +1279,57 @@ async function runSmokeTest(): Promise<void> {
       window.dispatchEvent(new Event('focus'));
       await sleep(300);
 
+      // ---------- focus-ring ghosting ----------
+      // A ring in the same colour as the control it surrounds reads as a
+      // duplicate of that control. Check every focusable, not a fixed list, so
+      // a newly added accent button cannot reintroduce it.
+      const rgbOf = (s) => {
+        const m = /rgba?\(([^)]+)\)/.exec(s || '');
+        if (!m) return null;
+        const p = m[1].split(',').map(Number);
+        return { r: p[0], g: p[1], b: p[2], a: p.length > 3 ? p[3] : 1 };
+      };
+      const sameColor = (a, b) =>
+        Boolean(a && b) && Math.abs(a.r - b.r) <= 6 && Math.abs(a.g - b.g) <= 6 && Math.abs(a.b - b.b) <= 6;
+      const ghostScan = () => {
+        const bad = [];
+        for (const el of document.querySelectorAll('button, input, textarea, a[href], [tabindex]:not([tabindex="-1"])')) {
+          if (el.disabled) continue;
+          const r = el.getBoundingClientRect();
+          if (!r.width || !r.height) continue;
+          const prev = document.activeElement;
+          el.focus();
+          if (document.activeElement !== el) continue;
+          const cs = getComputedStyle(el);
+          if (cs.outlineStyle !== 'none' && el.matches(':focus-visible')) {
+            const ring = rgbOf(cs.outlineColor);
+            const fill = rgbOf(cs.backgroundColor);
+            const border = rgbOf(cs.borderTopColor);
+            const offset = parseFloat(cs.outlineOffset) || 0;
+            if (fill && fill.a > 0.85 && sameColor(ring, fill)) bad.push(el.className + ' [fill]');
+            if (offset > 0 && parseFloat(cs.borderTopWidth) > 0 && border && border.a > 0.5 && sameColor(ring, border)) {
+              bad.push(el.className + ' [border]');
+            }
+          }
+          if (prev && prev.focus) prev.focus();
+        }
+        return bad;
+      };
+      const ghosts = [];
+      ghosts.push(...ghostScan());
+      document.querySelector('.task-title')?.click();
+      await waitFor(() => document.querySelector('.detail-title'));
+      await sleep(350);
+      ghosts.push(...ghostScan());
+      [...document.querySelectorAll('.detail-row')].find((el) => el.textContent.includes('截止'))?.click();
+      await waitFor(() => document.querySelector('.dp-grid'));
+      await sleep(350);
+      ghosts.push(...ghostScan());
+      await escOnce();
+      await escOnce();
+      const focusRingGhosted = ghosts.length === 0;
+      if (!focusRingGhosted) console.error('FOCUS_RING_GHOST', JSON.stringify([...new Set(ghosts)]));
+
       setInput(document.querySelector('.quick-add input'), '');
       await sleep(200);
       delete window.__polarisParseNow;
@@ -1325,6 +1376,7 @@ async function runSmokeTest(): Promise<void> {
         pickerEscRestores,
         pickerTodayFuture,
         pickerClearWorks,
+        focusRingGhosted,
         brand: document.querySelector('.brand-name')?.textContent?.trim(),
         viewTitle: document.querySelector('.view-title')?.textContent?.trim(),
         initial,
@@ -1458,7 +1510,21 @@ async function runSmokeTest(): Promise<void> {
             fills: Math.abs(rect.left) < 1 && Math.abs(rect.top) < 1 &&
               Math.abs(rect.width - window.innerWidth) < 1 && Math.abs(rect.height - window.innerHeight) < 1,
             metaShort: meta.clientHeight <= 17,
-            titleTwoLines: title.getBoundingClientRect().height >= 2 * lineHeight - 0.5
+            titleTwoLines: title.getBoundingClientRect().height >= 2 * lineHeight - 0.5,
+            // The primary button is accent-filled; its focus ring must not be.
+            ringDiffersFromFill: (() => {
+              const b = document.querySelector('.reminder-primary');
+              if (!b) return false;
+              b.focus();
+              const cs = getComputedStyle(b);
+              // Read while still focused: computed style is live, so blurring
+              // first would report outline-style none.
+              const style = cs.outlineStyle;
+              const ring = cs.outlineColor;
+              const fill = cs.backgroundColor;
+              b.blur();
+              return style !== 'none' && ring !== fill;
+            })()
           };
         })()`)
 
@@ -1484,6 +1550,7 @@ async function runSmokeTest(): Promise<void> {
             shape.fills &&
             shape.metaShort &&
             shape.titleTwoLines &&
+            shape.ringDiffersFromFill &&
             painted &&
             reminder.getBackgroundColor().toLowerCase() === themeBackgroundColor().toLowerCase()
         )
@@ -1594,6 +1661,7 @@ async function runSmokeTest(): Promise<void> {
       result.pickerEscRestores === true &&
       result.pickerTodayFuture === true &&
       result.pickerClearWorks === true &&
+      result.focusRingGhosted === true &&
       parseErrorReceipt === true &&
       parseAssertions.grammar === true &&
       parseAssertions.invariants === true &&
