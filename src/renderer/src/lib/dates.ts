@@ -1,13 +1,6 @@
-import {
-  endOfDay,
-  format,
-  isAfter,
-  isBefore,
-  isToday,
-  isTomorrow,
-  startOfDay
-} from 'date-fns'
+import { endOfDay, format, isAfter, isBefore, isToday, startOfDay } from 'date-fns'
 import { zhCN } from 'date-fns/locale'
+import { formatParsedDue } from '@shared/quickAddParse'
 
 export function isTodayOrOverdue(value: string | null): boolean {
   if (!value) return false
@@ -25,15 +18,10 @@ export function isOverdue(value: string | null): boolean {
   return isBefore(new Date(value), new Date())
 }
 
+// One formatter for the whole app: quick-add chips, task rows, detail, palette,
+// reminder and the submit receipt all read the same truth table.
 export function formatDue(value: string | null): string {
-  if (!value) return '无日期'
-  const date = new Date(value)
-  if (isToday(date)) return `今天 ${format(date, 'HH:mm')}`
-  if (isTomorrow(date)) return `明天 ${format(date, 'HH:mm')}`
-  if (isBefore(date, startOfDay(new Date()))) {
-    return `已逾期 · ${format(date, 'M月d日 HH:mm', { locale: zhCN })}`
-  }
-  return format(date, 'M月d日 HH:mm', { locale: zhCN })
+  return formatParsedDue(value, true, new Date())
 }
 
 export function formatHeaderDate(): string {

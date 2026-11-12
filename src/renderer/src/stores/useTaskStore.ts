@@ -18,7 +18,12 @@ type TaskState = {
   setProjectFilter: (projectId: string | null) => void
   selectTask: (id: string | null) => void
   setPaletteOpen: (open: boolean) => void
-  addTask: (title: string, dueAt: string | null, projectId: string | null) => Promise<void>
+  addTask: (
+    title: string,
+    dueAt: string | null,
+    projectId: string | null,
+    priority?: number
+  ) => Promise<void>
   updateTask: (id: string, patch: TaskPatch) => Promise<void>
   toggleTask: (id: string) => Promise<void>
   removeTask: (id: string) => Promise<void>
@@ -67,8 +72,8 @@ export const useTaskStore = create<TaskState>((set, get) => ({
 
   setPaletteOpen: (paletteOpen) => set({ paletteOpen }),
 
-  addTask: async (title, dueAt, projectId) => {
-    const task = await window.polaris.tasks.create({ title, dueAt, projectId })
+  addTask: async (title, dueAt, projectId, priority) => {
+    const task = await window.polaris.tasks.create({ title, dueAt, projectId, priority })
     set((state) => ({ tasks: [task, ...state.tasks] }))
   },
 
