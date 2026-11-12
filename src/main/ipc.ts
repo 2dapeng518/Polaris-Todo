@@ -56,12 +56,18 @@ const createProjectSchema = z.object({
   color: z.string().regex(/^#[0-9a-fA-F]{6}$/)
 })
 
-export function registerIpc(): void {
-  ipcMain.handle('tasks:list', () => listTasks())
-
+// Split out so the smoke test can drop this one channel to exercise the
+// renderer's failed-submit path, then put it back.
+export function registerTaskCreate(): void {
   ipcMain.handle('tasks:create', (_event, input) => {
     return createTask(createTaskSchema.parse(input))
   })
+}
+
+export function registerIpc(): void {
+  ipcMain.handle('tasks:list', () => listTasks())
+
+  registerTaskCreate()
 
   ipcMain.handle('tasks:update', (_event, input) => {
     return updateTask(updateTaskSchema.parse(input))
