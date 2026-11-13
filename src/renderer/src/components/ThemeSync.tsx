@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { isAppTheme, THEME_WINDOW_BG } from '@shared/themes'
 import { useThemeStore } from '../stores/useThemeStore'
 
 export function ThemeSync() {
@@ -7,7 +8,7 @@ export function ThemeSync() {
   useEffect(() => {
     document.documentElement.dataset.theme = theme
     const themeColor = document.querySelector('meta[name="theme-color"]')
-    themeColor?.setAttribute('content', theme === 'light' ? '#F4F3EF' : '#080A0F')
+    themeColor?.setAttribute('content', THEME_WINDOW_BG[theme])
     void window.polaris.app.setTheme(theme).catch((error) => {
       console.error('Failed to apply theme to the window:', error)
     })
@@ -19,12 +20,23 @@ export function ThemeSync() {
   useEffect(() => {
     const onStorage = (event: StorageEvent): void => {
       if (event.key !== 'polaris-theme') return
-      if (event.newValue === 'light' || event.newValue === 'dark') {
+      if (isAppTheme(event.newValue)) {
         useThemeStore.setState({ theme: event.newValue })
       }
     }
     window.addEventListener('storage', onStorage)
     return () => window.removeEventListener('storage', onStorage)
+  }, [])
+
+  // 冒烟测试用的确定性主题注入钩子（与 __polarisParseNow 同一约定）：
+  // 仅调用 store，不引入任何特权；正常使用时也安全无害。
+  useEffect(() => {
+    window.__polarisSetTheme = (value: string) => {
+      if (isAppTheme(value)) useThemeStore.getState().setTheme(value)
+    }
+    return () => {
+      delete window.__polarisSetTheme
+    }
   }, [])
 
   return null

@@ -8,6 +8,8 @@ declare global {
     /** Smoke-test clock injection. Only ever set by runSmokeTest, and deleted
      *  again before it returns; undefined in normal use. */
     __polarisParseNow?: string
+    /** 冒烟测试用的确定性主题注入；由 ThemeSync 挂载，仅调用主题 store。 */
+    __polarisSetTheme?: (theme: string) => void
   }
 }
 

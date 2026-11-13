@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
-import { X } from 'lucide-react'
+import { Check, X } from 'lucide-react'
 import type { AutoStartState } from '@shared/types'
+import { THEME_META, THEME_ORDER } from '@shared/themes'
 import { useTaskStore } from '../stores/useTaskStore'
+import { useThemeStore } from '../stores/useThemeStore'
 import { useFocusTrap } from '../lib/useFocusTrap'
 
 type SettingsPanelProps = {
@@ -18,6 +20,8 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
   const [busy, setBusy] = useState(false)
   const panelRef = useRef<HTMLDivElement>(null)
   const paletteOpen = useTaskStore((state) => state.paletteOpen)
+  const theme = useThemeStore((state) => state.theme)
+  const setTheme = useThemeStore((state) => state.setTheme)
 
   useFocusTrap(panelRef, open && !paletteOpen, panelRef)
 
@@ -104,6 +108,46 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
               <button className="detail-close" onClick={onClose} aria-label="关闭设置">
                 <X size={16} strokeWidth={1.8} aria-hidden="true" />
               </button>
+            </div>
+
+            <div className="settings-section">
+              <div className="settings-row-title">颜色主题</div>
+              <div className="settings-row-desc theme-section-desc">
+                六套克制配色，切换即时生效并自动保存；信号色统一，画布各有气质
+              </div>
+              <div className="theme-picker" role="group" aria-label="颜色主题">
+                {THEME_ORDER.map((id) => {
+                  const meta = THEME_META[id]
+                  const selected = theme === id
+                  return (
+                    <button
+                      key={id}
+                      type="button"
+                      data-theme-option={id}
+                      aria-pressed={selected}
+                      className={`theme-option ${selected ? 'selected' : ''}`}
+                      onClick={() => setTheme(id)}
+                    >
+                      <span className="theme-swatch" aria-hidden="true" style={{ background: meta.swatch[0] }}>
+                        <span className="theme-swatch-surface" style={{ background: meta.swatch[1] }} />
+                        <span className="theme-swatch-dot" style={{ background: meta.swatch[2] }} />
+                      </span>
+                      <span className="theme-option-text">
+                        <span className="theme-option-label">
+                          {meta.label}
+                          <span className="theme-family-tag">{meta.family === 'dark' ? '深色' : '浅色'}</span>
+                        </span>
+                        <span className="theme-option-desc">{meta.desc}</span>
+                      </span>
+                      {selected && (
+                        <span className="theme-option-check" aria-hidden="true">
+                          <Check size={15} strokeWidth={2} />
+                        </span>
+                      )}
+                    </button>
+                  )
+                })}
+              </div>
             </div>
 
             <div className="settings-section">

@@ -143,6 +143,230 @@
   --noise-opacity: 0.018;
 }
 
+/* 暮蓝 Dusk：深海军蓝画布 + 钢蓝中性色阶；teal 信号色不变，次要点缀为雾蓝。 */
+[data-theme="dusk"] {
+  color-scheme: dark;
+  --bg: #132644;
+  --bg-soft: #182c4e;
+  --panel: rgba(24, 44, 78, 0.72);
+  --line: rgba(255, 255, 255, 0.07);
+  --line-strong: rgba(255, 255, 255, 0.12);
+  --text: #e7ecf6;
+  --text-secondary: #a3afc6;
+  --text-tertiary: #93a2be;
+  --accent: #5eead4;
+  --accent-2: #93c5fd;
+  --warning: #fbbf24;
+  --danger: #fb7185;
+  --reminder-primary-text: #07110f;
+  --on-accent: #07110f;
+  --accent-rgb: 94, 234, 212;
+  --accent-2-rgb: 147, 197, 253;
+  --danger-rgb: 251, 113, 133;
+  --priority-low-rgb: 147, 197, 253;
+  --priority-mid-rgb: 251, 191, 36;
+  --aurora-c-rgb: 125, 211, 252;
+  --shadow-rgb: 0, 0, 0;
+  --surface-1: rgba(255, 255, 255, 0.02);
+  --surface-2: rgba(255, 255, 255, 0.025);
+  --hover: rgba(255, 255, 255, 0.035);
+  --hover-soft: rgba(255, 255, 255, 0.04);
+  --hover-strong: rgba(255, 255, 255, 0.05);
+  --selected: rgba(94, 234, 212, 0.08);
+  --input-bg: rgba(0, 0, 0, 0.18);
+  --scrollbar: rgba(255, 255, 255, 0.1);
+  --scrollbar-hover: rgba(255, 255, 255, 0.18);
+  --check-border: rgba(255, 255, 255, 0.2);
+  --check-mark: #07110f;
+  --done-line: rgba(255, 255, 255, 0.18);
+  --swatch-ring: #ffffff;
+  --ring-track: rgba(255, 255, 255, 0.07);
+  --priority-low: #bfdbfe;
+  --priority-mid: #fcd34d;
+  --priority-high: #fda4af;
+  --mark-a: #5eead4;
+  --mark-b: #93c5fd;
+  --inner-highlight: rgba(255, 255, 255, 0.045);
+  --inner-highlight-soft: rgba(255, 255, 255, 0.035);
+  --card-gradient: linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.012));
+  --sidebar-bg: linear-gradient(180deg, rgba(19, 38, 68, 0.72), rgba(19, 38, 68, 0.28));
+  --command-bg: linear-gradient(180deg, rgba(24, 44, 78, 0.99), rgba(19, 36, 64, 0.99));
+  --drawer-bg: rgba(19, 36, 64, 0.96);
+  --panel-bg: #182c4e;
+  --scrim: rgba(6, 12, 26, 0.24);
+  --command-overlay: rgba(6, 12, 26, 0.5);
+  --aurora-opacity: 0.85;
+  --noise-opacity: 0.03;
+}
+
+/* 暖砂 Sand：燕麦暖砂画布 + 暖 taupe 中性色阶；深 teal 信号色，次要点缀为陶土。 */
+[data-theme="sand"] {
+  color-scheme: light;
+  --bg: #ece0c6;
+  --bg-soft: #e6d9bd;
+  --panel: rgba(255, 252, 246, 0.74);
+  --line: rgba(40, 33, 24, 0.09);
+  --line-strong: rgba(40, 33, 24, 0.15);
+  --text: #211b13;
+  --text-secondary: #5d5243;
+  --text-tertiary: #665a4b;
+  --accent: #0d6e66;
+  --accent-2: #9a3412;
+  --warning: #b45309;
+  --danger: #be123c;
+  --reminder-primary-text: #ffffff;
+  --on-accent: #ffffff;
+  --accent-rgb: 13, 110, 102;
+  --accent-2-rgb: 154, 52, 18;
+  --danger-rgb: 190, 18, 60;
+  --priority-low-rgb: 79, 70, 229;
+  --priority-mid-rgb: 180, 83, 9;
+  --aurora-c-rgb: 217, 119, 6;
+  --shadow-rgb: 40, 33, 24;
+  --surface-1: rgba(255, 252, 246, 0.55);
+  --surface-2: rgba(255, 252, 246, 0.74);
+  --hover: rgba(40, 33, 24, 0.04);
+  --hover-soft: rgba(40, 33, 24, 0.05);
+  --hover-strong: rgba(40, 33, 24, 0.065);
+  --selected: rgba(13, 110, 102, 0.08);
+  --input-bg: rgba(255, 252, 246, 0.88);
+  --scrollbar: rgba(40, 33, 24, 0.18);
+  --scrollbar-hover: rgba(40, 33, 24, 0.3);
+  --check-border: rgba(40, 33, 24, 0.22);
+  --check-mark: #ffffff;
+  --done-line: rgba(40, 33, 24, 0.22);
+  --swatch-ring: #292018;
+  --ring-track: rgba(40, 33, 24, 0.09);
+  --priority-low: #4338ca;
+  --priority-mid: #b45309;
+  --priority-high: #be123c;
+  --mark-a: #0d6e66;
+  --mark-b: #9a3412;
+  --inner-highlight: rgba(255, 255, 255, 0.9);
+  --inner-highlight-soft: rgba(255, 255, 255, 0.8);
+  --card-gradient: linear-gradient(180deg, rgba(255, 252, 246, 0.92), rgba(255, 252, 246, 0.6));
+  --sidebar-bg: linear-gradient(180deg, rgba(255, 252, 246, 0.76), rgba(236, 224, 198, 0.32));
+  --command-bg: linear-gradient(180deg, rgba(255, 252, 246, 0.99), rgba(246, 240, 226, 0.99));
+  --drawer-bg: rgba(255, 252, 246, 0.97);
+  --panel-bg: #faf6ee;
+  --scrim: rgba(40, 33, 24, 0.16);
+  --command-overlay: rgba(40, 33, 24, 0.22);
+  --aurora-opacity: 0.5;
+  --noise-opacity: 0.018;
+}
+
+/* 天蓝 Sky：晴空浅蓝画布 + 冷钢蓝中性色阶；深 teal 信号色，次要点缀为晴空蓝。 */
+[data-theme="sky"] {
+  color-scheme: light;
+  --bg: #dceaf6;
+  --bg-soft: #d2e3f1;
+  --panel: rgba(244, 250, 254, 0.72);
+  --line: rgba(23, 42, 58, 0.08);
+  --line-strong: rgba(23, 42, 58, 0.14);
+  --text: #17242f;
+  --text-secondary: #466072;
+  --text-tertiary: #4d6476;
+  --accent: #0d6e66;
+  --accent-2: #075985;
+  --warning: #b45309;
+  --danger: #be123c;
+  --reminder-primary-text: #ffffff;
+  --on-accent: #ffffff;
+  --accent-rgb: 13, 110, 102;
+  --accent-2-rgb: 7, 89, 133;
+  --danger-rgb: 190, 18, 60;
+  --priority-low-rgb: 79, 70, 229;
+  --priority-mid-rgb: 180, 83, 9;
+  --aurora-c-rgb: 56, 189, 248;
+  --shadow-rgb: 23, 42, 58;
+  --surface-1: rgba(255, 255, 255, 0.55);
+  --surface-2: rgba(255, 255, 255, 0.72);
+  --hover: rgba(23, 42, 58, 0.035);
+  --hover-soft: rgba(23, 42, 58, 0.045);
+  --hover-strong: rgba(23, 42, 58, 0.06);
+  --selected: rgba(13, 110, 102, 0.08);
+  --input-bg: rgba(255, 255, 255, 0.85);
+  --scrollbar: rgba(23, 42, 58, 0.16);
+  --scrollbar-hover: rgba(23, 42, 58, 0.28);
+  --check-border: rgba(23, 42, 58, 0.2);
+  --check-mark: #ffffff;
+  --done-line: rgba(23, 42, 58, 0.2);
+  --swatch-ring: #1f2937;
+  --ring-track: rgba(23, 42, 58, 0.08);
+  --priority-low: #4338ca;
+  --priority-mid: #b45309;
+  --priority-high: #be123c;
+  --mark-a: #0d6e66;
+  --mark-b: #075985;
+  --inner-highlight: rgba(255, 255, 255, 0.9);
+  --inner-highlight-soft: rgba(255, 255, 255, 0.8);
+  --card-gradient: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0.6));
+  --sidebar-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.74), rgba(220, 234, 246, 0.32));
+  --command-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.99), rgba(240, 247, 252, 0.99));
+  --drawer-bg: rgba(255, 255, 255, 0.97);
+  --panel-bg: #eef6fc;
+  --scrim: rgba(23, 42, 58, 0.16);
+  --command-overlay: rgba(23, 42, 58, 0.22);
+  --aurora-opacity: 0.5;
+  --noise-opacity: 0.018;
+}
+
+/* 护眼绿 Green：经典浅绿护眼画布 + 暖苔绿中性色阶；深 teal 信号色，次要点缀为叶绿。 */
+[data-theme="green"] {
+  color-scheme: light;
+  --bg: #c7edcc;
+  --bg-soft: #bfe5c5;
+  --panel: rgba(250, 255, 251, 0.74);
+  --line: rgba(28, 43, 28, 0.09);
+  --line-strong: rgba(28, 43, 28, 0.15);
+  --text: #1e2b1c;
+  --text-secondary: #4a6040;
+  --text-tertiary: #52684a;
+  --accent: #0b6b63;
+  --accent-2: #3f6212;
+  --warning: #b45309;
+  --danger: #be123c;
+  --reminder-primary-text: #ffffff;
+  --on-accent: #ffffff;
+  --accent-rgb: 11, 107, 99;
+  --accent-2-rgb: 63, 98, 18;
+  --danger-rgb: 190, 18, 60;
+  --priority-low-rgb: 79, 70, 229;
+  --priority-mid-rgb: 180, 83, 9;
+  --aurora-c-rgb: 74, 222, 128;
+  --shadow-rgb: 28, 43, 28;
+  --surface-1: rgba(250, 255, 251, 0.55);
+  --surface-2: rgba(250, 255, 251, 0.74);
+  --hover: rgba(28, 43, 28, 0.04);
+  --hover-soft: rgba(28, 43, 28, 0.05);
+  --hover-strong: rgba(28, 43, 28, 0.065);
+  --selected: rgba(11, 107, 99, 0.08);
+  --input-bg: rgba(250, 255, 251, 0.88);
+  --scrollbar: rgba(28, 43, 28, 0.18);
+  --scrollbar-hover: rgba(28, 43, 28, 0.3);
+  --check-border: rgba(28, 43, 28, 0.22);
+  --check-mark: #ffffff;
+  --done-line: rgba(28, 43, 28, 0.22);
+  --swatch-ring: #1f2a1c;
+  --ring-track: rgba(28, 43, 28, 0.09);
+  --priority-low: #4338ca;
+  --priority-mid: #b45309;
+  --priority-high: #be123c;
+  --mark-a: #0b6b63;
+  --mark-b: #3f6212;
+  --inner-highlight: rgba(255, 255, 255, 0.9);
+  --inner-highlight-soft: rgba(255, 255, 255, 0.8);
+  --card-gradient: linear-gradient(180deg, rgba(250, 255, 251, 0.92), rgba(250, 255, 251, 0.6));
+  --sidebar-bg: linear-gradient(180deg, rgba(250, 255, 251, 0.76), rgba(199, 237, 204, 0.32));
+  --command-bg: linear-gradient(180deg, rgba(250, 255, 251, 0.99), rgba(240, 250, 242, 0.99));
+  --drawer-bg: rgba(250, 255, 251, 0.97);
+  --panel-bg: #eaf7ec;
+  --scrim: rgba(28, 43, 28, 0.16);
+  --command-overlay: rgba(28, 43, 28, 0.22);
+  --aurora-opacity: 0.45;
+  --noise-opacity: 0.018;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -1196,7 +1420,13 @@ textarea {
 }
 
 [data-theme="light"] .project-dot,
-[data-theme="light"] .meta-dot {
+[data-theme="light"] .meta-dot,
+[data-theme="sand"] .project-dot,
+[data-theme="sand"] .meta-dot,
+[data-theme="sky"] .project-dot,
+[data-theme="sky"] .meta-dot,
+[data-theme="green"] .project-dot,
+[data-theme="green"] .meta-dot {
   filter: brightness(0.82) saturate(1.15);
 }
 
@@ -2827,6 +3057,8 @@ textarea {
 
 .settings-panel {
   width: min(440px, calc(100vw - 48px));
+  max-height: calc(100vh - 96px);
+  overflow-y: auto;
   padding: 20px 24px;
   border: 1px solid var(--line-strong);
   border-radius: 16px;
@@ -2885,6 +3117,122 @@ textarea {
   font-size: 11px;
   line-height: 1.6;
   text-wrap: pretty;
+}
+
+.theme-section-desc {
+  max-width: none;
+  margin-bottom: 12px;
+}
+
+.theme-picker {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.theme-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-1);
+  color: var(--text);
+  text-align: left;
+  cursor: default;
+  transition:
+    border-color 0.16s,
+    background 0.16s,
+    box-shadow 0.16s;
+}
+
+.theme-option:hover {
+  border-color: var(--line-strong);
+  background: var(--hover);
+}
+
+.theme-option.selected {
+  border-color: rgba(var(--accent-rgb), 0.55);
+  background: rgba(var(--accent-rgb), 0.07);
+  box-shadow: 0 0 0 1px rgba(var(--accent-rgb), 0.25);
+}
+
+/* 选中态已带 accent 描边：聚焦时去掉描边与选中光环，只留一圈焦点环，避免双重 accent 边。 */
+.theme-option.selected:focus-visible {
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.theme-swatch {
+  position: relative;
+  flex: none;
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.theme-swatch-surface {
+  position: absolute;
+  left: 4px;
+  right: 4px;
+  bottom: 4px;
+  height: 12px;
+  border-radius: 4px;
+}
+
+.theme-swatch-dot {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+
+.theme-option-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.theme-option-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.theme-family-tag {
+  padding: 1px 5px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--text-tertiary);
+  font-size: 9px;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+}
+
+.theme-option-desc {
+  color: var(--text-tertiary);
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+.theme-option-check {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 18px;
+  height: 18px;
+  margin-left: auto;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--on-accent);
 }
 
 .settings-static {

@@ -1,7 +1,7 @@
 {
   "name": "polaris-todo",
   "productName": "Polaris",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Polaris — a premium local-first to-do app for Windows 11",
   "main": "./out/main/index.js",
   "license": "MIT",
@@ -20,6 +20,7 @@
     "preview": "electron-vite preview",
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
     "smoke": "node scripts/smoke.mjs",
+    "verify:themes": "node scripts/verify-theme-contrast.mjs && node scripts/verify-theme-registry.mjs",
     "build:win": "npm run build && electron-builder --win nsis"
   },
   "dependencies": {

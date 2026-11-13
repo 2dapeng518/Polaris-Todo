@@ -7,6 +7,7 @@ import {
 } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import {
+  ArrowLeftRight,
   CalendarDays,
   CheckCircle2,
   Circle,
@@ -20,6 +21,7 @@ import {
 import type { AppView } from '@shared/types'
 import { useTaskStore } from '../stores/useTaskStore'
 import { useThemeStore } from '../stores/useThemeStore'
+import { THEME_META, partnerTheme, themeFamily } from '@shared/themes'
 import { formatDue } from '../lib/dates'
 import { useFocusTrap } from '../lib/useFocusTrap'
 
@@ -85,6 +87,9 @@ export function CommandPalette() {
       setView(view)
       close()
     }
+    const nextTheme = partnerTheme(theme)
+    const nextIsDark = themeFamily(nextTheme) === 'dark'
+    const sameFamily = themeFamily(nextTheme) === themeFamily(theme)
 
     return [
       {
@@ -111,8 +116,8 @@ export function CommandPalette() {
       {
         kind: 'command',
         id: 'toggle-theme',
-        label: theme === 'dark' ? '切换到浅色主题' : '切换到深色主题',
-        icon: theme === 'dark' ? Sun : Moon,
+        label: `切换到 ${THEME_META[nextTheme].label}`,
+        icon: sameFamily ? ArrowLeftRight : nextIsDark ? Moon : Sun,
         run: () => {
           toggleTheme()
           close()
