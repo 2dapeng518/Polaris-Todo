@@ -913,6 +913,20 @@ async function runSmokeTest(): Promise<void> {
         (autoStartToggled.enabled === !autoStartBefore.enabled &&
           autoStartRestored.enabled === autoStartBefore.enabled);
 
+      // 主界面页脚的版本号同样不得写死：它和设置面板读同一条通道，
+      // 两处都比对主进程的 app.getVersion()，任何一处写死都会在这里露馅。
+      await waitFor(() => document.querySelector('.footer-version'));
+      const footerVersion = document.querySelector('.footer-version').textContent.trim();
+
+      // 设置面板底部的版本号必须来自主进程，渲染层不得写死。这里只取 DOM 文本，
+      // 期望值由主进程侧的 app.getVersion() 提供（见下方 ok 断言）。
+      document.querySelector('.settings-item').click();
+      await waitFor(() => document.querySelector('.settings-version'));
+      const settingsVersion = document.querySelector('.settings-version').textContent.trim();
+      document.querySelector('.settings-panel .detail-close').click();
+      await waitFor(() => !document.querySelector('.settings-panel'));
+      await sleep(200);
+
       const noticeTitle = '重复提示 ' + Date.now();
       const noticeDue = new Date(Date.now() + 60 * 60 * 1000).toISOString();
       await window.polaris.tasks.create({
@@ -1450,6 +1464,8 @@ async function runSmokeTest(): Promise<void> {
         themeToggled,
         themeMatrix,
         autoStartTested,
+        settingsVersion,
+        footerVersion,
         recurrenceTested,
         recurrenceNoticeTested,
         afterDelete
@@ -1751,6 +1767,9 @@ async function runSmokeTest(): Promise<void> {
       result.themeToggled === true &&
       result.themeMatrix === true &&
       result.autoStartTested === true &&
+      // 期望值取自主进程，不经渲染层反算：写死的版本字符串会在这里露馅。
+      result.settingsVersion === app.getVersion() &&
+      result.footerVersion === app.getVersion() &&
       result.recurrenceTested === true &&
       result.recurrenceNoticeTested === true &&
       result.afterDelete === result.initial &&
@@ -1886,6 +1905,11 @@ app.whenReady().then(() => {
   ipcMain.handle('app:set-autostart', (_event, enabled: boolean) => {
     return setAutoStartState(Boolean(enabled))
   })
+
+  // Read-only, no payload to validate. The renderer must never hardcode a version
+  // string: app.getVersion() reads the packaged package.json, so a release bump
+  // reaches the settings panel without a code edit.
+  ipcMain.handle('app:get-version', () => app.getVersion())
 
   createWindow()
   createTray(showMainWindow, () => app.quit())

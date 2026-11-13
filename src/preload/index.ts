@@ -23,6 +23,7 @@ const api: PolarisApi = {
   },
   app: {
     platform: process.platform,
+    getVersion: (): Promise<string> => ipcRenderer.invoke('app:get-version'),
     setTheme: (theme: AppTheme) => ipcRenderer.invoke('app:set-theme', theme),
     getAutoStart: (): Promise<AutoStartState> => ipcRenderer.invoke('app:get-autostart'),
     setAutoStart: (enabled: boolean): Promise<AutoStartState> =>

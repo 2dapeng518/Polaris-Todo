@@ -5,6 +5,7 @@ import type { AutoStartState } from '@shared/types'
 import { THEME_META, THEME_ORDER } from '@shared/themes'
 import { useTaskStore } from '../stores/useTaskStore'
 import { useThemeStore } from '../stores/useThemeStore'
+import { useAppVersion } from '../stores/useAppVersion'
 import { useFocusTrap } from '../lib/useFocusTrap'
 
 type SettingsPanelProps = {
@@ -22,6 +23,8 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
   const paletteOpen = useTaskStore((state) => state.paletteOpen)
   const theme = useThemeStore((state) => state.theme)
   const setTheme = useThemeStore((state) => state.setTheme)
+  // 打开时才取；与主界面页脚共用同一份版本号，取到就不再请求，失败下次打开重试。
+  const version = useAppVersion(open)
 
   useFocusTrap(panelRef, open && !paletteOpen, panelRef)
 
@@ -193,7 +196,15 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
               </div>
             </div>
 
-            <div className="settings-footer">Polaris 0.1 · 数据保存在本机</div>
+            <div className="settings-footer">
+              {version && (
+                <>
+                  版本 <span className="settings-version">{version}</span>
+                  {' · '}
+                </>
+              )}
+              数据保存在本机
+            </div>
           </motion.div>
         </motion.div>
       )}
