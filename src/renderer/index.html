@@ -7,9 +7,10 @@
     <script>
       ;(function () {
         try {
+          var themes = ['dark', 'light', 'dusk', 'sand', 'sky', 'green']
           var stored = localStorage.getItem('polaris-theme')
           var theme =
-            stored === 'light' || stored === 'dark'
+            themes.indexOf(stored) !== -1
               ? stored
               : window.matchMedia('(prefers-color-scheme: light)').matches
                 ? 'light'

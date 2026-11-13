@@ -5,6 +5,7 @@ import { getAutoStartState, setAutoStartState } from './autostart'
 import { initDatabase } from './db'
 import { registerIpc, registerTaskCreate } from './ipc'
 import { getCurrentTheme, initAppTheme, setCurrentTheme, themeBackgroundColor } from './theme'
+import { isAppTheme, THEME_SYMBOL_COLOR, themeFamily } from '../shared/themes'
 import {
   checkRemindersNow,
   dismissReminder,
@@ -39,7 +40,7 @@ function createWindow(): void {
     titleBarStyle: 'hidden',
     titleBarOverlay: {
       color: '#00000000',
-      symbolColor: '#9CA3AF',
+      symbolColor: THEME_SYMBOL_COLOR[themeFamily(getCurrentTheme())],
       height: 48
     },
     backgroundMaterial: 'mica',
@@ -265,16 +266,32 @@ async function captureDemo(mode: string): Promise<void> {
   }
 
   try {
+    if (mode === 'themes') {
+      for (const id of ['dark', 'light', 'dusk', 'sand', 'sky', 'green']) {
+        await mainWindow.webContents.executeJavaScript(
+          `window.__polarisSetTheme && window.__polarisSetTheme(${JSON.stringify(id)})`
+        )
+        await new Promise((resolve) => setTimeout(resolve, 550))
+        await captureTo(`screenshot-theme-${id}.png`)
+      }
+      await captureSettingsScreenshot('screenshot-theme-picker.png')
+      await mainWindow.webContents.executeJavaScript(
+        `window.__polarisSetTheme && window.__polarisSetTheme('dark')`
+      )
+      app.quit()
+      return
+    }
+
     if (!mode.startsWith('light')) {
       await mainWindow.webContents.executeJavaScript(
-        `(() => { if (document.documentElement.dataset.theme !== 'dark') document.querySelector('.theme-toggle')?.click(); })()`
+        `window.__polarisSetTheme && window.__polarisSetTheme('dark')`
       )
       await new Promise((resolve) => setTimeout(resolve, 600))
     }
 
     if (mode.startsWith('light')) {
       await mainWindow.webContents.executeJavaScript(
-        `(() => { if (document.documentElement.dataset.theme !== 'light') document.querySelector('.theme-toggle')?.click(); })()`
+        `window.__polarisSetTheme && window.__polarisSetTheme('light')`
       )
       await new Promise((resolve) => setTimeout(resolve, 600))
 
@@ -852,6 +869,39 @@ async function runSmokeTest(): Promise<void> {
       await sleep(500);
       const restoredTheme = document.documentElement.dataset.theme;
       const themeToggled = toggledTheme !== initialTheme && restoredTheme === initialTheme;
+      // 主题矩阵：逐一切换全部 6 套主题，校验 data-theme、持久化、令牌生效与关键表面可读。
+      const themeBgHex = { dark: '#080a0f', light: '#f4f3ef', dusk: '#132644', sand: '#ece0c6', sky: '#dceaf6', green: '#c7edcc' };
+      const themePanelHex = { dark: '#0b0e15', light: '#fbfaf7', dusk: '#182c4e', sand: '#faf6ee', sky: '#eef6fc', green: '#eaf7ec' };
+      let themeMatrix = typeof window.__polarisSetTheme === 'function';
+      for (const id of ['dark', 'light', 'dusk', 'sand', 'sky', 'green']) {
+        window.__polarisSetTheme(id);
+        await sleep(160);
+        const rootStyle = getComputedStyle(document.documentElement);
+        const taskEl = document.querySelector('.task-item') || document.body;
+        const taskColor = getComputedStyle(taskEl).color;
+        themeMatrix = themeMatrix &&
+          document.documentElement.dataset.theme === id &&
+          localStorage.getItem('polaris-theme') === id &&
+          rootStyle.getPropertyValue('--bg').trim() === themeBgHex[id] &&
+          rootStyle.getPropertyValue('--panel-bg').trim() === themePanelHex[id] &&
+          taskColor !== '' && taskColor !== 'rgba(0, 0, 0, 0)';
+      }
+      // 对合不变量：每对配对连点两次回到原点（快捷切换不会迷失状态）。
+      for (const [a, b] of [['dark', 'light'], ['dusk', 'sand'], ['sky', 'green']]) {
+        window.__polarisSetTheme(a);
+        await sleep(120);
+        document.querySelector('.theme-toggle').click();
+        await sleep(160);
+        const flip = document.documentElement.dataset.theme;
+        document.querySelector('.theme-toggle').click();
+        await sleep(160);
+        const restore = document.documentElement.dataset.theme;
+        themeMatrix = themeMatrix && flip === b && restore === a;
+      }
+      // 恢复初始主题，后续 reminder 像素采样据此选定期望色。
+      window.__polarisSetTheme(initialTheme);
+      await sleep(200);
+      themeMatrix = themeMatrix && document.documentElement.dataset.theme === initialTheme;
 
       const autoStartBefore = await window.polaris.app.getAutoStart();
       await window.polaris.app.setAutoStart(!autoStartBefore.enabled);
@@ -1398,6 +1448,7 @@ async function runSmokeTest(): Promise<void> {
         persisted,
         commandCount,
         themeToggled,
+        themeMatrix,
         autoStartTested,
         recurrenceTested,
         recurrenceNoticeTested,
@@ -1555,7 +1606,7 @@ async function runSmokeTest(): Promise<void> {
           .crop({ x: size.width - 6, y: Math.floor(size.height / 2), width: 1, height: 1 })
           .toBitmap()
         const [b, g, r] = [pixel[0], pixel[1], pixel[2]]
-        const want = themeBefore === 'light' ? [251, 250, 247] : [11, 14, 21]
+        const want = ({ dark: [11, 14, 21], light: [251, 250, 247], dusk: [24, 44, 78], sand: [250, 246, 238], sky: [238, 246, 252], green: [234, 247, 236] } as Record<string, number[]>)[themeBefore] ?? [11, 14, 21]
         const painted = Math.abs(r - want[0]) <= 1 && Math.abs(g - want[1]) <= 1 && Math.abs(b - want[2]) <= 1
 
         // Sample 1 CSS px inside the primary button's top edge, unfocused. An
@@ -1621,7 +1672,7 @@ async function runSmokeTest(): Promise<void> {
         const fp = flippedImage
           .crop({ x: flippedSize.width - 6, y: Math.floor(flippedSize.height / 2), width: 1, height: 1 })
           .toBitmap()
-        const flipWant = flipped === 'light' ? [251, 250, 247] : [11, 14, 21]
+        const flipWant = ({ dark: [11, 14, 21], light: [251, 250, 247], dusk: [24, 44, 78], sand: [250, 246, 238], sky: [238, 246, 252], green: [234, 247, 236] } as Record<string, number[]>)[flipped] ?? [11, 14, 21]
         const flipPainted =
           Math.abs(fp[2] - flipWant[0]) <= 1 &&
           Math.abs(fp[1] - flipWant[1]) <= 1 &&
@@ -1698,6 +1749,7 @@ async function runSmokeTest(): Promise<void> {
       result.persisted === true &&
       result.commandCount === 1 &&
       result.themeToggled === true &&
+      result.themeMatrix === true &&
       result.autoStartTested === true &&
       result.recurrenceTested === true &&
       result.recurrenceNoticeTested === true &&
@@ -1808,7 +1860,7 @@ app.whenReady().then(() => {
   registerIpc()
 
   ipcMain.handle('app:set-theme', (event, theme: string) => {
-    if (theme !== 'light' && theme !== 'dark') return
+    if (!isAppTheme(theme)) return
     // Only the main window owns the global theme; a reminder window echoing its
     // own synced value must not write it back.
     if (!mainWindow || event.sender !== mainWindow.webContents) return
@@ -1820,7 +1872,7 @@ app.whenReady().then(() => {
 
     mainWindow.setTitleBarOverlay({
       color: '#00000000',
-      symbolColor: theme === 'light' ? '#4B5563' : '#9CA3AF',
+      symbolColor: THEME_SYMBOL_COLOR[themeFamily(theme)],
       height: 48
     })
   })

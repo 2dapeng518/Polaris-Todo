@@ -1,16 +1,17 @@
 import { create } from 'zustand'
+import { isAppTheme, partnerTheme, type AppTheme } from '@shared/themes'
 
-export type Theme = 'dark' | 'light'
+export type Theme = AppTheme
 
 const STORAGE_KEY = 'polaris-theme'
 
 function getInitialTheme(): Theme {
   const fromDocument = document.documentElement.dataset.theme
-  if (fromDocument === 'light' || fromDocument === 'dark') return fromDocument
+  if (isAppTheme(fromDocument)) return fromDocument
 
   try {
     const stored = localStorage.getItem(STORAGE_KEY)
-    if (stored === 'light' || stored === 'dark') return stored
+    if (isAppTheme(stored)) return stored
     return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'
   } catch {
     return 'dark'
@@ -35,7 +36,8 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
     set({ theme })
   },
 
+  // 快捷切换在对合配对间翻转（dark↔light、dusk↔sand、sky↔green），连点两次必回到原主题。
   toggleTheme: () => {
-    get().setTheme(get().theme === 'dark' ? 'light' : 'dark')
+    get().setTheme(partnerTheme(get().theme))
   }
 }))

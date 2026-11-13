@@ -50,7 +50,9 @@ export type CreateProjectInput = {
 
 export type AppView = 'today' | 'upcoming' | 'all' | 'completed'
 
-export type AppTheme = 'dark' | 'light'
+import type { AppTheme } from './themes'
+
+export type { AppTheme }
 
 export type AutoStartState = {
   enabled: boolean

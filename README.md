@@ -2,7 +2,7 @@
 
 Windows 11 上的本地优先待办应用。深色墨黑界面、青绿信号色、原生窗口控件，数据默认只保存在本机。
 
-[![版本](https://img.shields.io/badge/version-0.1.0-0F766E?style=flat-square)](package.json)
+[![版本](https://img.shields.io/badge/version-0.2.0-0F766E?style=flat-square)](package.json)
 [![平台](https://img.shields.io/badge/platform-Windows%2011-334155?style=flat-square)](package.json)
 [![许可证](https://img.shields.io/badge/license-MIT-0F766E?style=flat-square)](package.json)
 
@@ -74,6 +74,7 @@ node node_modules/electron/install.js
 | `npm run typecheck` | 主进程 + 渲染层 TypeScript 检查 |
 | `npm run build` | 构建到 `out/` |
 | `npm run smoke` | 启动真实应用跑冒烟测试（需先 `npm run build`） |
+| `npm run verify:themes` | 主题对比度与注册表不变量校验 |
 | `npm run preview` | 预览生产构建 |
 | `npm run build:win` | 构建并生成 NSIS 安装包 |
 
@@ -93,7 +94,7 @@ src/
       lib/         日期格式化、焦点陷阱
       stores/      Zustand 状态
       styles/      单一样式表 globals.css
-scripts/       冒烟测试启动器、图标生成脚本
+scripts/       冒烟测试启动器、主题校验脚本、图标生成脚本
 design-system/ Polaris 品牌系统、token、组件规范
 build/         应用图标与安装包资源
 ```
@@ -110,7 +111,7 @@ build/         应用图标与安装包资源
 - 设置里可开启开机自启：登录 Windows 后以 `--hidden` 后台启动到托盘；单实例保护，再次启动会唤起已有窗口。
 - 侧栏新建项目，内置六种配色。
 - 命令面板（`Ctrl K`）：搜索任务、切换视图、新建任务或项目、切换主题。
-- 深色 / 浅色主题：标题栏按钮或命令面板切换，选择会记住；首次启动跟随系统。
+- 六套颜色主题（夜阑 / 昼白 / 暮蓝 / 暖砂 / 天蓝 / 护眼绿）：设置面板的主题卡片任选；标题栏按钮或命令面板在配对间快捷翻转（夜阑↔昼白、暮蓝↔暖砂、天蓝↔护眼绿）。切换即时生效并记住，首次启动跟随系统；青绿信号色统一，画布各有气质，文字对比度均达 WCAG AA。
 - 键盘优先：命令面板、设置和窄屏详情有焦点陷阱；宽屏详情保持列表可操作，支持 skip link、reduced motion 和可见焦点环。
 - SQLite 本地持久化，自定义标题栏保留 Windows 原生最小化 / 最大化 / 关闭按钮。
 
@@ -219,12 +220,12 @@ build/         应用图标与安装包资源
 1. 改代码，用 `npm run dev` 验证交互。
 2. 运行 `npm run typecheck`。
 3. 运行 `npm run build && npm run smoke`。
-4. 需要看视觉结果时，构建后用 `POLARIS_SHOT=<mode> npx electron .` 截图到仓库根目录；模式包括 `detail`、`palette`、`projects`、`reminder`、`reminder-detail`、`settings`、`toast`、`recurrence`、`parse`、`parse-past`、`parse-notice`、`parse-blocked`、`due-picker`、`due-clear` 及各自的 `light-` 变体，另有仅深色的 `narrow`（先把窗口缩到 1100×800 再截详情栏）。
+4. 需要看视觉结果时，构建后用 `POLARIS_SHOT=<mode> npx electron .` 截图到仓库根目录；模式包括 `detail`、`palette`、`projects`、`reminder`、`reminder-detail`、`settings`、`toast`、`recurrence`、`parse`、`parse-past`、`parse-notice`、`parse-blocked`、`due-picker`、`due-clear` 及各自的 `light-` 变体，另有仅深色的 `narrow`（先把窗口缩到 1100×800 再截详情栏），以及 `themes`（逐套截取六主题主视图与主题选择器）。
 5. 发布前运行 `npm run build:win`。
 
 打包产物：
 
-- `dist/Polaris-Setup-0.1.0.exe`：NSIS 安装包，按用户安装，无需管理员权限，安装界面为简体中文。
+- `dist/Polaris-Setup-0.2.0.exe`：NSIS 安装包，按用户安装，无需管理员权限，安装界面为简体中文。
 - `dist/win-unpacked/Polaris.exe`：免安装目录版。
 
 安装包未做代码签名，首次运行可能触发 SmartScreen 或杀毒软件扫描提示。应用图标来自 `build/icon.ico`，可用 `node scripts/make-app-icon.mjs` 重新生成。
@@ -241,11 +242,12 @@ build/         应用图标与安装包资源
 
 ## 测试
 
-仓库没有单元测试框架，也没有 lint 脚本。唯一的自动化检查是冒烟测试：
+仓库没有单元测试框架，也没有 lint 脚本。自动化检查是冒烟测试与主题校验：
 
 ```bash
 npm run build
 npm run smoke
+npm run verify:themes
 ```
 
 `scripts/smoke.mjs` 启动真实 Electron，`runSmokeTest()`（在 `src/main/index.ts`）通过 `webContents.executeJavaScript` 驱动界面，覆盖快速添加、详情编辑、完成、删除与撤销、命令面板、主题切换、开机自启、重复任务和「已创建下一次」提示。测试使用临时 userData 配置目录，不会碰本机数据，结束后自动清理；失败时进程以非零退出码结束。
@@ -271,7 +273,7 @@ npm run smoke
 - 重复任务完成时会推进系列；取消完成不会回滚已经生成的下一次。
 - 撤销只保留最近一次删除，连续删除会覆盖上一条。
 - 窗口底色保持不透明，Mica 尚未作为视觉层启用；`backgroundMaterial: 'mica'` 已预留，等界面稳定后再做透明标题栏实验。
-- 主题选择保存在 `localStorage` 的 `polaris-theme` 键；没有保存过时按系统浅色 / 深色偏好启动。
+- 主题选择保存在 `localStorage` 的 `polaris-theme` 键（取值 `dark` / `light` / `dusk` / `sand` / `sky` / `green`）；没有保存过时按系统浅色 / 深色偏好启动。主题注册表在 `src/shared/themes.ts`，主进程与渲染器共享；`npm run verify:themes` 校验对比度与注册表不变量。
 - 开发态的开机自启项指向 `electron.exe`，打包后指向正式安装路径。
 - 示例任务只用于首次启动展示；删除数据可清空 Electron userData 目录下的 `polaris.db`。
 - 开发模式下 Vite 可能提示 `React DevTools global hook` 被 shim、Fast Refresh 被禁用；不影响构建和运行。

@@ -1,5 +1,5 @@
 import { nativeTheme } from 'electron'
-import type { AppTheme } from '../shared/types'
+import { isAppTheme, THEME_WINDOW_BG, type AppTheme } from '../shared/themes'
 import { getMeta, setMeta } from './db'
 
 // The main process's single record of the active theme. It lives here rather
@@ -8,7 +8,7 @@ let current: AppTheme | null = null
 
 export function initAppTheme(): void {
   const stored = getMeta('theme')
-  if (stored === 'light' || stored === 'dark') current = stored
+  if (isAppTheme(stored)) current = stored
 }
 
 export function getCurrentTheme(): AppTheme {
@@ -22,5 +22,5 @@ export function setCurrentTheme(theme: AppTheme): void {
 
 // Every window is painted --bg; surfaces inside are drawn by the renderer.
 export function themeBackgroundColor(theme: AppTheme = getCurrentTheme()): string {
-  return theme === 'light' ? '#F4F3EF' : '#080A0F'
+  return THEME_WINDOW_BG[theme]
 }
