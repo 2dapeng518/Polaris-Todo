@@ -1,0 +1,874 @@
+{
+  "searches": [
+    {
+      "query": "maple-mono",
+      "ok": false,
+      "error": "fetch failed"
+    },
+    {
+      "query": "commit-mono",
+      "ok": true,
+      "hits": [
+        {
+          "name": "@fontsource/commit-mono",
+          "version": "5.3.0",
+          "description": "Self-host the Commit Mono font in a neatly bundled NPM package.",
+          "links": "git+https://github.com/fontsource/font-files.git"
+        },
+        {
+          "name": "@earendil-works/elanor-fonts",
+          "version": "0.1.0",
+          "description": "Mallos Serif, Commit Mono, and DepartureMono fonts with self-hosted CSS entry points.",
+          "links": "git+https://github.com/earendil-works/elanor.git"
+        },
+        {
+          "name": "@fontsource/ibm-plex-mono",
+          "version": "5.3.0",
+          "description": "Self-host the IBM Plex Mono font in a neatly bundled NPM package.",
+          "links": "git+https://github.com/fontsource/font-files.git"
+        },
+        {
+          "name": "@fontsource-variable/jetbrains-mono",
+          "version": "5.3.0",
+          "description": "Self-host the JetBrains Mono font in a neatly bundled NPM package.",
+          "links": "git+https://github.com/fontsource/font-files.git"
+        },
+        {
+          "name": "@fontsource-variable/geist-mono",
+          "version": "5.3.0",
+          "description": "Self-host the Geist Mono font in a neatly bundled NPM package.",
+          "links": "git+https://github.com/fontsource/font-files.git"
+        },
+        {
+          "name": "@fontsource/jetbrains-mono",
+          "version": "5.3.0",
+          "description": "Self-host the JetBrains Mono font in a neatly bundled NPM package.",
+          "links": "git+https://github.com/fontsource/font-files.git"
+        },
+        {
+          "name": "@fontsource/geist-mono",
+          "version": "5.3.0",
+          "description": "Self-host the Geist Mono font in a neatly bundled NPM package.",
+          "links": "git+https://github.com/fontsource/font-files.git"
+        },
+        {
+          "name": "@s-ui/mono",
+          "version": "2.46.0",
+          "description": "Commit and release manager",
+          "links": "git+https://github.com/SUI-Components/sui.git"
+        }
+      ]
+    },
+    {
+      "query": "mingcute",
+      "ok": true,
+      "hits": [
+        {
+          "name": "@iconify-json/mingcute",
+          "version": "1.2.10",
+          "description": "MingCute Icon icon set in Iconify JSON format",
+          "links": "https://www.npmjs.com/package/@iconify-json/mingcute"
+        },
+        {
+          "name": "@mingcute/react",
+          "version": "3.1.0",
+          "description": "Mingcute SVG icon components for React.",
+          "links": "git+https://github.com/mingcute-design/mingcute-icons.git"
+        },
+        {
+          "name": "@stacksjs/iconify-mingcute",
+          "version": "0.2.869",
+          "description": "MingCute Icon icons for stx from Iconify",
+          "links": "https://github.com/stacksjs/stx.git"
+        },
+        {
+          "name": "@mingcute/icons",
+          "version": "3.1.0",
+          "description": "Framework-neutral Mingcute icon definitions for Core Regular and Filled.",
+          "links": "git+https://github.com/mingcute-design/mingcute-icons.git"
+        },
+        {
+          "name": "@iconify-icons/mingcute",
+          "version": "2.0.2",
+          "description": "Icon data for MingCute Icon in IconifyIcon format",
+          "links": "https://www.npmjs.com/package/@iconify-icons/mingcute"
+        },
+        {
+          "name": "@mingcute/react-native",
+          "version": "3.1.0",
+          "description": "Mingcute icon components for React Native.",
+          "links": "git+https://github.com/mingcute-design/mingcute-icons.git"
+        },
+        {
+          "name": "@mingcute/svg",
+          "version": "3.1.0",
+          "description": "Optimized Carefully crafted Mingcute SVG icons for Core Regular and Filled.",
+          "links": "git+https://github.com/mingcute-design/mingcute-icons.git"
+        },
+        {
+          "name": "@iconify/icons-mingcute",
+          "version": "1.2.9",
+          "description": "Iconify icon components for MingCute Icon",
+          "links": "https://www.npmjs.com/package/@iconify/icons-mingcute"
+        }
+      ]
+    },
+    {
+      "query": "lxgw-wenkai",
+      "ok": true,
+      "hits": [
+        {
+          "name": "lxgw-wenkai-webfont",
+          "version": "1.7.0",
+          "description": "webfont package for the LXGW WenKai typeface",
+          "links": "git+https://github.com/chawyehsu/lxgw-wenkai-webfont.git"
+        },
+        {
+          "name": "lxgw-wenkai-screen-webfont",
+          "version": "1.7.0",
+          "description": "webfont package for the LXGW WenKai Screen typeface",
+          "links": "git+https://github.com/chawyehsu/lxgw-wenkai-webfont.git"
+        },
+        {
+          "name": "@fontsource/lxgw-wenkai",
+          "version": "5.3.0",
+          "description": "Self-host the LXGW WenKai font in a neatly bundled NPM package.",
+          "links": "git+https://github.com/fontsource/font-files.git"
+        },
+        {
+          "name": "@fontsource/lxgw-wenkai-tc",
+          "version": "5.3.1",
+          "description": "Self-host the LXGW WenKai TC font in a neatly bundled NPM package.",
+          "links": "git+https://github.com/fontsource/font-files.git"
+        },
+        {
+          "name": "lxgw-wenkai-tc-webfont",
+          "version": "1.2.0",
+          "description": "webfont package for the LXGW WenKai TC typeface",
+          "links": "git+https://github.com/chawyehsu/lxgw-wenkai-webfont.git"
+        },
+        {
+          "name": "lxgw-wenkai-lite-webfont",
+          "version": "1.7.0",
+          "description": "webfont package for the LXGW WenKai Lite typeface",
+          "links": "git+https://github.com/chawyehsu/lxgw-wenkai-webfont.git"
+        },
+        {
+          "name": "@free-fonts/lxgw-wenkai",
+          "version": "1.0.1",
+          "description": "Chunked woff2 webfonts for LXGW WenKai.",
+          "links": "git+https://github.com/frankslin/free-fonts.git"
+        },
+        {
+          "name": "@free-fonts/lxgw-wenkai-gb",
+          "version": "1.0.1",
+          "description": "Chunked woff2 webfonts for LXGW WenKai GB.",
+          "links": "git+https://github.com/frankslin/free-fonts.git"
+        }
+      ]
+    },
+    {
+      "query": "lxgw wenkai",
+      "ok": true,
+      "hits": [
+        {
+          "name": "lxgw-wenkai-webfont",
+          "version": "1.7.0",
+          "description": "webfont package for the LXGW WenKai typeface",
+          "links": "git+https://github.com/chawyehsu/lxgw-wenkai-webfont.git"
+        },
+        {
+          "name": "lxgw-wenkai-screen-webfont",
+          "version": "1.7.0",
+          "description": "webfont package for the LXGW WenKai Screen typeface",
+          "links": "git+https://github.com/chawyehsu/lxgw-wenkai-webfont.git"
+        },
+        {
+          "name": "@fontsource/lxgw-wenkai",
+          "version": "5.3.0",
+          "description": "Self-host the LXGW WenKai font in a neatly bundled NPM package.",
+          "links": "git+https://github.com/fontsource/font-files.git"
+        },
+        {
+          "name": "@fontsource/lxgw-wenkai-tc",
+          "version": "5.3.1",
+          "description": "Self-host the LXGW WenKai TC font in a neatly bundled NPM package.",
+          "links": "git+https://github.com/fontsource/font-files.git"
+        },
+        {
+          "name": "lxgw-wenkai-tc-webfont",
+          "version": "1.2.0",
+          "description": "webfont package for the LXGW WenKai TC typeface",
+          "links": "git+https://github.com/chawyehsu/lxgw-wenkai-webfont.git"
+        },
+        {
+          "name": "lxgw-wenkai-lite-webfont",
+          "version": "1.7.0",
+          "description": "webfont package for the LXGW WenKai Lite typeface",
+          "links": "git+https://github.com/chawyehsu/lxgw-wenkai-webfont.git"
+        },
+        {
+          "name": "@free-fonts/lxgw-wenkai",
+          "version": "1.0.1",
+          "description": "Chunked woff2 webfonts for LXGW WenKai.",
+          "links": "git+https://github.com/frankslin/free-fonts.git"
+        },
+        {
+          "name": "@free-fonts/lxgw-wenkai-gb",
+          "version": "1.0.1",
+          "description": "Chunked woff2 webfonts for LXGW WenKai GB.",
+          "links": "git+https://github.com/frankslin/free-fonts.git"
+        }
+      ]
+    },
+    {
+      "query": "sarasa-gothic",
+      "ok": true,
+      "hits": [
+        {
+          "name": "subsetted-fonts",
+          "version": "1.0.5",
+          "description": "Subsetted MiSans, Sarasa Gothic and PingFang",
+          "links": "git+https://github.com/JohnsonRan/subsetted-fonts.git"
+        },
+        {
+          "name": "@fontpkg/sarasa-gothic-sc",
+          "version": "0.36.0",
+          "description": "Font package for 更纱黑体 SC",
+          "links": "git+https://github.com/user/fontpkg.git"
+        },
+        {
+          "name": "sarasa-gothic-webfont",
+          "version": "0.4.0",
+          "description": "Build-time integrations for Unicode-range Sarasa Gothic webfonts.",
+          "links": "git+https://github.com/haytham818/sarasa-gothic-webfont.git"
+        },
+        {
+          "name": "@elgar328/sarasa-term-k",
+          "version": "1.0.43",
+          "description": "Sarasa Term K (Sarasa Gothic) split into unicode-range woff2 webfonts",
+          "links": "git+https://github.com/elgar328/sarasa-term-k-web.git"
+        },
+        {
+          "name": "@fontsource/league-gothic",
+          "version": "5.3.0",
+          "description": "Self-host the League Gothic font in a neatly bundled NPM package.",
+          "links": "git+https://github.com/fontsource/font-files.git"
+        },
+        {
+          "name": "@fontsource/zen-kaku-gothic-new",
+          "version": "5.3.1",
+          "description": "Self-host the Zen Kaku Gothic New font in a neatly bundled NPM package.",
+          "links": "git+https://github.com/fontsource/font-files.git"
+        },
+        {
+          "name": "@fontsource/dela-gothic-one",
+          "version": "5.3.0",
+          "description": "Self-host the Dela Gothic One font in a neatly bundled NPM package.",
+          "links": "git+https://github.com/fontsource/font-files.git"
+        },
+        {
+          "name": "@fontsource/zen-maru-gothic",
+          "version": "5.3.1",
+          "description": "Self-host the Zen Maru Gothic font in a neatly bundled NPM package.",
+          "links": "git+https://github.com/fontsource/font-files.git"
+        }
+      ]
+    },
+    {
+      "query": "source-han-sans",
+      "ok": true,
+      "hits": [
+        {
+          "name": "@fontpkg/source-han-sans",
+          "version": "2.5.2",
+          "description": "Font package for Source Han Sans",
+          "links": "git+https://github.com/user/fontpkg.git"
+        },
+        {
+          "name": "@librescore/fonts",
+          "version": "0.4.1",
+          "description": "WOFF2 fonts (Source Han Sans) for LibreScore",
+          "links": "https://www.npmjs.com/package/@librescore/fonts"
+        },
+        {
+          "name": "@fontpkg/source-han-sans-jp-vf",
+          "version": "2.5.2",
+          "description": "Font package for Source Han Sans JP VF",
+          "links": "git+https://github.com/user/fontpkg.git"
+        },
+        {
+          "name": "node-source-han-sans-sc",
+          "version": "1.1.0-2.001R",
+          "description": "An npm package to facilitate use of web fonts and CSS @font-faces for adobe-fonts/source-han-sans.",
+          "links": "git+https://github.com/zhoutwo/node-source-han-sans.git"
+        },
+        {
+          "name": "source-han-sans-sc-vf",
+          "version": "0.0.1",
+          "description": "Source Han Sans SC VF",
+          "links": "https://www.npmjs.com/package/source-han-sans-sc-vf"
+        },
+        {
+          "name": "@fontpkg/source-han-sans-vf",
+          "version": "2.5.2",
+          "description": "Font package for Source Han Sans VF",
+          "links": "git+https://github.com/user/fontpkg.git"
+        },
+        {
+          "name": "node-source-han-sans",
+          "version": "1.1.0-2.001R",
+          "description": "An npm package to facilitate use of web fonts and CSS @font-faces for adobe-fonts/source-han-sans.",
+          "links": "git+https://github.com/zhoutwo/node-source-han-sans.git"
+        },
+        {
+          "name": "source-han-sans-code-point-map-jp",
+          "version": "1.0.0",
+          "description": "Return Source Han Sans code point mappings for Japanese",
+          "links": "https://github.com/shinnn/source-han-sans-code-point-map-jp.git"
+        }
+      ]
+    },
+    {
+      "query": "glow-sans",
+      "ok": true,
+      "hits": [
+        {
+          "name": "@fontpkg/glow-sans",
+          "version": "0.93.0",
+          "description": "未来荧黑 Glow Sans",
+          "links": "https://www.npmjs.com/package/@fontpkg/glow-sans"
+        },
+        {
+          "name": "@vp-tw/cjk-web-fonts-glow-sans-tc-normal",
+          "version": "0.0.1",
+          "description": "Wêlai Glow Sans Traditional Chinese normal-width webfont subsets in nine weights.",
+          "links": "https://github.com/vp-tw/cjk-web-fonts.git"
+        },
+        {
+          "name": "@vp-tw/cjk-web-fonts-glow-sans-tc-wide",
+          "version": "0.0.1",
+          "description": "Wêlai Glow Sans Traditional Chinese wide-width webfont subsets in nine weights.",
+          "links": "https://github.com/vp-tw/cjk-web-fonts.git"
+        },
+        {
+          "name": "@vp-tw/cjk-web-fonts-glow-sans-tc-extended",
+          "version": "0.0.1",
+          "description": "Wêlai Glow Sans Traditional Chinese extended-width webfont subsets in nine weights.",
+          "links": "https://github.com/vp-tw/cjk-web-fonts.git"
+        },
+        {
+          "name": "@vp-tw/cjk-web-fonts-glow-sans-tc-condensed",
+          "version": "0.0.1",
+          "description": "Wêlai Glow Sans Traditional Chinese condensed-width webfont subsets in nine weights.",
+          "links": "https://github.com/vp-tw/cjk-web-fonts.git"
+        },
+        {
+          "name": "@fontpkg/glow-sans-sc",
+          "version": "0.93.2",
+          "description": "Font package for 未来荧黑",
+          "links": "git+https://github.com/user/fontpkg.git"
+        },
+        {
+          "name": "@vp-tw/cjk-web-fonts-glow-sans-tc-compressed",
+          "version": "0.0.1",
+          "description": "Wêlai Glow Sans Traditional Chinese compressed-width webfont subsets in eight weights.",
+          "links": "https://github.com/vp-tw/cjk-web-fonts.git"
+        },
+        {
+          "name": "postcss-minify-font-values",
+          "version": "9.0.9",
+          "description": "Minify font declarations with PostCSS",
+          "links": "git+https://github.com/cssnano/cssnano.git"
+        }
+      ]
+    },
+    {
+      "query": "chiron-hei",
+      "ok": true,
+      "hits": [
+        {
+          "name": "@fontsource/chiron-hei-hk",
+          "version": "5.3.2",
+          "description": "Self-host the Chiron Hei HK font in a neatly bundled NPM package.",
+          "links": "git+https://github.com/fontsource/font-files.git"
+        },
+        {
+          "name": "@fontsource-variable/chiron-hei-hk",
+          "version": "5.3.2",
+          "description": "Self-host the Chiron Hei HK font in a neatly bundled NPM package.",
+          "links": "git+https://github.com/fontsource/font-files.git"
+        },
+        {
+          "name": "chiron-hei-hk-webfont",
+          "version": "2.6.9",
+          "description": "Webfont version of Chiron Hei HK, a Traditional Chinese typeface.",
+          "links": "git+https://github.com/chiron-fonts/chiron-hei-hk.git"
+        },
+        {
+          "name": "@expo-google-fonts/chiron-hei-hk",
+          "version": "0.4.5",
+          "description": "Use the Chiron Hei HK font family from Google Fonts in your Expo app",
+          "links": "git+https://github.com/expo/google-fonts.git"
+        },
+        {
+          "name": "chiron-hei-hk-webfont-truetype",
+          "version": "2.6.9",
+          "description": "Webfont version of Chiron Hei HK, in TrueType outline.",
+          "links": "git+https://github.com/chiron-fonts/chiron-hei-hk.git"
+        },
+        {
+          "name": "@fontpkg/chiron-hei-hk",
+          "version": "2.605.2",
+          "description": "Font package for Chiron Hei HK",
+          "links": "git+https://github.com/user/fontpkg.git"
+        },
+        {
+          "name": "@fontpkg/chiron-hei-hk-vf",
+          "version": "2.605.2",
+          "description": "Font package for Chiron Hei HK VF",
+          "links": "git+https://github.com/user/fontpkg.git"
+        },
+        {
+          "name": "@vp-tw/cjk-web-fonts-chiron-hei-hk",
+          "version": "0.0.1",
+          "description": "Chiron Hei HK variable Traditional Chinese sans-serif webfont.",
+          "links": "https://github.com/vp-tw/cjk-web-fonts.git"
+        }
+      ]
+    },
+    {
+      "query": "misans",
+      "ok": true,
+      "hits": [
+        {
+          "name": "misans",
+          "version": "5.0.0",
+          "description": "MiSans (subsetted) fonts from Xiaomi for free commercial use.",
+          "links": "git+https://github.com/dsrkafuu/misans.git"
+        },
+        {
+          "name": "misans-webfont",
+          "version": "4.3.1",
+          "description": "Web font package for Misans",
+          "links": "git+https://github.com/mobeicanyue/misans-webfont.git"
+        },
+        {
+          "name": "misans-vf",
+          "version": "1.0.0",
+          "description": "MiSans (subsetted) fonts from Xiaomi for free commercial use. Variable fonts version.",
+          "links": "git+https://github.com/Bluemangoo/MiSans-VF.git"
+        },
+        {
+          "name": "subsetted-fonts",
+          "version": "1.0.5",
+          "description": "Subsetted MiSans, Sarasa Gothic and PingFang",
+          "links": "git+https://github.com/JohnsonRan/subsetted-fonts.git"
+        },
+        {
+          "name": "@fontpkg/mi-sans",
+          "version": "4.3.0",
+          "description": "Font package for MiSans",
+          "links": "git+https://github.com/user/fontpkg.git"
+        },
+        {
+          "name": "misans-web-test",
+          "version": "0.0.8",
+          "description": "Web font package for Misans",
+          "links": "git+https://github.com/mobeicanyue/misans-web.git"
+        },
+        {
+          "name": "misans-vf-4web",
+          "version": "1.1.1",
+          "description": "MiSans VF font for web. Splitted by KonghaYao/cn-font-split.",
+          "links": "git+https://github.com/luyanci/Misansvf.git"
+        },
+        {
+          "name": "@1adybug/mi-sans",
+          "version": "0.1.1",
+          "description": "Self-host MiSans VF variable font with Unicode-range WOFF2 subsets.",
+          "links": "https://www.npmjs.com/package/@1adybug/mi-sans"
+        }
+      ]
+    },
+    {
+      "query": "harmonyos-sans",
+      "ok": true,
+      "hits": [
+        {
+          "name": "harmonyos-sans",
+          "version": "1.0.0",
+          "description": "Huawei HarmonyOS Sans fonts. This NPM package provides you the \"HarmonyOS Sans.zip\" file from Huawei website (https://de",
+          "links": "git+https://github.com/mobiledesres/HarmonyOS-Sans.git"
+        },
+        {
+          "name": "harmonyos-sans-sc-webfont-splitted",
+          "version": "1.1.0",
+          "description": "HarmonyOS Sans SC Webfont Splitted.",
+          "links": "git+https://github.com/SunsetMkt/HarmonyOS_Sans_SC_Webfont_Splitted.git"
+        },
+        {
+          "name": "harmonyos-sans-webfont-splitted",
+          "version": "1.2.1",
+          "description": "HarmonyOS Sans Webfont Splitted by KonghaYao/cn-font-split.",
+          "links": "git+https://github.com/SunsetMkt/HarmonyOS_Sans_Webfont_Splitted.git"
+        },
+        {
+          "name": "@1adybug/harmonyos-sans",
+          "version": "0.1.1",
+          "description": "Self-host HarmonyOS Sans variable font with Unicode-range WOFF2 subsets.",
+          "links": "https://www.npmjs.com/package/@1adybug/harmonyos-sans"
+        },
+        {
+          "name": "@lobehub/webfont-harmony-sans-sc",
+          "version": "1.0.0",
+          "description": "Webfont HarmonyOS Sans SC for LobeHub",
+          "links": "git+https://github.com/lobehub/lobe-assets.git"
+        },
+        {
+          "name": "@fontpkg/harmony-os-sans-sc",
+          "version": "1.0.3",
+          "description": "Font package for HarmonyOS Sans SC",
+          "links": "git+https://github.com/user/fontpkg.git"
+        },
+        {
+          "name": "@lobehub/webfont-harmony-sans-sc-mini",
+          "version": "1.0.1",
+          "description": "Subset webfont HarmonyOS Sans SC for LobeHub",
+          "links": "git+https://github.com/lobehub/lobe-assets.git"
+        },
+        {
+          "name": "@lobehub/webfont-harmony-sans",
+          "version": "1.0.0",
+          "description": "Webfont HarmonyOS Sans for LobeHub",
+          "links": "git+https://github.com/lobehub/lobe-assets.git"
+        }
+      ]
+    },
+    {
+      "query": "alibaba-puhuiti",
+      "ok": true,
+      "hits": [
+        {
+          "name": "@fontpkg/alibaba-puhuiti-3-0",
+          "version": "0.0.0",
+          "description": "```bash npm install @fontpkg/alibaba-puhuiti-3-0 ```",
+          "links": "https://www.npmjs.com/package/@fontpkg/alibaba-puhuiti-3-0"
+        },
+        {
+          "name": "@fontpkg/alibaba-puhuiti-2-0",
+          "version": "0.0.0",
+          "description": "```bash npm install @fontpkg/alibaba-puhuiti-2-0 ```",
+          "links": "https://www.npmjs.com/package/@fontpkg/alibaba-puhuiti-2-0"
+        },
+        {
+          "name": "@alleyway-boop/fonts",
+          "version": "1.0.0",
+          "description": "Chinese web fonts CDN package for jsDelivr, includes Alibaba PuHuiTi",
+          "links": ""
+        },
+        {
+          "name": "@opentelemetry/resource-detector-alibaba-cloud",
+          "version": "0.40.0",
+          "description": "OpenTelemetry resource detector for Alibaba Cloud",
+          "links": "git+https://github.com/open-telemetry/opentelemetry-js-contrib.git"
+        },
+        {
+          "name": "ahooks",
+          "version": "3.11.0",
+          "description": "react hooks library",
+          "links": "git+https://github.com/alibaba/hooks.git"
+        },
+        {
+          "name": "@fontpkg/alibaba-pu-hui-ti-3-0",
+          "version": "3.1.2",
+          "description": "Font package for 阿里巴巴普惠体 3.0",
+          "links": "git+https://github.com/user/fontpkg.git"
+        },
+        {
+          "name": "detect-port",
+          "version": "2.1.0",
+          "description": "Node.js implementation of port detector",
+          "links": "git://github.com/node-modules/detect-port.git"
+        },
+        {
+          "name": "@ai-sdk/alibaba",
+          "version": "2.0.90",
+          "description": "The **[Alibaba provider](https://ai-sdk.dev/providers/ai-sdk-providers/alibaba)** for the [AI SDK](https://ai-sdk.dev/do",
+          "links": "https://github.com/vercel/ai"
+        }
+      ]
+    },
+    {
+      "query": "smiley-sans",
+      "ok": true,
+      "hits": [
+        {
+          "name": "@fontpkg/smiley-sans",
+          "version": "2.0.4",
+          "description": "Font package for 得意黑",
+          "links": "git+https://github.com/user/fontpkg.git"
+        },
+        {
+          "name": "font-smiley-sans",
+          "version": "1.0.0",
+          "description": "cdn 使用",
+          "links": "https://www.npmjs.com/package/font-smiley-sans"
+        },
+        {
+          "name": "cn-fontsource-smiley-sans-oblique-regular",
+          "version": "1.0.1",
+          "description": "这是我以oooooohmygosh身份发布的第一款字体，11月15日正式开源发布，大家可以免费商用无任何限制，也可以修改创作。说个不太切实际的梦想，我希望以这个身份发布的所有作品，都是开源或者公益的。 这套字经过我和其他字体设计师伙伴们一年",
+          "links": "git+https://github.com/wc-ex/cn-fontsource.git"
+        },
+        {
+          "name": "postcss-minify-font-values",
+          "version": "9.0.9",
+          "description": "Minify font declarations with PostCSS",
+          "links": "git+https://github.com/cssnano/cssnano.git"
+        },
+        {
+          "name": "@fontsource/ibm-plex-sans",
+          "version": "5.3.0",
+          "description": "Self-host the IBM Plex Sans font in a neatly bundled NPM package.",
+          "links": "git+https://github.com/fontsource/font-files.git"
+        },
+        {
+          "name": "@fontsource-variable/dm-sans",
+          "version": "5.3.0",
+          "description": "Self-host the DM Sans font in a neatly bundled NPM package.",
+          "links": "git+https://github.com/fontsource/font-files.git"
+        },
+        {
+          "name": "geist",
+          "version": "1.9.2",
+          "description": "Geist is Vercel's font family, including Geist Sans, Geist Mono, Geist Pixel, and Geist Serif.",
+          "links": "git+https://github.com/vercel/geist-font.git"
+        },
+        {
+          "name": "@fontsource/open-sans",
+          "version": "5.3.0",
+          "description": "Self-host the Open Sans font in a neatly bundled NPM package.",
+          "links": "git+https://github.com/fontsource/font-files.git"
+        }
+      ]
+    },
+    {
+      "query": "iosevka",
+      "ok": true,
+      "hits": [
+        {
+          "name": "@fontsource/iosevka",
+          "version": "5.3.0",
+          "description": "Self-host the Iosevka font in a neatly bundled NPM package.",
+          "links": "git+https://github.com/fontsource/font-files.git"
+        },
+        {
+          "name": "@fontsource/iosevka-aile",
+          "version": "5.3.0",
+          "description": "Self-host the Iosevka Aile font in a neatly bundled NPM package.",
+          "links": "git+https://github.com/fontsource/font-files.git"
+        },
+        {
+          "name": "@fontsource/iosevka-charon",
+          "version": "5.3.0",
+          "description": "Self-host the Iosevka Charon font in a neatly bundled NPM package.",
+          "links": "git+https://github.com/fontsource/font-files.git"
+        },
+        {
+          "name": "@fontsource/iosevka-charon-mono",
+          "version": "5.3.0",
+          "description": "Self-host the Iosevka Charon Mono font in a neatly bundled NPM package.",
+          "links": "git+https://github.com/fontsource/font-files.git"
+        },
+        {
+          "name": "@fontsource/iosevka-etoile",
+          "version": "5.3.0",
+          "description": "Self-host the Iosevka Etoile font in a neatly bundled NPM package.",
+          "links": "git+https://github.com/fontsource/font-files.git"
+        },
+        {
+          "name": "@adamhl8/font-iosevka",
+          "version": "0.1.6",
+          "description": "Custom Iosevka web fonts, with Nerd Fonts-patched TTFs attached to each GitHub release",
+          "links": "git+https://github.com/adamhl8/font-iosevka.git"
+        },
+        {
+          "name": "@nxtcoder17/nxtfont",
+          "version": "1.0.4",
+          "description": "NxtFont - A custom Iosevka build",
+          "links": "git+https://github.com/nxtcoder17/nxtfont.git"
+        },
+        {
+          "name": "@fontsource/iosevka-curly-slab",
+          "version": "5.3.0",
+          "description": "Self-host the Iosevka Curly Slab font in a neatly bundled NPM package.",
+          "links": "git+https://github.com/fontsource/font-files.git"
+        }
+      ]
+    },
+    {
+      "query": "cascadia-code",
+      "ok": false,
+      "error": "HTTP 429"
+    },
+    {
+      "query": "solar icons",
+      "ok": false,
+      "error": "HTTP 429"
+    },
+    {
+      "query": "heroicons",
+      "ok": false,
+      "error": "HTTP 429"
+    },
+    {
+      "query": "radix-icons",
+      "ok": false,
+      "error": "HTTP 429"
+    },
+    {
+      "query": "untitled-ui-icons",
+      "ok": false,
+      "error": "HTTP 429"
+    },
+    {
+      "query": "hugeicons",
+      "ok": false,
+      "error": "HTTP 429"
+    }
+  ],
+  "licenses": [
+    {
+      "pkg": "@fontsource-variable/manrope",
+      "ok": true,
+      "version": "5.3.0",
+      "license": "OFL-1.1",
+      "homepage": "https://fontsource.org/fonts/manrope",
+      "unpackedSize": 96653,
+      "repository": "git+https://github.com/fontsource/font-files.git"
+    },
+    {
+      "pkg": "@fontsource/commit-mono",
+      "ok": true,
+      "version": "5.3.0",
+      "license": "OFL-1.1",
+      "homepage": "https://fontsource.org/fonts/commit-mono",
+      "unpackedSize": 1326237,
+      "repository": "git+https://github.com/fontsource/font-files.git"
+    },
+    {
+      "pkg": "@fontsource-variable/iosevka",
+      "ok": false,
+      "error": "HTTP 404"
+    },
+    {
+      "pkg": "@fontsource/cascadia-code",
+      "ok": true,
+      "version": "5.3.0",
+      "license": "OFL-1.1",
+      "homepage": "https://fontsource.org/fonts/cascadia-code",
+      "unpackedSize": 3169908,
+      "repository": "git+https://github.com/fontsource/font-files.git"
+    },
+    {
+      "pkg": "@fontsource/lxgw-wenkai",
+      "ok": true,
+      "version": "5.3.0",
+      "license": "OFL-1.1",
+      "homepage": "https://fontsource.org/fonts/lxgw-wenkai",
+      "unpackedSize": 55917230,
+      "repository": "git+https://github.com/fontsource/font-files.git"
+    },
+    {
+      "pkg": "lxgw-wenkai-webfont",
+      "ok": true,
+      "version": "1.7.0",
+      "license": "MIT",
+      "homepage": "https://github.com/chawyehsu/lxgw-wenkai-webfont",
+      "unpackedSize": 29934273,
+      "repository": "git+https://github.com/chawyehsu/lxgw-wenkai-webfont.git"
+    },
+    {
+      "pkg": "lxgw-wenkai-lite-webfont",
+      "ok": true,
+      "version": "1.7.0",
+      "license": "MIT",
+      "homepage": "https://github.com/chawyehsu/lxgw-wenkai-webfont",
+      "unpackedSize": 26355179,
+      "repository": "git+https://github.com/chawyehsu/lxgw-wenkai-webfont.git"
+    },
+    {
+      "pkg": "lxgw-wenkai-screen-webfont",
+      "ok": true,
+      "version": "1.7.0",
+      "license": "MIT",
+      "homepage": "https://github.com/chawyehsu/lxgw-wenkai-webfont",
+      "unpackedSize": 19729431,
+      "repository": "git+https://github.com/chawyehsu/lxgw-wenkai-webfont.git"
+    },
+    {
+      "pkg": "misans",
+      "ok": true,
+      "version": "5.0.0",
+      "license": "Apache-2.0",
+      "homepage": "https://github.com/dsrkafuu/misans#readme",
+      "unpackedSize": 53774303,
+      "repository": "git+https://github.com/dsrkafuu/misans.git"
+    },
+    {
+      "pkg": "@radix-ui/react-icons",
+      "ok": true,
+      "version": "1.3.2",
+      "license": "MIT",
+      "homepage": "",
+      "unpackedSize": 3442784,
+      "repository": ""
+    },
+    {
+      "pkg": "@untitled-ui/icons-react",
+      "ok": true,
+      "version": "0.1.4",
+      "license": "MIT",
+      "homepage": "https://www.untitledui.com/icons",
+      "unpackedSize": 4468411,
+      "repository": "git+https://github.com/devias-io/untitled-ui.git"
+    },
+    {
+      "pkg": "@hugeicons/react",
+      "ok": true,
+      "version": "1.1.10",
+      "license": "MIT",
+      "homepage": "https://hugeicons.com",
+      "unpackedSize": 35899,
+      "repository": "git+https://github.com/hugeicons/hugeicons.git"
+    },
+    {
+      "pkg": "@hugeicons/core-free-icons",
+      "ok": true,
+      "version": "4.4.0",
+      "license": "MIT",
+      "homepage": "https://hugeicons.com",
+      "unpackedSize": 80557312,
+      "repository": "git+https://github.com/hugeicons/hugeicons.git"
+    },
+    {
+      "pkg": "mingcute_icon",
+      "ok": true,
+      "version": "2.9.72",
+      "license": "Apache 2.0",
+      "homepage": "https://mingcute.com",
+      "unpackedSize": 11220713,
+      "repository": "git+https://github.com/Richard9394/MingCute.git"
+    },
+    {
+      "pkg": "@mingcute/icons",
+      "ok": true,
+      "version": "3.1.0",
+      "license": "Apache-2.0",
+      "homepage": "https://www.mingcute.com/",
+      "unpackedSize": 6980497,
+      "repository": "git+https://github.com/mingcute-design/mingcute-icons.git"
+    }
+  ]
+}

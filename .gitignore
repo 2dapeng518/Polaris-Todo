@@ -5,3 +5,7 @@ dist/
 screenshot*.png
 .DS_Store
 Thumbs.db
+
+# 素材图鉴的预览字体缓存（约 4 MB，可用 tools/fetch-*.mjs 重新抓取）。
+# 应用运行时的字体走 npm 的 @fontsource-variable 包，不走这里。
+docs/asset-atlas/fonts/
