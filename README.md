@@ -2,7 +2,7 @@
 
 Windows 11 上的本地优先待办应用。深色墨黑界面、青绿信号色、原生窗口控件，数据默认只保存在本机。
 
-[![版本](https://img.shields.io/badge/version-0.2.0-0F766E?style=flat-square)](package.json)
+[![版本](https://img.shields.io/badge/version-0.2.1-0F766E?style=flat-square)](package.json)
 [![平台](https://img.shields.io/badge/platform-Windows%2011-334155?style=flat-square)](package.json)
 [![许可证](https://img.shields.io/badge/license-MIT-0F766E?style=flat-square)](package.json)
 
@@ -225,7 +225,7 @@ build/         应用图标与安装包资源
 
 打包产物：
 
-- `dist/Polaris-Setup-0.2.0.exe`：NSIS 安装包，按用户安装，无需管理员权限，安装界面为简体中文。
+- `dist/Polaris-Setup-0.2.1.exe`：NSIS 安装包，按用户安装，无需管理员权限，安装界面为简体中文。
 - `dist/win-unpacked/Polaris.exe`：免安装目录版。
 
 安装包未做代码签名，首次运行可能触发 SmartScreen 或杀毒软件扫描提示。应用图标来自 `build/icon.ico`，可用 `node scripts/make-app-icon.mjs` 重新生成。
