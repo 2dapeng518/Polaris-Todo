@@ -923,6 +923,13 @@ async function runSmokeTest(): Promise<void> {
       document.querySelector('.settings-item').click();
       await waitFor(() => document.querySelector('.settings-version'));
       const settingsVersion = document.querySelector('.settings-version').textContent.trim();
+      // 版本号被页脚预热缓存后，面板一挂载 .settings-version 就在，入场弹簧动画还在飞。
+      // AnimatePresence 在入场中途收到退出会把节点留住，于是等不到卸载。
+      // 等一个真实 UI 状态（不透明度到 1 = 入场结束），而不是加魔法 sleep。
+      await waitFor(() => {
+        const panel = document.querySelector('.settings-panel');
+        return panel && Number(getComputedStyle(panel).opacity) === 1;
+      });
       document.querySelector('.settings-panel .detail-close').click();
       await waitFor(() => !document.querySelector('.settings-panel'));
       await sleep(200);
@@ -1317,6 +1324,12 @@ async function runSmokeTest(): Promise<void> {
       hourInput().focus();
       typeInto(hourInput(), '1');
       await sleep(200);
+      // 真实失焦路径：程序化 .click() 不派发 mousedown，永远走不到 onBlur，
+      // 所以这里显式失焦一次，把曾经偶发的场景变成必测路径。半截 '1' 必须被丢弃。
+      hourInput().blur();
+      await sleep(300);
+      const blurDue = new Date(await storedDue());
+      const pickerBlurKeepsHour = hourInput().value === '19' && blurDue.getHours() === 19;
       document.querySelectorAll('.dp-step')[1].click();
       await sleep(400);
       const syncDue = new Date(await storedDue());
@@ -1447,6 +1460,7 @@ async function runSmokeTest(): Promise<void> {
         pickerTypeFlow,
         pickerStepSemantics,
         pickerTextSync,
+        pickerBlurKeepsHour,
         pickerEscRestores,
         pickerTodayFuture,
         pickerClearWorks,
@@ -1803,6 +1817,7 @@ async function runSmokeTest(): Promise<void> {
       result.pickerTypeFlow === true &&
       result.pickerStepSemantics === true &&
       result.pickerTextSync === true &&
+      result.pickerBlurKeepsHour === true &&
       result.pickerEscRestores === true &&
       result.pickerTodayFuture === true &&
       result.pickerClearWorks === true &&
