@@ -934,6 +934,25 @@ async function runSmokeTest(): Promise<void> {
       await waitFor(() => !document.querySelector('.settings-panel'));
       await sleep(200);
 
+      // 真实用户手速：面板刚挂载就点关闭，入场动画仍在飞。上面那条等入场结束，
+      // 测的是稳定态；这条专测「入场中途退出」，AnimatePresence 若留住节点就会红。
+      // 用有界轮询记录布尔值而不是 waitFor 抛错，避免卡住时整套断言一起丢失。
+      document.querySelector('.settings-item').click();
+      await waitFor(() => document.querySelector('.settings-panel .detail-close'));
+      document.querySelector('.settings-panel .detail-close').click();
+      let fastClosed = false;
+      for (let i = 0; i < 60; i++) {
+        if (!document.querySelector('.settings-panel')) { fastClosed = true; break; }
+        await sleep(50);
+      }
+      const settingsFastClose = fastClosed;
+      if (!fastClosed) {
+        // 兜底关掉，避免遮罩挡住后续断言；失败已由 settingsFastClose 记录。
+        document.querySelector('.settings-panel .detail-close')?.click();
+        await sleep(400);
+      }
+      await sleep(200);
+
       const noticeTitle = '重复提示 ' + Date.now();
       const noticeDue = new Date(Date.now() + 60 * 60 * 1000).toISOString();
       await window.polaris.tasks.create({
@@ -1479,6 +1498,7 @@ async function runSmokeTest(): Promise<void> {
         themeMatrix,
         autoStartTested,
         settingsVersion,
+        settingsFastClose,
         footerVersion,
         recurrenceTested,
         recurrenceNoticeTested,
@@ -1783,6 +1803,7 @@ async function runSmokeTest(): Promise<void> {
       result.autoStartTested === true &&
       // 期望值取自主进程，不经渲染层反算：写死的版本字符串会在这里露馅。
       result.settingsVersion === app.getVersion() &&
+      result.settingsFastClose === true &&
       result.footerVersion === app.getVersion() &&
       result.recurrenceTested === true &&
       result.recurrenceNoticeTested === true &&
