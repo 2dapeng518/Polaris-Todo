@@ -1,0 +1,1297 @@
+{
+  "semantics": {
+    "check": {
+      "label": "完成",
+      "zh": "勾选完成"
+    },
+    "bell": {
+      "label": "提醒",
+      "zh": "提醒铃铛"
+    },
+    "star": {
+      "label": "星标",
+      "zh": "五角星"
+    },
+    "fourStar": {
+      "label": "四角星",
+      "zh": "品牌四角星"
+    },
+    "repeat": {
+      "label": "重复",
+      "zh": "重复规则"
+    },
+    "folder": {
+      "label": "项目",
+      "zh": "项目文件夹"
+    },
+    "calendar": {
+      "label": "日期",
+      "zh": "截止日期"
+    },
+    "trash": {
+      "label": "删除",
+      "zh": "删除任务"
+    }
+  },
+  "collections": [
+    {
+      "prefix": "lucide",
+      "name": "Lucide",
+      "strokeBased": true,
+      "defaultStroke": 2,
+      "grid": 24,
+      "npm": "lucide-react",
+      "site": "https://lucide.dev",
+      "picks": {
+        "check": "circle-check",
+        "bell": "bell",
+        "star": "star",
+        "fourStar": "sparkle",
+        "repeat": "repeat-2",
+        "folder": "folder",
+        "calendar": "calendar-days",
+        "trash": "trash-2"
+      },
+      "semantics": {
+        "check": {
+          "label": "完成",
+          "zh": "勾选完成"
+        },
+        "bell": {
+          "label": "提醒",
+          "zh": "提醒铃铛"
+        },
+        "star": {
+          "label": "星标",
+          "zh": "五角星"
+        },
+        "fourStar": {
+          "label": "四角星",
+          "zh": "品牌四角星"
+        },
+        "repeat": {
+          "label": "重复",
+          "zh": "重复规则"
+        },
+        "folder": {
+          "label": "项目",
+          "zh": "项目文件夹"
+        },
+        "calendar": {
+          "label": "日期",
+          "zh": "截止日期"
+        },
+        "trash": {
+          "label": "删除",
+          "zh": "删除任务"
+        }
+      },
+      "icons": {
+        "check": {
+          "name": "circle-check",
+          "body": "<g fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\"><circle cx=\"12\" cy=\"12\" r=\"10\"/><path d=\"m16 9l-5.5 5.5L8 12\"/></g>",
+          "width": 24,
+          "height": 24
+        },
+        "bell": {
+          "name": "bell",
+          "body": "<path fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M10.268 21a2 2 0 0 0 3.464 0m-10.47-5.674A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326\"/>",
+          "width": 24,
+          "height": 24
+        },
+        "star": {
+          "name": "star",
+          "body": "<path fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M11.525 2.295a.53.53 0 0 1 .95 0l2.31 4.679a2.12 2.12 0 0 0 1.595 1.16l5.166.756a.53.53 0 0 1 .294.904l-3.736 3.638a2.12 2.12 0 0 0-.611 1.878l.882 5.14a.53.53 0 0 1-.771.56l-4.618-2.428a2.12 2.12 0 0 0-1.973 0L6.396 21.01a.53.53 0 0 1-.77-.56l.881-5.139a2.12 2.12 0 0 0-.611-1.879L2.16 9.795a.53.53 0 0 1 .294-.906l5.165-.755a2.12 2.12 0 0 0 1.597-1.16z\"/>",
+          "width": 24,
+          "height": 24
+        },
+        "fourStar": {
+          "name": "sparkle",
+          "body": "<path fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z\"/>",
+          "width": 24,
+          "height": 24
+        },
+        "repeat": {
+          "name": "repeat-2",
+          "body": "<g fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\"><path d=\"m2 9l3-3l3 3\"/><path d=\"M13 18H7a2 2 0 0 1-2-2V6m17 9l-3 3l-3-3\"/><path d=\"M11 6h6a2 2 0 0 1 2 2v10\"/></g>",
+          "width": 24,
+          "height": 24
+        },
+        "folder": {
+          "name": "folder",
+          "body": "<path fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z\"/>",
+          "width": 24,
+          "height": 24
+        },
+        "calendar": {
+          "name": "calendar-days",
+          "body": "<g fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\"><path d=\"M8 2v3m8-3v3\"/><rect width=\"18\" height=\"18\" x=\"3\" y=\"3\" rx=\"2\"/><path d=\"M3 9h18M8 13h.01M12 13h.01M16 13h.01M8 17h.01M12 17h.01M16 17h.01\"/></g>",
+          "width": 24,
+          "height": 24
+        },
+        "trash": null
+      },
+      "extra": {
+        "flag": {
+          "body": "<path fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M4 22V4a1 1 0 0 1 .4-.8A6 6 0 0 1 8 2c3 0 5 2 7.333 2q2 0 3.067-.8A1 1 0 0 1 20 4v10a1 1 0 0 1-.4.8A6 6 0 0 1 16 16c-3 0-5-2-8-2a6 6 0 0 0-4 1.528\"/>"
+        },
+        "circle": {
+          "body": "<circle cx=\"12\" cy=\"12\" r=\"10\" fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\"/>"
+        },
+        "check": {
+          "body": "<path fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M20 6L9 17l-5-5\"/>"
+        }
+      },
+      "total": 2052,
+      "license": {
+        "title": "ISC",
+        "spdx": "ISC",
+        "url": "https://github.com/lucide-icons/lucide/blob/main/LICENSE"
+      },
+      "author": {
+        "name": "Lucide Contributors",
+        "url": "https://github.com/lucide-icons/lucide"
+      },
+      "category": "",
+      "samples": [],
+      "metaOk": true,
+      "gridWidth": 24,
+      "gridHeight": 24
+    },
+    {
+      "prefix": "tabler",
+      "name": "Tabler Icons",
+      "strokeBased": true,
+      "defaultStroke": 2,
+      "grid": 24,
+      "npm": "@tabler/icons-react",
+      "site": "https://tabler.io/icons",
+      "picks": {
+        "check": "circle-check",
+        "bell": "bell",
+        "star": "star",
+        "fourStar": "north-star",
+        "repeat": "repeat",
+        "folder": "folder",
+        "calendar": "calendar",
+        "trash": "trash"
+      },
+      "semantics": {
+        "check": {
+          "label": "完成",
+          "zh": "勾选完成"
+        },
+        "bell": {
+          "label": "提醒",
+          "zh": "提醒铃铛"
+        },
+        "star": {
+          "label": "星标",
+          "zh": "五角星"
+        },
+        "fourStar": {
+          "label": "四角星",
+          "zh": "品牌四角星"
+        },
+        "repeat": {
+          "label": "重复",
+          "zh": "重复规则"
+        },
+        "folder": {
+          "label": "项目",
+          "zh": "项目文件夹"
+        },
+        "calendar": {
+          "label": "日期",
+          "zh": "截止日期"
+        },
+        "trash": {
+          "label": "删除",
+          "zh": "删除任务"
+        }
+      },
+      "icons": {
+        "check": {
+          "name": "circle-check",
+          "body": "<g fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\"><path d=\"M3 12a9 9 0 1 0 18 0a9 9 0 1 0-18 0\"/><path d=\"m9 12l2 2l4-4\"/></g>",
+          "width": 24,
+          "height": 24
+        },
+        "bell": {
+          "name": "bell",
+          "body": "<path fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M10 5a2 2 0 1 1 4 0a7 7 0 0 1 4 6v3a4 4 0 0 0 2 3H4a4 4 0 0 0 2-3v-3a7 7 0 0 1 4-6M9 17v1a3 3 0 0 0 6 0v-1\"/>",
+          "width": 24,
+          "height": 24
+        },
+        "star": {
+          "name": "star",
+          "body": "<path fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"m12 17.75l-6.172 3.245l1.179-6.873l-5-4.867l6.9-1l3.086-6.253l3.086 6.253l6.9 1l-5 4.867l1.179 6.873z\"/>",
+          "width": 24,
+          "height": 24
+        },
+        "fourStar": {
+          "name": "north-star",
+          "body": "<path fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M3 12h18m-9 9V3M7.5 7.5l9 9m-9 0l9-9\"/>",
+          "width": 24,
+          "height": 24
+        },
+        "repeat": {
+          "name": "repeat",
+          "body": "<path fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M4 12V9a3 3 0 0 1 3-3h13m-3-3l3 3l-3 3m3 3v3a3 3 0 0 1-3 3H4m3 3l-3-3l3-3\"/>",
+          "width": 24,
+          "height": 24
+        },
+        "folder": {
+          "name": "folder",
+          "body": "<path fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M5 4h4l3 3h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2\"/>",
+          "width": 24,
+          "height": 24
+        },
+        "calendar": {
+          "name": "calendar",
+          "body": "<path fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M4 7a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2zm12-4v4M8 3v4m-4 4h16\"/>",
+          "width": 24,
+          "height": 24
+        },
+        "trash": {
+          "name": "trash",
+          "body": "<path fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M4 7h16m-10 4v6m4-6v6M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2l1-12M9 7V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v3\"/>",
+          "width": 24,
+          "height": 24
+        }
+      },
+      "extra": {},
+      "total": 6545,
+      "license": {
+        "title": "MIT",
+        "spdx": "MIT",
+        "url": "https://github.com/tabler/tabler-icons/blob/master/LICENSE"
+      },
+      "author": {
+        "name": "Paweł Kuna",
+        "url": "https://github.com/tabler/tabler-icons"
+      },
+      "category": "",
+      "samples": [],
+      "metaOk": true,
+      "gridWidth": 24,
+      "gridHeight": 24
+    },
+    {
+      "prefix": "ph",
+      "name": "Phosphor",
+      "strokeBased": false,
+      "defaultStroke": null,
+      "grid": 256,
+      "npm": "@phosphor-icons/react",
+      "site": "https://phosphoricons.com",
+      "picks": {
+        "check": "check-circle",
+        "bell": "bell",
+        "star": "star",
+        "fourStar": "star-four",
+        "repeat": "arrows-clockwise",
+        "folder": "folder",
+        "calendar": "calendar",
+        "trash": "trash"
+      },
+      "semantics": {
+        "check": {
+          "label": "完成",
+          "zh": "勾选完成"
+        },
+        "bell": {
+          "label": "提醒",
+          "zh": "提醒铃铛"
+        },
+        "star": {
+          "label": "星标",
+          "zh": "五角星"
+        },
+        "fourStar": {
+          "label": "四角星",
+          "zh": "品牌四角星"
+        },
+        "repeat": {
+          "label": "重复",
+          "zh": "重复规则"
+        },
+        "folder": {
+          "label": "项目",
+          "zh": "项目文件夹"
+        },
+        "calendar": {
+          "label": "日期",
+          "zh": "截止日期"
+        },
+        "trash": {
+          "label": "删除",
+          "zh": "删除任务"
+        }
+      },
+      "icons": {
+        "check": {
+          "name": "check-circle",
+          "body": "<path fill=\"currentColor\" d=\"M173.66 98.34a8 8 0 0 1 0 11.32l-56 56a8 8 0 0 1-11.32 0l-24-24a8 8 0 0 1 11.32-11.32L112 148.69l50.34-50.35a8 8 0 0 1 11.32 0M232 128A104 104 0 1 1 128 24a104.11 104.11 0 0 1 104 104m-16 0a88 88 0 1 0-88 88a88.1 88.1 0 0 0 88-88\"/>",
+          "width": 256,
+          "height": 256
+        },
+        "bell": {
+          "name": "bell",
+          "body": "<path fill=\"currentColor\" d=\"M221.8 175.94c-5.55-9.56-13.8-36.61-13.8-71.94a80 80 0 1 0-160 0c0 35.34-8.26 62.38-13.81 71.94A16 16 0 0 0 48 200h40.81a40 40 0 0 0 78.38 0H208a16 16 0 0 0 13.8-24.06M128 216a24 24 0 0 1-22.62-16h45.24A24 24 0 0 1 128 216m-80-32c7.7-13.24 16-43.92 16-80a64 64 0 1 1 128 0c0 36.05 8.28 66.73 16 80Z\"/>",
+          "width": 256,
+          "height": 256
+        },
+        "star": {
+          "name": "star",
+          "body": "<path fill=\"currentColor\" d=\"M239.18 97.26A16.38 16.38 0 0 0 224.92 86l-59-4.76l-22.78-55.09a16.36 16.36 0 0 0-30.27 0L90.11 81.23L31.08 86a16.46 16.46 0 0 0-9.37 28.86l45 38.83L53 211.75a16.38 16.38 0 0 0 24.5 17.82l50.5-31.08l50.53 31.08A16.4 16.4 0 0 0 203 211.75l-13.76-58.07l45-38.83a16.43 16.43 0 0 0 4.94-17.59m-15.34 5.47l-48.7 42a8 8 0 0 0-2.56 7.91l14.88 62.8a.37.37 0 0 1-.17.48c-.18.14-.23.11-.38 0l-54.72-33.65a8 8 0 0 0-8.38 0l-54.72 33.67c-.15.09-.19.12-.38 0a.37.37 0 0 1-.17-.48l14.88-62.8a8 8 0 0 0-2.56-7.91l-48.7-42c-.12-.1-.23-.19-.13-.5s.18-.27.33-.29l63.92-5.16a8 8 0 0 0 6.72-4.94l24.62-59.61c.08-.17.11-.25.35-.25s.27.08.35.25L153 91.86a8 8 0 0 0 6.75 4.92l63.92 5.16c.15 0 .24 0 .33.29s0 .4-.16.5\"/>",
+          "width": 256,
+          "height": 256
+        },
+        "fourStar": {
+          "name": "star-four",
+          "body": "<path fill=\"currentColor\" d=\"m229.5 113l-63.44-23.06L143 26.5a16 16 0 0 0-30 0L89.94 89.94L26.5 113a16 16 0 0 0 0 30l63.44 23.07L113 229.5a16 16 0 0 0 30 0l23.07-63.44L229.5 143a16 16 0 0 0 0-30m-72.42 39.3a8 8 0 0 0-4.78 4.78L128 223.9l-24.3-66.82a8 8 0 0 0-4.78-4.78L32.1 128l66.82-24.3a8 8 0 0 0 4.78-4.78L128 32.1l24.3 66.82a8 8 0 0 0 4.78 4.78L223.9 128Z\"/>",
+          "width": 256,
+          "height": 256
+        },
+        "repeat": {
+          "name": "arrows-clockwise",
+          "body": "<path fill=\"currentColor\" d=\"M224 48v48a8 8 0 0 1-8 8h-48a8 8 0 0 1 0-16h28.69l-14.63-14.63a79.56 79.56 0 0 0-56.13-23.43h-.45a79.52 79.52 0 0 0-55.89 22.77a8 8 0 0 1-11.18-11.44a96 96 0 0 1 135 .79L208 76.69V48a8 8 0 0 1 16 0m-37.59 135.29a80 80 0 0 1-112.47-.66L59.31 168H88a8 8 0 0 0 0-16H40a8 8 0 0 0-8 8v48a8 8 0 0 0 16 0v-28.69l14.63 14.63A95.43 95.43 0 0 0 130 222.06h.53a95.36 95.36 0 0 0 67.07-27.33a8 8 0 0 0-11.18-11.44Z\"/>",
+          "width": 256,
+          "height": 256
+        },
+        "folder": {
+          "name": "folder",
+          "body": "<path fill=\"currentColor\" d=\"M216 72h-84.69L104 44.69A15.86 15.86 0 0 0 92.69 40H40a16 16 0 0 0-16 16v144.62A15.4 15.4 0 0 0 39.38 216h177.51A15.13 15.13 0 0 0 232 200.89V88a16 16 0 0 0-16-16M40 56h52.69l16 16H40Zm176 144H40V88h176Z\"/>",
+          "width": 256,
+          "height": 256
+        },
+        "calendar": {
+          "name": "calendar",
+          "body": "<path fill=\"currentColor\" d=\"M208 32h-24v-8a8 8 0 0 0-16 0v8H88v-8a8 8 0 0 0-16 0v8H48a16 16 0 0 0-16 16v160a16 16 0 0 0 16 16h160a16 16 0 0 0 16-16V48a16 16 0 0 0-16-16M72 48v8a8 8 0 0 0 16 0v-8h80v8a8 8 0 0 0 16 0v-8h24v32H48V48Zm136 160H48V96h160zm-96-88v64a8 8 0 0 1-16 0v-51.06l-4.42 2.22a8 8 0 0 1-7.16-14.32l16-8A8 8 0 0 1 112 120m59.16 30.45L152 176h16a8 8 0 0 1 0 16h-32a8 8 0 0 1-6.4-12.8l28.78-38.37a8 8 0 1 0-13.31-8.83a8 8 0 1 1-13.85-8A24 24 0 0 1 176 136a23.76 23.76 0 0 1-4.84 14.45\"/>",
+          "width": 256,
+          "height": 256
+        },
+        "trash": {
+          "name": "trash",
+          "body": "<path fill=\"currentColor\" d=\"M216 48h-40v-8a24 24 0 0 0-24-24h-48a24 24 0 0 0-24 24v8H40a8 8 0 0 0 0 16h8v144a16 16 0 0 0 16 16h128a16 16 0 0 0 16-16V64h8a8 8 0 0 0 0-16M96 40a8 8 0 0 1 8-8h48a8 8 0 0 1 8 8v8H96Zm96 168H64V64h128Zm-80-104v64a8 8 0 0 1-16 0v-64a8 8 0 0 1 16 0m48 0v64a8 8 0 0 1-16 0v-64a8 8 0 0 1 16 0\"/>",
+          "width": 256,
+          "height": 256
+        }
+      },
+      "extra": {},
+      "total": 9072,
+      "license": {
+        "title": "MIT",
+        "spdx": "MIT",
+        "url": "https://github.com/phosphor-icons/core/blob/main/LICENSE"
+      },
+      "author": {
+        "name": "Phosphor Icons",
+        "url": "https://github.com/phosphor-icons/core"
+      },
+      "category": "",
+      "samples": [],
+      "metaOk": true,
+      "gridWidth": 256,
+      "gridHeight": 256
+    },
+    {
+      "prefix": "solar",
+      "name": "Solar",
+      "strokeBased": true,
+      "defaultStroke": 1.5,
+      "grid": 24,
+      "npm": "(社区包 solar-icons，许可证未声明)",
+      "site": "https://www.figma.com/community/file/1166831539721848736",
+      "picks": {
+        "check": "check-circle-linear",
+        "bell": "bell-linear",
+        "star": "star-linear",
+        "fourStar": "star-fall-linear",
+        "repeat": "refresh-linear",
+        "folder": "folder-linear",
+        "calendar": "calendar-linear",
+        "trash": "trash-bin-trash-linear"
+      },
+      "semantics": {
+        "check": {
+          "label": "完成",
+          "zh": "勾选完成"
+        },
+        "bell": {
+          "label": "提醒",
+          "zh": "提醒铃铛"
+        },
+        "star": {
+          "label": "星标",
+          "zh": "五角星"
+        },
+        "fourStar": {
+          "label": "四角星",
+          "zh": "品牌四角星"
+        },
+        "repeat": {
+          "label": "重复",
+          "zh": "重复规则"
+        },
+        "folder": {
+          "label": "项目",
+          "zh": "项目文件夹"
+        },
+        "calendar": {
+          "label": "日期",
+          "zh": "截止日期"
+        },
+        "trash": {
+          "label": "删除",
+          "zh": "删除任务"
+        }
+      },
+      "icons": {
+        "check": {
+          "name": "check-circle-linear",
+          "body": "<g fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-width=\"1.5\"><circle cx=\"12\" cy=\"12\" r=\"10\"/><path stroke-linejoin=\"round\" d=\"M8.5 12.5L10.5 14.5L15.5 9.5\"/></g>",
+          "width": 24,
+          "height": 24
+        },
+        "bell": {
+          "name": "bell-linear",
+          "body": "<g fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-width=\"1.5\"><path d=\"M18.7491 9.70957V9.00496C18.7491 5.13623 15.7274 2 12 2C8.27256 2 5.25087 5.13623 5.25087 9.00496V9.70957C5.25087 10.5552 5.00972 11.3818 4.5578 12.0854L3.45036 13.8095C2.43882 15.3843 3.21105 17.5249 4.97036 18.0229C9.57274 19.3257 14.4273 19.3257 19.0296 18.0229C20.789 17.5249 21.5612 15.3843 20.5496 13.8095L19.4422 12.0854C18.9903 11.3818 18.7491 10.5552 18.7491 9.70957Z\"/><path d=\"M7.5 19C8.15503 20.7478 9.92246 22 12 22C14.0775 22 15.845 20.7478 16.5 19\"/></g>",
+          "width": 24,
+          "height": 24
+        },
+        "star": {
+          "name": "star-linear",
+          "body": "<path fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-width=\"1.5\" d=\"M6.67589 7.62805L6.03954 7.77203C3.57986 8.32856 2.35002 8.60682 2.05742 9.54773C1.76482 10.4886 2.60325 11.4691 4.2801 13.4299L4.71392 13.9372C5.19043 14.4944 5.42868 14.773 5.53586 15.1177C5.64305 15.4624 5.60703 15.8341 5.53498 16.5776L5.4694 17.2544C5.21588 19.8706 5.08912 21.1787 5.85515 21.7602C6.62118 22.3417 7.77268 21.8115 10.0757 20.7512L10.6715 20.4768C11.3259 20.1755 11.6531 20.0248 12 20.0248C12.3469 20.0248 12.6741 20.1755 13.3285 20.4768L13.9243 20.7512C16.2273 21.8115 17.3788 22.3417 18.1449 21.7602C18.9109 21.1787 18.7841 19.8706 18.5306 17.2544L18.465 16.5776C18.393 15.8341 18.357 15.4624 18.4641 15.1177C18.5713 14.773 18.8096 14.4944 19.2861 13.9372L19.7199 13.4299C21.3968 11.4691 22.2352 10.4886 21.9426 9.54773C21.65 8.60682 20.4201 8.32856 17.9605 7.77203L17.3241 7.62805C16.6251 7.4699 16.2757 7.39083 15.9951 7.17781C15.7144 6.96479 15.5345 6.64193 15.1745 5.99623L14.8468 5.40837C13.5802 3.13612 12.9469 2 12 2C11.0531 2 10.4198 3.13613 9.15316 5.40838L8.82547 5.99623C8.46553 6.64194 8.28555 6.96479 8.00494 7.17781C7.72433 7.39083 7.37485 7.4699 6.67589 7.62805Z\"/>",
+          "width": 24,
+          "height": 24
+        },
+        "fourStar": {
+          "name": "star-fall-linear",
+          "body": "<g fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path stroke-width=\"1.5\" d=\"M7.44645 7.24078C5.11144 8.94872 3.32371 12.2154 4.24844 18C5.06701 15.5887 7.53446 13.6575 10.2908 12.7279M11.1852 4.22083C11.7062 2.80412 11.9667 2.09577 12.5116 2.00845C13.0564 1.92112 13.5247 2.51266 14.4614 3.69574L14.7037 4.00181C14.9699 4.338 15.103 4.5061 15.2839 4.60208C15.4649 4.69807 15.6732 4.71107 16.0898 4.73708L16.4692 4.76076C17.9354 4.85229 18.6685 4.89806 18.9229 5.40935C19.1774 5.92063 18.7846 6.55883 17.999 7.83522L17.7958 8.16544C17.5725 8.52815 17.4609 8.70951 17.4308 8.91657C17.4006 9.12364 17.4553 9.33297 17.5648 9.75163L17.6644 10.1328C18.0496 11.6061 18.2421 12.3427 17.8545 12.746C17.4669 13.1493 16.7558 12.9522 15.3337 12.558L14.9658 12.456C14.5616 12.344 14.3596 12.288 14.16 12.32C13.9604 12.3519 13.7859 12.4683 13.4369 12.701L13.1191 12.9129C11.8909 13.7319 11.2768 14.1414 10.7828 13.8794C10.2889 13.6174 10.2422 12.8574 10.1488 11.3373L10.1247 10.9441C10.0981 10.5121 10.0849 10.2962 9.99166 10.1089C9.89846 9.92158 9.73589 9.78417 9.41074 9.50935L9.11472 9.25915C7.97052 8.29204 7.39841 7.80849 7.48073 7.24324C7.56305 6.67798 8.24527 6.40538 9.60971 5.86016L9.96271 5.71911C10.3504 5.56417 10.5443 5.48671 10.6863 5.33897C10.8283 5.19122 10.9023 4.98993 11.0504 4.58735L11.1852 4.22083Z\"/><path d=\"M10.2808 16C10.2808 16 10.9135 17.3908 11.6935 17.8692C12.4735 18.3475 14 18.2808 14 18.2808C14 18.2808 12.6092 18.9135 12.1308 19.6935C11.6525 20.4735 11.7192 22 11.7192 22C11.7192 22 11.0865 20.6092 10.3065 20.1308C9.52652 19.6525 8 19.7192 8 19.7192C8 19.7192 9.39082 19.0865 9.86916 18.3065C10.3475 17.5265 10.2808 16 10.2808 16Z\"/><path d=\"M18.4795 15C18.4795 15 18.0577 15.9272 17.5377 16.2461C17.0177 16.565 16 16.5205 16 16.5205C16 16.5205 16.9272 16.9423 17.2461 17.4623C17.565 17.9823 17.5205 19 17.5205 19C17.5205 19 17.9423 18.0728 18.4623 17.7539C18.9823 17.435 20 17.4795 20 17.4795C20 17.4795 19.0728 17.0577 18.7539 16.5377C18.435 16.0177 18.4795 15 18.4795 15Z\"/></g>",
+          "width": 24,
+          "height": 24
+        },
+        "repeat": {
+          "name": "refresh-linear",
+          "body": "<g fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"><path d=\"M3.67981 13L3.67981 11.3333C3.67981 6.73096 7.4402 3 12.0789 3C15.1178 3 17.7799 4.60136 19.2545 7M2 11.3333L3.67981 13L5.35962 11.3333\"/><path d=\"M20.3139 11V12.6667C20.3139 17.269 16.5391 21 11.8827 21C8.83213 21 6.15995 19.3986 4.67969 17M22.0001 12.6667L20.3139 11L18.6277 12.6667\"/></g>",
+          "width": 24,
+          "height": 24
+        },
+        "folder": {
+          "name": "folder-linear",
+          "body": "<g fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-width=\"1.5\"><path d=\"M18 10L13 10\"/><path d=\"M11 4L10.4497 3.44975C10.1763 3.17633 10.0396 3.03961 9.89594 2.92051C9.27652 2.40704 8.51665 2.09229 7.71557 2.01738C7.52976 2 7.33642 2 6.94975 2C6.06722 2 5.62595 2 5.25839 2.06935C3.64031 2.37464 2.37464 3.64031 2.06935 5.25839C2 5.62595 2 6.06722 2 6.94975V14C2 17.7712 2 19.6569 3.17157 20.8284C4.34315 22 6.22876 22 10 22H14C17.7712 22 19.6569 22 20.8284 20.8284C22 19.6569 22 17.7712 22 14V11.7979C22 9.16554 22 7.84935 21.2305 6.99383C21.1598 6.91514 21.0849 6.84024 21.0062 6.76946C20.1506 6 18.8345 6 16.2021 6H15.8284C14.6747 6 14.0979 6 13.5604 5.84678C13.2651 5.7626 12.9804 5.64471 12.7121 5.49543C12.2237 5.22367 11.8158 4.81578 11 4Z\"/></g>",
+          "width": 24,
+          "height": 24
+        },
+        "calendar": {
+          "name": "calendar-linear",
+          "body": "<g fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-width=\"1.5\"><path d=\"M10 21.75H14C17.7712 21.75 19.6569 21.75 20.8284 20.5784C22 19.4069 22 17.5212 22 13.75V11.75C22 7.97876 22 6.09315 20.8284 4.92157C19.6569 3.75 17.7712 3.75 14 3.75H10C6.22876 3.75 4.34315 3.75 3.17157 4.92157C2 6.09315 2 7.97876 2 11.75V13.75C2 17.5212 2 19.4069 3.17157 20.5784C4.34315 21.75 6.22876 21.75 10 21.75Z\"/><path d=\"M2.03516 8.75H21.965\"/><path stroke-linejoin=\"round\" d=\"M17 12.75H17.0001\"/><path stroke-linejoin=\"round\" d=\"M12 12.75H12.0001\"/><path stroke-linejoin=\"round\" d=\"M7 12.75H7.0001\"/><path stroke-linejoin=\"round\" d=\"M17 16.7734H17.0001\"/><path stroke-linejoin=\"round\" d=\"M12 16.7734H12.0001\"/><path stroke-linejoin=\"round\" d=\"M7 16.7734H7.0001\"/><path d=\"M7 3.78496V2.25\"/><path d=\"M17 3.78496V2.25\"/></g>",
+          "width": 24,
+          "height": 24
+        },
+        "trash": {
+          "name": "trash-bin-trash-linear",
+          "body": "<g fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-width=\"1.5\"><path d=\"M20.5001 6H3.5\"/><path d=\"M18.8332 8.5L18.3732 15.3991C18.1962 18.054 18.1077 19.3815 17.2427 20.1907C16.3777 21 15.0473 21 12.3865 21H11.6132C8.95235 21 7.62195 21 6.75694 20.1907C5.89194 19.3815 5.80344 18.054 5.62644 15.3991L5.1665 8.5\"/><path d=\"M9.5 11L10 16\"/><path d=\"M14.5 11L14 16\"/><path d=\"M6.5 6C6.55588 6 6.58382 6 6.60915 5.99936C7.43259 5.97849 8.15902 5.45491 8.43922 4.68032C8.44784 4.65649 8.45667 4.62999 8.47434 4.57697L8.57143 4.28571L8.57143 4.2857C8.65431 4.03708 8.69575 3.91275 8.75071 3.8072C8.97001 3.38607 9.37574 3.09364 9.84461 3.01877C9.96213 3 10.0932 3 10.3553 3H13.6447C13.9068 3 14.0379 3 14.1554 3.01877C14.6243 3.09364 15.03 3.38607 15.2493 3.8072C15.3043 3.91276 15.3457 4.03708 15.4286 4.28571L15.5257 4.57697L15.5258 4.57733C15.5433 4.63004 15.5522 4.65656 15.5608 4.68032C15.841 5.45491 16.5674 5.97849 17.3909 5.99936C17.4162 6 17.4441 6 17.5 6\"/></g>",
+          "width": 24,
+          "height": 24
+        }
+      },
+      "extra": {},
+      "total": 9102,
+      "license": {
+        "title": "CC BY 4.0",
+        "spdx": "CC-BY-4.0",
+        "url": "https://creativecommons.org/licenses/by/4.0/"
+      },
+      "author": {
+        "name": "480 Design",
+        "url": "https://www.figma.com/community/file/1166831539721848736"
+      },
+      "category": "",
+      "samples": [],
+      "metaOk": true,
+      "gridWidth": 24,
+      "gridHeight": 24
+    },
+    {
+      "prefix": "iconoir",
+      "name": "Iconoir",
+      "strokeBased": true,
+      "defaultStroke": 1.5,
+      "grid": 24,
+      "npm": "iconoir-react",
+      "site": "https://iconoir.com",
+      "picks": {
+        "check": "check-circle",
+        "bell": "bell",
+        "star": "star",
+        "fourStar": "sparks",
+        "repeat": "refresh",
+        "folder": "folder",
+        "calendar": "calendar",
+        "trash": "bin-full"
+      },
+      "semantics": {
+        "check": {
+          "label": "完成",
+          "zh": "勾选完成"
+        },
+        "bell": {
+          "label": "提醒",
+          "zh": "提醒铃铛"
+        },
+        "star": {
+          "label": "星标",
+          "zh": "五角星"
+        },
+        "fourStar": {
+          "label": "四角星",
+          "zh": "品牌四角星"
+        },
+        "repeat": {
+          "label": "重复",
+          "zh": "重复规则"
+        },
+        "folder": {
+          "label": "项目",
+          "zh": "项目文件夹"
+        },
+        "calendar": {
+          "label": "日期",
+          "zh": "截止日期"
+        },
+        "trash": {
+          "label": "删除",
+          "zh": "删除任务"
+        }
+      },
+      "icons": {
+        "check": {
+          "name": "check-circle",
+          "body": "<g fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"><path d=\"m7 12.5l3 3l7-7\"/><path d=\"M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2S2 6.477 2 12s4.477 10 10 10\"/></g>",
+          "width": 24,
+          "height": 24
+        },
+        "bell": {
+          "name": "bell",
+          "body": "<path fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\" d=\"M18 8.4c0-1.697-.632-3.325-1.757-4.525S13.59 2 12 2s-3.117.674-4.243 1.875C6.632 5.075 6 6.703 6 8.4C6 15.867 3 18 3 18h18s-3-2.133-3-9.6M13.73 21a2 2 0 0 1-3.46 0\"/>",
+          "width": 24,
+          "height": 24
+        },
+        "star": {
+          "name": "star",
+          "body": "<path fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\" d=\"m8.587 8.236l2.598-5.232a.911.911 0 0 1 1.63 0l2.598 5.232l5.808.844a.902.902 0 0 1 .503 1.542l-4.202 4.07l.992 5.75c.127.738-.653 1.3-1.32.952L12 18.678l-5.195 2.716c-.666.349-1.446-.214-1.319-.953l.992-5.75l-4.202-4.07a.902.902 0 0 1 .503-1.54z\"/>",
+          "width": 24,
+          "height": 24
+        },
+        "fourStar": {
+          "name": "sparks",
+          "body": "<path fill=\"none\" stroke=\"currentColor\" stroke-linejoin=\"round\" stroke-width=\"1.5\" d=\"M8 15c4.875 0 7-2.051 7-7c0 4.949 2.11 7 7 7c-4.89 0-7 2.11-7 7c0-4.89-2.125-7-7-7ZM2 6.5c3.134 0 4.5-1.318 4.5-4.5c0 3.182 1.357 4.5 4.5 4.5c-3.143 0-4.5 1.357-4.5 4.5c0-3.143-1.366-4.5-4.5-4.5Z\"/>",
+          "width": 24,
+          "height": 24
+        },
+        "repeat": {
+          "name": "refresh",
+          "body": "<g fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"><path d=\"M21.888 13.5C21.164 18.311 17.013 22 12 22C6.477 22 2 17.523 2 12S6.477 2 12 2c4.1 0 7.625 2.468 9.168 6\"/><path d=\"M17 8h4.4a.6.6 0 0 0 .6-.6V3\"/></g>",
+          "width": 24,
+          "height": 24
+        },
+        "folder": {
+          "name": "folder",
+          "body": "<path fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\" d=\"M2 11V4.6a.6.6 0 0 1 .6-.6h6.178a.6.6 0 0 1 .39.144l3.164 2.712a.6.6 0 0 0 .39.144H21.4a.6.6 0 0 1 .6.6V11M2 11v8.4a.6.6 0 0 0 .6.6h18.8a.6.6 0 0 0 .6-.6V11M2 11h20\"/>",
+          "width": 24,
+          "height": 24
+        },
+        "calendar": {
+          "name": "calendar",
+          "body": "<path fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\" d=\"M15 4V2m0 2v2m0-2h-4.5M3 10v9a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-9zm0 0V6a2 2 0 0 1 2-2h2m0-2v4m14 4V6a2 2 0 0 0-2-2h-.5\"/>",
+          "width": 24,
+          "height": 24
+        },
+        "trash": {
+          "name": "bin-full",
+          "body": "<g fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\"><path d=\"m19.262 17.038l1.676-12.575a.6.6 0 0 0-.372-.636L16 2h-5.5l-.682 1.5L5 2L3.21 3.79a.6.6 0 0 0-.17.504l1.698 12.744a4 4 0 0 0 1.98 2.944l.32.183a10 10 0 0 0 9.923 0l.32-.183a4 4 0 0 0 1.98-2.944ZM16 2l-2 5m-5-.5l.818-3\"/><path d=\"M3 5c2.571 2.667 15.429 2.667 18 0\"/></g>",
+          "width": 24,
+          "height": 24
+        }
+      },
+      "extra": {},
+      "total": 1671,
+      "license": {
+        "title": "MIT",
+        "spdx": "MIT",
+        "url": "https://github.com/iconoir-icons/iconoir/blob/main/LICENSE"
+      },
+      "author": {
+        "name": "Luca Burgio",
+        "url": "https://github.com/iconoir-icons/iconoir"
+      },
+      "category": "",
+      "samples": [],
+      "metaOk": true,
+      "gridWidth": 24,
+      "gridHeight": 24
+    },
+    {
+      "prefix": "mingcute",
+      "name": "MingCute",
+      "strokeBased": false,
+      "defaultStroke": null,
+      "grid": 24,
+      "npm": "@mingcute/icons",
+      "site": "https://www.mingcute.com",
+      "picks": {
+        "check": "check-circle-line",
+        "bell": "bell-line",
+        "star": "star-line",
+        "fourStar": "sparkles-line",
+        "repeat": "refresh-line",
+        "folder": "folder-line",
+        "calendar": "calendar-line",
+        "trash": "delete-line"
+      },
+      "semantics": {
+        "check": {
+          "label": "完成",
+          "zh": "勾选完成"
+        },
+        "bell": {
+          "label": "提醒",
+          "zh": "提醒铃铛"
+        },
+        "star": {
+          "label": "星标",
+          "zh": "五角星"
+        },
+        "fourStar": {
+          "label": "四角星",
+          "zh": "品牌四角星"
+        },
+        "repeat": {
+          "label": "重复",
+          "zh": "重复规则"
+        },
+        "folder": {
+          "label": "项目",
+          "zh": "项目文件夹"
+        },
+        "calendar": {
+          "label": "日期",
+          "zh": "截止日期"
+        },
+        "trash": {
+          "label": "删除",
+          "zh": "删除任务"
+        }
+      },
+      "icons": {
+        "check": {
+          "name": "check-circle-line",
+          "body": "<path fill=\"currentColor\" d=\"m10.586 13.331l4.949-4.95c.485-.424 1.238-.38 1.577.213c.232.406.133.864-.162 1.201l-5.657 5.657l-.214.163c-.405.232-.863.132-1.2-.163L7.05 12.624c-.295-.338-.394-.796-.163-1.201c.339-.594 1.092-.638 1.577-.213Zm11.306.147a10 10 0 0 1-1.905 4.54c-3.824 5.068-11.366 5.334-15.534.543a10 10 0 0 1-2.03-3.673a10 10 0 0 1 1.59-8.906C7.837.914 15.379.648 19.547 5.439a10 10 0 0 1 2.03 3.673c.424 1.409.53 2.91.315 4.366m-17.787-.18a8 8 0 0 0 1.821 3.908c4.218 4.918 12.29 3.01 13.841-3.284a8 8 0 0 0-1.693-7.128c-4.218-4.918-12.29-3.01-13.841 3.284a8.1 8.1 0 0 0-.128 3.22\"/>",
+          "width": 24,
+          "height": 24
+        },
+        "bell": null,
+        "star": {
+          "name": "star-line",
+          "body": "<path fill=\"currentColor\" d=\"m12 19.093l-5.18 2.282l-.423.087l-.509-.117l-.411-.299l-.269-.448l-.048-.429l.57-5.632l-3.772-4.221l-.213-.375l-.046-.521l.157-.483l.344-.394l.393-.179l5.532-1.198l2.849-4.891l.291-.319l.481-.204h.508l.481.204l.291.319l2.849 4.891l5.533 1.198l.393.179l.343.394l.157.483l-.046.52l-.213.376l-3.772 4.221l.57 5.632l-.048.429l-.269.448l-.411.299l-.509.117l-.423-.087Zm7.621-9.069l-4.594-.995c-.356-.117-.44-.178-.661-.481L12 4.487L9.634 8.549c-.221.302-.305.363-.661.48l-4.594.995l3.132 3.505c.219.303.251.403.252.777l-.473 4.677l4.301-1.896c.357-.114.461-.114.818 0l4.301 1.896l-.473-4.677c.001-.374.033-.473.252-.777Z\"/>",
+          "width": 24,
+          "height": 24
+        },
+        "fourStar": {
+          "name": "sparkles-line",
+          "body": "<path fill=\"currentColor\" d=\"m2.084 17.326l1.464-1.189c1.017-.888 1.686-1.981 2.452-3.093c.766 1.111 1.435 2.205 2.451 3.093l1.464 1.189l-1.464 1.189c-1.016.888-1.685 1.981-2.451 3.092c-.767-1.112-1.435-2.204-2.452-3.091ZM6 16.485l-.797.841l.797.841l.796-.841Zm1.667-6.191c1.012-.714 1.811-1.216 2.696-1.973a15.2 15.2 0 0 0 3.056-3.569l1.355-2.356l1.355 2.356a15.3 15.3 0 0 0 3.057 3.569c.886.757 1.685 1.259 2.697 1.973c-1.012.714-1.811 1.216-2.697 1.973a15.3 15.3 0 0 0-3.057 3.569l-1.355 2.356l-1.355-2.356a15.2 15.2 0 0 0-3.056-3.569c-.885-.757-1.684-1.259-2.696-1.973m7.107-3.966c-1.006 1.523-2.254 2.826-3.674 3.966c1.42 1.14 2.668 2.443 3.674 3.966c1.007-1.523 2.255-2.826 3.676-3.966c-1.421-1.14-2.669-2.443-3.676-3.966\"/>",
+          "width": 24,
+          "height": 24
+        },
+        "repeat": null,
+        "folder": {
+          "name": "folder-line",
+          "body": "<path fill=\"currentColor\" d=\"m12.484 5.494l.053.006h7.52c.445.026.846.153 1.198.435c.47.377.711.915.745 1.508v11.614c-.034.593-.275 1.131-.745 1.508c-.352.282-.753.409-1.198.435H3.943c-.326-.019-.524-.051-.825-.198c-.683-.334-1.075-1-1.118-1.745V4.943c.063-1.1.843-1.88 1.943-1.943h5.633a2.04 2.04 0 0 1 1.47.707c.51.569.938 1.208 1.438 1.787m-2.968-.488h-5.51v13.988h15.988V7.506l-.051-.006h-7.519a2.04 2.04 0 0 1-1.47-.707c-.51-.569-.938-1.208-1.438-1.787\"/>",
+          "width": 24,
+          "height": 24
+        },
+        "calendar": {
+          "name": "calendar-line",
+          "body": "<path fill=\"currentColor\" d=\"M7 5V4a1.04 1.04 0 0 1 .22-.625c.51-.637 1.568-.401 1.754.396L9 4v1h6V4a1.04 1.04 0 0 1 .22-.625c.51-.637 1.568-.401 1.754.396L17 4v1h2c.641.026 1.229.293 1.614.819c.257.351.369.751.386 1.181v12c-.046 1.146-.854 1.954-2 2H5c-.535-.022-1.03-.202-1.414-.586S3.022 19.535 3 19V7c.022-.535.202-1.03.586-1.414S4.465 5.022 5 5Zm12 7H5v7h14ZM5 10h14V7H5Z\"/>",
+          "width": 24,
+          "height": 24
+        },
+        "trash": {
+          "name": "delete-line",
+          "body": "<path fill=\"currentColor\" d=\"m19.003 7l-.943 13.197c-.039.308-.082.495-.236.774c-.35.633-.99.99-1.7 1.029H7.876c-.565-.031-1.081-.25-1.458-.683c-.281-.324-.425-.699-.478-1.12L4.997 7H4c-.271-.018-.511-.096-.707-.293C2.638 6.052 3.131 5.057 4 5h16c.869.057 1.362 1.052.707 1.707c-.196.197-.436.275-.707.293Zm-12 0l.933 12.995h8.128L16.997 7Zm2.738-3.034C8.899 3.74 8.745 2.57 9.5 2.134c.175-.101.302-.121.5-.134h4c.451.03.844.288.966.741c.176.656-.327 1.217-.966 1.259h-4Z\"/>",
+          "width": 24,
+          "height": 24
+        }
+      },
+      "extra": {
+        "notification-line": {
+          "body": "<path fill=\"currentColor\" d=\"M8.128 18H4.162c-.73-.031-1.263-.714-1.047-1.433l.063-.159l1.699-3.398c.055-.121.088-.2.108-.328L5 12.489V9c.009-.449.04-.84.118-1.282c.583-3.276 3.605-5.764 6.929-5.717c3.319.047 6.248 2.416 6.835 5.717c.078.442.109.833.118 1.282v3.489l.015.193c.02.128.053.207.108.328l1.699 3.398l.063.159c.216.719-.316 1.402-1.047 1.433h-3.966c-1.148 3.988-6.596 3.988-7.744 0m2.142 0c.89 1.338 2.57 1.338 3.46 0Zm-4.652-2h12.764l-1.065-2.13a3.2 3.2 0 0 1-.29-.957L17 12.528V9.024a5.5 5.5 0 0 0-.201-1.428c-1.203-4.126-6.756-4.887-9.038-1.248c-.509.813-.738 1.723-.761 2.676v3.504l-.027.385a3.2 3.2 0 0 1-.29.957Z\"/>"
+        },
+        "refresh-2-line": {
+          "body": "<path fill=\"currentColor\" d=\"M4.481 14.719c1.373 3.981 5.82 6.148 9.818 4.944a8.06 8.06 0 0 0 4.001-2.731a8 8 0 0 0 .692-1.042c.188-.339.304-.763.649-.99c.632-.414 1.503.025 1.546.78c.023.403-.252.823-.427 1.146a10 10 0 0 1-2.481 2.957c-4.022 3.275-10.078 2.857-13.595-.965a10.2 10.2 0 0 1-2.586-5.408a9 9 0 0 1-.099-1.299c0-.33.12-.636.371-.861c.386-.344.91-.339 1.341-.09l2.677 1.804c.145.113.267.232.356.393c.381.694-.137 1.595-.926 1.615c-.375.01-1.208-.224-1.337-.253m15.038-5.438c-1.373-3.981-5.82-6.147-9.818-4.944A8.06 8.06 0 0 0 5.7 7.068a8 8 0 0 0-.692 1.042c-.188.339-.304.764-.649.99c-.632.414-1.503-.025-1.546-.78c-.023-.402.252-.823.427-1.145a10 10 0 0 1 2.481-2.958c4.022-3.275 10.078-2.856 13.595.965a10.2 10.2 0 0 1 2.586 5.408c.063.418.1.875.099 1.299c0 .33-.12.637-.371.861c-.386.345-.91.339-1.34.09l-2.678-1.804a1.3 1.3 0 0 1-.356-.393c-.381-.694.137-1.594.926-1.615c.375-.01 1.208.225 1.337.253\"/>"
+        },
+        "loading-line": {
+          "body": "<defs><linearGradient id=\"SVGf3T1bePZ\" x1=\"12\" x2=\"12\" y1=\"21\" y2=\"3\" gradientUnits=\"userSpaceOnUse\"><stop offset=\".05\" stop-color=\"currentColor\" stop-opacity=\".55\"/><stop offset=\".3\" stop-color=\"currentColor\" stop-opacity=\".85\"/><stop offset=\"1\" stop-color=\"currentColor\"/></linearGradient><linearGradient id=\"SVGoaA2CiVK\" x1=\"13\" x2=\"13\" y1=\"21\" y2=\"3\" gradientUnits=\"userSpaceOnUse\"><stop offset=\".05\" stop-color=\"currentColor\" stop-opacity=\".55\"/><stop offset=\".45\" stop-color=\"currentColor\" stop-opacity=\".15\"/><stop offset=\".823\" stop-color=\"currentColor\" stop-opacity=\".05\"/></linearGradient></defs><path fill=\"url(#SVGf3T1bePZ)\" d=\"M2 12c0 5.523 4.477 10 10 10v-2a8 8 0 1 1 0-16a1 1 0 1 0 0-2q-.563 0-1.11.06C5.889 2.615 2 6.853 2 12\"/><path fill=\"url(#SVGoaA2CiVK)\" d=\"M20 12a8 8 0 0 1-8 8v2c5.523 0 10-4.477 10-10a9.97 9.97 0 0 0-2.778-6.917a1 1 0 0 0-1.444 1.384A7.97 7.97 0 0 1 20 12\"/>"
+        },
+        "alert-line": {
+          "body": "<path fill=\"currentColor\" d=\"M11.741 16.966a1 1 0 0 1-.607-.466c-.439-.759.29-1.69 1.127-1.465c.254.068.475.237.607.466c.439.759-.29 1.69-1.127 1.465m-.707-8.224c.226-.843 1.396-.997 1.832-.242c.101.175.121.302.134.5v4.001c-.03.45-.288.844-.741.965c-.656.176-1.217-.326-1.259-.965V9ZM3.213 20.341c-1.104-.129-1.653-1.272-1.146-2.238l8.634-14.955c.414-.648 1.24-.953 1.951-.596c.274.138.482.338.647.596l8.634 14.955c.263.501.265 1.076-.04 1.56c-.276.437-.751.67-1.259.69H3.366Zm1.019-1.988h15.536L12 4.898Z\"/>"
+        }
+      },
+      "total": 4526,
+      "license": {
+        "title": "Apache 2.0",
+        "spdx": "Apache-2.0",
+        "url": "https://github.com/Richard9394/MingCute/blob/main/LICENSE"
+      },
+      "author": {
+        "name": "MingCute Design",
+        "url": "https://github.com/Richard9394/MingCute"
+      },
+      "category": "",
+      "samples": [],
+      "metaOk": true,
+      "gridWidth": 24,
+      "gridHeight": 24
+    },
+    {
+      "prefix": "heroicons",
+      "name": "Heroicons",
+      "strokeBased": true,
+      "defaultStroke": 1.5,
+      "grid": 24,
+      "npm": "@heroicons/react",
+      "site": "https://heroicons.com",
+      "picks": {
+        "check": "check-circle",
+        "bell": "bell",
+        "star": "star",
+        "fourStar": "sparkles",
+        "repeat": "arrow-path",
+        "folder": "folder",
+        "calendar": "calendar-days",
+        "trash": "trash"
+      },
+      "semantics": {
+        "check": {
+          "label": "完成",
+          "zh": "勾选完成"
+        },
+        "bell": {
+          "label": "提醒",
+          "zh": "提醒铃铛"
+        },
+        "star": {
+          "label": "星标",
+          "zh": "五角星"
+        },
+        "fourStar": {
+          "label": "四角星",
+          "zh": "品牌四角星"
+        },
+        "repeat": {
+          "label": "重复",
+          "zh": "重复规则"
+        },
+        "folder": {
+          "label": "项目",
+          "zh": "项目文件夹"
+        },
+        "calendar": {
+          "label": "日期",
+          "zh": "截止日期"
+        },
+        "trash": {
+          "label": "删除",
+          "zh": "删除任务"
+        }
+      },
+      "icons": {
+        "check": {
+          "name": "check-circle",
+          "body": "<path fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\" d=\"M9 12.75L11.25 15L15 9.75M21 12a9 9 0 1 1-18 0a9 9 0 0 1 18 0\"/>",
+          "width": 24,
+          "height": 24
+        },
+        "bell": {
+          "name": "bell",
+          "body": "<path fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\" d=\"M14.857 17.082a24 24 0 0 0 5.454-1.31A8.97 8.97 0 0 1 18 9.75V9A6 6 0 0 0 6 9v.75a8.97 8.97 0 0 1-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.3 24.3 0 0 1-5.714 0m5.714 0a3 3 0 1 1-5.714 0\"/>",
+          "width": 24,
+          "height": 24
+        },
+        "star": {
+          "name": "star",
+          "body": "<path fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\" d=\"M11.48 3.499a.562.562 0 0 1 1.04 0l2.125 5.111a.56.56 0 0 0 .475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.56.56 0 0 0-.182.557l1.285 5.385a.562.562 0 0 1-.84.61l-4.725-2.885a.56.56 0 0 0-.586 0L6.982 20.54a.562.562 0 0 1-.84-.61l1.285-5.386a.56.56 0 0 0-.182-.557l-4.204-3.602a.562.562 0 0 1 .321-.988l5.518-.442a.56.56 0 0 0 .475-.345z\"/>",
+          "width": 24,
+          "height": 24
+        },
+        "fourStar": {
+          "name": "sparkles",
+          "body": "<path fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\" d=\"M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09m8.445-7.188L18 9.75l-.259-1.035a3.38 3.38 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.38 3.38 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.38 3.38 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.38 3.38 0 0 0-2.456 2.456m-1.365 11.852L16.5 21.75l-.394-1.183a2.25 2.25 0 0 0-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 0 0 1.423-1.423l.394-1.183l.394 1.183a2.25 2.25 0 0 0 1.423 1.423l1.183.394l-1.183.394a2.25 2.25 0 0 0-1.423 1.423\"/>",
+          "width": 24,
+          "height": 24
+        },
+        "repeat": {
+          "name": "arrow-path",
+          "body": "<path fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\" d=\"M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99\"/>",
+          "width": 24,
+          "height": 24
+        },
+        "folder": {
+          "name": "folder",
+          "body": "<path fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\" d=\"M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44\"/>",
+          "width": 24,
+          "height": 24
+        },
+        "calendar": {
+          "name": "calendar-days",
+          "body": "<path fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\" d=\"M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5m-9-6h.008v.008H12zM12 15h.008v.008H12zm0 2.25h.008v.008H12zM9.75 15h.008v.008H9.75zm0 2.25h.008v.008H9.75zM7.5 15h.008v.008H7.5zm0 2.25h.008v.008H7.5zm6.75-4.5h.008v.008h-.008zm0 2.25h.008v.008h-.008zm0 2.25h.008v.008h-.008zm2.25-4.5h.008v.008H16.5zm0 2.25h.008v.008H16.5z\"/>",
+          "width": 24,
+          "height": 24
+        },
+        "trash": {
+          "name": "trash",
+          "body": "<path fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\" d=\"m14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21q.512.078 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48 48 0 0 0-3.478-.397m-12 .562q.51-.088 1.022-.165m0 0a48 48 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a52 52 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a49 49 0 0 0-7.5 0\"/>",
+          "width": 24,
+          "height": 24
+        }
+      },
+      "extra": {},
+      "metaOk": true,
+      "gridWidth": 24,
+      "gridHeight": 24,
+      "license": {
+        "title": "MIT",
+        "spdx": "MIT",
+        "url": "https://github.com/tailwindlabs/heroicons/blob/master/LICENSE"
+      },
+      "author": {
+        "name": "Refactoring UI Inc",
+        "url": "https://github.com/tailwindlabs/heroicons"
+      },
+      "total": 1288
+    },
+    {
+      "prefix": "ri",
+      "name": "Remix Icon",
+      "strokeBased": false,
+      "defaultStroke": null,
+      "grid": 24,
+      "npm": "@remixicon/react",
+      "site": "https://remixicon.com",
+      "picks": {
+        "check": "checkbox-circle-line",
+        "bell": "notification-line",
+        "star": "star-line",
+        "fourStar": "sparkling-line",
+        "repeat": "repeat-line",
+        "folder": "folder-line",
+        "calendar": "calendar-line",
+        "trash": "delete-bin-line"
+      },
+      "semantics": {
+        "check": {
+          "label": "完成",
+          "zh": "勾选完成"
+        },
+        "bell": {
+          "label": "提醒",
+          "zh": "提醒铃铛"
+        },
+        "star": {
+          "label": "星标",
+          "zh": "五角星"
+        },
+        "fourStar": {
+          "label": "四角星",
+          "zh": "品牌四角星"
+        },
+        "repeat": {
+          "label": "重复",
+          "zh": "重复规则"
+        },
+        "folder": {
+          "label": "项目",
+          "zh": "项目文件夹"
+        },
+        "calendar": {
+          "label": "日期",
+          "zh": "截止日期"
+        },
+        "trash": {
+          "label": "删除",
+          "zh": "删除任务"
+        }
+      },
+      "icons": {
+        "check": {
+          "name": "checkbox-circle-line",
+          "body": "<path fill=\"currentColor\" d=\"M4 12a8 8 0 1 1 16 0a8 8 0 0 1-16 0m8-10C6.477 2 2 6.477 2 12s4.477 10 10 10s10-4.477 10-10S17.523 2 12 2m5.457 7.457l-1.414-1.414L11 13.086l-2.793-2.793l-1.414 1.414L11 15.914z\"/>",
+          "width": 24,
+          "height": 24
+        },
+        "bell": {
+          "name": "notification-line",
+          "body": "<path fill=\"currentColor\" d=\"M5 18h14v-6.969C19 7.148 15.866 4 12 4s-7 3.148-7 7.031zm7-16c4.97 0 9 4.043 9 9.031V20H3v-8.969C3 6.043 7.03 2 12 2M9.5 21h5a2.5 2.5 0 0 1-5 0\"/>",
+          "width": 24,
+          "height": 24
+        },
+        "star": {
+          "name": "star-line",
+          "body": "<path fill=\"currentColor\" d=\"m12 18.26l-7.053 3.948l1.575-7.928L.588 8.792l8.027-.952L12 .5l3.385 7.34l8.027.952l-5.934 5.488l1.575 7.928zm0-2.292l4.247 2.377l-.948-4.773l3.573-3.305l-4.833-.573l-2.038-4.419l-2.039 4.42l-4.833.572l3.573 3.305l-.948 4.773z\"/>",
+          "width": 24,
+          "height": 24
+        },
+        "fourStar": {
+          "name": "sparkling-line",
+          "body": "<path fill=\"currentColor\" d=\"M14 4.438A2.437 2.437 0 0 0 16.438 2h1.125A2.437 2.437 0 0 0 20 4.438v1.125A2.437 2.437 0 0 0 17.563 8h-1.125A2.437 2.437 0 0 0 14 5.563zM1 11a6 6 0 0 0 6-6h2a6 6 0 0 0 6 6v2a6 6 0 0 0-6 6H7a6 6 0 0 0-6-6zm3.876 1A8.04 8.04 0 0 1 8 15.124A8.04 8.04 0 0 1 11.124 12A8.04 8.04 0 0 1 8 8.876A8.04 8.04 0 0 1 4.876 12m12.374 2A3.25 3.25 0 0 1 14 17.25v1.5A3.25 3.25 0 0 1 17.25 22h1.5A3.25 3.25 0 0 1 22 18.75v-1.5A3.25 3.25 0 0 1 18.75 14z\"/>",
+          "width": 24,
+          "height": 24
+        },
+        "repeat": {
+          "name": "repeat-line",
+          "body": "<path fill=\"currentColor\" d=\"M6 4h15a1 1 0 0 1 1 1v7h-2V6H6v3L1 5l5-4zm12 16H3a1 1 0 0 1-1-1v-7h2v6h14v-3l5 4l-5 4z\"/>",
+          "width": 24,
+          "height": 24
+        },
+        "folder": {
+          "name": "folder-line",
+          "body": "<path fill=\"currentColor\" d=\"M4 5v14h16V7h-8.414l-2-2zm8.414 0H21a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h7.414z\"/>",
+          "width": 24,
+          "height": 24
+        },
+        "calendar": {
+          "name": "calendar-line",
+          "body": "<path fill=\"currentColor\" d=\"M9 1v2h6V1h2v2h4a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h4V1zm11 10H4v8h16zM7 5H4v4h16V5h-3v2h-2V5H9v2H7z\"/>",
+          "width": 24,
+          "height": 24
+        },
+        "trash": {
+          "name": "delete-bin-line",
+          "body": "<path fill=\"currentColor\" d=\"M17 6h5v2h-2v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V8H2V6h5V3a1 1 0 0 1 1-1h8a1 1 0 0 1 1 1zm1 2H6v12h12zm-9 3h2v6H9zm4 0h2v6h-2zM9 4v2h6V4z\"/>",
+          "width": 24,
+          "height": 24
+        }
+      },
+      "extra": {},
+      "metaOk": true,
+      "gridWidth": 24,
+      "gridHeight": 24,
+      "license": {
+        "title": "Apache 2.0",
+        "spdx": "Apache-2.0",
+        "url": "https://github.com/cyberalien/RemixIcon/blob/master/License"
+      },
+      "author": {
+        "name": "Remix Design",
+        "url": "https://github.com/cyberalien/RemixIcon"
+      },
+      "total": 3188
+    },
+    {
+      "prefix": "radix-icons",
+      "name": "Radix Icons",
+      "strokeBased": false,
+      "defaultStroke": null,
+      "grid": 15,
+      "npm": "@radix-ui/react-icons",
+      "site": "https://www.radix-ui.com/icons",
+      "picks": {
+        "check": "check-circled",
+        "bell": "bell",
+        "star": "star",
+        "fourStar": "magic-wand",
+        "repeat": "update",
+        "folder": "archive",
+        "calendar": "calendar",
+        "trash": "trash"
+      },
+      "semantics": {
+        "check": {
+          "label": "完成",
+          "zh": "勾选完成"
+        },
+        "bell": {
+          "label": "提醒",
+          "zh": "提醒铃铛"
+        },
+        "star": {
+          "label": "星标",
+          "zh": "五角星"
+        },
+        "fourStar": {
+          "label": "四角星",
+          "zh": "品牌四角星"
+        },
+        "repeat": {
+          "label": "重复",
+          "zh": "重复规则"
+        },
+        "folder": {
+          "label": "项目",
+          "zh": "项目文件夹"
+        },
+        "calendar": {
+          "label": "日期",
+          "zh": "截止日期"
+        },
+        "trash": {
+          "label": "删除",
+          "zh": "删除任务"
+        }
+      },
+      "icons": {
+        "check": {
+          "name": "check-circled",
+          "body": "<path fill=\"currentColor\" d=\"M7.5.877a6.623 6.623 0 1 1 0 13.246A6.623 6.623 0 0 1 7.5.877m0 .95a5.674 5.674 0 1 0 0 11.343a5.674 5.674 0 0 0-.002-11.345m1.84 3.135a.5.5 0 0 1 .82.576l-3.168 4.5a.5.5 0 0 1-.765.063L4.644 8.487L5 8.137l.357-.35L6.52 8.971zM4.65 7.78a.5.5 0 0 1 .707.007l-.713.7a.5.5 0 0 1 .006-.707\"/>",
+          "width": 15,
+          "height": 15
+        },
+        "bell": {
+          "name": "bell",
+          "body": "<path fill=\"currentColor\" d=\"M7.5.15a1.1 1.1 0 0 1 .293 2.16A4.5 4.5 0 0 1 12 6.8v3.45c0 .806.033 1.457.724 1.803A.5.5 0 0 1 12.5 13H8.16a1 1 0 1 1-1.318 0H2.499a.5.5 0 0 1-.224-.947c.691-.346.724-.997.724-1.803V6.8a4.5 4.5 0 0 1 4.207-4.49A1.1 1.1 0 0 1 7.501.15m0 3.15A3.5 3.5 0 0 0 4 6.8v3.45c0 .445.013 1.136-.3 1.75h7.6c-.313-.614-.3-1.305-.3-1.75V6.8a3.5 3.5 0 0 0-3.5-3.5\"/>",
+          "width": 15,
+          "height": 15
+        },
+        "star": {
+          "name": "star",
+          "body": "<path fill=\"currentColor\" d=\"M7.223.666a.3.3 0 0 1 .554 0L9.413 4.6a.3.3 0 0 0 .253.184l4.248.34a.3.3 0 0 1 .171.527l-.23.195l-3.006 2.578a.3.3 0 0 0-.097.296l.919 3.852l.07.294a.3.3 0 0 1-.361.362l-.087-.037l-.258-.158l-3.379-2.062a.3.3 0 0 0-.312 0l-3.637 2.22l-.087.037a.3.3 0 0 1-.361-.362l.07-.294l.92-3.852a.3.3 0 0 0-.043-.235l-.055-.061L.915 5.65a.3.3 0 0 1 .171-.526l.3-.025l3.948-.316a.3.3 0 0 0 .211-.112l.042-.072zM6.51 4.984a1.3 1.3 0 0 1-.917.77l-.18.027l-2.57.205l1.959 1.678l.129.127c.237.269.353.626.319.983l-.03.179l-.598 2.507l2.2-1.343l.161-.083a1.3 1.3 0 0 1 1.034 0l.16.083l2.2 1.343l-.598-2.507a1.3 1.3 0 0 1 .42-1.29l1.957-1.677l-2.569-.205a1.3 1.3 0 0 1-1.016-.635l-.08-.162l-.99-2.38z\"/>",
+          "width": 15,
+          "height": 15
+        },
+        "fourStar": {
+          "name": "magic-wand",
+          "body": "<path fill=\"currentColor\" d=\"M9.224 5.082a.5.5 0 0 1 .694.694l-.065.078l-7 7a.5.5 0 0 1-.707-.707l7-7zM13.5 5.1c.22 0 .4.18.4.4v.6h.6l.08.009a.4.4 0 0 1 0 .783l-.08.009h-.6v.6a.401.401 0 0 1-.8 0v-.6h-.6a.401.401 0 0 1 0-.801h.6v-.6a.4.4 0 0 1 .4-.4m-2.275-2.018a.5.5 0 0 1 .693.694l-.065.078l-1 1a.5.5 0 0 1-.707-.707l1-1zM8.5.1c.22 0 .4.18.4.4v.6h.6l.08.009a.4.4 0 0 1 0 .783l-.08.009h-.6v.6a.401.401 0 0 1-.8 0v-.6h-.6a.401.401 0 0 1 0-.801h.6V.5a.4.4 0 0 1 .4-.4m5 0c.22 0 .4.18.4.4v.6h.6l.08.009a.4.4 0 0 1 0 .783l-.08.009h-.6v.6a.401.401 0 0 1-.8 0v-.6h-.6a.401.401 0 0 1 0-.801h.6V.5a.4.4 0 0 1 .4-.4\"/>",
+          "width": 15,
+          "height": 15
+        },
+        "repeat": {
+          "name": "update",
+          "body": "<path fill=\"currentColor\" d=\"M7.988 1.563a.52.52 0 0 1 .608-.417l.269.056c2.764.638 5.188 3.036 5.188 6.501c0 1.537-.7 2.745-1.515 3.663c-.585.659-1.255 1.193-1.793 1.602h1.637a.5.5 0 0 1 0 1h-3a.5.5 0 0 1-.5-.5v-3a.5.5 0 0 1 1 0v1.846l.182-.138c.534-.405 1.152-.892 1.694-1.502c.715-.804 1.252-1.776 1.252-2.97c0-3.012-2.16-5.073-4.606-5.533l-.102-.03a.52.52 0 0 1-.314-.578M.86 7.297c0-1.536.7-2.744 1.515-3.663c.585-.658 1.255-1.192 1.793-1.602H2.532a.5.5 0 0 1 0-1h3a.5.5 0 0 1 .5.5v3a.5.5 0 0 1-1 0V2.687l-.182.137c-.534.405-1.152.892-1.694 1.502c-.715.804-1.252 1.776-1.252 2.971c0 3.044 2.207 5.118 4.685 5.547a.522.522 0 0 1-.177 1.027C3.5 13.367.86 10.913.86 7.297\"/>",
+          "width": 15,
+          "height": 15
+        },
+        "folder": {
+          "name": "archive",
+          "body": "<path fill=\"currentColor\" d=\"M11.691 1a1 1 0 0 1 .894.553l1.362 2.723l.04.109A.5.5 0 0 1 14 4.5V13a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V4.5a.5.5 0 0 1 .053-.224l1.362-2.723l.071-.121A1 1 0 0 1 3.31 1zM2 13h11V5H2zm7.5-6a.5.5 0 0 1 0 1h-4a.5.5 0 0 1 0-1zM2.309 4H7V2H3.309zM8 4h4.691l-1-2H8z\"/>",
+          "width": 15,
+          "height": 15
+        },
+        "calendar": {
+          "name": "calendar",
+          "body": "<path fill=\"currentColor\" d=\"M10.5 1a.5.5 0 0 1 .5.5V2h1.5A1.5 1.5 0 0 1 14 3.5v9a1.5 1.5 0 0 1-1.5 1.5h-10A1.5 1.5 0 0 1 1 12.5v-9A1.5 1.5 0 0 1 2.5 2H4v-.5a.5.5 0 0 1 1 0V2h5v-.5a.5.5 0 0 1 .5-.5M2 12.5l.01.1c.04.196.194.35.39.39l.1.01h10l.1-.01a.5.5 0 0 0 .39-.39l.01-.1V6H2zM3.5 11a.5.5 0 1 1 0 1a.5.5 0 0 1 0-1m2 0a.5.5 0 1 1 0 1a.5.5 0 0 1 0-1m2 0a.5.5 0 1 1 0 1a.5.5 0 0 1 0-1m2 0a.5.5 0 1 1 0 1a.5.5 0 0 1 0-1m-6-2a.5.5 0 1 1 0 1a.5.5 0 0 1 0-1m2 0a.5.5 0 1 1 0 1a.5.5 0 0 1 0-1m2 0a.5.5 0 1 1 0 1a.5.5 0 0 1 0-1m2 0a.5.5 0 1 1 0 1a.5.5 0 0 1 0-1m2 0a.5.5 0 1 1 0 1a.5.5 0 0 1 0-1m-4-2a.5.5 0 1 1 0 1a.5.5 0 0 1 0-1m2 0a.5.5 0 1 1 0 1a.5.5 0 0 1 0-1m2 0a.5.5 0 1 1 0 1a.5.5 0 0 1 0-1M2.4 3.01a.5.5 0 0 0-.4.49V5h11V3.5a.5.5 0 0 0-.4-.49L12.5 3H11v.5a.5.5 0 0 1-1 0V3H5v.5a.5.5 0 0 1-1 0V3H2.5z\"/>",
+          "width": 15,
+          "height": 15
+        },
+        "trash": {
+          "name": "trash",
+          "body": "<path fill=\"currentColor\" d=\"M11.5 3a.5.5 0 0 1 0 1H11v8l-.005.102a1 1 0 0 1-.893.893L10 13H5l-.103-.005a1 1 0 0 1-.892-.893L4 12V4h-.5a.5.5 0 0 1 0-1zM5 12h5V4H5zM9.5 1a.5.5 0 0 1 0 1h-4a.5.5 0 0 1 0-1z\"/>",
+          "width": 15,
+          "height": 15
+        }
+      },
+      "extra": {},
+      "metaOk": true,
+      "gridWidth": 15,
+      "gridHeight": 15,
+      "license": {
+        "title": "MIT",
+        "spdx": "MIT",
+        "url": "https://github.com/radix-ui/icons/blob/master/LICENSE"
+      },
+      "author": {
+        "name": "WorkOS",
+        "url": "https://github.com/radix-ui/icons"
+      },
+      "total": 332
+    },
+    {
+      "prefix": "uiw",
+      "name": "Untitled UI (社区镜像 uiw)",
+      "strokeBased": true,
+      "defaultStroke": 2,
+      "grid": 24,
+      "npm": "@untitled-ui/icons-react",
+      "site": "https://untitledui.com/icons",
+      "picks": {
+        "check": "check-circle",
+        "bell": "bell",
+        "star": "star",
+        "fourStar": "sparkles",
+        "repeat": "refresh-ccw",
+        "folder": "folder",
+        "calendar": "calendar",
+        "trash": "trash"
+      },
+      "semantics": {
+        "check": {
+          "label": "完成",
+          "zh": "勾选完成"
+        },
+        "bell": {
+          "label": "提醒",
+          "zh": "提醒铃铛"
+        },
+        "star": {
+          "label": "星标",
+          "zh": "五角星"
+        },
+        "fourStar": {
+          "label": "四角星",
+          "zh": "品牌四角星"
+        },
+        "repeat": {
+          "label": "重复",
+          "zh": "重复规则"
+        },
+        "folder": {
+          "label": "项目",
+          "zh": "项目文件夹"
+        },
+        "calendar": {
+          "label": "日期",
+          "zh": "截止日期"
+        },
+        "trash": {
+          "label": "删除",
+          "zh": "删除任务"
+        }
+      },
+      "icons": {
+        "check": null,
+        "bell": {
+          "name": "bell",
+          "body": "<path fill=\"currentColor\" d=\"M9.985 0c1.089 0 1.971.898 1.971 2.006l-.009.163c.868.352 1.707.936 2.451 1.71c.862.893 1.366 2.077 1.521 3.596v5.478l1.191 2.098c.4.666.528 1.224.216 1.707c-.286.441-.797.595-1.49.583h-2.67C12.854 18.86 11.532 20 9.95 20s-2.905-1.14-3.216-2.658H3.778l-.056-.003c-.627-.054-1.094-.357-1.199-.94c-.071-.397.023-.823.268-1.331l1.225-2.18l.003-5.473c.107-1.21.56-2.337 1.348-3.371c.667-.875 1.62-1.519 2.654-1.89a2 2 0 0 1-.006-.148C8.015.898 8.897 0 9.985 0m1.818 17.342H8.097c.275.77 1 1.32 1.853 1.32c.852 0 1.578-.55 1.853-1.32M10.082 3.124c-1.354 0-2.843.645-3.677 1.74c-.638.836-.994 1.722-1.075 2.61v5.59c0 .117-.03.232-.087.333l-1.291 2.296q-.09.19-.12.311h12.014c.121.002.213-.003.276-.005a3 3 0 0 0-.141-.265l-1.287-2.267a.7.7 0 0 1-.088-.335l.003-5.586c-.121-1.162-.506-2.064-1.149-2.732c-1.04-1.08-2.262-1.69-3.378-1.69m-.097-1.787a.66.66 0 0 0-.635.497q.369-.047.732-.047q.266 0 .535.032a.66.66 0 0 0-.632-.482\"/>",
+          "width": 20,
+          "height": 20
+        },
+        "star": null,
+        "fourStar": null,
+        "repeat": null,
+        "folder": {
+          "name": "folder",
+          "body": "<path fill=\"currentColor\" d=\"M9.566 5.838a1.36 1.36 0 0 1-1.347-1.135L7.984 3.22a.45.45 0 0 0-.45-.378H1.818a.45.45 0 0 0-.454.447v13.422a.45.45 0 0 0 .454.447h16.364c.25 0 .454-.2.454-.447V6.285a.45.45 0 0 0-.454-.447zm0-1.342h8.616c1.004 0 1.818.8 1.818 1.79V16.71c0 .988-.814 1.789-1.818 1.789H1.818C.814 18.5 0 17.699 0 16.71V3.29C0 2.3.814 1.5 1.818 1.5h5.716a1.81 1.81 0 0 1 1.797 1.514z\"/>",
+          "width": 20,
+          "height": 20
+        },
+        "calendar": null,
+        "trash": null
+      },
+      "extra": {},
+      "metaOk": true,
+      "gridWidth": 20,
+      "gridHeight": 20,
+      "license": {
+        "title": "MIT",
+        "spdx": "MIT",
+        "url": "https://github.com/uiwjs/icons/blob/master/LICENSE"
+      },
+      "author": {
+        "name": "liwen0526",
+        "url": "https://github.com/uiwjs/icons"
+      },
+      "total": 214
+    }
+  ],
+  "pairs": {
+    "lucide": {
+      "width": 24,
+      "height": 24,
+      "icons": {
+        "circle": {
+          "body": "<circle cx=\"12\" cy=\"12\" r=\"10\" fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\"/>"
+        },
+        "circle-check-big": {
+          "body": "<g fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\"><path d=\"M21.801 10A10 10 0 1 1 17 3.335\"/><path d=\"m9 11l3 3L22 4\"/></g>"
+        },
+        "check": {
+          "body": "<path fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M20 6L9 17l-5-5\"/>"
+        }
+      },
+      "notFound": []
+    },
+    "tabler": {
+      "width": 24,
+      "height": 24,
+      "icons": {
+        "circle-check-filled": {
+          "body": "<path fill=\"currentColor\" d=\"M17 3.34a10 10 0 1 1-14.995 8.984L2 12l.005-.324A10 10 0 0 1 17 3.34m-1.293 5.953a1 1 0 0 0-1.32-.083l-.094.083L11 12.585l-1.293-1.292l-.094-.083a1 1 0 0 0-1.403 1.403l.083.094l2 2l.094.083a1 1 0 0 0 1.226 0l.094-.083l4-4l.083-.094a1 1 0 0 0-.083-1.32\"/>"
+        },
+        "star-filled": {
+          "body": "<path fill=\"currentColor\" d=\"m8.243 7.34l-6.38.925l-.113.023a1 1 0 0 0-.44 1.684l4.622 4.499l-1.09 6.355l-.013.11a1 1 0 0 0 1.464.944l5.706-3l5.693 3l.1.046a1 1 0 0 0 1.352-1.1l-1.091-6.355l4.624-4.5l.078-.085a1 1 0 0 0-.633-1.62l-6.38-.926l-2.852-5.78a1 1 0 0 0-1.794 0z\"/>"
+        },
+        "bell-filled": {
+          "body": "<path fill=\"currentColor\" d=\"M14.235 19c.865 0 1.322 1.024.745 1.668A4 4 0 0 1 12 22a4 4 0 0 1-2.98-1.332c-.552-.616-.158-1.579.634-1.661l.11-.006zM12 2c1.358 0 2.506.903 2.875 2.141l.046.171l.008.043a8.01 8.01 0 0 1 4.024 6.069l.028.287L19 11v2.931l.021.136a3 3 0 0 0 1.143 1.847l.167.117l.162.099c.86.487.56 1.766-.377 1.864L20 18H4c-1.028 0-1.387-1.364-.493-1.87a3 3 0 0 0 1.472-2.063L5 13.924l.001-2.97A8 8 0 0 1 8.822 4.5l.248-.146l.01-.043a3 3 0 0 1 2.562-2.29l.182-.017z\"/>"
+        }
+      },
+      "notFound": []
+    },
+    "ph": {
+      "width": 256,
+      "height": 256,
+      "icons": {
+        "check-circle-fill": {
+          "body": "<path fill=\"currentColor\" d=\"M128 24a104 104 0 1 0 104 104A104.11 104.11 0 0 0 128 24m45.66 85.66l-56 56a8 8 0 0 1-11.32 0l-24-24a8 8 0 0 1 11.32-11.32L112 148.69l50.34-50.35a8 8 0 0 1 11.32 11.32\"/>"
+        },
+        "check-circle-light": {
+          "body": "<path fill=\"currentColor\" d=\"M172.24 99.76a6 6 0 0 1 0 8.48l-56 56a6 6 0 0 1-8.48 0l-24-24a6 6 0 0 1 8.48-8.48L112 151.51l51.76-51.75a6 6 0 0 1 8.48 0M230 128A102 102 0 1 1 128 26a102.12 102.12 0 0 1 102 102m-12 0a90 90 0 1 0-90 90a90.1 90.1 0 0 0 90-90\"/>"
+        },
+        "check-circle-bold": {
+          "body": "<path fill=\"currentColor\" d=\"M176.49 95.51a12 12 0 0 1 0 17l-56 56a12 12 0 0 1-17 0l-24-24a12 12 0 1 1 17-17L112 143l47.51-47.52a12 12 0 0 1 16.98.03M236 128A108 108 0 1 1 128 20a108.12 108.12 0 0 1 108 108m-24 0a84 84 0 1 0-84 84a84.09 84.09 0 0 0 84-84\"/>"
+        },
+        "check-circle-duotone": {
+          "body": "<g fill=\"currentColor\"><path d=\"M224 128a96 96 0 1 1-96-96a96 96 0 0 1 96 96\" opacity=\".2\"/><path d=\"M173.66 98.34a8 8 0 0 1 0 11.32l-56 56a8 8 0 0 1-11.32 0l-24-24a8 8 0 0 1 11.32-11.32L112 148.69l50.34-50.35a8 8 0 0 1 11.32 0M232 128A104 104 0 1 1 128 24a104.11 104.11 0 0 1 104 104m-16 0a88 88 0 1 0-88 88a88.1 88.1 0 0 0 88-88\"/></g>"
+        },
+        "star-four-fill": {
+          "body": "<path fill=\"currentColor\" d=\"M240 128a15.79 15.79 0 0 1-10.5 15l-63.44 23.07L143 229.5a16 16 0 0 1-30 0l-23.06-63.44L26.5 143a16 16 0 0 1 0-30l63.44-23.06L113 26.5a16 16 0 0 1 30 0l23.07 63.44L229.5 113a15.79 15.79 0 0 1 10.5 15\"/>"
+        }
+      },
+      "notFound": []
+    },
+    "solar": {
+      "width": 24,
+      "height": 24,
+      "icons": {
+        "check-circle-bold": {
+          "body": "<path fill=\"currentColor\" fill-rule=\"evenodd\" d=\"M22 12C22 17.5228 17.5228 22 12 22C6.47715 22 2 17.5228 2 12C2 6.47715 6.47715 2 12 2C17.5228 2 22 6.47715 22 12ZM16.0303 8.96967C16.3232 9.26256 16.3232 9.73744 16.0303 10.0303L11.0303 15.0303C10.7374 15.3232 10.2626 15.3232 9.96967 15.0303L7.96967 13.0303C7.67678 12.7374 7.67678 12.2626 7.96967 11.9697C8.26256 11.6768 8.73744 11.6768 9.03033 11.9697L10.5 13.4393L12.7348 11.2045L14.9697 8.96967C15.2626 8.67678 15.7374 8.67678 16.0303 8.96967Z\" clip-rule=\"evenodd\"/>"
+        },
+        "check-circle-line-duotone": {
+          "body": "<g fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-width=\"1.5\"><circle cx=\"12\" cy=\"12\" r=\"10\" opacity=\".5\"/><path stroke-linejoin=\"round\" d=\"M8.5 12.5L10.5 14.5L15.5 9.5\"/></g>"
+        }
+      },
+      "notFound": []
+    },
+    "mingcute": {
+      "width": 24,
+      "height": 24,
+      "icons": {
+        "check-circle-fill": {
+          "body": "<path fill=\"currentColor\" d=\"M12.746 2.027a10 10 0 0 1 4.699 1.584c5.563 3.618 6.124 11.579 1.116 15.936a10 10 0 0 1-2.998 1.8a10.1 10.1 0 0 1-4.309.626a10 10 0 0 1-4.699-1.584C.992 16.771.431 8.81 5.439 4.453a10 10 0 0 1 2.998-1.8a10.1 10.1 0 0 1 4.309-.626m-2.16 11.304L8.464 11.21c-.485-.424-1.238-.381-1.577.213c-.231.406-.132.864.163 1.201l2.829 2.828c.337.295.795.395 1.201.163l.213-.163l5.656-5.657c.295-.338.395-.795.163-1.201c-.339-.593-1.092-.637-1.577-.213Z\"/>"
+        }
+      },
+      "notFound": []
+    },
+    "iconoir": {
+      "width": 24,
+      "height": 24,
+      "icons": {
+        "check-circle-solid": {
+          "body": "<path fill=\"currentColor\" fill-rule=\"evenodd\" d=\"M12 1.25C6.063 1.25 1.25 6.063 1.25 12S6.063 22.75 12 22.75S22.75 17.937 22.75 12S17.937 1.25 12 1.25M7.53 11.97a.75.75 0 0 0-1.06 1.06l3 3a.75.75 0 0 0 1.06 0l7-7a.75.75 0 0 0-1.06-1.06L10 14.44z\" clip-rule=\"evenodd\"/>"
+        }
+      },
+      "notFound": []
+    },
+    "heroicons": {
+      "width": 24,
+      "height": 24,
+      "icons": {
+        "check-circle-solid": {
+          "body": "<path fill=\"currentColor\" fill-rule=\"evenodd\" d=\"M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75s-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12m13.36-1.814a.75.75 0 1 0-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 0 0-1.06 1.06l2.25 2.25a.75.75 0 0 0 1.14-.094z\" clip-rule=\"evenodd\"/>"
+        }
+      },
+      "notFound": []
+    }
+  }
+}

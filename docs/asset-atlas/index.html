@@ -1,0 +1,373 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Polaris 素材图鉴 · 开源图标 / 字体 / 动效 / 特效</title>
+<meta name="description" content="为 Polaris 本地优先待办应用调研并核验的开源素材清单：真实 SVG 预览、可下载字体、许可证核验、六套主题适配与集成方案。">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%235eead4' d='M12 1.5l2.6 7.9 7.9 2.6-7.9 2.6-2.6 7.9-2.6-7.9L1.5 12l7.9-2.6z'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="atlas.css">
+</head>
+<body>
+
+<!-- 品牌渐变只用在星标记上，这是 Polaris 的硬规矩 -->
+<svg width="0" height="0" aria-hidden="true" style="position:absolute">
+  <defs>
+    <linearGradient id="starGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="var(--mark-a)"/>
+      <stop offset="100%" stop-color="var(--mark-b)"/>
+    </linearGradient>
+  </defs>
+</svg>
+
+<div class="bg-aurora" aria-hidden="true"></div>
+<div class="bg-stars" aria-hidden="true"></div>
+<div class="bg-grain" aria-hidden="true"></div>
+
+<button class="btn btn--ghost rail-toggle mobile-only" id="railToggle" aria-label="打开控制台" aria-expanded="false">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+  控制台
+</button>
+
+<div class="shell">
+  <!-- ── 常驻控制台 ───────────────────────────────────────────────────── -->
+  <aside class="rail" id="rail" aria-label="图鉴控制台">
+    <div class="rail__head">
+      <div class="brand">
+        <svg class="brand__mark" viewBox="0 0 256 256" aria-hidden="true">
+          <path d="M240 128a15.79 15.79 0 0 1-10.5 15l-63.44 23.07L143 229.5a16 16 0 0 1-30 0l-23.06-63.44L26.5 143a16 16 0 0 1 0-30l63.44-23.06L113 26.5a16 16 0 0 1 30 0l23.07 63.44L229.5 113a15.79 15.79 0 0 1 10.5 15"/>
+        </svg>
+        <span class="brand__text">
+          <span class="brand__name">素材图鉴</span>
+          <span class="brand__sub">POLARIS · v0.2.1</span>
+        </span>
+        <button class="icon-btn mobile-only" id="railClose" aria-label="关闭控制台" style="margin-left:auto">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <div class="rail__body">
+      <nav class="nav" id="nav" aria-label="章节导航"></nav>
+
+      <div class="rail__label">主题 · 六套</div>
+      <div class="themes" id="themes" role="group" aria-label="切换主题"></div>
+
+      <div class="rail__label">图标参数</div>
+      <div class="ctrl">
+        <div class="ctrl__top"><label class="ctrl__name" for="cIconSize">尺寸</label><span class="ctrl__val" id="vIconSize">22px</span></div>
+        <input type="range" id="cIconSize" min="14" max="48" step="1" value="22">
+      </div>
+      <div class="ctrl">
+        <div class="ctrl__top"><label class="ctrl__name" for="cIconStroke">描边粗细</label><span class="ctrl__val" id="vIconStroke">1.75</span></div>
+        <input type="range" id="cIconStroke" min="1" max="3" step="0.05" value="1.75">
+      </div>
+      <div class="ctrl">
+        <div class="ctrl__top"><span class="ctrl__name">图标色调</span></div>
+        <div class="seg" id="cIconTone" role="group" aria-label="图标色调">
+          <button class="seg__btn" data-tone="inherit" aria-pressed="true">继承</button>
+          <button class="seg__btn" data-tone="signal" aria-pressed="false">信号</button>
+          <button class="seg__btn" data-tone="muted" aria-pressed="false">弱化</button>
+          <button class="seg__btn" data-tone="attention" aria-pressed="false">提醒</button>
+        </div>
+      </div>
+
+      <div class="rail__label">字体参数</div>
+      <div class="ctrl">
+        <div class="ctrl__top"><label class="ctrl__name" for="cSpecSize">试排字号</label><span class="ctrl__val" id="vSpecSize">30px</span></div>
+        <input type="range" id="cSpecSize" min="12" max="64" step="1" value="30">
+      </div>
+      <div class="ctrl">
+        <div class="ctrl__top"><label class="ctrl__name" for="cSpecWeight">字重</label><span class="ctrl__val" id="vSpecWeight">500</span></div>
+        <input type="range" id="cSpecWeight" min="200" max="800" step="10" value="500">
+      </div>
+      <div class="ctrl">
+        <div class="ctrl__top"><span class="ctrl__name">字样内容</span></div>
+        <div class="seg" id="cSpecText" role="group" aria-label="字样内容">
+          <button class="seg__btn" data-text="mixed" aria-pressed="true">中英</button>
+          <button class="seg__btn" data-text="zh" aria-pressed="false">中文</button>
+          <button class="seg__btn" data-text="num" aria-pressed="false">数字</button>
+        </div>
+      </div>
+
+      <div class="rail__label">画面与动效</div>
+      <div class="ctrl">
+        <div class="ctrl__top"><label class="ctrl__name" for="cAurora">极光强度</label><span class="ctrl__val" id="vAurora">1.0×</span></div>
+        <input type="range" id="cAurora" min="0" max="2" step="0.1" value="1">
+      </div>
+      <div class="ctrl">
+        <div class="ctrl__top"><label class="ctrl__name" for="cGrain">颗粒强度</label><span class="ctrl__val" id="vGrain">1.0×</span></div>
+        <input type="range" id="cGrain" min="0" max="3" step="0.1" value="1">
+      </div>
+      <div class="ctrl">
+        <div class="ctrl__top"><label class="ctrl__name" for="cRadius">圆角缩放</label><span class="ctrl__val" id="vRadius">1.0×</span></div>
+        <input type="range" id="cRadius" min="0" max="1.4" step="0.05" value="1">
+      </div>
+      <div class="ctrl">
+        <div class="ctrl__top"><label class="ctrl__name" for="cSpeed">动效速度</label><span class="ctrl__val" id="vSpeed">1.0×</span></div>
+        <input type="range" id="cSpeed" min="0.3" max="2.5" step="0.1" value="1">
+      </div>
+      <label class="switch">
+        <span class="switch__label">减弱动效</span>
+        <input type="checkbox" id="cReduce">
+        <span class="switch__track" aria-hidden="true"></span>
+      </label>
+
+      <div class="rail__label">导出</div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <button class="btn btn--sm" id="expMd">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+          导出清单 Markdown
+        </button>
+        <button class="btn btn--sm" id="expJson">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+          导出清单 JSON
+        </button>
+        <button class="btn btn--sm" id="expNotice">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M9 15h6M9 11h2"/></svg>
+          生成 NOTICE
+        </button>
+        <button class="btn btn--sm btn--ghost" id="resetAll">恢复默认参数</button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ── 主内容 ───────────────────────────────────────────────────────── -->
+  <main class="main" id="main">
+
+    <section class="hero" id="sec-overview">
+      <div>
+        <div class="section__eyebrow">开源素材调研 · 已核验</div>
+        <h1 class="hero__title">给 Polaris 的<br><em>素材图鉴</em></h1>
+        <p class="hero__lede">
+          每一条素材都真的抓下来了：字体是从 jsDelivr 下载的 woff2，图标是 Iconify 官方 API 返回的原始 SVG，
+          许可证来自 npm registry 与上游登记表，不是凭记忆写的。左侧控制台可以实时改参数，
+          六套主题随时切换，看看它们在你的画布上到底长什么样。
+        </p>
+        <div class="hero__meta" id="heroMeta"></div>
+        <div class="stats" id="stats"></div>
+      </div>
+      <div class="verdict-card">
+        <h2 class="verdict-card__title">
+          <svg viewBox="0 0 256 256" width="16" height="16" aria-hidden="true" style="color:var(--accent)"><path fill="currentColor" d="M240 128a15.79 15.79 0 0 1-10.5 15l-63.44 23.07L143 229.5a16 16 0 0 1-30 0l-23.06-63.44L26.5 143a16 16 0 0 1 0-30l63.44-23.06L113 26.5a16 16 0 0 1 30 0l23.07 63.44L229.5 113a15.79 15.79 0 0 1 10.5 15"/></svg>
+          结论先行
+        </h2>
+        <ul class="verdict-list" id="verdicts"></ul>
+      </div>
+    </section>
+
+    <section class="section" id="sec-icons">
+      <div class="section__head">
+        <div class="section__eyebrow">01 · 图标</div>
+        <h2 class="section__title">描边一致性对比台</h2>
+        <p class="section__desc">
+          同一组语义、同一个尺寸、同一套主题色，横向比十个图标库。
+          左侧控制台的「描边粗细」只对<strong>真描边</strong>的库生效——Phosphor、MingCute、Remix 的线性风格是填充轮廓，
+          拖动滑块它们纹丝不动，这本身就是选型时最容易踩的坑。点任意图标看源码与许可。
+        </p>
+      </div>
+      <div class="icon-toolbar" id="iconToolbar"></div>
+      <div class="icon-grid-wrap"><div class="icon-grid" id="iconGrid"></div></div>
+      <div class="context-demo" id="contextDemo"></div>
+    </section>
+
+    <section class="section" id="sec-fonts">
+      <div class="section__head">
+        <div class="section__eyebrow">02 · 字体</div>
+        <h2 class="section__title">真字体试排台</h2>
+        <p class="section__desc">
+          下面每一套字体都是<strong>已经下载到本地</strong>的 woff2，不是 CDN 占位。
+          改字号、字重、字样内容，看小字号屏显、等宽数字与中文混排。字节数是实际下载大小（latin 分片）。
+        </p>
+      </div>
+      <div class="type-controls">
+        <input class="type-input" id="specText" type="text" placeholder="输入任意文字试排…" aria-label="自定义试排文字">
+        <div class="seg" id="fontFilter" role="group" aria-label="字体筛选">
+          <button class="seg__btn" data-filter="all" aria-pressed="true">全部</button>
+          <button class="seg__btn" data-filter="current" aria-pressed="false">现有四套</button>
+          <button class="seg__btn" data-filter="sans" aria-pressed="false">无衬线</button>
+          <button class="seg__btn" data-filter="mono" aria-pressed="false">等宽</button>
+        </div>
+      </div>
+      <div class="specimens" id="specimens"></div>
+
+      <div class="section__head" style="margin-top:var(--space-7)">
+        <div class="section__eyebrow">02b · 中文</div>
+        <h3 class="section__title" style="font-size:22px">中文字体：按需分片的真实代价</h3>
+        <p class="section__desc">
+          中文字体不可能整包塞进安装包。下面三套都<strong>真的按 unicode-range 下载了分片</strong>，
+          覆盖图鉴里全部试排汉字。分片数与字节数是实测值——这个差距就是选型依据。
+        </p>
+      </div>
+      <div id="cjkPanel"></div>
+    </section>
+
+    <section class="section" id="sec-motion">
+      <div class="section__head">
+        <div class="section__eyebrow">03 · 动效</div>
+        <h2 class="section__title">可重播的动效实验台</h2>
+        <p class="section__desc">
+          Polaris 的规矩是「动效只做确认，不做装饰」，所以这里<strong>没有一个循环播放的动画</strong>——
+          每个都要你点「重播」才动。这也正是它们该有的样子：绑定在真实交互上。
+          打开左侧「减弱动效」，全部立即渲染终态。
+        </p>
+      </div>
+      <div class="icon-toolbar">
+        <button class="btn btn--sm btn--accent" id="replayAll">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>
+          全部重播
+        </button>
+        <span class="chip" id="motionState">动效：开</span>
+      </div>
+      <div class="motion-grid" id="motionGrid"></div>
+    </section>
+
+    <section class="section" id="sec-effects">
+      <div class="section__head">
+        <div class="section__eyebrow">04 · 特效</div>
+        <h2 class="section__title">零运行时的纹理与光</h2>
+        <p class="section__desc">
+          全部是 CSS 与内联 SVG，没有第三方运行时、没有持续动画。
+          颜色一律经由令牌，所以同一份代码在六套主题下自动换色——包括那个<strong>内高光陷阱</strong>的真实复现。
+        </p>
+      </div>
+      <div class="fx-grid" id="fxGrid"></div>
+    </section>
+
+    <section class="section" id="sec-manifest">
+      <div class="section__head">
+        <div class="section__eyebrow">05 · 交付清单</div>
+        <h2 class="section__title">全部素材，可搜可筛可排序</h2>
+        <p class="section__desc">
+          按契合度排序。许可证列标明了来源：npm registry 的机器可读字段，或 Iconify 上游登记表。
+          两者冲突的会单独标出来。点任意一行看详情。
+        </p>
+      </div>
+      <div class="table-toolbar">
+        <div class="search">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+          <input type="search" id="mSearch" placeholder="搜索名称、用途、许可证…（按 / 聚焦）" aria-label="搜索素材">
+        </div>
+        <select class="select" id="mCategory" aria-label="按类别筛选"></select>
+        <select class="select" id="mVerdict" aria-label="按建议筛选">
+          <option value="">全部建议</option>
+          <option value="keep">保留现状</option>
+          <option value="adopt">建议采纳</option>
+          <option value="consider">值得考虑</option>
+          <option value="alternative">备选</option>
+          <option value="avoid">建议避开</option>
+        </select>
+        <select class="select" id="mRisk" aria-label="按许可风险筛选">
+          <option value="">全部许可风险</option>
+          <option value="none">无风险</option>
+          <option value="attribution-required">需署名</option>
+          <option value="custom-eula">自定义协议</option>
+          <option value="unclear">存疑</option>
+        </select>
+      </div>
+      <div class="table-wrap">
+        <div class="table-scroll">
+          <table class="manifest">
+            <thead>
+              <tr>
+                <th data-sort="name">素材</th>
+                <th data-sort="category">类别</th>
+                <th data-sort="license">许可证</th>
+                <th>推荐用途</th>
+                <th>集成方式</th>
+                <th data-sort="fit">契合度</th>
+                <th>建议</th>
+              </tr>
+            </thead>
+            <tbody id="mBody"></tbody>
+          </table>
+        </div>
+        <div class="table-foot">
+          <span id="mCount"></span>
+          <span>许可证来源：npm registry · Iconify 上游登记表 · 本地配方</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="sec-overturned">
+      <div class="section__head">
+        <div class="section__eyebrow">06 · 对抗式核验</div>
+        <h2 class="section__title">核验推翻了哪些判断</h2>
+        <p class="section__desc">
+          初版清单交给 19 个 agent 做了两轮独立核验：一轮逐条抓许可证原文与链接，一轮专门找缺口。
+          下面每一条都是<strong>被推翻或被补强的结论</strong>，包括推翻我自己的。留着推翻记录比抹掉它有用。
+        </p>
+      </div>
+      <div class="overturned-grid" id="overturnedGrid"></div>
+
+      <div class="section__head" style="margin-top:var(--space-7)">
+        <div class="section__eyebrow">06b · 诚实结论</div>
+        <h3 class="section__title" style="font-size:22px">哪些类别根本没找到合适的开源素材</h3>
+        <p class="section__desc">
+          这是结论，不是遗漏。有两类素材在 Polaris 的设计硬约束下<strong>压根不存在可采纳的第三方开源件</strong>——
+          说清楚比硬凑几件更有用。
+        </p>
+      </div>
+      <div class="noasset-grid" id="noAssetGrid"></div>
+    </section>
+
+    <section class="section" id="sec-compliance">
+      <div class="section__head">
+        <div class="section__eyebrow">07 · 许可证与合规</div>
+        <h2 class="section__title">打进 NSIS 安装包意味着什么</h2>
+        <p class="section__desc">
+          Polaris 用 electron-builder 打成安装包对外分发，字体、SVG、JSON 全都构成<strong>再分发</strong>。
+          下面逐条说明哪些义务被触发、怎么落地。左侧「生成 NOTICE」会按当前筛选结果产出可直接用的声明文件。
+        </p>
+      </div>
+      <div class="compliance-grid" id="complianceGrid"></div>
+    </section>
+
+    <section class="section" id="sec-integration">
+      <div class="section__head">
+        <div class="section__eyebrow">08 · 集成方案</div>
+        <h2 class="section__title">落到这个仓库的真实文件</h2>
+        <p class="section__desc">
+          代码遵守仓库风格：2 空格缩进、单引号、无分号、TypeScript。文件路径都是仓库里真实存在或建议新增的位置。
+        </p>
+      </div>
+      <div id="integrationBlocks"></div>
+      <div class="phase-grid" id="phaseGrid"></div>
+    </section>
+
+    <footer class="section" style="padding-bottom:0">
+      <div class="card" style="padding:var(--space-5)">
+        <div class="section__eyebrow">数据来源</div>
+        <p style="margin:0 0 var(--space-3);color:var(--text-secondary);font-size:13px">
+          本页所有事实字段由 <code style="font-family:var(--font-mono);color:var(--accent)">docs/asset-atlas/tools/</code> 下的抓取脚本生成：
+          字体来自 jsDelivr 的 @fontsource 包，许可证与版本来自 npm registry，图标 SVG 与集合许可来自 Iconify 官方 API 与上游 icon-sets 登记表。
+          抓取结果原始 JSON 存放在 <code style="font-family:var(--font-mono);color:var(--accent)">data/</code>，可复现。
+        </p>
+        <p style="margin:0;color:var(--text-tertiary);font-size:12px">
+          字体文件仅供本页预览，不建议提交进 git；应用运行时的正确引入方式是 npm 的 @fontsource-variable 包。
+        </p>
+      </div>
+    </footer>
+  </main>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<aside class="drawer" id="drawer" role="dialog" aria-modal="true" aria-labelledby="drawerTitle" aria-hidden="true">
+  <div class="drawer__head">
+    <div>
+      <h2 class="drawer__title" id="drawerTitle">素材详情</h2>
+      <div class="drawer__sub" id="drawerSub"></div>
+    </div>
+    <button class="icon-btn" id="drawerClose" aria-label="关闭详情">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+    </button>
+  </div>
+  <div class="drawer__body" id="drawerBody"></div>
+</aside>
+
+<div class="toast-host" id="toastHost" aria-live="polite" aria-atomic="false"></div>
+
+<script src="atlas-data.js"></script>
+<script src="atlas.js"></script>
+</body>
+</html>
