@@ -1,0 +1,152 @@
+{
+  "category": "西文字体（OFL 西文 UI / 展示字体）",
+  "candidates": [
+    {
+      "name": "Geist Sans",
+      "oneLiner": "Vercel 的中性新怪诞无衬线，与 Polaris 已在用的 Geist Mono 出自同一套设计语言；x-height 0.530em、开口大，小字号拉丁清晰，气质比 Inter 略紧、比 Manrope 冷。",
+      "homepage": "https://vercel.com/font",
+      "repoUrl": "https://github.com/vercel/geist-font",
+      "previewUrl": "https://fonts.google.com/specimen/Geist",
+      "npmPackage": "@fontsource-variable/geist",
+      "version": "npm 5.3.0（registry 实测）；字体 Version 1.800（Geist[wght].ttf name 表实测）",
+      "licenseSpdx": "OFL-1.1",
+      "licenseUrl": "https://raw.githubusercontent.com/vercel/geist-font/main/LICENSE.txt",
+      "licenseEvidence": "\"SIL OPEN FONT LICENSE Version 1.1 - 26 February 2007\"；\"This Font Software is licensed under the SIL Open Font License, Version 1.1.\"；google/fonts ofl/geist/OFL.txt 版权行：\"Copyright 2024 The Geist Project Authors (https://github.com/vercel/geist-font.git)\"",
+      "licenseCaveat": "OFL 标准条款：不得单独售卖字体本体；派生版必须避开 Reserved Font Name 并继续 OFL。随 NSIS 安装包分发属于 bundling，允许，UI 里无需署名；建议把 OFL.txt 随包放到 licenses 目录。无其它风险。",
+      "themeFit": "字体无色，全部继承 --text / --text-secondary / --text-tertiary，六套主题零颜色覆盖、零 CSS 变量映射。真正要调的是光学字重：暗色家族（夜阑 #080A0F、暮蓝 #132644）亮字有光晕，同一 wght 看着更粗；Geist 可变 wght 100–900，可在 [data-theme] 上把正文降到 font-variation-settings: 'wght' 380 抵消。teal 小字（暗 #5EEAD4 / 浅 #0F766E、#0D6E66、#0B6B63）靠 0.530em 的 x-height 抗压，比 Figtree/Outfit 好。",
+      "recommendedUse": "只作为 --font-ui 的候选替换（globals.css:4 的 --font-sans 与 :84 的 --font-ui 必须同步改）：任务行标题、快速添加输入框与解析 chips、命令面板、设置面板正文。目的是让拉丁正文与已有的 --font-mono: Geist Mono（计数、时间戳，globals.css:88）统一成一套设计语言，而不是新增第五套字体。--font-display 继续留给 Manrope。",
+      "integration": "npm i -D @fontsource-variable/geist@5.3.0；把 src/renderer/src/main.tsx:3 的 import '@fontsource-variable/inter' 换成 import '@fontsource-variable/geist'（该包只有 index.css，实测无 wght.css，且 index.css 只含 5 条 normal 面、无 italic）；globals.css:4 与 :84 的首位改成 \"Geist Variable\"（包内 @font-face 声明的确切家族名）。若要压安装包体积，别直接 import index.css——Vite 会把 5 个子集 woff2 全部 emit 到 out/renderer/assets；改为在 globals.css 手写一条 @font-face 只指向 node_modules/@fontsource-variable/geist/files/geist-latin-wght-normal.woff2。换完必须重跑 npm run build && npm run smoke（行高断言用 sub-pixel rect，在 100/125/150/200% 缩放下校验）与 npm run verify:themes。",
+      "sizeNote": "latin 子集 woff2 实测 29,400 B，比现用 Inter latin wght 的 48,256 B 小 39%；npm 包 dist.unpackedSize 180,843 B。fvar 实测只有 wght 100–400–900，无 opsz、无 wdth；975 字形；GSUB 含 tnum / pnum / ss01–ss11，无 zero（斜杠零）。maxp maxSizeOfInstructions=0 → 无 TrueType hinting。小写平均宽 0.5338em。",
+      "replacesExisting": "候选替换 @fontsource-variable/inter（--font-ui），不是新增。替换理由：与已装的 Geist Mono 同源，拉丁语气统一，latin 子集省 19KB。代价：失去 Inter 的 opsz 轴与 cv01–cv14 / zero，x-height 0.530 略低于 Noto Sans SC 的 0.543（Inter 是 0.5459，中英混排更齐）。结论：本轮不替换，列为第一顺位备选。",
+      "score": 7.5
+    },
+    {
+      "name": "IBM Plex Sans",
+      "oneLiner": "IBM 的人文主义无衬线；本轮 12 款里唯一真正带 TrueType hinting 的可变字体，而且 0–9 默认就是等宽数字。",
+      "homepage": "https://github.com/IBM/plex",
+      "repoUrl": "https://github.com/IBM/plex",
+      "previewUrl": "https://fonts.google.com/specimen/IBM+Plex+Sans",
+      "npmPackage": "@fontsource-variable/ibm-plex-sans",
+      "version": "npm 5.3.0（registry 实测）；字体 Version 3.201（IBMPlexSans[wdth,wght].ttf name 表实测）",
+      "licenseSpdx": "OFL-1.1",
+      "licenseUrl": "https://raw.githubusercontent.com/IBM/plex/master/LICENSE.txt",
+      "licenseEvidence": "\"Copyright © 2017 IBM Corp. with Reserved Font Name \\\"Plex\\\"\"；\"SIL OPEN FONT LICENSE Version 1.1 - 26 February 2007\"；\"This Font Software is licensed under the SIL Open Font License, Version 1.1.\"",
+      "licenseCaveat": "OFL + Reserved Font Name \"Plex\"：派生版不得继续叫 Plex，不得单独售卖。版权方是 IBM 公司，权属清晰，合规风险低。注意 ibm.com/plex 官网从本机网络实测不可达（curl 返回 000），所以主页用仓库地址。",
+      "themeFit": "继承 --text*，六套主题零颜色覆盖。混排要注意：x-height 0.516em 比 Noto Sans SC 的 0.543 低约 5%、cap 0.698 比 0.733 低，同一 font-size 下中文会显得略大；要修就得给中文单独 font-size 补偿或 font-size-adjust，而 Polaris 现在没有这类补偿，属于新增复杂度。暗色家族同样可用 wght 380 抵消光晕（wght 上限只到 700）。",
+      "recommendedUse": "只有当 Windows 上 11–13px 的拉丁（侧栏项目名、命令面板快捷键、日期里的英文缩写）被反馈发虚时，才把它当作 --font-ui 的替换方案——它的 hinting 是本轮唯一有二进制证据的小字号优势。计数与时间戳继续走 --font-mono: Geist Mono，不需要动。--font-display 仍留 Manrope（Plex 没有 800）。",
+      "integration": "npm i -D @fontsource-variable/ibm-plex-sans@5.3.0；src/renderer/src/main.tsx 用 import '@fontsource-variable/ibm-plex-sans/wght.css'（实测该文件存在，声明 font-family: 'IBM Plex Sans Variable'、font-weight: 100 700）。千万别用 index.css / standard.css / wdth.css——它们带 wdth 轴，整包 dist.unpackedSize 1,417,882 B 会全部 emit 进构建产物。globals.css:4 与 :84 首位改 \"IBM Plex Sans Variable\"。数字不要再写 font-feature-settings: 'tnum'：该字体 GSUB 里根本没有 tnum 特性，写了是空操作，等宽是默认行为。",
+      "sizeNote": "latin wght woff2 实测 45,712 B；包 dist.unpackedSize 1,417,882 B（含 wdth 与全部子集）。fvar 实测 wght 100–400–700、wdth 75–100–100。maxp 实测 maxSizeOfInstructions=3971、maxFunctionDefs=154、maxStorage=47、maxStackElements=322、maxTwilightPoints=16 —— 12 款里唯一非零，其余全部为 0。hmtx 实测 0–9 advance 全为 600/1000（默认等宽）。GSUB 含 lnum/onum/zero/ss01–ss06，无 tnum/pnum。1025 字形，小写平均宽 0.505em。",
+      "replacesExisting": "候选替换 Inter（--font-ui），不新增。理由只有小字号 hinting 一条；代价是 x-height 与 Noto Sans SC 差 5%、字重上限 700、包体积大、气质偏企业而不是 Polaris 的暖瓷克制。结论：本轮不替换。",
+      "score": 6.5
+    },
+    {
+      "name": "Plus Jakarta Sans",
+      "oneLiner": "几何人文无衬线，Manrope 的同位替代；x-height 0.536em 与 Noto Sans SC 的 0.543 几乎齐平，大写更挺拔（cap 0.745em），整体比 Manrope 宽一圈。",
+      "homepage": "https://github.com/tokotype/PlusJakartaSans",
+      "repoUrl": "https://github.com/tokotype/PlusJakartaSans",
+      "previewUrl": "https://fonts.google.com/specimen/Plus+Jakarta+Sans",
+      "npmPackage": "@fontsource-variable/plus-jakarta-sans",
+      "version": "npm 5.3.0（registry 实测）；字体 Version 2.071（PlusJakartaSans[wght].ttf name 表实测）",
+      "licenseSpdx": "OFL-1.1",
+      "licenseUrl": "https://raw.githubusercontent.com/tokotype/PlusJakartaSans/master/OFL.txt",
+      "licenseEvidence": "\"SIL OPEN FONT LICENSE Version 1.1 - 26 February 2007\"；\"This Font Software is licensed under the SIL Open Font License, Version 1.1.\"（版权方为 tokotype/PlusJakartaSans 项目作者，2020）",
+      "licenseCaveat": "OFL 标准条款，无额外限制。仓库 README 另列了 Lancip / Lurus / Lingkar 三组 stylistic alternates，属于可选字形替换，不影响许可。",
+      "themeFit": "继承 --text*，零颜色覆盖。wght 200–800 与 Manrope 完全同区间，暗色家族现有的字重微调可以原样沿用，不需要重新标定。cap 0.745em 高于 Noto Sans SC 的 0.733，中英混排时英文大写会略微抢视线，标题里要注意。",
+      "recommendedUse": "只在决定换掉 Manrope 时接管 --font-display（globals.css:86）：空状态标题、设置面板标题、提醒窗标题、分组标题。不要与 Manrope 并存——两者是同一生态位。",
+      "integration": "npm i -D @fontsource-variable/plus-jakarta-sans@5.3.0；src/renderer/src/main.tsx:5 把 import '@fontsource-variable/manrope' 换成 import '@fontsource-variable/plus-jakarta-sans/wght.css'（实测存在）；globals.css:86 首位改 \"Plus Jakarta Sans Variable\"。只改 :86，不要动 :84 的 --font-ui。改完重跑 npm run build && npm run smoke。",
+      "sizeNote": "latin wght woff2 实测 27,348 B（现用 Manrope latin 为 24,836 B）；包 dist.unpackedSize 145,679 B。fvar 实测 wght 200–400–800，无 opsz/wdth；1188 字形；GSUB 含 tnum/pnum/ss01–ss03；maxp maxSizeOfInstructions=0（无 hinting）。小写平均宽 0.5403em，比 Manrope 的 0.5027em 宽 7.5%。",
+      "replacesExisting": "替换 Manrope（--font-display）的等价备选，不是补充。差异：更宽、大写更高、开口更开，气质偏「产品官网」而不是 Polaris 的安静工具感。Polaris 已有四套字体，没有理由再加第五套。结论：不引入。",
+      "score": 5
+    },
+    {
+      "name": "Public Sans",
+      "oneLiner": "USWDS 为美国政府表单做的中性无衬线（Libre Franklin 派生），小字号规整、tnum/lnum/onum 齐全，但上游 README 自己把可变版标为实验性。",
+      "homepage": "https://github.com/uswds/public-sans",
+      "repoUrl": "https://github.com/uswds/public-sans",
+      "previewUrl": "https://fonts.google.com/specimen/Public+Sans",
+      "npmPackage": "@fontsource-variable/public-sans",
+      "version": "npm 5.3.0（registry 实测）；字体 Version 2.001（PublicSans[wght].ttf name 表实测，README 亦写 \"currently Public Sans v2.001\"）",
+      "licenseSpdx": "OFL-1.1",
+      "licenseUrl": "https://raw.githubusercontent.com/uswds/public-sans/develop/LICENSE.md",
+      "licenseEvidence": "\"Copyright 2015 The Public Sans Project Authors (https://github.com/uswds/public-sans)\"；\"SIL OPEN FONT LICENSE Version 1.1 - 26 February 2007\"；\"This Font Software is licensed under the SIL Open Font License, Version 1.1.\"",
+      "licenseCaveat": "许可证本身是干净的 OFL。真正的风险在上游稳定性：README 原文 \"Variable fonts should be considered experimental, but can be found in fonts/variable\"。另外 public-sans.digital.gov 从本机网络实测不可达（curl 000），主页改用仓库。",
+      "themeFit": "继承 --text*，零颜色覆盖。x-height 0.517em 比 Noto Sans SC 低 4.8%，混排时中文偏大。fvar 默认 wght=100，不显式设 font-weight 会拿到 Thin，在浅色家族（昼白/暖砂/天蓝/护眼绿）的 teal 小字上直接不可读，必须显式声明字重。",
+      "recommendedUse": "只有当想把拉丁正文往「表单/政务」那种极度中性的方向调时才考虑（例如设置面板的密集 label 列）。对当前「夜是冷墨、昼是暖瓷 + 一个 teal」的品牌没有增益，属于可选项而非改进项。",
+      "integration": "npm i -D @fontsource-variable/public-sans@5.3.0；import '@fontsource-variable/public-sans/wght.css'（实测存在）；globals.css:4 与 :84 首位改 \"Public Sans Variable\"，并显式写 font-weight: 400。注意 upem 2000、winAscent 2315 / winDescent 495（合计 1.405em），任何 line-height: normal 的位置行盒都会变高；Polaris 的行高断言在 100/125/150/200% 缩放下用 sub-pixel rect 校验，换完必须重跑 npm run build && npm run smoke。",
+      "sizeNote": "latin wght woff2 实测 26,832 B；包 dist.unpackedSize 130,199 B。fvar 实测 wght 100–100–900（默认 100）；648 字形；GSUB 含 tnum/pnum/lnum/onum/ss01（ss01 即 README 说的可选无尾 l）；maxp maxSizeOfInstructions=0（无 hinting）。小写平均宽 0.5129em。",
+      "replacesExisting": "候选替换 Inter（--font-ui），不新增。结论：不替换——相比 Inter 没有可量化的优势，还多了实验性可变版与超高 win 度量两个风险。",
+      "score": 4.5
+    },
+    {
+      "name": "Instrument Sans",
+      "oneLiner": "Instrument 品牌的新怪诞，本轮唯一带 wdth 75–100 宽度轴的候选，能在窄窗里压缩拉丁而不换家族；但字重只有 400–700。",
+      "homepage": "https://github.com/Instrument/instrument-sans",
+      "repoUrl": "https://github.com/Instrument/instrument-sans",
+      "previewUrl": "https://fonts.google.com/specimen/Instrument+Sans",
+      "npmPackage": "@fontsource-variable/instrument-sans",
+      "version": "npm 5.3.0（registry 实测）；字体 Version 1.000;gftools[0.9.28]（InstrumentSans[wdth,wght].ttf name 表实测）",
+      "licenseSpdx": "OFL-1.1",
+      "licenseUrl": "https://raw.githubusercontent.com/Instrument/instrument-sans/master/OFL.txt",
+      "licenseEvidence": "\"Copyright 2022 The Instrument Sans Project Authors\"；\"SIL OPEN FONT LICENSE Version 1.1 - 26 February 2007\"；\"This Font Software is licensed under the SIL Open Font License, Version 1.1.\"",
+      "licenseCaveat": "OFL 标准条款，无额外限制。注意仓库 README 的轴表有笔误，把 Weight 行也写成了 wdth（上游有未合并的更正 PR）；实际 fvar 里是 wdth 与 wght 两个轴，以二进制为准。",
+      "themeFit": "继承 --text*，零颜色覆盖。x-height 0.510em 比 Noto Sans SC 低 6%，混排中文偏大。wdth 轴与主题无关，但压缩拉丁时中文不会跟着压，行内中英宽度关系会变，窄窗下要实测而不是想当然。",
+      "recommendedUse": "只考虑窄窗场景（narrow 模式 1100×800）的侧栏项目名、以及 360px 详情栏里的拉丁标题：font-variation-settings: 'wdth' 88。不能接管 --font-display——wght 上限 700，展示层需要的 800 字重跨度不够，会削弱「字体承担层级」。",
+      "integration": "npm i -D @fontsource-variable/instrument-sans@5.3.0；只要 wght 就 import '@fontsource-variable/instrument-sans/wght.css'（400–700）；要宽度轴则 import '@fontsource-variable/instrument-sans/standard.css'（两个文件都实测存在），再在目标选择器上写 font-variation-settings: 'wdth' 88。家族名 \"Instrument Sans Variable\"。别整包 import index.css，dist.unpackedSize 424,093 B 会全量进产物。",
+      "sizeNote": "latin wght woff2 实测 30,092 B；包 dist.unpackedSize 424,093 B。fvar 实测 wdth 75–100–100 + wght 400–400–700，无 opsz；501 字形；GSUB 含 tnum/pnum/ss01–ss12；maxp maxSizeOfInstructions=0（无 hinting）。小写平均宽 0.5249em。",
+      "replacesExisting": "候选替换 Inter（--font-ui），不新增。结论：不替换——Inter 有 opsz 轴且 x-height 0.5459 与 Noto Sans SC 更齐；窄窗压缩需求先用 letter-spacing 解决，不值得为它换掉整套正文字体。",
+      "score": 4
+    },
+    {
+      "name": "Figtree",
+      "oneLiner": "friendly 几何无衬线，本轮 latin 体积最小（20,156 B），但 x-height 只有 0.500em，比 Noto Sans SC 低 8%，中英混排会让中文明显压过拉丁。",
+      "homepage": "https://github.com/erikdkennedy/figtree",
+      "repoUrl": "https://github.com/erikdkennedy/figtree",
+      "previewUrl": "https://fonts.google.com/specimen/Figtree",
+      "npmPackage": "@fontsource-variable/figtree",
+      "version": "npm 5.3.0（registry 实测）；字体 Version 2.002（Figtree[wght].ttf name 表实测）",
+      "licenseSpdx": "OFL-1.1",
+      "licenseUrl": "https://raw.githubusercontent.com/erikdkennedy/figtree/master/OFL.txt",
+      "licenseEvidence": "\"Copyright 2022 The Figtree Project Authors\"；\"SIL OPEN FONT LICENSE Version 1.1 - 26 February 2007\"；\"This Font Software is licensed under the SIL Open Font License, Version 1.1.\"",
+      "licenseCaveat": "OFL 标准条款，无额外限制。附带事实：常被引用的 https://www.erikdkennedy.com/figtree/ 实测返回 404，不要当主页写进文档。",
+      "themeFit": "继承 --text*，零颜色覆盖。fvar 默认 wght=300，在浅色家族的 teal 小字（#0F766E / #0D6E66 / #0B6B63）上偏细，必须显式设 font-weight。x-height 0.500em 是硬伤：11–13px 时拉丁比同行中文小一圈，正是设计约束里「中文不得小于 11px」想避免的失衡的反向版本。",
+      "recommendedUse": "理论上只适合纯拉丁的大字空状态文案；但 Polaris 的空状态是中英混排构图，x-height 差 8% 会直接暴露，所以在当前界面里没有合适落点。列出来是为了说明「体积小」不足以构成引入理由。",
+      "integration": "npm i -D @fontsource-variable/figtree@5.3.0；import '@fontsource-variable/figtree'（单 wght 轴，index.css 即 wght-only）；家族名 \"Figtree Variable\"，若要试就只改 globals.css:86 的 --font-display 并显式 font-weight: 600。不要改 --font-ui。",
+      "sizeNote": "latin wght woff2 实测 20,156 B，12 款里最小；包 dist.unpackedSize 81,105 B。fvar 实测 wght 300–300–900（默认 300）；459 字形；GSUB 含 tnum/pnum/ss01/ss02/rvrn；maxp maxSizeOfInstructions=0（无 hinting）。x-height 0.500em / cap 0.700em，小写平均宽 0.4988em。",
+      "replacesExisting": "候选替换 Manrope（--font-display），不新增。结论：不引入——Manrope 的 x-height 0.540 与 Noto Sans SC 的 0.543 几乎完全对齐，Figtree 换过去是明确的倒退。",
+      "score": 3.5
+    }
+  ],
+  "rejected": [
+    {
+      "name": "Inter Tight",
+      "reason": "技术上最接近「窄版 Inter」：垂直度量与 Inter 完全一致（x-height 0.5459em / cap 0.7275em），小写平均宽 0.486em 比 Inter 的 0.5363em 窄 9.4%，tnum/zero/cv01–cv11 齐全，latin woff2 44,872 B。但排除理由有两条硬证据：(1) 上游冻结——许可证里的 rsms/inter-tight 现重定向到 googlefonts/inter-gf-tight，该仓库 2024-02-12 已归档，README 原文 \"This version does _not_ receive updates and improvements from standard Inter.\"，且自述是为没有 letter-spacing 控件的 Google Workspace 做的特化分叉；(2) 生态位冲突——用它换 Manrope 会把展示层降级成正文脸，违反「字体承担层级」，而压缩需求用 Inter 已有的 opsz 轴或 letter-spacing 就能解决。许可证本身是干净 OFL-1.1（\"Copyright 2022 The Inter Project Authors (https://github.com/rsms/inter-tight)\"）。",
+      "sourceUrl": "https://github.com/googlefonts/inter-gf-tight"
+    },
+    {
+      "name": "Space Grotesk",
+      "reason": "x-height 实测 0.486em，比 Noto Sans SC 的 0.543 低 10.5%，11–13px 中英混排时拉丁会明显缩一圈；fvar 只有 wght 300–700，展示层要的 800 没有；小写平均宽 0.555em 偏宽，密集列表每行容纳字数下降。字形带明显方头与怪癖终端，与「安静表面、一颗四角星一个 teal」的克制方向冲突。有 tnum/zero/ss01–ss05、latin woff2 仅 22,288 B 也补不回来。maxp 指令为 0，无 hinting。OFL-1.1 无误（floriankarsten/space-grotesk/OFL.txt）。",
+      "sourceUrl": "https://github.com/floriankarsten/space-grotesk"
+    },
+    {
+      "name": "Sora",
+      "reason": "宽度是决定性否决项：小写平均宽实测 0.5774em，比 Inter 宽 7.7%、比 Manrope 宽 14.9%，'0' 的 advance 达 743/1000。Polaris 是密集中英混排列表 + 360px 详情栏 + 1100×800 窄窗，加宽直接吃掉每行可容纳字数。其余指标不差（x-height 0.534em、wght 100–800、tnum 有、latin woff2 33,652 B），但它是为 SORA 去中心化组织定制的品牌脸，气质与本地待办工具不符。OFL-1.1 无误（\"Copyright 2019 The Sora Project Authors\"）。",
+      "sourceUrl": "https://github.com/sora-xor/sora-font"
+    },
+    {
+      "name": "Outfit",
+      "reason": "x-height 实测 0.460em，12 款里最低，比 Noto Sans SC 的 0.543 低 15%；几何单层 a，11–13px 下拉丁会明显小于同行中文。fvar 默认 wght=100，不显式设字重就是 Thin。只适合纯拉丁大字展示，而 Polaris 的展示位是中英混排标题，同样不适配。latin woff2 32,292 B 也不算小。OFL-1.1 无误（\"Copyright 2021 The Outfit Project Authors\"）。",
+      "sourceUrl": "https://github.com/Outfitio/Outfit-Fonts"
+    },
+    {
+      "name": "Bricolage Grotesque",
+      "reason": "三轴 opsz 12–96 / wdth 75–100 / wght 200–800 看似灵活，但 fvar 默认值是 opsz 96 + wght 800——不显式设置就拿到最粗最大的展示形态，是个实打实的集成坑；cap 只有 0.660em，字形表情强，作者自述 \"I forked the font and worked to make it fully display-oriented.\"。与 Polaris「安静表面、动效只做确认」的克制方向相反，且 Manrope 已占住展示位。体积也偏大：latin wght woff2 41,344 B、包 dist.unpackedSize 544,183 B。有 tnum，maxp 指令为 0。OFL-1.1 无误。",
+      "sourceUrl": "https://github.com/ateliertriay/bricolage"
+    },
+    {
+      "name": "Geologica",
+      "reason": "四轴 wght 100–900 / CRSV 0–1 / SHRP 0–100 / slnt 0…−12，默认 wght=100；SHRP（终端锐度）与 CRSV（草书替换）是表情轴，对工具型 UI 没有价值，只增加体积与调试面。x-height 实测 0.480em 偏低，与 Noto Sans SC 混排失衡；full 轴 latin woff2 48,536 B、包 dist.unpackedSize 804,217 B。上游 googlefonts/geologica 已归档（GitHub API archived=true，最后推送 2023-04-13），后续无维护。maxp 指令为 0，无 hinting。OFL-1.1 无误（\"Copyright 2020 The Geologisk Project Authors\"）。",
+      "sourceUrl": "https://github.com/googlefonts/geologica"
+    }
+  ],
+  "notes": "【总结论：保留现状，本轮不引入任何新西文字体，也不替换 Inter / Manrope】\n\nPolaris 现有四套字体已经处在一个很难被超越的局部最优上，关键证据是中英混排的垂直度量对齐（全部从下载的 TTF 的 OS/2 表实测，除以 unitsPerEm 归一化）：\n- Noto Sans SC（基准）x-height 0.543 / cap 0.733\n- Inter 0.5459 / 0.7275 —— 与基准差 +0.003，几乎完美\n- Manrope 0.540 / 0.720 —— 差 −0.003，几乎完美\n- 其余 10 款全部低于基准：Geist 0.530、Plus Jakarta 0.536、Sora 0.534、Bricolage 0.528、Public Sans 0.517、IBM Plex 0.516、Instrument 0.510、Figtree 0.500、Space Grotesk 0.486、Geologica 0.480、Outfit 0.460。\n也就是说，任何替换都会让「同一 font-size 下中文显得比拉丁大」，而这是 11–13px 密集中英混排列表里最刺眼的缺陷。设计约束第 3 条「字体承担层级」目前由 Manrope（展示，wght 到 800）/ Inter（正文，带 opsz）/ Noto Sans SC（中文）/ Geist Mono（数字）四层干净地承担，再加第五套只会稀释层级。\n\n【12 款点名字体全部覆盖】6 条候选 + 6 条 rejected。候选里也没有一条是「建议现在就换」——最高分 Geist Sans 7.5 只是第一顺位备选，触发条件是「团队决定让拉丁正文与已装的 Geist Mono 统一成一套设计语言」，那时能省 19KB 并统一语气，代价是失去 opsz 与 cv/zero、x-height 略降。\n\n【等宽数字（tnum）实测结论，纠正一个常见误解】\n- 有 tnum 特性：Geist、Inter、Inter Tight、Manrope、Plus Jakarta、Figtree、Public Sans、Instrument、Space Grotesk、Sora、Outfit、Bricolage、Geologica。\n- 没有 tnum 但默认就等宽：IBM Plex Sans（0–9 advance 全为 600/1000）、Noto Sans SC（全为 521/1000）。给它们写 font-feature-settings: 'tnum' 是空操作。\n- 所有字体的默认数字都是比例宽（除上面两款），所以「等宽」必须显式开 tnum 或走 mono。Polaris 现在计数与时间戳走 --font-mono: Geist Mono（globals.css:88，另见 :746/:1031/:1282/:1394 等十余处），这条路径已经正确，不需要改。真正需要 tnum 的只有用 --font-ui 渲染的行内日期文本（formatParsedDue 的输出），如果要加固，在对应选择器上加 font-variant-numeric: tabular-nums 即可，零成本、零新依赖。\n\n【小字号 hinting：一个原本会被说错的点】\n把 12 款可变 TTF 的 maxp 表读了一遍：只有 IBM Plex Sans 的 maxSizeOfInstructions=3971、maxFunctionDefs=154、maxStorage=47、maxTwilightPoints=16 非零；其余 11 款（含现用的 Inter、Manrope、Noto Sans SC）全部为 0，即完全没有 TrueType 指令。很多字体虽然带 prep 表，那只是空壳。所以在 Windows Chromium 下，除 Plex 外这些可变字体都不做 grid-fit，11–13px 的清晰度实际由 x-height 和笔画对比决定，而不是 hinting——这反过来又强化了「Inter 的高 x-height 是对的」这个结论。\n\n【离线与体积】全部方案都是 @fontsource-variable 本地 npm 包（devDependencies，与现有四套一致），无任何 CDN 运行时依赖；previewUrl 的 Google Fonts 页面只供人眼查看。一个容易踩的坑：直接 import 包的 index.css 会让 Vite 把该包所有子集的 woff2 全部 emit 到 out/renderer/assets（IBM Plex 整包 1.42MB、Geologica 804KB），虽然运行时按 unicode-range 只加载 latin，安装包却会变大。要控体积就只引 wght.css，或手写一条 @font-face 只指向 files/<font>-latin-wght-normal.woff2。\n\n【任何字体改动的落地纪律】家族名必须用包内 @font-face 声明的确切字符串（已逐个抓取核对：'Geist Variable' / 'IBM Plex Sans Variable' / 'Plus Jakarta Sans Variable' / 'Public Sans Variable' / 'Instrument Sans Variable' / 'Figtree Variable' / 'Inter Tight Variable'）。改 --font-ui 时 globals.css:4 的 --font-sans（Tailwind @theme）与 :84 必须同步，否则 Tailwind 的 font-sans 会与令牌分叉。改完必须重跑 npm run build && npm run smoke（行高断言用 sub-pixel rect，覆盖 100/125/150/200% 缩放与 reduced motion）和 npm run verify:themes。\n\n【方法与未验证项】每条素材都抓了官方主页/仓库 + 许可证原文两类 URL，licenseEvidence 全部来自 WebFetch 抓到的原文；版本号与包体积来自 registry.npmjs.org 的 dist.unpackedSize 与 unpkg 的 content-length 实测；轴、字形数、OpenType 特性、度量、hinting 来自下载 TTF 后解析 fvar/GSUB/OS-2/maxp/hmtx。未验证的部分要如实说明：(1) 没有在真实 Electron 窗口里做 11/12/13px 的渲染截图对比，x-height 与 hinting 的结论是字体文件层面的推断，不是像素实测；(2) Chromium/DirectWrite 具体用哪种 rendering mode、是否真的对 Plex 的 TT 指令做垂直 grid-fit，未实测；(3) ibm.com/plex 与 public-sans.digital.gov 从本机网络反复 curl 返回 000（不可达），因此这两条的 homepage 改用已验证可访问的 GitHub 仓库；(4) erikdkennedy.com/figtree 实测 404，已从引用中剔除。"
+}

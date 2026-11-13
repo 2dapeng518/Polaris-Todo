@@ -1,0 +1,190 @@
+{
+  "category": "特效纹理与背景（aurora / 噪点 / 分隔 / 空状态）",
+  "candidates": [
+    {
+      "name": "静态 feTurbulence 噪点瓦片（grain tile，自绘 data URI）",
+      "oneLiner": "用 W3C SVG 的 feTurbulence 图元合成一张无缝噪点瓦片，烘成 data URI 常驻 CSS，零 JS、零循环动画；视觉上是一层几乎看不见的颗粒，把纯色画布变成「纸」而不是「塑料」。",
+      "homepage": "https://github.com/mdn/content",
+      "previewUrl": "https://raw.githubusercontent.com/mdn/content/main/files/en-us/web/svg/reference/element/feturbulence/index.md",
+      "repoUrl": "https://github.com/mdn/content",
+      "licenseSpdx": "CC0-1.0",
+      "licenseUrl": "https://github.com/mdn/content/blob/main/LICENSE.md",
+      "licenseEvidence": "Code examples and snippets added on or after August 20, 2010 are in the public domain",
+      "licenseCaveat": "MDN 的散文解释是 CC-BY-SA-2.5（有传染性），只能取代码片段（CC0），不要把文档文字抄进项目文档。feTurbulence 本身是 W3C 标准滤镜图元，自绘 SVG 不产生任何第三方署名义务。",
+      "version": "",
+      "sizeNote": "实测现有 globals.css:529 的内联 data URI 全长 305 字符（SVG 载荷 300 字符），瓦片 160×160，baseFrequency='.8'、numOctaves='3'、stitchTiles='stitch'、rect opacity='.6'。这是本轮唯一有实测字节数的素材。MDN 原文未给任何性能数字，下面的重绘分析是工程推断而非抓到的事实。",
+      "themeFit": "靠 --noise-opacity 单令牌映射，六套主题共用同一张瓦片：暗色家族 0.032/0.03，浅色家族 0.018，已经在 globals.css 里定义好。建议补一个 feColorMatrix type='saturate' values='0' 把 fractalNoise 的彩色噪声去饱和，否则浅色主题下颗粒会带轻微彩边，干扰 teal 信号色的纯度。主题切换只改 opacity，不改 data URI，Chromium 的栅格缓存不失效。",
+      "recommendedUse": "继续做 .noise 全局颗粒层（app-shell 内，z-index 1），这是唯一该铺满窗口的纹理。不要把它加到任务行、复选框或按钮上——安静表面原则要求内联行只有色底 + 1px 边。",
+      "integration": "不装任何包。改 E:\\project\\Polaris-Todo\\src\\renderer\\src\\styles\\globals.css 第 523–530 行的 .noise 规则：在现有 filter 里追加 %3CfeColorMatrix type='saturate' values='0'/%3E，其余参数不动。若要彻底消除首帧滤镜求值，按项目既有脚本惯例（scripts/make-app-icon.mjs / make-tray-icon.mjs）新增 E:\\project\\Polaris-Todo\\scripts\\make-noise-tile.mjs，用 sharp 或 canvas 把同一组滤镜参数烘成 160×160 PNG 写到 src/renderer/src/assets/noise-tile.png，CSS 改成 url('../assets/noise-tile.png')；生成物入库、运行时不再生成。两条路都保持 background-repeat: repeat 与固定 background-size，禁止加 animation。",
+      "replacesExisting": "替换现有 .noise 的 data URI：现版本输出彩色噪声，去饱和后颗粒中性，六套主题下都不会给 teal 信号色染边；参数与体积几乎不变，属于低风险升级。",
+      "score": 9
+    },
+    {
+      "name": "CSS-Pattern（css-pattern.com）",
+      "nameZh": "CSS 渐变图案集",
+      "oneLiner": "Temani Afif 维护的纯 CSS 渐变图案库，全部由 repeating-linear-gradient / radial-gradient 叠出来，不含任何图片、SVG 文件或 JavaScript；视觉是规整的几何底纹（网格、斜纹、点阵、编织）。",
+      "homepage": "https://css-pattern.com",
+      "previewUrl": "https://css-pattern.com",
+      "repoUrl": "https://github.com/Afif13/CSS-Pattern",
+      "licenseSpdx": "MIT",
+      "licenseUrl": "https://github.com/Afif13/CSS-Pattern/blob/main/LICENCE",
+      "licenseEvidence": "MIT License / Copyright (c) 2022 Temani Afif",
+      "licenseCaveat": "无。MIT，保留版权与许可声明即可。注意仓库里许可证文件名是英式拼写 LICENCE（不是 LICENSE），写自动化校验脚本时别找错路径。",
+      "version": "",
+      "sizeNote": "GitHub API 实测 242 stars、default_branch=main、license=MIT、homepage=https://css-pattern.com。单个图案是几行 CSS 声明，量级在数百字节；具体每款字节数未逐条抓取，未验证。css-pattern.com 站点本机 TLS 握手失败，图案外观未直接目视，仓库元数据与许可证原文均已抓到。",
+      "themeFit": "这是本轮唯一能直接用 var() 着色的图案方案：CSS 渐变在主文档里求值，把图案里的硬编码色值换成 var(--line) 与 rgba(var(--accent-rgb), 0.05) 即可，六套主题自动跟随，不需要颜色覆盖也不需要每主题烘一份。与 data URI 方案形成鲜明对比（见 notes）。",
+      "recommendedUse": "SettingsPanel 顶部的装饰带、EmptyState 构图背后的极淡底纹。推荐挑网格/点阵这类低对比几何款，透明度压到 --line 级别；不要铺到 TaskView 列表区，密集列表上任何底纹都会和 1px 边线打架。",
+      "integration": "不装 npm（它是网站 + 源码仓库，没有运行时包）。从 css-pattern.com 复制目标图案的 CSS 片段，新建 E:\\project\\Polaris-Todo\\src\\renderer\\src\\styles\\patterns.css，在 globals.css 顶部 @import './patterns.css'；把片段里的两处色值替换为 var(--line) 和 rgba(var(--accent-rgb), 0.05)，background-size 用现有间距令牌的倍数。类名建议 .pattern-grid / .pattern-dots，只挂在 SettingsPanel 与 EmptyState 的容器上。",
+      "replacesExisting": "新增。项目目前只有 aurora 径向渐变和噪点两层，没有几何底纹层。",
+      "score": 8.5
+    },
+    {
+      "name": "Bifiku Mesh Gradient Generator",
+      "nameZh": "网格渐变生成器",
+      "oneLiner": "零依赖、纯客户端 canvas 的 mesh 渐变生成器，可拖动色点、调 blur/grain/亮度/对比，导出真矢量 SVG（径向渐变 + 高斯模糊）；视觉是柔和的多色晕染，正好是 aurora 想要的形态。",
+      "homepage": "https://github.com/Bifiku/mesh-gradient-generator",
+      "previewUrl": "https://bifiku.github.io/mesh-gradient-generator/",
+      "repoUrl": "https://github.com/Bifiku/mesh-gradient-generator",
+      "licenseSpdx": "MIT",
+      "licenseUrl": "https://github.com/Bifiku/mesh-gradient-generator/blob/main/LICENSE",
+      "licenseEvidence": "MIT License / Copyright (c) 2026 Andrew (Bifiku)；README: \"MIT — free to use, modify and share.\"",
+      "licenseCaveat": "无许可风险。项目风险在于成熟度：GitHub 搜索实测仅 2 stars，是 2026 年的新项目，没有版本发布节奏保障。只把它当一次性素材生成器用（导出 SVG 后与上游脱钩），不要让它进 package.json。",
+      "version": "",
+      "sizeNote": "README 声明导出的 SVG 约 2 KB（真矢量，含 radial gradient 与 gaussian blur），零依赖、纯 vanilla JS + Canvas 2D、无构建步骤。预览页实测提供 Download PNG / Download JPG / Download SVG (vector) 三个按钮，页面未引用任何外部 CDN 脚本或字体，可离线运行。2 KB 是上游 README 的说法，未自行导出称重。",
+      "themeFit": "需要颜色覆盖，但有优雅解法：导出的 SVG 里 stop-color 是硬编码十六进制。把 SVG 内联成 React 组件（而不是当外部文件引用），stop-color 就能写成 var(--accent) / var(--accent-2) / rgba(var(--aurora-c-rgb), 0.5)——内联 SVG 属于主文档，var() 有效。这样一份构图吃六套主题，整体强度继续由 --aurora-opacity 控制（暗 0.9/0.85，浅 0.5/0.45）。",
+      "recommendedUse": "替换 .aurora 现有的三层 radial-gradient，用于 EmptyState 构图背景与 SettingsPanel 顶部。主任务列表保持纯色 --bg 画布，不要铺 aurora——teal→violet 渐变按设计硬约束只属于星标记和空状态构图。",
+      "integration": "不装 npm。在 https://bifiku.github.io/mesh-gradient-generator/ 调好构图后点 Download SVG (vector)，把文件落到 E:\\project\\Polaris-Todo\\src\\renderer\\src\\assets\\aurora\\aurora-mesh.svg，再改写成 React 组件 E:\\project\\Polaris-Todo\\src\\renderer\\src\\components\\AuroraMesh.tsx：把每个 stop-color 换成 CSS 变量，根 svg 加 aria-hidden='true' 与 preserveAspectRatio='xMidYMid slice'。globals.css 第 511–521 行的 .aurora 保留 opacity: var(--aurora-opacity) 与 pointer-events: none，background 三层渐变换成渲染 <AuroraMesh />。feGaussianBlur 的 stdDeviation 必须写死，禁止在运行时改参数或加动画。",
+      "replacesExisting": "替换现有 .aurora 的三层 radial-gradient：现版本是三个正圆衰减，边缘过渡偏「灯泡」；mesh 导出的多色点晕染更像极光，且同样是一次性栅格化，性能持平。",
+      "score": 8.5
+    },
+    {
+      "name": "Pattern Monster",
+      "nameZh": "图案怪兽",
+      "oneLiner": "开源 SVG 无缝图案生成器，可调前景/背景色、描边宽度与旋转角，直接复制 CSS/SVG 代码或下载可平铺 SVG；视觉是统一描边粗细的线性几何图案，和 lucide 的 24 网格线性语汇同源。",
+      "homepage": "https://pattern.monster",
+      "previewUrl": "https://pattern.monster",
+      "repoUrl": "https://github.com/catchspider2002/svelte-svg-patterns",
+      "licenseSpdx": "MIT",
+      "licenseUrl": "https://github.com/catchspider2002/svelte-svg-patterns/blob/master/LICENSE.md",
+      "licenseEvidence": "MIT License / Copyright (c) 2020 - 2023 pattern.monster",
+      "licenseCaveat": "代码与图案库是 MIT，但站点另有 Pro/API 付费档（pro.pattern.monster/api，需 API key）。只用免费网页导出的 SVG，不要接 API，就不会踩到付费边界。pattern.monster 本机 TLS 握手失败，图案数量（搜索摘要称 320+）未从原文核实，标注未验证。",
+      "version": "",
+      "sizeNote": "GitHub API 实测 750 stars、license=MIT、default_branch=master、homepage=https://pattern.monster。README 原文功能描述：\"Copy CSS and SVG code directly to your clipboard for web projects\" 与 \"Download a tileable SVG or a high resolution seamless PNG image for print projects\"。单个 SVG 体积未逐款称重，未验证。",
+      "themeFit": "需要走 mask 方案而不是直接改色：导出单色 SVG 后，用 -webkit-mask-image / mask-image 引用它，再用 background-color: rgba(var(--accent-rgb), 0.06) 或 var(--line) 上色。这样一张素材吃六套主题，颜色完全由令牌驱动，不需要每主题烘一份，也不需要颜色覆盖。",
+      "recommendedUse": "EmptyState 构图底纹、SettingsPanel 分区背景。优先挑描边型（stroke）而非填充型图案，描边粗细调到与 lucide 一致的视觉重量；透明度压到 --line 量级，保证中文正文在 11px 下仍然清晰。",
+      "integration": "不装 npm。网页导出 tileable SVG → E:\\project\\Polaris-Todo\\src\\renderer\\src\\assets\\patterns\\<name>.svg。globals.css 新增工具类：.pattern-mono { -webkit-mask-image: url('../assets/patterns/<name>.svg'); mask-image: 同值; -webkit-mask-size: 24px 24px; mask-size: 24px 24px; mask-repeat: repeat; background-color: var(--line); pointer-events: none; }。Vite 的 build.assetsInlineLimit 会把小 SVG 自动内联成 data URI，产物仍是单文件、离线可用。",
+      "replacesExisting": "新增。与 CSS-Pattern 互补：CSS-Pattern 是纯渐变（可用 var()），Pattern Monster 是描边 SVG（需 mask），两者覆盖不同的图案语汇。",
+      "score": 8
+    },
+    {
+      "name": "Tabbied 图案库（packages/tabbied）",
+      "nameZh": "Tabbied 几何图案",
+      "oneLiner": "Tabbied 的图案生成器部分，导出 PNG / SVG / React 组件三种形态；视觉是包豪斯味的几何构成（圆弧、扇形、条带拼贴），比纯纹理更有「构图」感，适合空状态而不是背景。",
+      "homepage": "https://tabbied.com/",
+      "previewUrl": "https://tabbied.com/",
+      "repoUrl": "https://github.com/tabbied-design/tabbied",
+      "licenseSpdx": "MIT",
+      "licenseUrl": "https://github.com/tabbied-design/tabbied/blob/main/LICENSE",
+      "licenseEvidence": "The `tabbied` pattern library (its patterns included), the MCP server and `tabbied-templates` are open source under the MIT License",
+      "licenseCaveat": "范围必须卡死：只有 packages/tabbied、packages/tabbied-mcp、packages/tabbied-templates 三个目录是 MIT（GitHub API 实测目录列表确认）。仓库其余部分——网站模板与图片——是专有，根 LICENSE 原文写明 Copyright (c) 2020-2026 Sy Hong and Ye Joo Park. All rights reserved.，模板只能按 Template License 下载使用。打包时严禁把模板素材塞进安装包。",
+      "version": "",
+      "sizeNote": "GitHub API 实测 packages 下三个目录：tabbied-mcp / tabbied-templates / tabbied。官网原文：\"Every website template and pattern on Tabbied is free to customize and download.\"，导出格式 PNG / SVG / React 组件。单个图案体积未称重，未验证。",
+      "themeFit": "导出 React 组件时把 fill 改成 currentColor，由父级 color: var(--text-tertiary) 或 var(--accent) 驱动；导出 SVG 文件时走 mask-image + background-color 令牌方案。六套主题都成立，不需要颜色覆盖。",
+      "recommendedUse": "只用在 EmptyState 的构图区（现有 .empty-orbit 周围），作为四角星标记背后的几何衬底。它的构成感偏强，铺成背景会抢星标记的焦点，违反「一颗四角星」的硬约束。",
+      "integration": "不装 npm（避免把专有模板目录一起拉进来）。从 tabbied.com 导出 React 组件形态，落到 E:\\project\\Polaris-Todo\\src\\renderer\\src\\components\\EmptyPattern.tsx，把所有 fill/stroke 硬编码色替换为 currentColor，根 svg 加 aria-hidden='true'。在 EmptyState.tsx 第 23–26 行的 .empty-orbit 内、<PolarisMark size={34} /> 之前插入 <EmptyPattern />，CSS 给 .empty-orbit 设 color: var(--text-tertiary)，透明度用 --line 量级。",
+      "replacesExisting": "新增。现有 EmptyState 只有一个 .empty-orbit-ring 圆环 + 星标记，构图偏单薄。",
+      "score": 7
+    },
+    {
+      "name": "Hero Patterns",
+      "nameZh": "Hero 图案",
+      "oneLiner": "Steve Schoger 手工绘制的可平铺 SVG 背景图案集，GitHub 仓库 svg/ 目录实测 100 个文件；Topography 等高线款是其中最适合做安静底纹的一款。",
+      "homepage": "https://heropatterns.com/",
+      "previewUrl": "https://heropatterns.com/",
+      "repoUrl": "https://github.com/sschoger/hero-patterns",
+      "licenseSpdx": "CC-BY-4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
+      "licenseEvidence": "You must give appropriate credit, provide a link to the license, and indicate if changes were made.",
+      "licenseCaveat": "必须署名，这是硬义务：桌面应用要在「关于」面板列出 Steve Schoger / Hero Patterns、heropatterns.com 链接、CC BY 4.0 许可链接，并说明做过重新着色/改透明度。仓库本身没有 LICENSE 文件也没有 README（实测文件列表只有 .gitignore / CNAME / index.html / test.html 与 css、img、js、spectrum、svg 目录），CC BY 4.0 只写在站点页脚——我抓的是 raw index.html，页脚文本为 \"CC BY 4.0\" 并链向 creativecommons.org/licenses/by/4.0/。heropatterns.com 本机 TLS 握手失败，域名由仓库 CNAME 文件 base64 解出确认。另有社区 npm 包 hero-patterns 是 MIT，但那只覆盖代码壳，不覆盖图案本身的 CC BY 义务。",
+      "version": "",
+      "sizeNote": "GitHub API 实测 svg/ 目录 100 个文件。站点提供 foreground color / opacity / background 三个参数并直接生成 CSS background-image 的 data URI，也可下载未着色 SVG。单款体积未称重，未验证。",
+      "themeFit": "站点导出的 data URI 里颜色是写死的，而 data URI 是独立文档，var(--line) 在里面不会解析——这是最容易踩的坑。正确做法是下载未着色 SVG，改用 mask-image 引用 + background-color: var(--line) 上色，六套主题共用一张素材；或者接受每主题烘一份 data URI（不推荐，六份维护成本）。",
+      "recommendedUse": "只取 Topography 一款，用在 EmptyState 构图底纹，透明度压到 --line 量级。不要铺导航、列表或按钮——它的等高线密度在密集列表上会和 1px 边线产生摩尔纹。",
+      "integration": "不装 npm。从 https://github.com/sschoger/hero-patterns/tree/master/svg 取 topography.svg 落到 E:\\project\\Polaris-Todo\\src\\renderer\\src\\assets\\patterns\\topography.svg，用上面 Pattern Monster 那条的 .pattern-mono mask 工具类引用。同时在 E:\\project\\Polaris-Todo\\src\\renderer\\src\\components\\SettingsPanel.tsx 增加「关于 / 素材署名」区块，写明作者、来源链接、CC BY 4.0 链接与「已重新着色」的改动说明；README.md 的素材清单一并补一行。",
+      "replacesExisting": "新增。若不想承担署名义务，用 Pattern Monster（MIT）或 CSS-Pattern（MIT）替代，视觉语汇接近。",
+      "score": 6
+    },
+    {
+      "name": "shape-dividers（andraswebcode）",
+      "nameZh": "SVG 形状分隔集",
+      "oneLiner": "CC0 公共领域的静态 SVG 形状分隔集合，仓库 svg/ 目录实测 25 个文件（curve / tilt / clouds / drops / pyramids / sea-waves-pattern 等，多数另有 -opacity 变体），附一个可选的 React 组件。",
+      "homepage": "https://github.com/andraswebcode/shape-dividers",
+      "previewUrl": "https://andrasweb.com/shape-divider-editor/",
+      "repoUrl": "https://github.com/andraswebcode/shape-dividers",
+      "licenseSpdx": "CC0-1.0",
+      "licenseUrl": "https://github.com/andraswebcode/shape-dividers/blob/master/LICENSE",
+      "licenseEvidence": "CC0 1.0 Universal / Affirmer hereby overtly, fully, permanently, irrevocably and unconditionally waives, abandons, and surrenders all of",
+      "licenseCaveat": "许可无风险（CC0，无署名义务）。风格有风险：波浪/三角分隔是营销落地页语汇，Polaris 的安静表面 + 1px 边线体系里容易显脏、显「模板感」。previewUrl 来自 README 链接，本机未直接抓取，标注未验证。仓库仅 1 star，按一次性素材源使用。",
+      "version": "",
+      "sizeNote": "GitHub API 实测 svg/ 目录 25 个文件，license=CC0-1.0，default_branch=master（main 分支不存在，raw 路径要用 master）。README 描述 React 组件 react-shape-divider.jsx 的 props：shape / height / color / flipX / flipY。单个 SVG 体积未称重，未验证。",
+      "themeFit": "单色 path，最容易适配：内联成 React 组件后 fill='currentColor'，由父级 color: var(--line-strong) 驱动；或走 mask-image + background-color 令牌。六套主题全部成立，无需颜色覆盖。",
+      "recommendedUse": "只挑 curve.svg 或 tilt.svg 一款，作为 EmptyState 构图的底边收口，高度控制在 24–40px。明确不要用作 TaskView 的分区分隔——项目已经用 1px var(--line) 做分隔，换成波浪会同时违反「安静表面」和「内联行用色底 + 1px 边」两条硬约束。",
+      "integration": "不装 npm、也不要用它的 React 组件（props 里 color 是字符串，绕过了令牌体系）。直接取 https://github.com/andraswebcode/shape-dividers/blob/master/svg/curve.svg 落到 E:\\project\\Polaris-Todo\\src\\renderer\\src\\assets\\shapes\\curve.svg，内联进 EmptyState.tsx 的 .empty-state 容器底部，path 的 fill 改 currentColor，svg 加 aria-hidden='true'，容器设 color: var(--line-strong)。CC0 无需署名，但建议在 README 素材清单里记一行来源便于追溯。",
+      "replacesExisting": "新增。这是本轮契合度最低的候选，只在你确实想给空状态加一道柔和收口时才用；否则宁可不用。",
+      "score": 5
+    }
+  ],
+  "rejected": [
+    {
+      "name": "SVG Backgrounds",
+      "reason": "素材许可不是开源许可，是自定义条款：官网原文三条并列——\"You can use graphics in personal or commercial projects\"、\"You cannot use graphics in competing products\"、\"You must provide attribution\"。免费档标注 \"Free With Attribution\"，要去掉署名必须买 All Access 订阅（\"No Attribution Required\" 是付费权益）。「禁止用于竞品」这一条对任何待办类应用都是不可接受的范围限制，Polaris 本身就是待办应用。无水印，但许可范围与付费墙都不满足约束。",
+      "sourceUrl": "https://www.svgbackgrounds.com/"
+    },
+    {
+      "name": "Haikei",
+      "reason": "抓了官网与 Terms of Service 两页：官网写 \"Free, no signups, no credit cards.\" 但同时存在 /pricing 付费档；ToS 的知识产权条款只覆盖服务本身，关于用户内容只有 \"You retain any and all of your rights to any Content you submit, post or display on or through Service\" 这类提交内容条款，全文没有任何一句把生成素材的使用权授予用户，也没有商用许可声明。素材许可无法从原文确认，不能进安装包。",
+      "sourceUrl": "https://haikei.app/terms/"
+    },
+    {
+      "name": "Blobmaker",
+      "reason": "抓了 www.blobmaker.app 原页：只描述它是 z creative labs 的 \"free generative design tool\"，可下载 SVG 或复制 SVG 代码，但整页没有任何许可或条款声明，无 LICENSE、无商用授权句式。页面同时写明 \"Blobmaker is now a part of Haikei.app.\"，而 Haikei 的素材许可同样不明。z creative labs 的 GitHub 组织下 blobmaker / getwaves 仓库均返回 404，找不到上游许可原文。许可未验证，排除。",
+      "sourceUrl": "https://www.blobmaker.app/"
+    },
+    {
+      "name": "Get Waves",
+      "reason": "抓了 getwaves.io 原页：只有 \"Create SVG waves for your next design.\" 与作者 z creative labs 链接，全页无许可、无开源声明、无 GitHub 仓库链接，且已并入 Haikei.app。github.com/zcreativelabs/getwaves 返回 404。素材许可无法核实，排除；需要波浪形态时用 CC0 的 andraswebcode/shape-dividers 替代。",
+      "sourceUrl": "https://getwaves.io/"
+    },
+    {
+      "name": "Shape Divider（shapedivider.app 原站）",
+      "reason": "本机对 www.shapedivider.app 的多次抓取均 TLS 握手失败（curl 报 schannel failed to receive handshake），素材许可与导出条款均未验证。GitHub 搜索只找到第三方移植 gwleuverink/blade-shape-divider（MIT，Laravel Blade 端口，对 React 无用），不能作为原站素材的许可依据。已用 CC0 的 andraswebcode/shape-dividers 覆盖同一需求，原站排除。",
+      "sourceUrl": "https://www.shapedivider.app/"
+    },
+    {
+      "name": "MagicPattern（含 Mesh Gradients / Image Noise Generator）",
+      "reason": "抓了首页与 /pricing 两页。首页列出一批 Free Generator Tools（CSS Patterns、Blob Generator、SVG Wave Generator、Image Noise Generator 等），但 /pricing 把 \"Commercial Use\" 与 \"Re-sell graphics\" 明确列为 Basic（$10/mo 或 $120/yr）与 Pro（$20/mo）付费档的权益条目，免费档的素材授权范围在两页里都没有任何一句说明，SVG 导出是否属于免费也未澄清。商用授权挂在付费档上，不满足「不要使用需要付费或商业授权的素材」，排除。",
+      "sourceUrl": "https://www.magicpattern.design/pricing"
+    },
+    {
+      "name": "@paper-design/shaders",
+      "reason": "许可与体积已核实，不是许可问题而是架构问题。npm registry 实测：version 0.0.82、license \"Apache-2.0\"、dependencies 为空对象、dist.unpackedSize 880848 字节（约 860 KB）；仓库 README 原文 \"Paper Shaders is licensed under Apache 2.0.\"、\"Zero-dependency HTML canvas shaders\"、\"Animated (or not, your choice) and highly customizable.\"。三条硬伤：(1) 它是 WebGL/canvas 运行时库，860 KB 未压缩代码要进安装包，违反「零运行时依赖优先」；(2) 默认动画，而 Polaris 明令禁止持续循环的装饰动画；(3) 它主打的 MeshGradient 效果，用 Bifiku 生成器导出一张约 2 KB 的静态 SVG 就能覆盖，成本相差两个数量级。若将来真需要动态 shader，必须先改设计约束，本轮排除。",
+      "sourceUrl": "https://github.com/paper-design/shaders"
+    },
+    {
+      "name": "fffuel nnnoise!",
+      "reason": "本机对 fffuel.co/nnnoise/ 与 fffuel.co/license/ 的多次抓取全部 TLS 握手失败（curl 同样报 schannel handshake 失败），素材许可原文一个字都没抓到，按「抓不到就标注未验证、不编造」的要求排除。噪点需求已由候选 1（自绘 feTurbulence，MDN 代码片段 CC0）完整覆盖，不依赖该站点。",
+      "sourceUrl": "https://fffuel.co/nnnoise/"
+    },
+    {
+      "name": "Iconify 的 SVG 噪点方案",
+      "reason": " premise 不成立：Iconify 是图标框架，没有噪点/grain 素材集。GitHub API 实测 iconify 组织下 icon-sets 仓库是 200+ 图标集，与纹理无关。它的 SVG+CSS 渲染方案（iconify/website 仓库，Apache-2.0，license.txt 原文 \"Apache License Version 2.0, January 2004\" / \"Copyright 2020, Iconify OÜ.\"；iconify/iconify 主库 MIT）解决的是图标体积：HTML 里只留 <path class>，形状数据放进 CSS 的 d: path()。文档明确写 Safari 26.3 仍不支持 CSS d: path()，需要 JS 检测回退。对 Polaris 而言：Electron 是纯 Chromium 没有 Safari 问题，但项目已用 lucide-react 1.72.0，再引入一套图标渲染管线没有收益，而且这套技术对噪点毫无帮助。排除，噪点走 feTurbulence data URI。",
+      "sourceUrl": "https://github.com/iconify/website"
+    },
+    {
+      "name": "MDN 文档散文（作为素材直接复制）",
+      "reason": "MDN 的 LICENSE.md 原文区分两类内容：代码片段 \"Code examples and snippets added on or after August 20, 2010 are in the public domain\"（CC0），而 \"All prose content is available under\" CC-BY-SA 2.5。CC-BY-SA 有相同方式共享的传染性，把解释文字抄进 Polaris 的文档或注释会波及项目文档的许可。只取 CC0 代码片段，散文一律自己重写。",
+      "sourceUrl": "https://github.com/mdn/content/blob/main/LICENSE.md"
+    }
+  ],
+  "notes": "【最重要的一条技术结论：data URI 里 var() 不解析】\n这是六主题映射的分水岭，也是本轮最该记住的事实。CSS 自定义属性只在它所在的那份文档里求值。`url(\"data:image/svg+xml,...\")` 里的 SVG 是一份独立文档，里面写 `fill='var(--line)'` 或 `stop-color='var(--accent)'` 不会解析，会静默退化成黑色/透明——和 CLAUDE.md 里记的「未定义 var() 无 fallback 静默透明」是同一类陷阱，但更隐蔽，因为素材在编辑器里看着是对的。\n\n由此分出三条可用的着色路径，按优先级：\n1. 内联 SVG 为 React 组件（最优）。SVG 节点在主文档里，`fill='currentColor'`、`stop-color='var(--accent)'`、`rgba(var(--accent-rgb), .06)` 全部有效。一份构图吃六套主题。适合 aurora mesh、空状态几何衬底。\n2. mask-image + background-color（次优，适合平铺图案）。`mask-image: url('外部或内联的单色 SVG'); background-color: var(--line);`——形状来自素材，颜色来自宿主元素的令牌。Vite 的 assetsInlineLimit 会把小 SVG 内联成 data URI，此时 data URI 只提供 alpha 通道，颜色仍由主文档的 background-color 决定，所以 var() 依然有效。这是 Pattern Monster / Hero Patterns 的正确用法。\n3. 纯 CSS 渐变（CSS-Pattern 专有优势）。渐变声明本来就写在主文档的样式表里，直接把硬编码色值换成令牌即可，连 mask 都不用。\n反过来，「站点导出的带色 data URI」是唯一不能直接用的形态——Hero Patterns 网页复制出来的那串 CSS 就属于这类，必须换成路径 2。\n\n【令牌落点】\n- 颗粒强度 → --noise-opacity（暗 0.032 / 0.03，浅 0.018），已存在，主题切换只改这一个数。\n- aurora 强度 → --aurora-opacity（dark 0.9 / dusk 0.85 / light 0.55 / sand 0.5 / sky 0.5 / green 0.45），已存在。\n- 图案颜色 → var(--line)（极淡，做底纹）或 rgba(var(--accent-rgb), 0.05)（带 teal 倾向，做空状态）。--accent-rgb 六套主题分别是 94,234,212 / 15,118,110 / 94,234,212 / 13,110,102 / 13,110,102 / 11,107,99，色相一致只调明度，所以同一份 rgba(..., 0.05) 在六套下观感连续。\n- 不要用 --inner-highlight 给纹理描边：它在浅色家族是 90% 白，铺在任何饱和色上都会变成一圈近白鬼影，CLAUDE.md 已经为提醒按钮踩过这个坑。\n\n【feTurbulence 在 Electron/Chromium 上的重绘代价】\n先声明证据边界：我抓到的 MDN feTurbulence 原文只讲语义（Perlin 湍流、type/baseFrequency/numOctaves/stitchTiles/seed），没有任何性能数字或警告。下面是工程推断，不是抓到的事实，落地前应在真机用 DevTools Performance 面板实测。\n- feTurbulence 是逐像素的程序化噪声合成，成本随滤镜区域面积线性增长，numOctaves 每加 1 大约让合成工作量翻倍（每个 octave 是一次独立采样叠加）。\n- 作为 CSS background-image 的 data URI 时，Chromium 把它当一张图片解码并栅格化，结果进图像缓存；只要 background-size 与元素尺寸不变，后续滚动/合成走的是缓存位图，不会重跑滤镜图。这正是现有 .noise（160×160 瓦片 + repeat）已经在做对的事。\n- 危险形态是把它放进 DOM 里的 <svg><filter> 并让任何输入变化：改 baseFrequency、改 seed、改元素尺寸、或让它参与 transform 动画导致滤镜区域重算——每一帧都会重新执行整条滤镜图，在 1920×1080 的窗口上就是每帧两百万像素的噪声合成，直接吃掉帧预算。\n- 所以结论是「烘成静态瓦片」而不是「每帧重算」：瓦片尺寸固定、stitchTiles='stitch' 保证接缝、numOctaves 控制在 3（现值）、强度只通过外层 opacity 调节。想更彻底就按候选 1 的方案在构建期烘成 PNG，运行时连一次滤镜求值都没有。\n- 主题切换时不要换 data URL 字符串——换了就是换了一张图片，缓存失效要重新栅格化。只改 opacity，六套主题共用同一份缓存。\n\n【点名不能用的「动态背景」方案】\n设计硬约束第 5 条禁止持续循环的装饰动画，以下形态一律不能进 Polaris：\n- @paper-design/shaders 的 MeshGradient / DotOrbit 等（默认动画的 WebGL 循环）；\n- 任何 CSS `animation: ... infinite` 的漂浮光球 / aurora 漂移 / 渐变 hue-rotate 循环；\n- 任何 setInterval / requestAnimationFrame 驱动的 feTurbulence seed 递增（「流动的噪点」）；\n- Lottie 循环播放的背景 JSON。\n静态替代一一对应：shader mesh → Bifiku 导出的一张静态 SVG；漂浮光球 → 固定的多层 radial-gradient 或 mesh 构图；流动噪点 → 固定 seed 的静态瓦片；Lottie 背景 → 内联 SVG 构图。\n唯一允许动的是加载指示器，以及 120/200/320ms 的一次性确认动效，且 reduced motion 下必须直接渲染终态——本轮所有候选都是静态素材，天然满足。\n\n【中文场景】\n本轮全是背景纹理，不含字形，不存在 CJK 覆盖问题。真正的中文风险是底纹压住正文：中文在 11px 下笔画密度高，任何底纹对比度超过 --line 量级都会让笔画糊掉。所以图案透明度一律压到 var(--line)（暗色家族是 7% 白、浅色家族是 8–9% 墨），并且在 SettingsPanel 与 EmptyState 之外的正文区不铺图案。字体层级维持 Manrope / Inter / Noto Sans SC / Geist Mono 不变，本轮不动字体。\n\n【抓取可信度声明】\n本轮所有许可证原文均经 WebFetch 或 gh api 实际抓取，licenseEvidence 是原文片段（抓取工具对单条引用有 125 字符上限，所以证据是短句而非全文）。\n本机网络对以下域名 TLS 握手失败，未能直接目视页面：heropatterns.com、pattern.monster、css-pattern.com、fffuel.co、iconify.design、shapedivider.app、developer.mozilla.org。这些条目我改用可达的权威原文核实——GitHub 仓库页、raw.githubusercontent.com 上的 LICENSE / README / 文档源文件、api.github.com 元数据、npm registry JSON。域名本身的存在性由仓库 CNAME 文件或 GitHub API 的 homepage 字段确认（例如 sschoger/hero-patterns 的 CNAME base64 解出正是 heropatterns.com）。凡未能从原文核实的数字（Pattern Monster 的 320+ 图案数、各款 SVG 的逐款字节数）已在 sizeNote 里标注未验证。\n唯一实测字节数：现有 globals.css:529 的噪点 data URI 全长 305 字符。唯一实测包体积：@paper-design/shaders 的 dist.unpackedSize = 880848 字节。\n\n【落地顺序建议】\n先做候选 1（去饱和噪点，改一行 CSS，零风险），再做候选 3（Bifiku mesh 替换 aurora，视觉收益最大），然后按需在 EmptyState 加候选 5 或 2。候选 6 只在愿意承担「关于」面板署名义务时才引入。候选 7 契合度最低，可以不做。\n每步之后按项目既有流程跑 `npm run build && npm run smoke` 与 `npm run verify:themes`——后者会校验六套主题的 WCAG 对比度与注册表不变量，正好能挡住底纹压暗正文这类回归。截图核对用 `POLARIS_SHOT=themes npx electron .`，并按记忆里的提示加 --user-data-dir 隔离，避免污染真实 profile 的主题设置。"
+}

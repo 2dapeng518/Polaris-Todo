@@ -1,0 +1,478 @@
+{
+  "category": "西文字体（OFL 西文 UI / 展示字体）",
+  "checked": [
+    {
+      "name": "Geist Sans",
+      "verdict": "corrected",
+      "finalLicenseSpdx": "OFL-1.1",
+      "finalLicenseUrl": "https://raw.githubusercontent.com/vercel/geist-font/main/LICENSE.txt",
+      "licenseQuote": "\"SIL OPEN FONT LICENSE Version 1.1 - 26 February 2007\"；\"This Font Software is licensed under the SIL Open Font License, Version 1.1.\"；该文件版权行实为 \"Copyright (c) 2023 Vercel, in collaboration with basement.studio\"；google/fonts ofl/geist/OFL.txt 版权行另为 \"Copyright 2024 The Geist Project Authors (https://github.com/vercel/geist-font.git)\"（已单独抓取核实）",
+      "urlChecks": [
+        {
+          "url": "https://raw.githubusercontent.com/vercel/geist-font/main/LICENSE.txt",
+          "ok": true,
+          "note": "OFL-1.1 全文，无 Reserved Font Name 声明"
+        },
+        {
+          "url": "https://vercel.com/font",
+          "ok": true,
+          "note": "官方主页可达，原文 \"Geist is licensed under the SIL Open Font License 1.1.\"；现列 Sans/Serif/Mono/Pixel 四族"
+        },
+        {
+          "url": "https://github.com/vercel/geist-font",
+          "ok": true,
+          "note": "默认分支 main，侧栏 OFL-1.1，未归档；根目录同时有 LICENSE.txt 与 OFL.txt"
+        },
+        {
+          "url": "https://fonts.google.com/specimen/Geist",
+          "ok": true,
+          "note": "页面存在，标题 \"Geist - Google Fonts\"；JS 渲染，正文抓不到，仅能核到家族名"
+        },
+        {
+          "url": "https://registry.npmjs.org/@fontsource-variable/geist/latest",
+          "ok": true,
+          "note": "5.3.0 / license OFL-1.1 / dist.unpackedSize 180843，与原文一致"
+        },
+        {
+          "url": "https://unpkg.com/@fontsource-variable/geist@5.3.0/files/geist-latin-wght-normal.woff2",
+          "ok": true,
+          "note": "Content-Length 29400，与原文一致"
+        },
+        {
+          "url": "https://unpkg.com/@fontsource-variable/geist@5.3.0/wght.css",
+          "ok": true,
+          "note": "实抓有内容：5 条 normal @font-face，'Geist Variable'，font-weight: 100 900 —— 原文说此文件不存在，错"
+        },
+        {
+          "url": "https://unpkg.com/@fontsource-variable/geist@5.3.0/wght-italic.css",
+          "ok": true,
+          "note": "实抓有内容：5 条 italic @font-face（geist-*-wght-italic.woff2）"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/google/fonts/main/ofl/geist/OFL.txt",
+          "ok": true,
+          "note": "Copyright 2024 The Geist Project Authors，原文引用归属正确"
+        }
+      ],
+      "corrections": "许可证判定成立（OFL-1.1），但包结构说错了。原文「该包只有 index.css，实测无 wght.css」不成立：unpkg ?meta 实测 @fontsource-variable/geist@5.3.0 有三个入口 /index.css、/wght.css、/wght-italic.css，后两个都抓到了真实 CSS。因此「包内无 italic」也错——index.css 只含 5 条 normal 面是对的，但包里有整套 italic。集成写法应改为 import '@fontsource-variable/geist/wght.css'（与其余五款一致），控体积仍可手写单条 @font-face 只引 latin。另澄清许可证证据的文件归属：licenseUrl 指向的 vercel/LICENSE.txt 版权行是 2023 Vercel + basement.studio，原文引用的 2024 Geist Project Authors 出自 google/fonts 的 OFL.txt，两份都是 OFL-1.1，两份都没有 Reserved Font Name，随包放哪份都可以（建议两份都放）。二进制复核全部命中：Version 1.800、fvar wght 100-400-900（无 opsz/wdth）、x-height 0.530em、cap 0.710em、975 字形、GSUB 有 tnum/pnum/ss01–ss11 且无 zero、maxp 全 0、小写均宽 0.5338em；latin woff2 29,400 B 与现用 Inter latin 48,256 B（本地 node_modules 5.3.0 实测）相差 18,856 B，「省 19KB / 小 39%」成立。",
+      "riskLevel": "attribution-required"
+    },
+    {
+      "name": "IBM Plex Sans",
+      "verdict": "corrected",
+      "finalLicenseSpdx": "OFL-1.1",
+      "finalLicenseUrl": "https://raw.githubusercontent.com/IBM/plex/master/LICENSE.txt",
+      "licenseQuote": "\"Copyright © 2017 IBM Corp. with Reserved Font Name \\\"Plex\\\"\"；\"SIL OPEN FONT LICENSE Version 1.1 - 26 February 2007\"；\"This Font Software is licensed under the SIL Open Font License, Version 1.1.\"",
+      "urlChecks": [
+        {
+          "url": "https://raw.githubusercontent.com/IBM/plex/master/LICENSE.txt",
+          "ok": true,
+          "note": "OFL-1.1 + Reserved Font Name \"Plex\"，与原文逐字一致"
+        },
+        {
+          "url": "https://github.com/IBM/plex",
+          "ok": true,
+          "note": "默认分支 master，侧栏 OFL-1.1，未归档；README \"The IBM Plex typeface is an open-source project available for download and various uses following the Open Font License (OFL).\""
+        },
+        {
+          "url": "https://www.ibm.com/plex/",
+          "ok": true,
+          "note": "实测 HTTP 200，标题 \"Introduction | IBM Plex\" —— 原文称此站不可达（curl 000），本次不成立"
+        },
+        {
+          "url": "https://fonts.google.com/specimen/IBM+Plex+Sans",
+          "ok": true,
+          "note": "页面存在，标题 \"IBM Plex Sans - Google Fonts\"；JS 渲染，仅能核到家族名"
+        },
+        {
+          "url": "https://registry.npmjs.org/@fontsource-variable/ibm-plex-sans/latest",
+          "ok": true,
+          "note": "5.3.0 / OFL-1.1 / dist.unpackedSize 1417882，与原文一致"
+        },
+        {
+          "url": "https://unpkg.com/@fontsource-variable/ibm-plex-sans@5.3.0/wght.css",
+          "ok": true,
+          "note": "存在：'IBM Plex Sans Variable'，font-weight: 100 700，6 个子集 normal 面"
+        },
+        {
+          "url": "https://unpkg.com/@fontsource-variable/ibm-plex-sans@5.3.0/files/ibm-plex-sans-latin-wght-normal.woff2",
+          "ok": true,
+          "note": "Content-Length 45712，与原文一致"
+        }
+      ],
+      "corrections": "许可证、版本、体积、度量、hinting 全部逐条命中，唯一说错的是主页可达性：原文「ibm.com/plex 从本机网络实测不可达（curl 返回 000）」本次复核为 HTTP 200、标题 \"Introduction | IBM Plex\"。用仓库当主页的结论可以保留，但理由必须改成「仓库是许可证与源文件的权威位置」，不能再写官网打不开。二进制复核（我第一遍解析读错了 maxp 字段偏移，纠正后与原文完全一致）：Version 3.201、fvar wght 100-400-700 + wdth 75-100-100、x-height 0.516em / cap 0.698em、1025 字形、GSUB 有 lnum/onum/zero/ss01–ss06 且确无 tnum/pnum、0–9 advance 全为 600/1000（默认等宽，写 tnum 是空操作）、maxp maxSizeOfInstructions=3971 / maxFunctionDefs=154 / maxStorage=47 / maxStackElements=322 / maxTwilightPoints=16，是 12 款里唯一非零，其余 11 款（含现用 Inter / Manrope / Noto Sans SC）maxp 全 0 也已复核。小写均宽 0.5050em 一致。附带跨条纠错：Plex 自己就带 wdth 75–100，所以 Instrument Sans 那条「本轮唯一带宽度轴」是错的。合规提醒：派生版不得继续叫 Plex（RFN），随 NSIS 分发属 bundling，需附 LICENSE.txt 与版权行，UI 内无需署名。",
+      "riskLevel": "attribution-required"
+    },
+    {
+      "name": "Plus Jakarta Sans",
+      "verdict": "corrected",
+      "finalLicenseSpdx": "OFL-1.1",
+      "finalLicenseUrl": "https://raw.githubusercontent.com/tokotype/PlusJakartaSans/master/OFL.txt",
+      "licenseQuote": "\"Copyright 2020 The Plus Jakarta Sans Project Authors\"；\"SIL OPEN FONT LICENSE Version 1.1 - 26 February 2007\"；\"This Font Software is licensed under the SIL Open Font License, Version 1.1.\"；无 Reserved Font Name",
+      "urlChecks": [
+        {
+          "url": "https://raw.githubusercontent.com/tokotype/PlusJakartaSans/master/OFL.txt",
+          "ok": true,
+          "note": "OFL-1.1，版权 2020，与原文一致"
+        },
+        {
+          "url": "https://github.com/tokotype/PlusJakartaSans",
+          "ok": true,
+          "note": "默认分支 master，OFL-1.1，未归档；README 确有 Lancip / Lurus / Lingkar 三组 stylistic alternates；上游版本写的是 v2.7.1 / v2.700"
+        },
+        {
+          "url": "https://fonts.google.com/specimen/Plus+Jakarta Sans+Sans",
+          "ok": true,
+          "note": "页面存在，标题 \"Plus Jakarta Sans Sans - Google Fonts\"；JS 渲染，仅能核到家族名"
+        },
+        {
+          "url": "https://registry.npmjs.org/@fontsource-variable/plus-jakarta-sans/latest",
+          "ok": true,
+          "note": "5.3.0 / OFL-1.1 / dist.unpackedSize 145679，与原文一致"
+        },
+        {
+          "url": "https://unpkg.com/@fontsource-variable/plus-jakarta-sans@5.3.0/wght.css",
+          "ok": true,
+          "note": "存在：'Plus Jakarta Sans Variable'，font-weight: 200 800，4 条 normal 面"
+        },
+        {
+          "url": "https://unpkg.com/@fontsource-variable/plus-jakarta-sans@5.3.0/files/plus-jakarta-sans-latin-wght-normal.woff2",
+          "ok": true,
+          "note": "Content-Length 27348，与原文一致；现用 Manrope latin 本地实测 24836，也一致"
+        }
+      ],
+      "corrections": "许可证、链接、体积、度量全部核实无误，补两处原文漏掉的事实。(1) 漏报了一个比 Public Sans 更严重的行高坑：实测 PlusJakartaSans[wght].ttf upem 1000、winAscent 1296 / winDescent 356，合计 1.652em，是本轮 12 款里最高的（原文只为 Public Sans 的 1.405em 写了行高警告）。任何 line-height: normal 的位置换上去行盒都会更高，globals.css:86 换字体后必须重跑 npm run build && npm run smoke 的 sub-pixel 行高断言。(2) 版本号写法要标清来源：GF/fontsource 这条线的 name 表实测是 \"Version 2.071;gftools[0.9.30]\"，而上游 tokotype 仓库 README 写的是 v2.7.1 / v2.700，两套编号不同，别把 2.071「纠正」成 2.700。其余全部命中：fvar wght 200-400-800、x-height 0.536em / cap 0.745em、1188 字形、GSUB tnum/pnum/ss01–ss03、maxp 全 0、小写均宽 0.5403em（比本地 Manrope TTF 实测 0.5027em 宽 7.5%，原文该比值也成立）。结论「不引入、只做 Manrope 的等价备选」维持。",
+      "riskLevel": "attribution-required"
+    },
+    {
+      "name": "Public Sans",
+      "verdict": "corrected",
+      "finalLicenseSpdx": "OFL-1.1",
+      "finalLicenseUrl": "https://raw.githubusercontent.com/uswds/public-sans/develop/LICENSE.md",
+      "licenseQuote": "\"Copyright 2015 The Public Sans Project Authors (https://github.com/uswds/public-sans)\"；\"SIL OPEN FONT LICENSE Version 1.1 - 26 February 2007\"；\"This Font Software is licensed under the SIL Open Font License, Version 1.1.\"；README 另有 \"Public Sans as a font is not currently being actively developed or maintained.\"",
+      "urlChecks": [
+        {
+          "url": "https://raw.githubusercontent.com/uswds/public-sans/develop/LICENSE.md",
+          "ok": true,
+          "note": "OFL-1.1，develop 分支确有 LICENSE.md，版权行与原文逐字一致"
+        },
+        {
+          "url": "https://github.com/uswds/public-sans",
+          "ok": true,
+          "note": "默认分支确为 develop，侧栏 OFL-1.1，仓库未归档但 README 声明字体已停止维护"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/uswds/public-sans/develop/README.md",
+          "ok": true,
+          "note": "抓到 \"Variable fonts should be considered experimental\"、\"currently Public Sans v2.001\"、\"not currently being actively developed or maintained\""
+        },
+        {
+          "url": "https://public-sans.digital.gov/",
+          "ok": false,
+          "note": "实测 301，Location: https://digital.gov/resources/an-introduction-to-typography —— 专页已下线，跳到无关的通用排版文章，不是「不可达」"
+        },
+        {
+          "url": "https://fonts.google.com/specimen/Public+Sans",
+          "ok": true,
+          "note": "页面存在，标题 \"Public Sans - Google Fonts\"；JS 渲染，仅能核到家族名"
+        },
+        {
+          "url": "https://registry.npmjs.org/@fontsource-variable/public-sans/latest",
+          "ok": true,
+          "note": "5.3.0 / OFL-1.1 / dist.unpackedSize 130199，与原文一致"
+        },
+        {
+          "url": "https://unpkg.com/@fontsource-variable/public-sans@5.3.0/index.css",
+          "ok": true,
+          "note": "1272 B，'Public Sans Variable'，font-weight: 100 900，3 条 normal 面；?meta 显示 wght.css 同为 1272 B（wght-only）"
+        },
+        {
+          "url": "https://unpkg.com/@fontsource-variable/public-sans@5.3.0/files/public-sans-latin-wght-normal.woff2",
+          "ok": true,
+          "note": "Content-Length 26832，与原文一致"
+        }
+      ],
+      "corrections": "许可证与全部二进制数值命中，两处要改。(1) 上游状态比原文说的更糟：README 原文 \"Public Sans as a font is not currently being actively developed or maintained.\"——不只是可变版实验性，整个字体已停止开发维护，排除理由应从「可变版实验性」升级为「上游停更」。(2) 主页不是「不可达」：https://public-sans.digital.gov/ 实测 301 跳到 https://digital.gov/resources/an-introduction-to-typography，是专页下线后跳向无关文章。改用仓库当主页的结论对，理由要改写。默认字重争议已用二进制定案：PublicSans[wght].ttf 实测 fvar wght 100-100-900、name 表 family 名就是 \"Public Sans Thin\"，原文的「默认 100」正确；fontsource metadata.json 写的 default 400 是目录元数据不是二进制默认值，别被它带偏。但原文的推论「不显式设 font-weight 就会拿到 Thin、浅色家族 teal 小字直接不可读」被高估了：CSS 里 UA 默认 font-weight:400 落在声明的 100–900 区间内并会生效，fvar 默认值不会漏出来——本项目现用的 Manrope（实测 fvar 默认 200）与 Noto Sans SC（实测 fvar 默认 100）就是现成反例，它们并没有渲染成 ExtraLight/Thin。显式写字重仍是好习惯，但不构成排除理由（此推论为机制推断＋现成反例，未做像素实测）。其余命中：Version 2.001、upem 2000、winAscent 2315 / winDescent 495（1.405em）、x-height 0.517em、648 字形、GSUB tnum/pnum/lnum/onum/ss01、maxp 全 0、小写均宽 0.5129em。",
+      "riskLevel": "attribution-required"
+    },
+    {
+      "name": "Instrument Sans",
+      "verdict": "corrected",
+      "finalLicenseSpdx": "OFL-1.1",
+      "finalLicenseUrl": "https://raw.githubusercontent.com/Instrument/instrument-sans/master/OFL.txt",
+      "licenseQuote": "\"Copyright 2022 The Instrument Sans Project Authors\"；\"SIL OPEN FONT LICENSE Version 1.1 - 26 February 2007\"；\"This Font Software is licensed under the SIL Open Font License, Version 1.1.\"；无 Reserved Font Name",
+      "urlChecks": [
+        {
+          "url": "https://raw.githubusercontent.com/Instrument/instrument-sans/master/OFL.txt",
+          "ok": true,
+          "note": "OFL-1.1，版权 2022，与原文一致"
+        },
+        {
+          "url": "https://github.com/Instrument/instrument-sans",
+          "ok": true,
+          "note": "默认分支 master，OFL-1.1，未归档；README 轴表笔误确认：Width 行 wdth 75-100、Weight 行也写成 wdth 400-700，另多列一行 ital 0-100"
+        },
+        {
+          "url": "https://fonts.google.com/specimen/Instrument+Sans",
+          "ok": true,
+          "note": "页面存在，标题 \"Instrument Sans - Google Fonts\"；JS 渲染，仅能核到家族名"
+        },
+        {
+          "url": "https://registry.npmjs.org/@fontsource-variable/instrument-sans/latest",
+          "ok": true,
+          "note": "5.3.0 / OFL-1.1 / dist.unpackedSize 424093，与原文一致"
+        },
+        {
+          "url": "https://unpkg.com/@fontsource-variable/instrument-sans@5.3.0/wght.css",
+          "ok": true,
+          "note": "HTTP 200，存在"
+        },
+        {
+          "url": "https://unpkg.com/@fontsource-variable/instrument-sans@5.3.0/standard.css",
+          "ok": true,
+          "note": "实抓：'Instrument Sans Variable'，font-stretch: 75% 100%，font-weight: 400 700，latin / latin-ext 两条 normal 面"
+        },
+        {
+          "url": "https://unpkg.com/@fontsource-variable/instrument-sans@5.3.0/files/instrument-sans-latin-wght-normal.woff2",
+          "ok": true,
+          "note": "Content-Length 30092，与原文一致"
+        }
+      ],
+      "corrections": "核心卖点说错了：「本轮唯一带 wdth 75–100 宽度轴的候选」不成立——IBM Plex Sans 同样有 wdth 75–100（原文自己的 sizeNote 就写了，我也用二进制复核过），宽度轴不是它的独占优势，这条卖点要删，评分理由随之减弱。其余全部命中：README 轴表笔误确实存在（Weight 行被写成 wdth），且 README 还多列了一行 ital 0-100，这个范围本身也是错的（fontsource metadata 里 ital 是 0–1，包内另有 italic 样式）；roman TTF 的 fvar 确实只有 wdth 75-100-100 与 wght 400-400-700 两轴，「以二进制为准」的处理正确；Version 1.000;gftools[0.9.28]、x-height 0.510em、501 字形、GSUB tnum/pnum/ss01–ss12、maxp 全 0、小写均宽 0.5249em、latin 30,092 B、包 424,093 B 全部一致。wght.css 与 standard.css 都实抓存在，家族名 'Instrument Sans Variable' 无误。结论「不替换 Inter」维持。",
+      "riskLevel": "attribution-required"
+    },
+    {
+      "name": "Figtree",
+      "verdict": "pass",
+      "finalLicenseSpdx": "OFL-1.1",
+      "finalLicenseUrl": "https://raw.githubusercontent.com/erikdkennedy/figtree/master/OFL.txt",
+      "licenseQuote": "\"Copyright 2022 The Figtree Project Authors\"；\"SIL OPEN FONT LICENSE Version 1.1 - 26 February 2007\"；\"This Font Software is licensed under the SIL Open Font License, Version 1.1.\"；无 Reserved Font Name",
+      "urlChecks": [
+        {
+          "url": "https://raw.githubusercontent.com/erikdkennedy/figtree/master/OFL.txt",
+          "ok": true,
+          "note": "OFL-1.1，版权 2022，与原文一致"
+        },
+        {
+          "url": "https://github.com/erikdkennedy/figtree",
+          "ok": true,
+          "note": "默认分支 master，侧栏 OFL-1.1，未归档，根目录 OFL.txt；README 只有简介与图片，无外链主页"
+        },
+        {
+          "url": "https://www.erikdkennedy.com/figtree/",
+          "ok": false,
+          "note": "实测 HTTP 404，原文剔除该主页的处理正确"
+        },
+        {
+          "url": "https://fonts.google.com/specimen/Figtree",
+          "ok": true,
+          "note": "页面存在，标题 \"Figtree - Google Fonts\"；JS 渲染，仅能核到家族名"
+        },
+        {
+          "url": "https://registry.npmjs.org/@fontsource-variable/figtree/latest",
+          "ok": true,
+          "note": "5.3.0 / OFL-1.1 / dist.unpackedSize 81105，与原文一致"
+        },
+        {
+          "url": "https://unpkg.com/@fontsource-variable/figtree@5.3.0/index.css",
+          "ok": true,
+          "note": "836 B，'Figtree Variable'，font-weight: 300 900，2 条 normal 面（latin / latin-ext），确为 wght-only"
+        },
+        {
+          "url": "https://unpkg.com/@fontsource-variable/figtree@5.3.0/files/figtree-latin-wght-normal.woff2",
+          "ok": true,
+          "note": "Content-Length 20156，12 款实测里最小，与原文一致"
+        }
+      ],
+      "corrections": "无。逐条复核全部命中：OFL-1.1、erikdkennedy.com/figtree 确为 404、npm 5.3.0 / 81,105 B、latin woff2 20,156 B（我把 12 款的 latin woff2 都量了一遍，它确实最小）、Version 2.002、fvar wght 300-300-900（name 表 family 名就是 \"Figtree Light\"，默认 300 属实）、x-height 0.500em / cap 0.700em、459 字形、GSUB tnum/pnum/ss01/ss02/rvrn、maxp 全 0、小写均宽 0.4988em、index.css 即 wght-only 且家族名 'Figtree Variable'。唯一要弱化的是与 Public Sans 同款的推论：「默认 300 不显式设字重就偏细」在 CSS 下同样不成立（UA 默认 400 会生效），但这条不影响它因 x-height 0.500 被排除的主结论。「不引入」维持。",
+      "riskLevel": "attribution-required"
+    },
+    {
+      "name": "Inter Tight",
+      "verdict": "pass",
+      "finalLicenseSpdx": "OFL-1.1",
+      "finalLicenseUrl": "https://raw.githubusercontent.com/googlefonts/inter-gf-tight/main/OFL.txt",
+      "licenseQuote": "\"Copyright 2022 The Inter Project Authors (https://github.com/rsms/inter-tight)\"；\"SIL OPEN FONT LICENSE Version 1.1 - 26 February 2007\"；\"This Font Software is licensed under the SIL Open Font License, Version 1.1.\"",
+      "urlChecks": [
+        {
+          "url": "https://github.com/googlefonts/inter-gf-tight",
+          "ok": true,
+          "note": "归档横幅原文 \"This repository was archived by the owner on Feb 12, 2024. It is now read-only.\"，与原文 2024-02-12 一致；README 确有 does _not_ receive updates and improvements from standard Inter"
+        },
+        {
+          "url": "https://github.com/rsms/inter-tight",
+          "ok": true,
+          "note": "实测 301，Location: https://github.com/googlefonts/inter-gf-tight，原文所述重定向成立"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/googlefonts/inter-gf-tight/main/OFL.txt",
+          "ok": true,
+          "note": "OFL-1.1，版权行与原文逐字一致"
+        },
+        {
+          "url": "https://registry.npmjs.org/@fontsource-variable/inter-tight/latest",
+          "ok": true,
+          "note": "包存在：5.3.0 / OFL-1.1 / dist.unpackedSize 483329"
+        },
+        {
+          "url": "https://unpkg.com/@fontsource-variable/inter-tight@5.3.0/files/inter-tight-latin-wght-normal.woff2",
+          "ok": true,
+          "note": "下载实测 44872 B，与原文一致"
+        }
+      ],
+      "corrections": "无（维持排除）。两条硬证据都复核成立：上游 rsms/inter-tight 确 301 跳到 googlefonts/inter-gf-tight，该仓库确于 2024-02-12 归档且 README 明写不跟随标准 Inter 更新；许可证确为干净 OFL-1.1。latin woff2 44,872 B 实测一致。未复核项：它自身的 x-height 0.5459 / cap 0.7275 / 小写均宽 0.486em 没有重新解析（作为基准的 Inter 我复核了：x-height 0.5459em、cap 0.7275em、小写均宽 0.5363em，与原文一致）。",
+      "riskLevel": "attribution-required"
+    },
+    {
+      "name": "Space Grotesk",
+      "verdict": "pass",
+      "finalLicenseSpdx": "OFL-1.1",
+      "finalLicenseUrl": "https://raw.githubusercontent.com/floriankarsten/space-grotesk/master/OFL.txt",
+      "licenseQuote": "\"Copyright 2020 The Space Grotesk Project Authors (https://github.com/floriankarsten/space-grotesk)\"；\"SIL OPEN FONT LICENSE Version 1.1 - 26 February 2007\"；\"This Font Software is licensed under the SIL Open Font License, Version 1.1.\"",
+      "urlChecks": [
+        {
+          "url": "https://github.com/floriankarsten/space-grotesk",
+          "ok": true,
+          "note": "默认分支 master，侧栏 OFL-1.1，未归档，根目录 OFL.txt；README \"Space Grotesk is licensed under the SIL Open Font License v1.1\""
+        },
+        {
+          "url": "https://raw.githubusercontent.com/floriankarsten/space-grotesk/master/OFL.txt",
+          "ok": true,
+          "note": "OFL-1.1，版权 2020，无 Reserved Font Name"
+        },
+        {
+          "url": "https://unpkg.com/@fontsource-variable/space-grotesk@5.3.0/files/space-grotesk-latin-wght-normal.woff2",
+          "ok": true,
+          "note": "Content-Length 22288，与原文一致；包在 @fontsource-variable 下确实存在"
+        }
+      ],
+      "corrections": "无（维持排除）。许可证 OFL-1.1 属实，仓库可达未归档，latin woff2 22,288 B 实测一致。未复核项：x-height 0.486em、wght 300–700、小写均宽 0.555em、maxp 为 0 等二进制指标本轮没有重新解析（rejected 条目只核许可证与链接）。",
+      "riskLevel": "attribution-required"
+    },
+    {
+      "name": "Sora",
+      "verdict": "pass",
+      "finalLicenseSpdx": "OFL-1.1",
+      "finalLicenseUrl": "https://raw.githubusercontent.com/sora-xor/sora-font/master/OFL.txt",
+      "licenseQuote": "\"Copyright 2019 The Sora Project Authors (https://github.com/sora-xor/sora-font)\"；\"SIL OPEN FONT LICENSE Version 1.1 - 26 February 2007\"；\"This Font Software is licensed under the SIL Open Font License, Version 1.1.\"",
+      "urlChecks": [
+        {
+          "url": "https://github.com/sora-xor/sora-font",
+          "ok": true,
+          "note": "默认分支 master，OFL-1.1，未归档；README \"SORA is a typeface family commissioned for the SORA decentralized autonomous economy\"，原文所述定制背景成立"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/sora-xor/sora-font/master/OFL.txt",
+          "ok": true,
+          "note": "OFL-1.1，版权 2019，与原文一致"
+        },
+        {
+          "url": "https://unpkg.com/@fontsource-variable/sora@5.3.0/files/sora-latin-wght-normal.woff2",
+          "ok": true,
+          "note": "Content-Length 33652，与原文一致"
+        }
+      ],
+      "corrections": "无（维持排除）。许可证 OFL-1.1 属实，仓库可达，latin woff2 33,652 B 实测一致。未复核项：小写均宽 0.5774em、'0' advance 743/1000、x-height 0.534em 等宽度指标本轮没有重新解析——宽度是它的主要否决理由，若要正式写进决策文档建议补一次二进制复核。",
+      "riskLevel": "attribution-required"
+    },
+    {
+      "name": "Outfit",
+      "verdict": "corrected",
+      "finalLicenseSpdx": "OFL-1.1",
+      "finalLicenseUrl": "https://raw.githubusercontent.com/Outfitio/Outfit-Fonts/main/OFL.txt",
+      "licenseQuote": "\"Copyright 2021 The Outfit Project Authors (https://github.com/Outfitio/Outfit-Fonts)\"；\"SIL OPEN FONT LICENSE Version 1.1 - 26 February 2007\"；\"This Font Software is licensed under the SIL Open Font License, Version 1.1.\"",
+      "urlChecks": [
+        {
+          "url": "https://github.com/Outfitio/Outfit-Fonts",
+          "ok": true,
+          "note": "页面可达但仓库已归档：archived by the owner on Feb 25, 2025，read-only；默认分支 main，根目录 OFL.txt"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/Outfitio/Outfit-Fonts/main/OFL.txt",
+          "ok": true,
+          "note": "OFL-1.1，版权 2021，与原文一致"
+        },
+        {
+          "url": "https://unpkg.com/@fontsource-variable/outfit@5.3.0/files/outfit-latin-wght-normal.woff2",
+          "ok": true,
+          "note": "Content-Length 32292，与原文一致"
+        }
+      ],
+      "corrections": "许可证判定无误（OFL-1.1），但漏了一条与 Inter Tight / Geologica 同级的排除硬证据：Outfitio/Outfit-Fonts 已于 2025-02-25 被作者归档，仓库 read-only，上游同样无后续维护。原文只按 x-height 0.460em 与默认 wght 100 排除，应把「上游已归档」补进理由。另与 Public Sans / Figtree 同款：「默认 wght=100，不显式设字重就是 Thin」在 CSS 下不成立（UA 默认 400 生效），这条不要当排除理由用；x-height 0.460em 才是决定性的（该值本轮未重新解析）。latin woff2 32,292 B 实测一致。",
+      "riskLevel": "attribution-required"
+    },
+    {
+      "name": "Bricolage Grotesque",
+      "verdict": "corrected",
+      "finalLicenseSpdx": "OFL-1.1",
+      "finalLicenseUrl": "https://raw.githubusercontent.com/ateliertriay/bricolage/main/OFL.txt",
+      "licenseQuote": "\"Copyright 2022 The Bricolage Grotesque Project Authors (https://github.com/ateliertriay/bricolage)\"；\"SIL OPEN FONT LICENSE Version 1.1 - 26 February 2007\"；\"This Font Software is licensed under the SIL Open Font License, Version 1.1.\"；README 实际原文为 \"It started as a fork of Mayenne Sans, an open-source single weight font designed by Jérémy Landes.\"",
+      "urlChecks": [
+        {
+          "url": "https://github.com/ateliertriay/bricolage",
+          "ok": true,
+          "note": "默认分支 main，OFL-1.1，未归档；仓库简介 \"an expressive variable font with weight, width and optical size axis\""
+        },
+        {
+          "url": "https://raw.githubusercontent.com/ateliertriay/bricolage/main/OFL.txt",
+          "ok": true,
+          "note": "OFL-1.1，版权 2022"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/ateliertriay/bricolage/main/README.md",
+          "ok": true,
+          "note": "全文 3776 B 下载后逐字检索：不含 display 一词，原文引用的 \"I forked the font and worked to make it fully display-oriented.\" 不存在"
+        },
+        {
+          "url": "https://registry.npmjs.org/@fontsource-variable/bricolage-grotesque/latest",
+          "ok": true,
+          "note": "包名是 bricolage-grotesque（不是 bricolage）：5.3.0 / OFL-1.1 / dist.unpackedSize 544183，与原文体积一致"
+        },
+        {
+          "url": "https://unpkg.com/@fontsource-variable/bricolage-grotesque@5.3.0/files/bricolage-grotesque-latin-wght-normal.woff2",
+          "ok": true,
+          "note": "下载实测 41344 B，与原文一致"
+        }
+      ],
+      "corrections": "许可证无误（OFL-1.1），但引文是错的：原文「作者自述 \"I forked the font and worked to make it fully display-oriented.\"」在仓库 README 里根本不存在——我把 raw README（3,776 B）下载后逐字检索，全文没有 display 这个词。实际句子是 \"It started as a fork of Mayenne Sans, an open-source single weight font designed by Jérémy Landes.\"，仓库简介写的是 \"an expressive variable font with weight, width and optical size axis\"。要保留「表情强、偏展示」的判断就改引这两处，不要继续用那句查无实据的引文。另补包名事实：npm 上的 id 是 @fontsource-variable/bricolage-grotesque（不是 bricolage），5.3.0 / 544,183 B / latin wght 41,344 B 三项体积均实测一致。未复核项：fvar 默认 opsz 96 + wght 800、cap 0.660em 本轮未解析；且「不显式设置就拿到最粗最大形态」这个坑在 CSS 下同样被高估（UA 默认 font-weight:400 生效、font-optical-sizing:auto 会按字号设 opsz），真正的排除理由是气质与生态位，不是默认值。",
+      "riskLevel": "attribution-required"
+    },
+    {
+      "name": "Geologica",
+      "verdict": "corrected",
+      "finalLicenseSpdx": "OFL-1.1",
+      "finalLicenseUrl": "https://raw.githubusercontent.com/googlefonts/geologica/main/OFL.txt",
+      "licenseQuote": "\"Copyright 2020 The Geologisk Project Authors (https://github.com/monokromskriftforlag/geologisk)\"；\"SIL OPEN FONT LICENSE Version 1.1 - 26 February 2007\"；\"This Font Software is licensed under the SIL Open Font License, Version 1.1.\"",
+      "urlChecks": [
+        {
+          "url": "https://github.com/googlefonts/geologica",
+          "ok": true,
+          "note": "归档横幅原文 \"This repository was archived by the owner on Apr 19, 2026. It is now read-only.\"；默认分支 main，OFL-1.1；README 轴表 wght 100-900 默认 100、CRSV 0-1、SHRP 0-100、slnt 0…-12"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/googlefonts/geologica/main/OFL.txt",
+          "ok": true,
+          "note": "OFL-1.1，版权行与原文一致（Geologisk Project Authors）"
+        },
+        {
+          "url": "https://registry.npmjs.org/@fontsource-variable/geologica/latest",
+          "ok": true,
+          "note": "5.3.0 / OFL-1.1 / dist.unpackedSize 804217，与原文一致"
+        },
+        {
+          "url": "https://unpkg.com/@fontsource-variable/geologica@5.3.0/files/geologica-latin-full-normal.woff2",
+          "ok": true,
+          "note": "Content-Length 48536，与原文一致；文件名是 full（全轴）变体"
+        },
+        {
+          "url": "https://api.github.com/repos/googlefonts/geologica",
+          "ok": false,
+          "note": "本机 GitHub API 返回 rate limit exceeded，pushed_at 无法核实"
+        }
+      ],
+      "corrections": "许可证无误（OFL-1.1），归档事实成立但日期口径要改：仓库横幅写的是 2026-04-19 归档，原文给的 2023-04-13 是「最后推送」而不是归档时间，两者不能混写；而 pushed_at 这次没能核实（GitHub API 从本机返回 rate limit exceeded），所以「最后推送 2023-04-13」应标注未验证，或直接改写为「上游已于 2026-04-19 归档」。轴表与体积全部命中：wght 100–900 默认 100、CRSV 0–1、SHRP 0–100、slnt 0…−12；full 轴 latin woff2 48,536 B、包 804,217 B。未复核项：x-height 0.480em、maxp 为 0。结论「维持排除」不变，理由（表情轴无价值＋上游归档）成立。",
+      "riskLevel": "attribution-required"
+    }
+  ],
+  "summary": "宝贝，12 条（6 候选 + 6 rejected）全部实抓核验完毕，结论是：许可证零造假，数值零编造，但有 8 条需要改写的事实错误，原调研「本轮不引入任何新西文字体、不替换 Inter / Manrope」的总结论在核验后依然成立。\\n\\n【许可证】12 条全部实抓许可证原文，全部是 OFL-1.1，无一例把「免费商用」当开源、无一例自定义 EULA、无一例网站代码许可冒充素材许可。唯一带 Reserved Font Name 的是 IBM Plex（\\\"Copyright © 2017 IBM Corp. with Reserved Font Name \\\\\\\"Plex\\\\\\\"\\\"），派生版不得续用 Plex 之名。全部 12 条 riskLevel 统一标 attribution-required，含义是「随 NSIS 安装包附 OFL.txt 与版权行即可，UI 内无需署名」，不是需要付费或额外授权。Geist 仓库根目录同时有 LICENSE.txt 与 OFL.txt（版权行分别是 2023 Vercel+basement.studio 与 2024 Geist Project Authors），原调研引用的是 google/fonts 那份，归属正确但要说清不是同一个文件。\\n\\n【链接】6 条候选的 homepage / repoUrl / previewUrl / npm 全部可达且指向正确素材；6 个 Google Fonts specimen 页是 JS 渲染，只能核到标题级证据（\\\"X - Google Fonts\\\"），已如实标注。三处链接结论要改：(1) ibm.com/plex 本次实测 HTTP 200（标题 Introduction | IBM Plex），原调研「curl 000 不可达」不成立；(2) public-sans.digital.gov 不是不可达，而是 301 跳到 digital.gov 的一篇通用排版文章，专页已下线——改用仓库当主页对，理由错；(3) erikdkennedy.com/figtree 确为 404，原调研剔除正确。rsms/inter-tight → googlefonts/inter-gf-tight 的 301 与 2024-02-12 归档横幅逐字核实。\\n\\n【包名与体积】6 个 @fontsource-variable 包全部真实存在且版本恰好都是 5.3.0，dist.unpackedSize 逐个命中（180843 / 1417882 / 145679 / 130199 / 424093 / 81105）。我把 12 款的 latin woff2 全量实测了一遍，字节数与原文 100% 一致（29400 / 45712 / 27348 / 26832 / 30092 / 20156 / 44872 / 22288 / 33652 / 32292 / 41344 / 48536），Figtree 确为最小。现用基准也对：本地 node_modules 里 Inter 5.3.0 latin=48256 B、Manrope 5.3.0 latin=24836 B。rejected 里 Bricolage 的 npm id 是 bricolage-grotesque 而非 bricolage，Geologica 的 48,536 B 是 full 全轴文件。\\n\\n【二进制复核（6 候选 + 3 个现用基准，共 9 份 TTF 下载后解析）】x-height / cap / fvar 轴与默认值 / 字形数 / GSUB 特性 / maxp / 小写均宽 / 数字 advance 全部与原文一致，包括最容易说错的 IBM Plex hinting（maxSizeOfInstructions=3971、funcDefs=154、storage=47、stack=322、twilight=16，其余全部为 0）与「Plex 和 Noto Sans SC 数字默认等宽、写 tnum 是空操作」。基准三围也核实：Noto Sans SC 0.543/0.733、Inter 0.5459/0.7275、Manrope 0.540/0.720——原调研整个论证链的地基是实的。\\n\\n【必须改的 8 处】1) Geist「包内只有 index.css、无 wght.css、无 italic」错：实有 index.css / wght.css / wght-italic.css 三个入口，italic 是整套 5 面。2) Instrument「本轮唯一带 wdth 75–100」错：Plex 同样有。3) Public Sans 漏报上游停更原文（\\\"not currently being actively developed or maintained\\\"），排除理由应升级。4) Plus Jakarta 漏报 winAscent 1296 + winDescent 356 = 1.652em，是 12 款里最高的行高坑，比它给 Public Sans 写的警告还严重。5) Bricolage 的「fully display-oriented」引文查无实据（README 全文无 display 一词）。6) Outfit 漏报仓库已于 2025-02-25 归档。7) Geologica 归档日期应为 2026-04-19，2023-04-13 的 pushed_at 未能核实。8) 两条 homepage 不可达的理由被实测推翻（见上）。\\n\\n【一条方法论级纠正】原调研反复用「fvar 默认字重不是 400，不显式设 font-weight 就会拿到 Thin/Light」当排除理由（Public Sans 100、Figtree 300、Outfit 100、Bricolage 800）。二进制默认值本身没错，但推到 CSS 上被高估了：@font-face 声明字重区间后，UA 默认 font-weight:400 会落在区间内并生效，fvar 默认值不会漏出来。现成反例就在项目里——我实测现用 Manrope 的 fvar 默认是 200（name 表 \\\"Manrope ExtraLight\\\"）、Noto Sans SC 是 100（\\\"Noto Sans SC Thin\\\"），它们并没有渲染成 ExtraLight/Thin。显式写字重仍是好习惯，但不该当作否决项。此条为机制推断＋项目内反例，未做像素实测。\\n\\n【离线与落点】全部方案都是本地 npm 包，无 CDN 运行时依赖，Google Fonts 链接只用于人眼预览，符合完全离线约束。原调研给的代码落点也核对过源码：globals.css:4 --font-sans、:84 --font-ui、:86 --font-display、:88 --font-mono，main.tsx:3 inter / :5 manrope，:746/:1031/:1282/:1394 等 mono 用法，全部准确。\\n\\n【未验证项，如实标注】(1) 没在真实 Electron 窗口做 11/12/13px 渲染截图对比，清晰度结论仍是字体文件层面的推断；(2) Chromium/DirectWrite 是否真对 Plex 的 TT 指令做垂直 grid-fit，未实测；(3) 6 条 rejected 的内部度量（x-height、宽度、默认轴值）本轮只核了许可证与链接，未重新解析；(4) GitHub API 从本机 rate limit，pushed_at 类日期无法核实；(5) Google Fonts specimen 页只能取得标题级证据。"
+}

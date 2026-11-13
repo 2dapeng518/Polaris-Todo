@@ -1,0 +1,451 @@
+{
+  "category": "中文字体（CJK fonts，可离线随 NSIS 安装包分发）",
+  "checked": [
+    {
+      "name": "Noto Sans SC / Source Han Sans SC",
+      "verdict": "corrected",
+      "finalLicenseSpdx": "OFL-1.1",
+      "finalLicenseUrl": "https://raw.githubusercontent.com/adobe-fonts/source-han-sans/release/LICENSE.txt",
+      "licenseQuote": "\"SIL OPEN FONT LICENSE Version 1.1 - 26 February 2007\"；\"Copyright 2014-2025 Adobe (http://www.adobe.com/), with Reserved Font Name 'Source'.\"；\"This Font Software is licensed under the SIL Open Font License, Version 1.1.\"。notofonts/noto-cjk 的 Sans/LICENSE 同为 \"SIL OPEN FONT LICENSE Version 1.1 - 26 February 2007\"，且全文未声明任何 Reserved Font Name、未填版权行。包内 metadata.json：\"license\": {\"type\": \"OFL-1.1\", \"url\": \"http://scripts.sil.org/OFL\", \"attribution\": \"Google Inc.\"}。",
+      "urlChecks": [
+        {
+          "url": "https://github.com/adobe-fonts/source-han-sans",
+          "ok": true,
+          "note": "仓库真实，README 提供 OTF / OTC / Super OTC / Subset OTF / Variable OTF·TTF·WOFF2，与原调研一致"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/adobe-fonts/source-han-sans/release/LICENSE.txt",
+          "ok": true,
+          "note": "OFL-1.1 原文 + Reserved Font Name 'Source' 逐字命中"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/notofonts/noto-cjk/main/Sans/LICENSE",
+          "ok": true,
+          "note": "OFL-1.1，未声明保留名，佐证「沿用 Noto 命名不受 Source 保留名约束」"
+        },
+        {
+          "url": "https://registry.npmjs.org/@fontsource-variable/noto-sans-sc/latest",
+          "ok": true,
+          "note": "5.3.1 / license OFL-1.1 / unpackedSize 4872883 / fileCount 112，与原调研一致"
+        },
+        {
+          "url": "https://unpkg.com/@fontsource-variable/noto-sans-sc@5.3.1/?meta",
+          "ok": true,
+          "note": "实测 112 个文件、101 个 woff2、合计 4,500,544 B；最大分片 noto-sans-sc-119-wght-normal.woff2 = 76,324 B；index.css = wght.css = 101,698 B"
+        },
+        {
+          "url": "https://unpkg.com/@fontsource-variable/noto-sans-sc@5.3.1/index.css",
+          "ok": true,
+          "note": "font-family: 'Noto Sans SC Variable'；font-weight: 100 900；format('woff2-variations')；每条 @font-face 带 unicode-range，全部属实"
+        },
+        {
+          "url": "https://unpkg.com/@fontsource-variable/noto-sans-sc@5.3.1/metadata.json",
+          "ok": true,
+          "note": "version v41 / lastModified 2026-10-01 / variable wght 100–900 default 400，与原调研一致"
+        },
+        {
+          "url": "https://github.com/adobe-fonts/source-han-sans/releases.atom",
+          "ok": true,
+          "note": "2.005R 条目 updated 2025-06-25T03:26:30Z；同页 2.005 源码为 2025-06-18T21:16:53Z"
+        },
+        {
+          "url": "https://fonts.google.com/noto/specimen/Noto+Sans+SC",
+          "ok": false,
+          "note": "WebFetch 返回 Socket is closed，正文未验证；URL 形态正确但本轮无法确认页面内容，需浏览器打开"
+        }
+      ],
+      "corrections": "许可证判断完全正确（OFL-1.1 + Adobe 保留名 'Source' + Noto 侧无保留名），但体积数字三处说错，已按 unpkg ?meta 实测改正：①文件数 108 → 112；②woff2 分片 97 → 101（97 个数字分片之外还有 latin / latin-ext / cyrillic / vietnamese 四片）；③woff2 合计 4,163,588 B ≈ 3.97 MiB → 4,500,544 B ≈ 4.29 MiB。分项：97 个数字分片小计 4,448,664 B，另外四片 51,880 B（latin 24,880 / cyrillic 9,896 / vietnamese 8,976 / latin-ext 8,128）。原调研的 4,163,588 B 既不等于全量也不等于数字分片小计，来源不明。最大分片 76,324 B、index.css 101,698 B、registry 4,872,883 B / 112 files、metadata v41 / 2026-10-01 均逐项复现。版本日期微调：2.005R 的发布日是 2025-06-18，2025-06-25 是 atom 里的 updated 时间，写「2025-06-25」不算错但应注明是更新时间。落地路径也已核对无误：main.tsx 第 3–6 行确为四个 fontsource import（noto-sans-sc 在第 4 行），globals.css 第 4 行 --font-sans、84 行 --font-ui、86 行 --font-display、88 行 --font-mono 全部对得上。「不换字体、只做暗色家族字重微调」的总结论不受影响：4.29 MiB 相对 Electron 本体仍可忽略。",
+      "riskLevel": "attribution-required"
+    },
+    {
+      "name": "Glow Sans",
+      "verdict": "corrected",
+      "finalLicenseSpdx": "OFL-1.1",
+      "finalLicenseUrl": "https://raw.githubusercontent.com/welai/glow-sans/master/OFL.txt",
+      "licenseQuote": "OFL.txt：\"SIL OPEN FONT LICENSE Version 1.1 - 26 February 2007\"，版权行 \"Copyright (c) 2020, Celestial Phineas\"，未声明 Reserved Font Name。根目录 LICENSE：\"MIT License\" / \"Copyright © 2020, Celestial Phineas\"。README 二分原文：\"字体文件以 SIL Open Font License 1.1 发布\"、\"此仓库中构建字体开发的代码以 MIT License 发布\"；GitHub 侧栏标记 \"MIT, OFL-1.1 licenses found\"。",
+      "urlChecks": [
+        {
+          "url": "https://github.com/welai/glow-sans",
+          "ok": true,
+          "note": "页面明确 \"This repository was archived by the owner on Aug 27, 2023. It is now read-only.\"；FAQ \"这是可变字体吗？\"→\"不是。\"；TTF \"目前没有\"；不支持韩语；删除 Enclosed CJK Letters And Months；无 ccmp、无 CJK locl，全部属实"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/welai/glow-sans/master/OFL.txt",
+          "ok": true,
+          "note": "OFL-1.1 原文命中，无保留名"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/welai/glow-sans/master/LICENSE",
+          "ok": true,
+          "note": "确为 MIT，只覆盖构建代码，不能当字体许可证写进第三方声明"
+        },
+        {
+          "url": "https://github.com/welai/glow-sans/releases",
+          "ok": true,
+          "note": "v0.93 标记 Latest；资产体积可读：GlowSansSC-Normal-v0.93.zip 64.3 MB、Compressed 56 MB、Condensed 63.3 MB、Extended 65.3 MB、Wide 66.9 MB"
+        },
+        {
+          "url": "https://github.com/welai/glow-sans/releases.atom",
+          "ok": true,
+          "note": "v0.93 updated 2021-09-10T04:03:38Z，与原调研日期一致"
+        },
+        {
+          "url": "https://registry.npmjs.org/cn-font-split/latest",
+          "ok": true,
+          "note": "集成方案里引用的工具核实：cn-font-split 7.4.3 / license Apache-2.0 / 6,150,898 B / 239 files，仓库 KonghaYao/cn-font-split"
+        }
+      ],
+      "corrections": "许可证判断正确（字体 OFL-1.1、构建代码 MIT，二分无误），三处事实要改：①版权行不是 \"Copyright (c) 2020, welai\"——OFL.txt 与 LICENSE 写的都是个人作者名（抓取结果里被还原为占位符 Celestial Phineas），welai 是组织名；做 THIRD-PARTY-FONTS.txt 时必须照抄原文那一行，不能写 welai。②「Releases 页未抓到体积、单文件字节数未验证」不成立：Releases 页明码标了各宽度 zip 体积，简体 Normal 宽度整包 64.3 MB（9 字重），单个 OTF 的字节数仍未验证，但整包量级已经足以说明「只有 OTF、需自建分片」的代价。③「9 字重 × 5 宽度共 44 款」的乘法表述不准，README 说的是 9 字重加宽度系列共 44 款，不是完整的 9×5=45 矩阵。归档日期 2023-08-27、v0.93 / 2021-09-10、非可变、仅 OTF、不支持韩语、删字符与缺 feature 等描述全部属实。「只用于 ≥16px 展示位、不做全局替换」的结论维持。",
+      "riskLevel": "attribution-required"
+    },
+    {
+      "name": "LXGW WenKai Screen",
+      "verdict": "pass",
+      "finalLicenseSpdx": "OFL-1.1",
+      "finalLicenseUrl": "https://raw.githubusercontent.com/lxgw/LxgwWenKai/main/OFL.txt",
+      "licenseQuote": "\"SIL OPEN FONT LICENSE Version 1.1 - 26 February 2007\"；\"Copyright 2021-2026 LXGW (https://github.com/lxgw/LxgwWenKai), with Reserved Font Name '霞鹜', '霞鶩', '落霞孤鹜', '落霞孤鶩' and 'LXGW'.\"；附加许可原文：\"[ADDITIONAL PERMISSION] The Reserved Font Names ... may continue to be used in Modified Versions ... subsetted or converted to other formats (e.g., WOFF/WOFF2) solely for web font delivery, provided such Modified Versions are not made available as installable desktop fonts\"；上游署名 \"Copyright 2020 The Klee Project Authors (https://github.com/fontworks-fonts/Klee)\"。Screen 仓库 README：\"禁止单独出售字体文件\"，GitHub 许可标记 OFL-1.1。",
+      "urlChecks": [
+        {
+          "url": "https://github.com/lxgw/LxgwWenKai-Screen",
+          "ok": true,
+          "note": "README 确认把原版 Bold Medium 的字重属性改为 Regular、度量对齐 Roboto；上游 Klee(OFL) + Roboto v2.138(Apache-2.0) + Inconsolata(OFL) 署名链属实"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/lxgw/LxgwWenKai/main/OFL.txt",
+          "ok": true,
+          "note": "OFL-1.1 + 四个保留名 + web 子集/转 WOFF2 的附加例外，逐字命中"
+        },
+        {
+          "url": "https://registry.npmjs.org/lxgw-wenkai-screen-webfont/latest",
+          "ok": true,
+          "note": "1.7.0 / license MIT（仅打包）/ unpackedSize 19,729,431 / fileCount 399，与原调研完全一致；仓库 chawyehsu/lxgw-wenkai-webfont"
+        },
+        {
+          "url": "https://unpkg.com/lxgw-wenkai-screen-webfont@1.7.0/?meta",
+          "ok": true,
+          "note": "实测 399 文件 / 388 woff2 / 19,292,392 B；四变体各 97 片：gbscreen 4,538,380、gbscreenr 4,543,220、screen 5,102,384、screenr 5,108,408；最大片 lxgwwenkaiscreenr-subset-62.woff2 = 73,008 B；style.css = 162 B"
+        },
+        {
+          "url": "https://unpkg.com/lxgw-wenkai-screen-webfont@1.7.0/style.css",
+          "ok": true,
+          "note": "正文确为 4 条 @import，指向四个变体 CSS，原调研的「别 import style.css」警告成立"
+        },
+        {
+          "url": "https://unpkg.com/lxgw-wenkai-screen-webfont@1.7.0/lxgwwenkaigbscreen.css",
+          "ok": true,
+          "note": "font-family: 'LXGW WenKai Screen'；font-weight: 400；font-display: swap；format('woff2') + unicode-range"
+        },
+        {
+          "url": "https://unpkg.com/lxgw-wenkai-screen-webfont@1.7.0/lxgwwenkaiscreen.css",
+          "ok": true,
+          "note": "font-family 同样是 'LXGW WenKai Screen'、font-weight 400——与 GB 变体同名同字重"
+        },
+        {
+          "url": "https://github.com/lxgw/LxgwWenKai-Screen/releases.atom",
+          "ok": true,
+          "note": "v1.530 updated 2026-10-18T12:39:46Z，与原调研的 v1.530（2026-10-18）逐字一致"
+        }
+      ],
+      "corrections": "无。所有许可证、版本号与体积数字（19,729,431 B / 399 files / 388 woff2 / 19,292,392 B / 73,008 B 最大片 / 162 B style.css / GB 变体 4.54 MB / 全量变体 5.10 MB）逐项复现，是本轮数据最扎实的一条。补充一条实测细节强化原结论：四个变体 CSS 声明的是同一个 font-family 'LXGW WenKai Screen' 且都是 font-weight: 400，因此同时引入两个变体会互相覆盖而不是形成字重层级——「只引入单个变体 CSS」不只是体积建议，而是正确性要求。另核实 npm 的 MIT 只覆盖打包脚本、字体本体 OFL-1.1，第三方声明两者都要写；上游 Klee/Roboto/Inconsolata 署名链确实存在。",
+      "riskLevel": "attribution-required"
+    },
+    {
+      "name": "Smiley Sans",
+      "verdict": "pass",
+      "finalLicenseSpdx": "OFL-1.1",
+      "finalLicenseUrl": "https://raw.githubusercontent.com/atelier-anchor/smiley-sans/main/LICENSE",
+      "licenseQuote": "\"Copyright (c) 2022--2024, atelierAnchor <https://atelier-anchor.com>,\" / \"with Reserved Font Name <Smiley> and <得意黑>.\" / \"SIL OPEN FONT LICENSE Version 1.1 - 26 February 2007\"。README：\"本字体的发布遵守 SIL Open Font License v1.1\"；用途限制原文：\"不推荐：正文排版、编程代码、手机界面等。\"",
+      "urlChecks": [
+        {
+          "url": "https://atelier-anchor.com/typefaces/smiley-sans",
+          "ok": true,
+          "note": "WebFetch 报 Socket is closed，但 curl 直取 HTTP 200（11,306 B Nuxt SSR HTML），正文含「得意黑是一款在人文观感和几何特征中寻找视觉平衡的现代窄斜体」与下载链接 /downloads/smiley-sans-v2.0.1.zip，页面真实且指向该字体"
+        },
+        {
+          "url": "https://github.com/atelier-anchor/smiley-sans",
+          "ok": true,
+          "note": "README 字数逐条命中：GB/T 2312-1980 6,763 + 通用规范汉字表 8,105，补充后共 8,335 汉字；拉丁 415 / 西里尔 80 / 希腊 71 / 假名 174；提供 otf、ttf、woff2"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/atelier-anchor/smiley-sans/main/LICENSE",
+          "ok": true,
+          "note": "OFL-1.1 + 保留名 <Smiley> 与 <得意黑>，逐字命中"
+        },
+        {
+          "url": "https://atelier-anchor.com/downloads/smiley-sans-v2.0.1.zip",
+          "ok": true,
+          "note": "实际下载成功：HTTP 200，5,781,344 B，application/zip；zip 目录列出 4 个文件（未解压执行）"
+        },
+        {
+          "url": "https://github.com/atelier-anchor/smiley-sans/releases.atom",
+          "ok": true,
+          "note": "Smiley Sans v2.0.1 updated 2024-02-07T10:27:44Z，版本号属实"
+        }
+      ],
+      "corrections": "无。许可证、保留名、字数覆盖、woff2 存在、官方「不推荐正文/代码/手机界面」全部逐字核实。另把原调研标为「未验证」的两项补齐了：官方 zip 实测 5,781,344 B，内含 SmileySans-Oblique.ttf 2,629,764 B、SmileySans-Oblique.otf 2,003,884 B、SmileySans-Oblique.ttf.woff2 1,150,924 B、SmileySans-Oblique.otf.woff2 1,361,268 B——只有 Oblique 一款，包内没有任何可变字体文件，所以「是否可变」现在可以定为「v2.0.1 不提供」。集成命令里的 SmileySans-Oblique.ttf 文件名正确；又因为官方已给现成 woff2（1.15 MB），pyftsubset 只是可选优化而非必需步骤。「全站最多一处、≥24px、不与 teal→violet 渐变同框」的用法限制维持。",
+      "riskLevel": "attribution-required"
+    },
+    {
+      "name": "MiSans",
+      "verdict": "corrected",
+      "finalLicenseSpdx": "LicenseRef-MiSans-EULA",
+      "finalLicenseUrl": "https://hyperos.mi.com/font/en/download/",
+      "licenseQuote": "官方英文 EULA 授权句：\"the Licensor hereby grants you a non-transferable, non-exclusive, royalty-free, revocable, worldwide copyright license to use MiSans Fonts in accordance with this Agreement\"。三项条件逐字：\"You should specifically note in the software that MiSans Fonts was used.\"；\"You may not adapt or redevelop MiSans Fonts or any of its components.\"；\"You may not separately lease, sublicense, give, loan or further distribute MiSans Fonts or its components; nor may you redistribute or sell the font software or any copies thereof. This restriction does not apply to any other work you create using MiSans Fonts. If you use MiSans Fonts to create promotional materials, logos, apps, etc., you have the right to distribute or sell such works.\"。中文 FAQ：\"MiSans Global 所有的字体都是供全球免费商用\"；\"可以。但您应在软件中特别注明使用了 MiSans 字体。\"；\"您可以自由调节字体的粗细、间距等。但您不得单独将 MiSans 字体或其组件进行外观上的更改。\"",
+      "urlChecks": [
+        {
+          "url": "https://hyperos.mi.com/font/",
+          "ok": true,
+          "note": "URL 可达，但 WebFetch 抽出的正文只有 \"MiSans\" 一词，是 JS 应用，主页本身不提供条款"
+        },
+        {
+          "url": "https://hyperos.mi.com/font/en/download/",
+          "ok": true,
+          "note": "HTTP 200（34,939 B），LICENSE AGREEMENT 全文可读，本轮引用即出自这里"
+        },
+        {
+          "url": "https://hyperos.mi.com/font/faq",
+          "ok": true,
+          "note": "中文 FAQ 三问三答逐字命中，与原调研一致"
+        },
+        {
+          "url": "https://hyperos.mi.com/font-download/MiSans%E5%AD%97%E4%BD%93%E7%9F%A5%E8%AF%86%E4%BA%A7%E6%9D%83%E8%AE%B8%E5%8F%AF%E5%8D%8F%E8%AE%AE.pdf",
+          "ok": true,
+          "note": "HTTP 200，Content-Type application/pdf，Content-Length 79,535 B；文件确实存在，但本轮同样未解码正文，条款仍以官方 HTML 页为准"
+        },
+        {
+          "url": "https://registry.npmjs.org/misans/latest",
+          "ok": true,
+          "note": "5.0.0 / Apache-2.0 / 描述自称 subsetted / 53,774,303 B / 1569 files，与原调研一致"
+        }
+      ],
+      "corrections": "实质推翻一条关键结论。原调研写「允许原样嵌入并随软件分发」「法律上可以但不建议：MiSans、HarmonyOS」——不成立。官方英文 EULA 的授权动词只有 use，没有 HarmonyOS 那样的 embed / bundle / redistribute；而第 3 项条件明文禁止 \"redistribute or sell the font software or any copies thereof\"，例外只覆盖「用字体创作出来的作品（宣传物料、logo、app 等）」，不覆盖把字体文件本身打进安装包。保守且正确的结论：MiSans 字体文件不得随 NSIS 分发，等级与 OPPO Sans 相同，而不是「可以但不建议」。原调研只摘了授权句和「禁止改编」，漏掉了这一整条再分发禁令，导致总结论里的分级错误。第二处：SPDX 写法 \"LicenseRef-自定义\" 含非 ASCII 字符，不符合 SPDX LicenseRef 语法，改为 LicenseRef-MiSans-EULA。其余属实：revocable、强制署名、禁止改编、29,608 字形 / 10 字重 / 可变、TC 15,116、L3 60,340 且仅 Regular、官方页无版本号与字节数、中文 PDF 存在但正文未解码。",
+      "riskLevel": "custom-eula"
+    },
+    {
+      "name": "HarmonyOS Sans",
+      "verdict": "corrected",
+      "finalLicenseSpdx": "LicenseRef-HarmonyOS-Sans-EULA",
+      "finalLicenseUrl": "https://atomgit.com/openharmony/resources/blob/master/LICENSE_Fonts",
+      "licenseQuote": "\"Copyright 2021 Huawei Device Co., Ltd.\"；授权句 \"a non-transferable, non-exclusive, royalty-free, revocable, worldwide copyright license to use,copy, merge, embed, bundle, redistribute and/or sell unmodified copies of HarmonyOS Sans Fonts with any software except for fonts software\"；\"YOU shall make a prominent notice in the software to state that HarmonyOS Sans Fonts are used.\"；\"YOU may not make any modifications to HarmonyOS Sans Fonts or any of their individual components.\"；\"Neither HarmonyOS Sans Fonts nor any of their individual components may be redistributed or sold in a stand-alone base.\"；\"This Agreement will be automatically terminated if YOU breach any of this Agreement.\"",
+      "urlChecks": [
+        {
+          "url": "https://atomgit.com/openharmony/resources/blob/master/LICENSE_Fonts",
+          "ok": true,
+          "note": "OpenHarmony 官方仓库许可原文可读，六段引用逐字命中"
+        },
+        {
+          "url": "https://developer.huawei.com/consumer/cn/design/resource/",
+          "ok": true,
+          "note": "页面可读，HarmonyOS Sans 字体包标注 21.6 MB / 2026-06-12，下载指向华为 CDN 的 zip；页面确实未给版本号、字重数与许可条款"
+        }
+      ],
+      "corrections": "实质结论全部成立，不改判：允许未修改副本随软件 embed / bundle / redistribute（NSIS 可以带）、禁止任何修改、必须显著署名、许可 revocable、违约自动终止、不得单独再分发或出售；21.6 MB / 2026-06-12 属实，字重数与字形总数官方页确实未列。只改两处表述：①SPDX 写法 \"LicenseRef-自定义\" 不合语法（含非 ASCII），改为 LicenseRef-HarmonyOS-Sans-EULA；②不能再把 MiSans 与 HarmonyOS 并列成「法律上可以但不建议」——鸿蒙的授权动词明确包含 embed/bundle/redistribute unmodified copies，MiSans 的授权只有 use 且另有再分发禁令，两者等级不同，本轮已把 MiSans 降为「不可随包分发」。",
+      "riskLevel": "custom-eula"
+    },
+    {
+      "name": "Chiron Hei HK",
+      "verdict": "pass",
+      "finalLicenseSpdx": "OFL-1.1",
+      "finalLicenseUrl": "https://raw.githubusercontent.com/chiron-fonts/chiron-hei-hk/release/LICENSE.md",
+      "licenseQuote": "\"Copyright 2023-2026 Tamcy (https://github.com/chiron-fonts/chiron-hei-hk).\"；\"Based on Source Han Sans, Copyright 2014-2025 Adobe (http://www.adobe.com/).\"；\"SIL OPEN FONT LICENSE Version 1.1 - 26 February 2007\"；全文未声明 Reserved Font Name。README：\"昭源黑體採用 SIL Open Font License, 版本 1.1 授權。\"、\"昭源黑體是從 Adobe 和 Google 共同開發的思源黑體香港版\"、\"「思源黑體香港」以中文界面諮詢委員會（中諮會）在 2016 年公佈的《香港電腦漢字參考字形》為字形依據\"。",
+      "urlChecks": [
+        {
+          "url": "https://github.com/chiron-fonts/chiron-hei-hk",
+          "ok": true,
+          "note": "README 确认港式字形基础，全文未声明简体支持；release 分支八个目录 STATIC_OTF / STATIC_TTF / VAR_OTF / VAR_TTF / WOFF2_OTF / WOFF2_TTF / images / resources 属实；字数与字重数确实只有「收字量大」「字重豐富」的定性描述"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/chiron-fonts/chiron-hei-hk/release/LICENSE.md",
+          "ok": true,
+          "note": "OFL-1.1 + 双版权行逐字命中，无保留名"
+        },
+        {
+          "url": "https://github.com/chiron-fonts/chiron-hei-hk/releases",
+          "ok": true,
+          "note": "v2.609 标记 Latest，页面显示 13 May"
+        },
+        {
+          "url": "https://github.com/chiron-fonts/chiron-hei-hk/releases.atom",
+          "ok": true,
+          "note": "Version 2.609 updated 2026-05-13T11:01:23Z，与原调研的 v2.609（2026-05-13）一致"
+        }
+      ],
+      "corrections": "无。许可证 OFL-1.1、双版权行、无保留名、v2.609 / 2026-05-13、现成 woff2 与可变字体目录、以及「排除理由是港式字形标准而非法律」全部核实。补充一点：README 说明它在《香港電腦漢字參考字形》基础上还会向印刷惯用笔形调整，所以它既不是纯港标也不是大陆规范，用于简体 UI 的部件不一致风险成立，维持不引入。",
+      "riskLevel": "attribution-required"
+    },
+    {
+      "name": "Alibaba PuHuiTi 3.0 / 阿里巴巴普惠体 3.0（rejected 条目）",
+      "verdict": "pass",
+      "finalLicenseSpdx": "LicenseRef-Alibaba-PuHuiTi-EULA",
+      "finalLicenseUrl": "https://raw.githubusercontent.com/flyanx/html-poster-to-psd/main/fonts/LICENSE-AlibabaPuHuiTi-3.0.md",
+      "licenseQuote": "副本自述：\"本文件为阿里巴巴官方声明的逐字转载，未经任何删改。\"；授权：\"该授权是免费的普通许可，用户可基于合法目的用于商业用途或非商业用途\"；4.1：\"对阿里巴巴字体进行仿制、转换、翻译、反编译、反向工程、拆分、破解、或以其他方式试图从该字库软件获取源代码\"；4.3：\"将阿里巴巴字体进行单独定价出售、出租、出借、转让、转授权、或采取其他未经阿里巴巴明确授权的行为\"。",
+      "urlChecks": [
+        {
+          "url": "https://raw.githubusercontent.com/flyanx/html-poster-to-psd/main/fonts/LICENSE-AlibabaPuHuiTi-3.0.md",
+          "ok": true,
+          "note": "第三方逐字副本可读，4.1 / 4.3 与授权句逐字命中；但它是副本不是权威原文"
+        },
+        {
+          "url": "https://www.yuque.com/yiguang-wkqc2/puhuiti/nus9wiinq4aeiegy",
+          "ok": true,
+          "note": "URL 真实，页面标题为《阿里巴巴普惠体3.0版》法律声明 · 语雀，正文 JS 渲染，WebFetch 取不到条款，与原调研的自述一致"
+        },
+        {
+          "url": "https://www.alibabafonts.com",
+          "ok": true,
+          "note": "许可副本里标注的官方站，HTTP 可达但正文抽不出内容（JS 应用）"
+        },
+        {
+          "url": "https://fonts.alibabagroup.com",
+          "ok": true,
+          "note": "原调研提到的官方站，curl 返回 HTTP 200，同样是 JS 应用取不到正文"
+        }
+      ],
+      "corrections": "排除结论成立，条款引用逐字无误。补两点：①许可副本里写的官方站是 www.alibabafonts.com，原调研只提了 fonts.alibabagroup.com，两个域名本轮都返回 200 但都是 JS 应用，正式发布前仍需人工打开语雀页核对；②SPDX 建议写成 LicenseRef-Alibaba-PuHuiTi-EULA（自定义 EULA，非 OSI 开源）。核心冲突不变：免费商用 ≠ 开源，4.1 的「转换/拆分」禁令直接封死 pyftsubset / cn-font-split / 转 woff2，只能原样整包嵌入，与 Polaris 的离线瘦身方案不兼容。",
+      "riskLevel": "custom-eula"
+    },
+    {
+      "name": "OPPO Sans 3.0（rejected 条目）",
+      "verdict": "pass",
+      "finalLicenseSpdx": "LicenseRef-OPPO-Sans-EULA",
+      "finalLicenseUrl": "https://www.coloros.com/article/A00000050/",
+      "licenseQuote": "\"OPPO Sans（含中文及西文，3 款字重）允许个人或企业免费使用，含商业用途\"；\"版权归 OPPO 广东移动通信有限公司所有。\"；\"您应遵守以下条款，违者将会被追究法律责任：\"；四项禁止逐字：\"不对字体进行改编或二次开发；\"、\"不对外售卖字体；\"、\"不向他方提供其他下载渠道；\"、\"不用于违法用途。\"",
+      "urlChecks": [
+        {
+          "url": "https://www.coloros.com/article/A00000050/",
+          "ok": true,
+          "note": "官方 ColorOS 文章可读，授权句与四项禁止逐字命中；页面同时提示 OPPO Sans 4.0 已发布，3.0 条款仍在原页"
+        }
+      ],
+      "corrections": "排除结论成立。一处措辞订正：第三项禁止的原文是「不向他方提供其他下载渠道；」，原调研写成「不得向他人提供字体的其他下载渠道」属意译，做合规记录时应引用原文。其余属实：3 款字重、无可变轴、无字数/GB 标准覆盖声明。把字体文件打进对外分发的 NSIS 安装包确实落在「提供其他下载渠道」的高风险解释区间，维持不能随包分发。另可补记：MiSans 本轮已被降到同一等级（官方 EULA 明文禁止再分发字体软件本体）。",
+      "riskLevel": "custom-eula"
+    },
+    {
+      "name": "LXGW Neo XiHei / 霞鹜新晰黑（含 Screen / Plus 变体）（rejected 条目）",
+      "verdict": "pass",
+      "finalLicenseSpdx": "IPA",
+      "finalLicenseUrl": "https://moji.or.jp/ipafont/license/",
+      "licenseQuote": "README：\"依照 IPA 开放字体授权条款 1.0 版（IPA Font License 1.0） 授权\"、\"IPA Font License 1.0 与 SIL OFL 1.1 互不兼容\"。IPA 官方许可第 3 条第 1 款第 2 项原文：\"provide a difference file from the Original Program, or instructions setting out a method to replace the Derived Program\"；第 4 项：\"No one may use or include the name of the Licensed Program as a program name, font name or file name of the Derived Program.\"；README 另指向 \"请从 IPA 字体下载页面获取原始授权字体「IPAexゴシック」\"。",
+      "urlChecks": [
+        {
+          "url": "https://github.com/lxgw/LxgwNeoXiHei",
+          "ok": true,
+          "note": "许可声明与 OFL 不兼容句逐字命中；单字重且无多字重计划、共收录 2.2 万字、覆盖通用规范汉字表 8105、Plus 达 GB 18030-2022 实现级别 2，全部核实"
+        },
+        {
+          "url": "https://moji.or.jp/ipafont/license/",
+          "ok": true,
+          "note": "IPA FONT LICENSE AGREEMENT V1.0 日英双语原文可读，第 3 条的「还原途径」义务逐字命中"
+        },
+        {
+          "url": "https://spdx.org/licenses/IPA.html",
+          "ok": true,
+          "note": "SPDX 短标识 IPA / IPA Font License，OSI approved 字段为 true，佐证原调研的「OSI 批准」说法"
+        }
+      ],
+      "corrections": "无。排除结论成立且证据更硬：IPA 的「必须提供还原为原始字体的途径」义务本轮直接从 IPA 官方许可英文原文第 3 条核到，不再只依赖作者文档的中文转述（原调研引用的「应当提供一种方法，让用户可以按照自己的意愿将衍生程序恢复到原始的 IPA 字体。」出自作者嵌入说明，本轮未单独抓该文档，但同等义务已由许可原文确认）。SPDX: IPA 的 OSI 批准状态也已在 spdx.org 核实。注意 riskLevel 标为 attribution-required 只是分类取值所限——IPA 的义务远不止署名，还包括同名禁止、衍生同许可、提供还原途径，桌面应用要额外做字体目录指引或还原开关，成本判断维持「不划算」。",
+      "riskLevel": "attribution-required"
+    },
+    {
+      "name": "I.Ming / 一點明體（rejected 条目）",
+      "verdict": "pass",
+      "finalLicenseSpdx": "IPA",
+      "finalLicenseUrl": "https://moji.or.jp/ipafont/license/",
+      "licenseQuote": "README：\"使用「I.明體」時，請遵從「IPA開放字型授權協議 1.0版」之規定。\"；IPA 许可第 3 条第 1 款第 2 项：\"provide a difference file from the Original Program, or instructions setting out a method to replace the Derived Program\"。",
+      "urlChecks": [
+        {
+          "url": "https://github.com/ichitenfont/I.Ming",
+          "ok": true,
+          "note": "许可句逐字命中；最新 8.10 / 2024-04-20、明体衬线、单字重、六个文件均为字形/标点/行高变体而非字重、仅 TTF、无 OTF/WOFF2、无可变字体，全部核实"
+        },
+        {
+          "url": "https://moji.or.jp/ipafont/license/",
+          "ok": true,
+          "note": "IPA Font License v1.0 原文，再分发义务同上"
+        }
+      ],
+      "corrections": "无。双重排除理由（衬线明体与已定四字体无衬线体系冲突、11–13px 糊；许可是 IPA 1.0 而非 OFL，带还原途径义务）全部核实，版本 8.10 / 2024-04-20 与仅 TTF 也属实。",
+      "riskLevel": "attribution-required"
+    },
+    {
+      "name": "@fontpkg/smiley-sans（npm 第三方包，rejected 条目）",
+      "verdict": "drop",
+      "finalLicenseSpdx": "NOASSERTION",
+      "finalLicenseUrl": "",
+      "licenseQuote": "registry 元数据：\"license\": \"SEE LICENSE IN README.md\"，但该版本 JSON 内无 readme 字段（hasReadme=false）；\"repository\": {\"url\": \"git+https://github.com/user/fontpkg.git\"}，\"homepage\": \"https://github.com/user/fontpkg#readme\"。包内没有任何可核验的许可证原文。",
+      "urlChecks": [
+        {
+          "url": "https://registry.npmjs.org/@fontpkg/smiley-sans/latest",
+          "ok": true,
+          "note": "2.0.4 / license \"SEE LICENSE IN README.md\" / 无 readme / unpackedSize 7,148,539 / fileCount 6 / repo 与 homepage 指向 github.com/user/fontpkg 占位地址，逐项与原调研一致"
+        }
+      ],
+      "corrections": "维持排除，且按核验规则判为 drop：许可证完全无法核验（声明指向不存在的 readme，仓库是占位地址），riskLevel=unclear。所有元数据数字复现无误。替代路径不变——从官网 zip 取原始 OFL 字体（本轮已实测该 zip 可下载，5,781,344 B，含现成 woff2）。",
+      "riskLevel": "unclear"
+    },
+    {
+      "name": "cn-fontsource-smiley-sans-oblique-regular（npm 第三方包，rejected 条目）",
+      "verdict": "drop",
+      "finalLicenseSpdx": "NOASSERTION",
+      "finalLicenseUrl": "",
+      "licenseQuote": "registry 元数据：\"license\": \"unknown\"；\"repository\": {\"url\": \"git+https://github.com/wc-ex/cn-fontsource.git\"}。包本身未声明任何许可证。",
+      "urlChecks": [
+        {
+          "url": "https://registry.npmjs.org/cn-fontsource-smiley-sans-oblique-regular/latest",
+          "ok": true,
+          "note": "1.0.1 / license unknown / unpackedSize 1,262,451 / fileCount 85 / repo wc-ex/cn-fontsource，逐项与原调研一致（curl 因 schannel TLS 握手失败，改用 WebFetch 取到）"
+        }
+      ],
+      "corrections": "维持排除，判为 drop：打包产物 license 字段为 unknown，对外发布的开源仓库不应引入授权状态不明的资产，riskLevel=unclear。上游得意黑本体确为 OFL-1.1，但那不能替打包产物授权。数字全部复现无误。",
+      "riskLevel": "unclear"
+    },
+    {
+      "name": "misans（npm，dsrkafuu/misans）（rejected 条目）",
+      "verdict": "pass",
+      "finalLicenseSpdx": "LicenseRef-MiSans-EULA",
+      "finalLicenseUrl": "https://hyperos.mi.com/font/en/download/",
+      "licenseQuote": "包描述：\"MiSans (subsetted) fonts from Xiaomi for free commercial use.\"，包 license 字段 \"Apache-2.0\"（仅覆盖打包代码）。字体本体 EULA：\"You may not adapt or redevelop MiSans Fonts or any of its components.\"；\"nor may you redistribute or sell the font software or any copies thereof.\"",
+      "urlChecks": [
+        {
+          "url": "https://registry.npmjs.org/misans/latest",
+          "ok": true,
+          "note": "5.0.0 / Apache-2.0 / 描述自称 subsetted / unpackedSize 53,774,303 / fileCount 1569 / repo dsrkafuu/misans，逐项与原调研一致"
+        },
+        {
+          "url": "https://hyperos.mi.com/font/en/download/",
+          "ok": true,
+          "note": "字体本体 EULA 原文，禁改编 + 禁再分发两条同时命中"
+        }
+      ],
+      "corrections": "排除结论成立，而且理由比原调研更硬：除了「已 subsetted 与禁止改编冲突」，官方 EULA 还明文禁止再分发字体软件本体或其任何副本，所以这个包连「原样转发」都不合法，不只是子集化的问题。包的 Apache-2.0 只覆盖打包代码，不能替字体授权。finalLicenseSpdx 记的是字体本体的许可（自定义 EULA），不是包字段的 Apache-2.0。数字全部复现无误。",
+      "riskLevel": "custom-eula"
+    },
+    {
+      "name": "lxgw-wenkai-webfont（原版全量楷体 webfont，rejected 条目）",
+      "verdict": "pass",
+      "finalLicenseSpdx": "OFL-1.1",
+      "finalLicenseUrl": "https://raw.githubusercontent.com/lxgw/LxgwWenKai/main/OFL.txt",
+      "licenseQuote": "字体本体 OFL.txt：\"SIL OPEN FONT LICENSE Version 1.1 - 26 February 2007\"，保留名 '霞鹜', '霞鶩', '落霞孤鹜', '落霞孤鶩', 'LXGW'。npm 包 license 字段 \"MIT\"（仅打包脚本），描述 \"webfont package for the LXGW WenKai typeface\"。",
+      "urlChecks": [
+        {
+          "url": "https://registry.npmjs.org/lxgw-wenkai-webfont/latest",
+          "ok": true,
+          "note": "1.7.0 / MIT / unpackedSize 29,934,273 / fileCount 595，与原调研一致"
+        },
+        {
+          "url": "https://registry.npmjs.org/lxgw-wenkai-lite-webfont/latest",
+          "ok": true,
+          "note": "替代方案核实：1.7.0 / MIT / unpackedSize 26,355,179 / fileCount 595，与原调研引用的 Lite 体积一致"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/lxgw/LxgwWenKai/main/OFL.txt",
+          "ok": true,
+          "note": "字体本体 OFL-1.1，含 web 子集/转 WOFF2 的附加例外"
+        }
+      ],
+      "corrections": "排除结论成立（是体积与场景问题，不是许可证问题）。体积数字全部复现：原版 29,934,273 B / 595 files、Screen 19,729,431 B、Lite 26,355,179 B。唯一未验证项：「含全部 11172 个谚文音节」本轮没有逐字检查 cmap，属未核实的细节，但不影响「对简体中文待办应用是纯浪费」的排除结论。",
+      "riskLevel": "attribution-required"
+    }
+  ],
+  "summary": "总结论「不换中文字体、保留 @fontsource-variable/noto-sans-sc」经核验成立，但有三处必须改。①最严重：MiSans 被推翻——官方英文 EULA 授权动词只有 use，且第 3 条明文 \"nor may you redistribute or sell the font software or any copies thereof\"，例外只覆盖用字体创作的作品，不覆盖把字体文件打进安装包；原调研的「允许原样嵌入并随软件分发 / 法律上可以但不建议」错误，MiSans 应与 OPPO Sans 同级判为不可随 NSIS 分发，只有 HarmonyOS Sans 的授权明确含 embed/bundle/redistribute unmodified copies。②思源体积数字错：实测 112 文件 / 101 个 woff2 / 4,500,544 B ≈ 4.29 MiB，不是 108 / 97 / 3.97 MiB（最大分片 76,324 B、index.css 101,698 B、registry 4,872,883 B 等其余数字均属实）。③未来荧黑「Releases 未给体积」不成立，SC Normal 整包 64.3 MB 明码标着；其版权行是个人作者名而非 welai。另：MiSans/HarmonyOS 的 SPDX 写法 LicenseRef-自定义 含非 ASCII 不合语法，已改为 LicenseRef-*-EULA。其余全部确认：文楷 Screen 的许可证与 19,292,392 B / 388 片等数字逐项复现（并实测四个变体 CSS 同名同字重，只能引入一个）；得意黑许可证、保留名、字数属实，官方 zip 实测 5,781,344 B 含现成 woff2 且无可变字体；昭源黑体 OFL 干净但港式字形排除成立；四条 EULA/IPA 排除与两个 license 不可核验的 npm 包（判 drop）全部维持。Google Fonts 的 Noto Sans SC 预览页两次 WebFetch 均 socket 错误，标未验证。项目落地路径 main.tsx:3–6 与 globals.css:4/84/86/88 已核对无误。"
+}

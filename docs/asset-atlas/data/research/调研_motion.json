@@ -1,0 +1,182 @@
+{
+  "category": "动画与微交互（Animation & Micro-interactions）",
+  "candidates": [
+    {
+      "name": "Motion <AnimateView> (motion/react-animate-view)",
+      "nameZh": "Motion 视图过渡组件",
+      "oneLiner": "用浏览器原生 View Transitions API 做整块表面的入场/退场/共享元素过渡；视觉上是「旧状态快照」与「新状态实时画面」交叉淡入，不是逐个元素位移，所以浮层整体感很强、没有零件乱飞。",
+      "homepage": "https://motion.dev/docs/react-animate-view",
+      "repoUrl": "https://github.com/motiondivision/motion",
+      "previewUrl": "https://motion.dev/docs/react-animate-view",
+      "npmPackage": "motion",
+      "version": "14.12.0（本机已装，node_modules/motion/dist/es/react-animate-view.mjs 已存在）；registry 最新 14.13.0",
+      "licenseSpdx": "MIT",
+      "licenseUrl": "https://raw.githubusercontent.com/motiondivision/motion/main/LICENSE.md",
+      "licenseEvidence": "The MIT License (MIT)\nCopyright (c) 2024 [Motion](https://motion.dev) B.V.\nPermission is hereby granted, free of charge, to any person obtaining a copy",
+      "licenseCaveat": "无。MIT，随包保留版权声明即可。官方文档明确它已脱离付费墙：「AnimateView no longer requires a Motion+ membership or access token.」——Motion+ 的示例库/AI Kit 仍收费，但本组件不收费。",
+      "sizeNote": "零新增依赖：复用已装 motion。官方文档原文「It's built on Motion's mini animate() function and React's ViewTransition component」，mini 引擎 3.3kb（见 react-reduce-bundle-size 页）。要求 React 与 React-DOM ≥19.3，本机正好 19.3.1。本机探针实测 Electron 45.3.0 = Chromium 156.0.8078.96，document.startViewTransition / view-transition-name / view-transition-class / view-transition-group 全部可用。",
+      "themeFit": "不需要任何颜色覆盖。它只动 opacity / transform / clipPath，颜色仍旧由 --panel-bg、--surface-1、--accent 决定，六套主题零适配。唯一要注意：快照会把旧主题的像素一起淡出，所以主题切换（app:set-theme）不要和视图过渡同帧触发，否则会看到两个主题的画布交叉淡化。",
+      "recommendedUse": "命令面板入场（CommandPalette.tsx:212）、设置面板开合（SettingsPanel.tsx:83）、窄屏 TaskDetail 的 400px modal sheet、提醒卡片弹入（ReminderView）、侧栏视图切换。这些共同点是「一次只出现一个浮层」，正好绕开 View Transitions 一次只能跑一个的限制。绝对不要用在任务行密集列表上。",
+      "integration": "无需升级、无需新装包：本机 motion 14.12.0 的 exports 已含 \"./react-animate-view\"。写 `import { AnimateView } from 'motion/react-animate-view'`（官方原文：It isn't exported from \"motion/react\"）。把 CommandPalette.tsx:212 的 <AnimatePresence> 换成 <AnimateView>，并把触发它的 setState 包进 React 的 startTransition(() => setOpen(true))——不包就不会触发过渡。时长用 transition={{ duration: 0.2, ease: [0.22,1,0.36,1] }} 对齐 --ease-out。reduced motion 必须自己补：MotionConfig 管不到它（它不是 motion 组件），而 globals.css:3346 那条 `*, *::before, *::after` 也覆盖不到伪元素树，需要在同一个媒体查询里加 `::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation: none !important }`。",
+      "replacesExisting": "新增能力，不替换 motion。相对现有 AnimatePresence 的取舍：浮层用 AnimateView（整块快照、更安静），密集列表继续用 AnimatePresence + layout（可中断、逐行、性能更好）。",
+      "score": 9
+    },
+    {
+      "name": "Motion mini / hybrid animate() + SVG pathLength 描边",
+      "nameZh": "Motion 迷你/混合引擎与对勾描边",
+      "oneLiner": "3.3kb 的 WAAPI 迷你引擎，配合 pathLength/pathSpacing/pathOffset 把一条 SVG 路径「画出来」；视觉上是笔尖沿着对勾走一遍，而不是整个图标弹一下。",
+      "homepage": "https://motion.dev/docs/react-reduce-bundle-size",
+      "repoUrl": "https://github.com/motiondivision/motion",
+      "previewUrl": "https://motion.dev/docs/react-svg-animation",
+      "npmPackage": "motion",
+      "version": "14.12.0（已装）；最新 14.13.0",
+      "licenseSpdx": "MIT",
+      "licenseUrl": "https://raw.githubusercontent.com/motiondivision/motion/main/LICENSE.md",
+      "licenseEvidence": "The MIT License (MIT)\nCopyright (c) 2024 [Motion](https://motion.dev) B.V.",
+      "licenseCaveat": "无。",
+      "sizeNote": "官方原文（react-reduce-bundle-size）：「It comes in two sizes, mini (3.3kb) and hybrid (23kb). The mini version exclusively uses WAAPI for hardware accelerated animations, whereas the hybrid function can also animate sequences, motion values, independent transforms and a whole lot more.」整包 root import 是 187,900 B raw / 64,325 B gzip（bundlephobia motion@14.13.0，未 tree-shake），所以必须走 motion/mini 子入口而不是根入口。",
+      "themeFit": "描边色直接写 style={{ stroke: 'var(--check-mark)' }} 或 currentColor，六套主题自动跟随，不需要颜色覆盖。mini 引擎只驱动 WAAPI 属性，不写死任何颜色。",
+      "recommendedUse": "勾选完成的对勾描边（120ms 微确认，TaskItem.tsx:51-64）；同一套配方可以给 ProgressRing 的进度弧和撤销 toast 的倒计时描边复用。这是「动效只做确认不做装饰」最正的落点：笔画走完 = 事情办完了。",
+      "integration": "React 内用 `useAnimate`（mini 版）或 `import { animate } from 'motion/mini'`。对勾落点 src/renderer/src/components/TaskItem.tsx:51-64：把 lucide 的 <Check size={12}> 换成内联 SVG——`<motion.svg viewBox=\"0 0 24 24\" width={12} height={12} fill=\"none\" aria-hidden=\"true\"><motion.path d=\"M20 6 9 17l-5-5\" initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 0.12, ease: [0.22,1,0.36,1] }} style={{ stroke: 'var(--check-mark)', strokeWidth: 2.6, strokeLinecap: 'round', strokeLinejoin: 'round' }} /></motion.svg>`。官方 SVG 文档原文：pathLength / pathSpacing / pathOffset「work on path, circle, ellipse, line, polygon, polyline, rect」，都是 0–1 进度值。reduced motion 下 MotionConfig reducedMotion=\"user\" 不会关 pathLength（它不是 transform），要用 useReducedMotion() 把 initial 直接设成 1。",
+      "replacesExisting": "替换 TaskItem.tsx:52-56 现在的 scale 0.4→1 + opacity 弹入（140ms）。理由：缩放弹入是装饰性的「跳一下」，描边是语义性的「划掉」；而且 scale 在 100/125/150/200% 显示缩放下会产生半像素模糊，描边不会——这正好是 smoke 套件已经在测的那组缩放。",
+      "score": 8.5
+    },
+    {
+      "name": "Native CSS one-shot entry (@starting-style / transition-behavior: allow-discrete / interpolate-size)",
+      "nameZh": "原生 CSS 一次性入场配方",
+      "oneLiner": "不装任何东西，用 Chromium 内置的 @starting-style + allow-discrete + interpolate-size 写入场和退场；视觉上和 JS 动画一致，但退场不再需要 keyframes 或 JS 计时器。",
+      "homepage": "https://www.electronjs.org/blog/electron-45-0",
+      "previewUrl": "https://motion.dev/docs/react-animate-view",
+      "npmPackage": "",
+      "version": "Chromium 156.0.8078.96（随 Electron 45.3.0 分发，本机实测）",
+      "licenseSpdx": "LicenseRef-自定义",
+      "licenseUrl": "https://raw.githubusercontent.com/w3c/csswg-drafts/main/LICENSE.md",
+      "licenseEvidence": "All documents in this Repository are licensed by contributors\nunder the \n[W3C Software and Document License](https://www.w3.org/Consortium/Legal/copyright-software).",
+      "licenseCaveat": "这不是第三方素材，是浏览器内置能力，使用 API 本身不需要任何授权、没有任何署名或分发义务。上面这条许可只覆盖规范文档文本。承载它的运行时 Electron 是 MIT（https://raw.githubusercontent.com/electron/electron/main/LICENSE 原文 \"Copyright (c) Electron contributors / Copyright (c) 2013-2020 GitHub Inc. / Permission is hereby granted, free of charge...\"），本来就随 NSIS 安装包分发。",
+      "sizeNote": "0 KB、0 运行时、0 外部依赖。本机跑 Electron 探针实测（Electron 45.3.0 / Chromium 156.0.8078.96 / Node 24.22.2）：@starting-style=true、transition-behavior:allow-discrete=true、transition-property:display=true、interpolate-size:allow-keywords=true、linear()=true、Element.animate 与 Animation.commitStyles 均为 function、ScrollTimeline/ViewTimeline 均为 function、offset-path=true。Electron 45 发布说明原文：「It includes upgrades to Chromium 156.0.8078.48, V8 15.6, and Node v24.22.0.」",
+      "themeFit": "纯 CSS，颜色全部继续走现有令牌（--surface-1 / --line / --accent / --panel-bg），六套主题零适配、零覆盖。",
+      "recommendedUse": "撤销 toast 的弹入与消失（display:none ↔ block 配 allow-discrete，退场终于能播完再卸载）、已完成分组的 height:auto 展开收起（interpolate-size）、空状态四角星的一次性入场、detail-popover 入场。全部是一次性确认动效，天然不违反「禁止持续循环装饰动画」。",
+      "integration": "全部落在 src/renderer/src/styles/globals.css，不新增文件。toast：`.undo-toast { opacity: 1; transition: opacity 200ms var(--ease-out), display 200ms allow-discrete; @starting-style { opacity: 0 } }`。折叠区：`:root { interpolate-size: allow-keywords }`，然后对 height 用 `transition: height 220ms var(--ease-out)`，不用再量 scrollHeight。星标记入场配 PolarisMark.tsx 外层容器的一次性 opacity/transform。reduced motion 已经被 globals.css:3346 现有的 `@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important } }` 覆盖——这些都是真实元素上的 transition，无需额外处理。",
+      "replacesExisting": "部分替换 globals.css:2425 的 @keyframes detail-in 与 2434 的 pop-in。理由：现在这两个 keyframes 只管入场，退场要么没动效要么靠 JS 计时；@starting-style 让入场和退场共用同一条 transition，少一套状态机，也少一处和 AnimatePresence 抢卸载时机的竞态（main/index.ts:927 那条「入场中途退出」回归断言测的就是这类问题）。",
+      "score": 8.5
+    },
+    {
+      "name": "Motion layout animation + LazyMotion / m 瘦身",
+      "nameZh": "Motion 布局动画与按需加载",
+      "oneLiner": "一个 layout prop 让 React 重排后的尺寸/位置自动用 transform 补间；配 m + LazyMotion 把功能拆成可延迟加载的包。视觉上是行与行之间平滑让位，不是整列表闪一下。",
+      "homepage": "https://motion.dev/docs/react-layout-animations",
+      "repoUrl": "https://github.com/motiondivision/motion",
+      "previewUrl": "https://motion.dev/docs/react-reduce-bundle-size",
+      "npmPackage": "motion",
+      "version": "14.12.0（已装）；最新 14.13.0",
+      "licenseSpdx": "MIT",
+      "licenseUrl": "https://raw.githubusercontent.com/motiondivision/motion/main/LICENSE.md",
+      "licenseEvidence": "The MIT License (MIT)\nCopyright (c) 2024 [Motion](https://motion.dev) B.V.",
+      "licenseCaveat": "无。",
+      "sizeNote": "官方原文：motion 组件「it's impossible for bundlers to tree shake it any smaller than 43kb」，改用 m + LazyMotion 可降到「just over 5kb for the initial render」；功能包 domAnimation「+24kb」（不含 layout/drag），domMax「+38kb」（含 layout）。layout 动画本体官方另一处说「around 12kb」。诚实结论：同步加载 domMax 时 5+38≈43kb，总量几乎不变，真正收益只在 lazy load 首屏。",
+      "themeFit": "只动 transform，不碰颜色，六套主题零适配。但有一个和 Polaris 直接相关的坑：官方原文「border can't render smaller than 1px, which limits the degree of scale correction that Motion can perform on this style」——Polaris 的行是「色底 + 1px 边」，layout 缩放时边框会被拉伸。",
+      "recommendedUse": "任务行插入/移除/重排（TaskItem.tsx:38 已用 layout）、侧栏 nav-active 指示条（Sidebar.tsx:78/166 已用 layoutId）、已完成分组折叠。这是密集列表唯一该用的方案：可中断、逐元素、走 transform。",
+      "integration": "关键约束：Polaris 用了 layout 和 layoutId，所以只能用 domMax，不能用 domAnimation（后者不含 layout 动画，换过去指示条会直接跳变）。在 App.tsx:32 的 MotionConfig 外层加 `<LazyMotion features={domMax} strict>`，把 TaskItem.tsx / Sidebar.tsx / UndoToast.tsx / CommandPalette.tsx 里的 `motion.*` 改成 `import * as m from 'motion/react-m'`；strict 会在漏改时直接抛错。要吃到低首屏体积，把 features 写成 `() => import('./motionFeatures').then(r => r.default)`，新建 src/renderer/src/motionFeatures.ts 只 `export default domMax`。另外把 TaskItem.tsx:42 的 `{ type: 'spring', stiffness: 420, damping: 40 }` 换成 `{ type: 'tween', duration: 0.2, ease: [0.22,1,0.36,1] }`：ζ = 40/(2√420) ≈ 0.976 仍是欠阻尼，虽然过冲极小，但设计硬约束写的是「密集列表禁止回弹过冲」，tween + --ease-out 是零过冲的确定解。边框拉伸若可见，按官方建议改成父元素 padding 模拟边。SVG 不支持 layout（官方：SVG components aren't currently supported with layout animations）。",
+      "replacesExisting": "替换现有「全量 import motion」的用法，不换库。理由：一是首屏体积可延迟，二是顺手修掉密集列表的欠阻尼回弹，三是 strict 模式能防止以后有人随手写回 motion.* 把体积吃回去。",
+      "score": 7.5
+    },
+    {
+      "name": "Motion spring() → 构建期生成 CSS linear() 缓动",
+      "nameZh": "Motion 弹簧曲线预生成",
+      "oneLiner": "把弹簧物理曲线在构建脚本里采样成一行 CSS linear() 缓动函数写进样式表；运行时零 JS，却拿到弹簧手感，而且 bounce 传 0 或负值可以数学上保证不过冲。",
+      "homepage": "https://motion.dev/docs/css",
+      "repoUrl": "https://github.com/motiondivision/motion",
+      "previewUrl": "https://motion.dev/docs/css",
+      "npmPackage": "motion",
+      "version": "14.12.0（已装，构建期用，可留在 dependencies 亦可移 devDependencies）",
+      "licenseSpdx": "MIT",
+      "licenseUrl": "https://raw.githubusercontent.com/motiondivision/motion/main/LICENSE.md",
+      "licenseEvidence": "The MIT License (MIT)\nCopyright (c) 2024 [Motion](https://motion.dev) B.V.",
+      "licenseCaveat": "无。生成物是一串 CSS 数值，不携带任何第三方代码。",
+      "sizeNote": "运行时 0 KB。官方原文：spring「has two features that makes it perfect for CSS generation. A toString() method. A spring(visualDuration, bounce) shorthand.」，`transition: transform ${spring(0.5, 0.2)}` 输出「transition: transform 800ms linear(...)」。注意官方特例：直接调 spring() 时 duration 单位是毫秒，不是秒。",
+      "themeFit": "纯缓动曲线，与颜色完全无关，六套主题共用一条 --ease-spring。",
+      "recommendedUse": "撤销 toast 弹入、提醒卡片弹入、空状态四角星一次性入场、TaskDetail 那条 220ms grid-template-columns 过渡的手感统一。适合「想要一点弹性但绝不允许过冲」的确认动效。",
+      "integration": "新增 scripts/make-motion-easing.mjs，照 scripts/make-app-icon.mjs 的「生成物不手改」约定。脚本里 `import { spring } from 'motion'`，取 `String(spring(0.2, 0))` 得到形如 `200ms linear(0, 0.006, ...)` 的字符串，把其中的 easing 部分写进 src/renderer/src/styles/globals.css 的 `--ease-spring`（放在 :root，紧邻第 83 行的 --ease-out）。bounce 传 0 是临界阻尼；官方对负值的说明是「make the spring overdamped: it starts quicker, then settles more slowly into its target, with no overshoot」——密集列表用 -0.2 更稳。reduced motion 由 globals.css:3346 现有媒体查询自动接管，因为它最终就是一条普通 CSS transition。",
+      "replacesExisting": "新增 --ease-spring，不动现有 --ease-out。理由：现在全站只有一条 cubic-bezier(0.22,1,0.36,1)，浮层和列表共用同一条曲线；给浮层一条略带弹性的曲线能把「确认」和「让位」两种语义分开，而且不引入任何运行时。",
+      "score": 7.5
+    },
+    {
+      "name": "tw-animate-css",
+      "nameZh": "Tailwind v4 纯 CSS 动效工具类",
+      "oneLiner": "Tailwind v4 CSS-first 的动效工具类集合（animate-in / fade-in / zoom-in / slide-in-from-top / accordion-down），纯 CSS、无 JS 插件；视觉是克制的淡入与短距离位移。",
+      "homepage": "https://github.com/Wombosvideo/tw-animate-css",
+      "repoUrl": "https://github.com/Wombosvideo/tw-animate-css",
+      "previewUrl": "https://github.com/Wombosvideo/tw-animate-css#readme",
+      "npmPackage": "tw-animate-css",
+      "version": "1.4.0",
+      "licenseSpdx": "MIT",
+      "licenseUrl": "https://raw.githubusercontent.com/Wombosvideo/tw-animate-css/main/LICENSE",
+      "licenseEvidence": "MIT License\nCopyright (c) 2025 Wombosvideo\nPermission is hereby granted, free of charge, to any person obtaining a copy",
+      "licenseCaveat": "许可本身无风险。但 README 顶部有破坏性变更警告：「The upcoming release v2.0.0 will include breaking changes」——锁 1.4.0，别写 ^。另外它自己不处理 reduced motion（见 sizeNote）。",
+      "sizeNote": "npm 解开 47,012 B；源 CSS src/tw-animate.css 只有 17,423 B；0 运行时 JS、0 依赖，Tailwind 按需生成，未用到的类不进产物。我 grep 过源文件：prefers-reduced-motion 出现 0 次，它完全不处理；而 `--animate-caret-blink: caret-blink 1.25s ease-out infinite` 是无限循环动画。",
+      "themeFit": "只动 opacity / transform / filter，颜色继续走令牌，六套主题零适配。但 blur-in-* / blur-out-* 会引入模糊——Polaris 内容面禁止毛玻璃，这两个系列直接不用，只用 fade / zoom / slide。",
+      "recommendedUse": "只推荐一处真正划算的：已完成分组的 accordion-down / accordion-up 折叠（它需要 --radix-accordion-content-height 之类的内容高度变量，Polaris 可以自己量一次写进 CSS 变量）。其余 fade-in / slide-in-from-top 的场景，globals.css 现有的 detail-in / pop-in 已经覆盖，没必要再引一层工具类。",
+      "integration": "`npm i -D tw-animate-css`，在 src/renderer/src/styles/globals.css 里 `@import 'tailwindcss';` 之后加一行 `@import 'tw-animate-css';`（顺序不能反）。每一个 animate-* 类都必须配 `motion-reduce:animate-none`，因为库本身不管 reduced motion。禁用 caret-blink（无限循环，违反硬约束 5）。package.json 里锁 \"tw-animate-css\": \"1.4.0\"。",
+      "replacesExisting": "新增，但定位是「替代 tailwindcss-animate 的角色」——后者是 Tailwind v3 的 JS 插件，本项目是 v4 @theme + 单份 globals.css、没有 tailwind.config.*，根本装不上。",
+      "score": 5.5
+    }
+  ],
+  "rejected": [
+    {
+      "name": "GSAP 3.15.1（含 2025 年起免费的全部插件）",
+      "sourceUrl": "https://gsap.com/standard-license",
+      "reason": "确认免费，但确认不是开源。npm registry 的 license 字段原文就是 \"Standard 'no charge' license: https://gsap.com/standard-license.\"。抓到官方许可原文：标题 Standard \"No Charge\" GSAP License，Effective date: April 30, 2025 / Last modified date: May 30, 2025 / Copyright 2025, Webflow；FAQ 明确「All of GSAP including the plugins that were formerly \"members-only\" like SplitText and MorphSVG can be used in commercial projects at no charge」。但 III. RESTRICTIONS 禁止 Prohibited Uses、禁止为竞品逆向、禁止「Remove or alter any proprietary notices or branding」；V. TERMINATION「Webflow may terminate this GSAP License and revoke your access in its discretion if you fail to comply」；VI. Amendments 允许 Webflow 单方面修改条款且继续使用即视为接受。Polaris 是要打进 NSIS 安装包对外分发、离线运行多年的桌面应用，不能接受可单方撤销、可单方改写的授权。加上 motion 已覆盖全部需求，驳回。"
+    },
+    {
+      "name": "animate.css 4.1.1",
+      "sourceUrl": "https://raw.githubusercontent.com/animate-css/animate.css/main/LICENSE",
+      "reason": "许可证与 npm 元数据不一致，且实际不是 MIT。仓库 LICENSE 原文第一行「Animate.css Copyright 2021 Daniel Eden (“Licensor”)」，第三行「Hippocratic License Version Number: 2.1.」；仓库 package.json 也写 \"license\": \"Hippocratic-2.1\"。而 npm registry 的 license 字段仍显示 MIT（陈旧元数据）——只查 npm 会踩坑。Hippocratic 2.1 是带人权用途条件的非 OSI 许可，不符合「仅选取 MIT/Apache/OFL/CC0」的约束。风格上 bounce / flash / rubberBand 这类过冲效果也违反密集列表禁回弹。"
+    },
+    {
+      "name": "@formkit/auto-animate 0.10.2",
+      "sourceUrl": "https://github.com/formkit/auto-animate",
+      "reason": "本身很好，但对 Polaris 是重复建设。事实核实：MIT（LICENSE 原文 \"Copyright 2022 FormKit Inc.\"），bundlephobia 8,786 B raw / 3,459 B gzip、0 依赖；reduced motion 是源码级尊重——src/index.ts:946 `const mediaQuery = window.matchMedia(\"(prefers-reduced-motion: reduce)\")`，仅当 disrespectUserMotionPreference 为真才绕过（该选项注释原文「It is not recommended to use this」）。驳回理由：Polaris 已装 motion，AnimatePresence + layout 已覆盖增删改排；同一个列表挂两套引擎会同时改 transform 打架，而 auto-animate 常驻 MutationObserver + ResizeObserver，密集任务列表反而更贵；它也做不了 Sidebar.tsx:78 的 layoutId 共享元素过渡。若将来决定砍掉 motion 走极简路线，它是第一顺位替代。"
+    },
+    {
+      "name": "animejs 4.5.0",
+      "sourceUrl": "https://animejs.com/documentation/getting-started/installation",
+      "reason": "MIT（LICENSE.md 原文 \"The MIT License / Copyright (c) 2025 Julian Garnier\"），v4 模块化 ESM，npm install animejs，本地文件 dist/bundles/anime.esm.min.js 可离线。但 bundlephobia root import 117,314 B raw / 40,512 B gzip。它的招牌 svg.createDrawable 描边能力，motion 的 pathLength/pathSpacing/pathOffset 已经完全覆盖（官方 SVG 文档已核实），等于为一条对勾多装一个 40KB 的引擎，还多一套不受 MotionConfig reducedMotion 管辖的动效。驳回。"
+    },
+    {
+      "name": "lottie-web 5.13.0",
+      "sourceUrl": "https://github.com/airbnb/lottie-web",
+      "reason": "运行时是 MIT（LICENSE.md 原文 \"The MIT License (MIT) / Copyright (c) 2015 Bodymovin\"），但体积与用法都不合适。bundlephobia 主入口 305,885 B raw / 76,789 B gzip；我下载 light SVG 构建 lottie_light.min.js 实测 168,394 B raw / 46,410 B gzip（gzip -9）。README 通篇没有任何 reduced motion 说明，示例代码写的是 loop: true，Lottie 的典型用法就是持续循环装饰动画，直接违反硬约束 5。而且 JSON 素材里的颜色是写死的 hex，六套主题要逐图层改色，拿不到 currentColor。替代方案：内联 SVG + motion pathLength（见候选 2）。"
+    },
+    {
+      "name": "@lottiefiles/dotlottie-web 0.83.2",
+      "sourceUrl": "https://github.com/LottieFiles/dotlottie-web",
+      "reason": "MIT（LICENSE 原文 \"MIT License / Copyright (c) 2023 LottieFiles.com\"），但强制 WASM + Canvas。README 浏览器要求原文「Required: WebAssembly · Canvas 2D · Fetch API」，核心是 Rust + ThorVG。体积：JS 31,446 B gzip（bundlephobia）之外，还必须带 dist/dotlottie-player.wasm 1,197 KB（WebGL 版 1,330 KB、WebGPU 版 1,374 KB，jsDelivr 文件清单实测）。Canvas2D 渲染拿不到 currentColor，六套主题无法靠 CSS 变量映射；沙箱渲染器加载本地 .wasm 还要额外配资源路径。README 只提到「Freeze on offscreen」，没有任何 reduced motion 支持。为一个待办应用的确认动效背 1.2MB WASM，不划算。"
+    },
+    {
+      "name": "LottieFiles 免费区动画素材（Lottie Simple License）",
+      "sourceUrl": "https://lottiefiles.com/page/license",
+      "reason": "抓到原文，结论是「能商用、能随产品分发，但不建议进 Polaris 安装包」。许可名「Lottie Simple License (FL 9.13.21) Copyright © 2021 Design Barn Inc.」，授予「download, reproduce, modify, publish, distribute, publicly display, and publicly digitally perform such Files, including for commercial purposes」，署名非必需。但附了文件级 share-alike：「any display, publication, performance, or distribution of Files must contain (and be subject to) the same terms and conditions of this license」，修改版同样；并且「You may not purport to impose any additional or different terms or conditions on, or apply any technical measures that restrict exercise of, the rights granted under this license」，另有「does not include the right to collect or compile Files from LottieFiles to replicate or develop a similar or competing service」的用途限制。这意味着塞进 NSIS 安装包后，这些文件不能被 Polaris 的整体版权条款/EULA 覆盖，法务上是外挂的一块例外；SPDX 收录申请（spdx/license-list-XML issue #2809）已被 Not Accepted，理由正是竞争性用途限制不符合开源定义。驳回。替代方案：自绘内联 SVG——PolarisMark.tsx 那颗四角星本来就是项目自己的路径，配 motion pathLength 做一次性入场即可，权属干净、体积几十毫秒级。"
+    },
+    {
+      "name": "Rive（@rive-app/canvas 2.50.0）",
+      "sourceUrl": "https://github.com/rive-app/rive-wasm",
+      "reason": "运行时确实是 MIT（rive-wasm LICENSE 原文 \"MIT License / Copyright (c) 2020-2021 Rive\"），README 也写「Open-source runtimes, no royalties or runtime fees」。但两条硬伤：一是体积，JS 345,367 B raw / 86,646 B gzip（bundlephobia），外加 rive.wasm 2,211 KB 与 rive_fallback.wasm 2,238 KB（jsDelivr 文件清单实测）；二是免费版有品牌植入，README 原文「Free exports play a short Rive splash screen; paid plans export without it.」——免费导出的 .riv 会播放 Rive 启动画面，等于在一个安静的待办应用里塞第三方品牌动画，去掉它要付费，直接违反「不要使用需要付费或商业授权的素材」。编辑器本身也不是开源。驳回。"
+    },
+    {
+      "name": "SVG SMIL（<animate> / <animateTransform>）",
+      "sourceUrl": "https://motion.dev/docs/react-svg-animation",
+      "reason": "本机探针确认 Chromium 156 里 SMIL 仍然可用（beginElement 是 function），所以不是「不能用」，是「不该用」。三条理由：一，SMIL 不响应 prefers-reduced-motion，要手写 JS 去 pauseAnimations/移除节点，而 Polaris 的 reduced motion 是设计硬约束；二，SMIL 的声明式典型写法就是 repeatCount=\"indefinite\"，正是被禁止的持续循环装饰动画；三，命令式 beginElement 与 React 生命周期/AnimatePresence 的卸载时机很难对齐，容易复现 main/index.ts:927 那类「入场中途退出」竞态。motion 的 pathLength 覆盖同样效果，且受 MotionConfig 与 useReducedMotion 管辖。Motion 官方 SVG 文档本身也提供了与 SMIL/CSS/WAAPI 的对比指南。"
+    },
+    {
+      "name": "tailwindcss-animate 1.0.7",
+      "sourceUrl": "https://github.com/jamiebuilds/tailwindcss-animate",
+      "reason": "MIT，但它是 Tailwind v3 的 JavaScript 插件，必须在 tailwind.config.* 里注册。Polaris 是 Tailwind v4 @theme + 单份 globals.css，明确没有 tailwind.config.*，装不上。tw-animate-css 的 README 原文就说自己是它的替代：「This package is a replacement for tailwindcss-animate. It embraces the new CSS-first architecture ... without relying on the legacy JavaScript plugin system」。用 tw-animate-css（见候选 6）。"
+    },
+    {
+      "name": "magic.css（miniMAC/magic）",
+      "sourceUrl": "https://www.minimamente.com/project/magic/",
+      "reason": "许可没问题（LICENSE 原文 \"The MIT License (MIT) / Copyright (c) 2022 Christian Pucci\"），体积也小（README 原文 \"CSS3 Animations with special effects. (→ 3.1 kB gzip)\"）。但风格完全不符：README 自述是「special effects」，效果名是 twisterInDown / puffIn / boingInUp / bombRightOut / holeOut / perspectiveDown 这类透视翻转与爆炸退场，属于炫技入场，和「安静表面、动效只做确认不做装饰、密集列表禁止回弹过冲」三条硬约束正面冲突。驳回。"
+    }
+  ],
+  "notes": "【总体判断】Polaris 不该再装第二个动画引擎。6 条候选里 4 条来自已装的 motion 14.12.0（MIT、离线、tree-shake 后很小、受 MotionConfig 管辖），2 条是零依赖的纯 CSS。所有被点名调研的第三方引擎（GSAP / animejs / auto-animate / lottie-web / dotlottie-web / Rive）要么许可不合格、要么体积不划算、要么与现有能力重叠，全部进 rejected 并附实测数据与许可原文。\n\n【本机实测，不是文档推断】跑了一个 Electron 探针（临时 userData，offscreen，不碰真实 profile）：Electron 45.3.0 = Chromium 156.0.8078.96 / V8 15.6 / Node 24.22.2。确认可用：document.startViewTransition、ViewTransition、view-transition-name / -class / -group、@starting-style、transition-behavior: allow-discrete、transition-property: display、interpolate-size: allow-keywords、linear() 缓动、WAAPI + Animation.commitStyles、ScrollTimeline / ViewTimeline、animation-timeline: scroll()、offset-path、SMIL beginElement。所以 View Transitions 与新一代 CSS 入场在这个 Electron 里全部可用，不需要 polyfill。\n\n【两个现存的 reduced motion 缺口，值得单独修】\n1. MotionConfig reducedMotion=\"user\"（App.tsx:32）并不等于「直接渲染终态」。官方 react-motion-config 原文：「When reduced motion is on, transform and layout animations will be disabled. Other animations, like opacity and backgroundColor, will persist.」也就是说现在所有 opacity 淡入在 reduced motion 下仍然会动。要满足硬约束 5，需要用 useReducedMotion() 把 duration 归零，而不只是依赖 MotionConfig。\n2. globals.css:3346 的全局降级写的是 `*, *::before, *::after`，覆盖不到 ::view-transition-* 伪元素树。一旦引入 AnimateView，必须在同一媒体查询里补 `::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation: none !important }`。\n\n【AnimateView 的取舍要讲清楚】Motion 官方自己在 layout 文档里列了 View Transitions 的缺点：不可中断（中途打断会先跳到终态）、动画期间伪元素盖住真实页面并挡住指针事件、同名元素重复会失败、整屏一次只能跑一个、滚动变化会被错误计入位移，并说他们自己的压测里快照方案比 layout 动画更慢更耗内存。所以分工是：一次只出现一个的浮层（命令面板/设置/提醒卡片/窄屏 detail sheet）用 AnimateView；密集任务列表继续用 layout + AnimatePresence。另外 AnimateView 必须把状态变更包进 React startTransition 才会触发。\n\n【LazyMotion 的诚实账】Polaris 用了 layout 和 layoutId，只能用 domMax（+38kb），不能用 domAnimation（+24kb，不含 layout）。同步加载时 5kb + 38kb ≈ 原来的 43kb，几乎没省；真正收益只在把 features 写成动态 import 之后的首屏。别把这条当成「立刻省 38KB」。\n\n【离线合规】所有候选都能随安装包落地：motion 与 tw-animate-css 是本地 npm 包，原生 CSS 是浏览器内置，spring() 的产物是一行写进 globals.css 的 linear() 字符串。没有任何一条需要 CDN、WASM 下载或外部运行时。\n\n【未验证 / 抓取受限，如实标注】\n- developer.mozilla.org、www.w3.org、drafts.csswg.org 在本机多次 curl 与 WebFetch 均连接失败（HTTP 000 / 403），所以 View Transitions 的支持度没有引用 MDN 兼容性表，改用本机 Electron 探针实测；规范许可改用 w3c/csswg-drafts 仓库的 LICENSE.md 原文。\n- npmjs.com 网页版返回 403，所有版本号与 license 字段改用 registry.npmjs.org 的 JSON 核对（gsap 3.15.1 / animejs 4.5.0 / lottie-web 5.13.0 / @lottiefiles/dotlottie-web 0.83.2 / tw-animate-css 1.4.0 / animate.css 4.1.1 / tailwindcss-animate 1.0.7 / @rive-app/canvas 2.50.0 / motion 14.13.0 / @formkit/auto-animate 0.10.2）。\n- 体积来源：bundlephobia size API（gzip 字节数）+ jsDelivr 文件清单 API（WASM 与分包字节数）+ 本地 gzip -9 实测（lottie_light.min.js）。motion 的 3.3kb/23kb/43kb/5kb/24kb/38kb 全部出自官方 react-reduce-bundle-size 页原文，非估算。\n- tw-animate-css 没有可视化 demo 站，previewUrl 只能给 README 的工具类清单；magic.css 的 demo 链接取自其 README。\n- 本次只做调研，没有改动仓库任何文件，没有安装任何新包。探针脚本与下载的素材都在 C:\\Users\\jelly\\AppData\\Local\\Temp\\polaris-anim\\ 下（scripts 与 raw 分目录），与仓库隔离。"
+}

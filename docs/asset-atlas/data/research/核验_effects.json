@@ -1,0 +1,203 @@
+{
+  "category": "特效纹理与背景（aurora / 噪点 / 分隔 / 空状态）",
+  "checked": [
+    {
+      "name": "静态 feTurbulence 噪点瓦片（grain tile，自绘 data URI）",
+      "verdict": "pass",
+      "finalLicenseSpdx": "CC0-1.0",
+      "finalLicenseUrl": "https://github.com/mdn/content/blob/main/LICENSE.md",
+      "licenseQuote": "Code examples and snippets added on or after August 20, 2010 are in the public domain（CC0 1.0 Universal，No licensing notice is necessary）；All prose content is available under CC-BY-SA 2.5",
+      "urlChecks": [
+        {
+          "url": "https://github.com/mdn/content",
+          "ok": true,
+          "note": "MDN 官方内容仓库，README 确认"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/mdn/content/main/files/en-us/web/svg/reference/element/feturbulence/index.md",
+          "ok": true,
+          "note": "feTurbulence 文档源文件存在，含 baseFrequency/numOctaves/stitchTiles 属性与示例，路径未移动"
+        },
+        {
+          "url": "https://github.com/mdn/content/blob/main/LICENSE.md",
+          "ok": true,
+          "note": "文件存在，原文经 raw 等价地址抓取核实"
+        }
+      ],
+      "corrections": "许可证与链接全部属实。仅体积口径需澄清：本地实测 .noise 的 data URI 本体 298 字符（逗号后 SVG 载荷 279；含引号 300、含 url() 包装 305），调研的「305/300」对应含包装口径而非 URI 本体。globals.css 行号（.aurora 511–521、.noise 523–530、URI 在 529）与全部滤镜参数（160×160、baseFrequency .8、numOctaves 3、stitchTiles stitch、rect opacity .6）逐一核对无误，全文件仅此一条 SVG data URI。补充一个调研没提的细节：MDN 2010-08-20 之前的代码片段是 MIT 而非 CC0，引用时只取新片段。",
+      "riskLevel": "none"
+    },
+    {
+      "name": "CSS-Pattern（css-pattern.com）",
+      "verdict": "pass",
+      "finalLicenseSpdx": "MIT",
+      "finalLicenseUrl": "https://github.com/Afif13/CSS-Pattern/blob/main/LICENCE",
+      "licenseQuote": "MIT License / Copyright (c) 2022 Temani Afif",
+      "urlChecks": [
+        {
+          "url": "https://github.com/Afif13/CSS-Pattern/blob/main/LICENCE",
+          "ok": true,
+          "note": "MIT 原文经 raw 抓取核实；文件名确为英式拼写 LICENCE"
+        },
+        {
+          "url": "https://github.com/Afif13/CSS-Pattern",
+          "ok": true,
+          "note": "仓库描述「A collection of background patterns powered by CSS gradients」，About 链接 css-pattern.com"
+        },
+        {
+          "url": "https://css-pattern.com",
+          "ok": false,
+          "note": "两次抓取均 Socket is closed，与调研所述 TLS 失败一致；域名由 GitHub API homepage 字段确认"
+        }
+      ],
+      "corrections": "无实质错误。GitHub API 复核：242 stars、default_branch=main、license=MIT、homepage=https://css-pattern.com，与调研完全一致。补充一点：README 极简（仅横幅+站点链接），没有单独声明图案许可，MIT 覆盖来自仓库根 LICENCE 对整库代码（含图案 CSS）的授权；使用时保留版权与许可声明即可。图案外观仍未目视，调研的未验证标注诚实。",
+      "riskLevel": "attribution-required"
+    },
+    {
+      "name": "Bifiku Mesh Gradient Generator",
+      "verdict": "pass",
+      "finalLicenseSpdx": "MIT",
+      "finalLicenseUrl": "https://github.com/Bifiku/mesh-gradient-generator/blob/main/LICENSE",
+      "licenseQuote": "MIT License / Copyright (c) 2026 Andrew (Bifiku)；README: \"MIT — free to use, modify and share.\"",
+      "urlChecks": [
+        {
+          "url": "https://github.com/Bifiku/mesh-gradient-generator/blob/main/LICENSE",
+          "ok": true,
+          "note": "MIT 原文经 raw 抓取核实"
+        },
+        {
+          "url": "https://github.com/Bifiku/mesh-gradient-generator",
+          "ok": true,
+          "note": "README 确认 Zero dependencies、Pure vanilla JS + Canvas 2D、导出 SVG ~2 KB、2 stars"
+        },
+        {
+          "url": "https://bifiku.github.io/mesh-gradient-generator/",
+          "ok": true,
+          "note": "预览页实测可用：Download PNG / Download JPG / Download SVG (vector) 三按钮齐全，未发现外部 CDN 脚本或字体引用"
+        }
+      ],
+      "corrections": "无。许可证原文、README 的 MIT 句、~2 KB 声明、2 stars、预览页三个导出按钮与零 CDN 引用全部复核一致；GitHub API 亦确认 license=MIT、homepage 即预览页。~2 KB 仍是上游 README 声明，未自行导出称重（调研已如实标注此边界）。",
+      "riskLevel": "attribution-required"
+    },
+    {
+      "name": "Pattern Monster",
+      "verdict": "pass",
+      "finalLicenseSpdx": "MIT",
+      "finalLicenseUrl": "https://github.com/catchspider2002/svelte-svg-patterns/blob/master/LICENSE.md",
+      "licenseQuote": "MIT License / Copyright (c) 2020 - 2023 pattern.monster",
+      "urlChecks": [
+        {
+          "url": "https://github.com/catchspider2002/svelte-svg-patterns/blob/master/LICENSE.md",
+          "ok": true,
+          "note": "MIT 原文经 raw 抓取核实"
+        },
+        {
+          "url": "https://github.com/catchspider2002/svelte-svg-patterns",
+          "ok": true,
+          "note": "README 原文「320+ patterns available」及「Copy CSS and SVG code directly to your clipboard」「Download a tileable SVG or a high resolution seamless PNG image」功能句均在"
+        },
+        {
+          "url": "https://pattern.monster",
+          "ok": true,
+          "note": "本次抓取成功（部分 JS 文案未渲染）；确认 pro.pattern.monster/api 与 pro.pattern.monster/pricing 付费入口链接存在"
+        }
+      ],
+      "corrections": "两处是升级而非错误：(1) 调研标注「未验证」的 320+ 图案数已从 README 原文核实；(2) 站点本次抓取成功（调研本机 TLS 失败），付费 Pro/API 档链接确认存在，「只用免费网页导出、不接 API」的边界建议成立。GitHub API 复核 750 stars、master、license=MIT、homepage=https://pattern.monster，与调研一致。",
+      "riskLevel": "attribution-required"
+    },
+    {
+      "name": "Tabbied 图案库（packages/tabbied）",
+      "verdict": "corrected",
+      "finalLicenseSpdx": "MIT",
+      "finalLicenseUrl": "https://github.com/tabbied-design/tabbied/blob/main/packages/tabbied/LICENSE",
+      "licenseQuote": "packages/tabbied/LICENSE: \"MIT License / Copyright (c) 2026 Sy Hong and Ye Joo Park\"；根 LICENSE: \"The following folders are licensed under the MIT License.\" 与 \"Everything else in this repository is proprietary\"",
+      "urlChecks": [
+        {
+          "url": "https://github.com/tabbied-design/tabbied/blob/main/LICENSE",
+          "ok": true,
+          "note": "能访问，但内容是专有许可（All rights reserved，仅含 MIT 豁免条款），不是 MIT 原文——调研把 licenseUrl 指错了层级"
+        },
+        {
+          "url": "https://github.com/tabbied-design/tabbied/blob/main/packages/tabbied/LICENSE",
+          "ok": true,
+          "note": "真正的 MIT 原文，经 raw 抓取核实"
+        },
+        {
+          "url": "https://github.com/tabbied-design/tabbied",
+          "ok": true,
+          "note": "README 确认 MIT 范围（图案库含图案设计）与专有模板边界；packages 目录实测恰为 tabbied / tabbied-mcp / tabbied-templates 三个"
+        },
+        {
+          "url": "https://tabbied.com/",
+          "ok": false,
+          "note": "两次抓取均 Socket is closed，调研引用的官网原文未能验证"
+        }
+      ],
+      "corrections": "licenseUrl 必须从根 LICENSE 改为 packages/tabbied/LICENSE：根文件是「Copyright (c) 2020-2026 Sy Hong and Ye Joo Park. All rights reserved.」的专有许可，仅以豁免条款把三个 packages 目录授为 MIT，真正的 MIT 原文在子目录。SPDX 仍为 MIT 但范围仅限 packages/tabbied（含图案设计），调研的 licenseCaveat 已正确识别此边界，只是 licenseUrl 与 licenseEvidence 的出处标错（引文实际出自 README 而非根 LICENSE）。另两点修正：(1)「不装 npm 以免拉进专有模板」的理由不成立——README 明确 npm install tabbied 安装的就是 MIT 图案库本体（TabbiedPattern from 'tabbied/react'），不含专有模板目录；「从网站导出」的集成结论仍可行，但理由要改。(2) React 组件形态来自 npm 包，README 列出的网站导出是 PNG（3000px）与 SVG；「网站导出 React 组件」未获证实。",
+      "riskLevel": "attribution-required"
+    },
+    {
+      "name": "Hero Patterns",
+      "verdict": "pass",
+      "finalLicenseSpdx": "CC-BY-4.0",
+      "finalLicenseUrl": "https://creativecommons.org/licenses/by/4.0/",
+      "licenseQuote": "站点页脚（raw index.html）: \"CC BY 4.0\" 链接至 creativecommons.org/licenses/by/4.0/；CC 原文: \"You must give appropriate credit, provide a link to the license, and indicate if changes were made.\"",
+      "urlChecks": [
+        {
+          "url": "https://creativecommons.org/licenses/by/4.0/",
+          "ok": true,
+          "note": "CC BY 4.0 官方 deed，标题 Attribution 4.0 International"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/sschoger/hero-patterns/master/index.html",
+          "ok": true,
+          "note": "页脚 CC BY 4.0 链接与作者 Steve Schoger 署名均在原文中，页面标题 Hero Patterns | Free repeatable SVG background patterns"
+        },
+        {
+          "url": "https://github.com/sschoger/hero-patterns",
+          "ok": true,
+          "note": "经 GitHub API 核实：license=null、根目录无 LICENSE/README、svg/ 恰 100 个文件、topography.svg 存在、CNAME base64 解出 heropatterns.com"
+        },
+        {
+          "url": "https://heropatterns.com/",
+          "ok": false,
+          "note": "两次抓取均 Socket is closed；域名由仓库 CNAME 文件确认"
+        }
+      ],
+      "corrections": "无。CC-BY-4.0 判定正确且署名义务提示到位：仓库确实无 LICENSE（API license=null），许可证据只在站点页脚，raw index.html 已核实。svg/ 100 个文件、topography.svg 存在、根目录文件列表（.gitignore/CNAME/css/img/index.html/js/spectrum/svg/test.html）均与调研一致。站点本身不可达，但证据链完整。",
+      "riskLevel": "attribution-required"
+    },
+    {
+      "name": "shape-dividers（andraswebcode）",
+      "verdict": "corrected",
+      "finalLicenseSpdx": "CC0-1.0",
+      "finalLicenseUrl": "https://github.com/andraswebcode/shape-dividers/blob/master/LICENSE",
+      "licenseQuote": "CC0 1.0 Universal；\"Affirmer hereby overtly, fully, permanently, irrevocably and unconditionally waives, abandons, and surrenders all of\"（后续为 worldwide copyright 放弃声明）",
+      "urlChecks": [
+        {
+          "url": "https://github.com/andraswebcode/shape-dividers/blob/master/LICENSE",
+          "ok": true,
+          "note": "CC0 原文经 raw 抓取核实，master 分支路径正确"
+        },
+        {
+          "url": "https://github.com/andraswebcode/shape-dividers",
+          "ok": true,
+          "note": "README 确认 CC0-1.0 标签与 React 组件 props（shape/height/color/flipX/flipY）"
+        },
+        {
+          "url": "https://andrasweb.com/shape-divider-editor/",
+          "ok": false,
+          "note": "实测 HTTP 404，预览链接已失效（调研标注的「未验证」现在证实为死链）"
+        },
+        {
+          "url": "https://andrasweb.com/",
+          "ok": true,
+          "note": "主站可达但已改版为匈牙利自由开发者业务站，全站无任何 shape-divider 编辑器链接"
+        }
+      ],
+      "corrections": "两处修正：(1) previewUrl 已 404——andrasweb.com 主站改版，编辑器不存在，README 里的链接同样指向死地址；预览改用仓库 svg/ 目录（curve.svg、tilt.svg 均实测存在）。(2) svg/ 文件数当前 GitHub API 实测为 34，不是调研声称的 25（上游可能已更新，调研数字过时）。许可证 CC0-1.0 无误，无署名义务；调研对其风格风险（营销落地页语汇）的保留意见不受影响。",
+      "riskLevel": "none"
+    }
+  ],
+  "summary": "七条候选全部经许可证原文+链接双路核验：5 条 pass、2 条 corrected、0 条 drop。两处 corrected：Tabbied 的 licenseUrl 原指根 LICENSE（专有许可，仅含 MIT 豁免条款），已改指 packages/tabbied/LICENSE 的 MIT 原文，且「不装 npm 防专有模板」的理由不成立（npm 包 tabbied 就是 MIT 图案库本体）；shape-dividers 的预览链接实测 404、svg/ 当前 34 个文件而非 25。所有许可证均有原文支撑，未发现「免费商用冒充开源」或「网站代码许可冒充素材许可」——Hero Patterns 的 CC-BY-4.0 署名义务与 Tabbied 的专有边界调研均已正确识别。附带复核：驳回项 @paper-design/shaders 的 npm 数字精确一致（0.0.82 / Apache-2.0 / 空 dependencies / unpackedSize 880848 字节）；svgbackgrounds.com、css-pattern.com、heropatterns.com、tabbied.com 本机持续抓取失败（Socket is closed），站点原文未能复核，但对应结论均有 GitHub 权威原文兜底或维持保守排除。本地实测：噪点 data URI 本体 298 字符（调研 305 系含 url() 包装口径），globals.css 行号与滤镜参数全部无误。已完成：全部核验与汇总；剩余：无。"
+}

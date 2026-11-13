@@ -1,0 +1,188 @@
+{
+  "category": "中文字体（CJK fonts，可离线随 NSIS 安装包分发）",
+  "candidates": [
+    {
+      "name": "Noto Sans SC / Source Han Sans SC",
+      "nameZh": "思源黑体 简体（Google 版名 Noto Sans SC）",
+      "oneLiner": "中性人文黑体，字面方正、中宫开阔、笔画间距均匀，七字重 + wght 100–900 可变轴；是 CJK 桌面 UI 的事实标准，也是 Polaris 现在正在用的那一款。",
+      "homepage": "https://github.com/adobe-fonts/source-han-sans",
+      "repoUrl": "https://github.com/adobe-fonts/source-han-sans",
+      "previewUrl": "https://fonts.google.com/noto/specimen/Noto+Sans+SC",
+      "npmPackage": "@fontsource-variable/noto-sans-sc",
+      "version": "上游 Source Han Sans 2.005R（2025-06-25）；npm 包 5.3.1，包内 metadata.json 记为 Google Fonts v41 / lastModified 2026-10-01",
+      "licenseSpdx": "OFL-1.1",
+      "licenseUrl": "https://raw.githubusercontent.com/adobe-fonts/source-han-sans/release/LICENSE.txt",
+      "licenseEvidence": "LICENSE.txt 原文片段：\"SIL OPEN FONT LICENSE Version 1.1 - 26 February 2007\"；\"Copyright 2014-2025 Adobe\"；\"Reserved Font Name 'Source'\"；\"licensed under the SIL Open Font License, Version 1.1.\"。notofonts/noto-cjk 的 Sans/LICENSE 同为 \"SIL OPEN FONT LICENSE Version 1.1 - 26 February 2007\"。",
+      "licenseCaveat": "无实质风险。OFL 允许子集化、转 woff2、改名后衍生、随软件捆绑分发；只需在安装包里附 OFL 全文与版权声明，且不得单独售卖字体文件。注意 Adobe 版声明了 Reserved Font Name 'Source'：若做子集并改名，新名字不得含 Source；沿用 Google 的 Noto Sans SC 命名则不受该保留名约束（Noto 侧 LICENSE 未声明保留名）。",
+      "sizeNote": "实测（unpkg ?meta）：@fontsource-variable/noto-sans-sc@5.3.1 共 108 个文件，其中 97 个 woff2 分片合计 4,163,588 B ≈ 3.97 MiB，最大分片 noto-sans-sc-119-wght-normal.woff2 = 76,324 B；index.css 101,698 B（每个 @font-face 带 unicode-range，font-weight: 100 900，format('woff2-variations')）。npm registry dist.unpackedSize = 4,872,883 B / fileCount 112。上游另提供 OTF / OTC / Super OTC（45 款）/ Region-specific Subset OTF / Variable OTF·TTF·WOFF2。",
+      "themeFit": "字体与颜色正交：字形一律走 currentColor，六套主题靠 --text / --text-secondary / --text-tertiary 继承，零颜色覆盖、零新增令牌。真正要按主题微调的是字重而非颜色——夜阑 #080A0F、暮蓝 #132644 这类深底上 400 的横画会被灰度抗锯齿抹淡，建议暗色家族正文用可变轴 450–500，昼白/暖砂/天蓝/护眼绿维持 400；teal 只出现在 --accent 控件上，字体不参与信号色。",
+      "recommendedUse": "保留为 --font-ui 与 --font-display 的中文回退（globals.css:84 / :86 的 \"Noto Sans SC Variable\"），本轮结论是不换字体。11–13px 的任务行、13px 的详情正文、12px 的时间戳旁中文，全部继续由它承担。",
+      "integration": "维持现状即可：E:\\project\\Polaris-Todo\\src\\renderer\\src\\main.tsx:4 的 import '@fontsource-variable/noto-sans-sc'，字体经 Vite 打进 out/renderer/assets，NSIS 自动包含，不需要 extraResources、不需要 CDN。若只想做主题字重微调，在 globals.css 的 [data-theme='dark'] / [data-theme='dusk'] 块里加 font-variation-settings: 'wght' 460（或直接把 body 的 font-weight 提到 460），不要新增字体文件。若坚持瘦身：pyftsubset SourceHanSansSC-VF.otf --unicodes-file=polaris-chars.txt --layout-features='*' --flavor=woff2 --output-file=src/renderer/src/assets/fonts/polaris-sc.woff2，但用户任务标题是任意输入，子集必须覆盖通用规范汉字表 8105 + GB2312 6763，否则生僻字掉回系统字体会在同一行出现两种字形——省下的 2 MB 不值这个风险。",
+      "replacesExisting": "不替换：它就是现有 @fontsource-variable/noto-sans-sc 的上游。本轮评估结论是「保留 + 只做字重/行高层面的优化」，其余候选都不足以取代它。",
+      "score": 9
+    },
+    {
+      "name": "Glow Sans",
+      "nameZh": "未来荧黑",
+      "oneLiner": "在思源黑体轮廓上做参数化形变得到的现代黑体，中宫更紧、字身更窄、笔画细节更干净，9 字重 × 5 宽度共 44 款，气质比思源更「几何」、更贴 Manrope。",
+      "homepage": "https://github.com/welai/glow-sans",
+      "repoUrl": "https://github.com/welai/glow-sans",
+      "previewUrl": "https://github.com/welai/glow-sans",
+      "npmPackage": "",
+      "version": "v0.93（2021-09-10）；仓库已于 2023-08-27 归档为只读",
+      "licenseSpdx": "OFL-1.1",
+      "licenseUrl": "https://raw.githubusercontent.com/welai/glow-sans/master/OFL.txt",
+      "licenseEvidence": "OFL.txt 原文：\"SIL OPEN FONT LICENSE Version 1.1 - 26 February 2007\"，版权行 \"Copyright (c) 2020, welai\"，未声明 Reserved Font Name。README 明确二分：\"字体文件以 SIL Open Font License 1.1 发布\"、\"此仓库中构建字体开发的代码以 MIT License 发布\"（根目录同时存在 LICENSE=MIT 与 OFL.txt）。",
+      "licenseCaveat": "字体本体 OFL-1.1，可子集化、可转 woff2、可随 NSIS 分发。仓库根目录的 LICENSE 是 MIT，只覆盖构建代码，别把它当字体许可证写进第三方声明。项目已归档，无后续维护与字形修订。",
+      "sizeNote": "仅 OTF，无 TTF、无 woff2、无可变字体（README 明确「不是可变字体，是通过在思源黑体上形变来拓展家族」）。全家族 44 款；单文件字节数未验证（Releases 页未抓到体积）。部分字符被删除（如 Enclosed CJK Letters And Months），不支持韩语，无 ccmp、无 CJK locl。",
+      "themeFit": "同样走 currentColor，六套主题零颜色改造。它的窄字身让中文与 Inter 混排时字面率更接近拉丁，视觉上更整齐；但同等字号下比思源显小，暗色家族（夜阑/暮蓝）需要把字号或字重补回来，否则 12px 以下细节丢失明显。",
+      "recommendedUse": "只作为 --font-display 的中文候选做 A/B：空状态大标题、设置面板分区标题、命令面板的分组标题这类 ≥16px 的展示位。正文与 11–13px 的任务行仍留给 Noto Sans SC，不要全局替换。",
+      "integration": "无 npm 包，走「官方 OTF → cn-font-split → 本地分片」：从 https://github.com/welai/glow-sans/releases 取 v0.93 的 Normal 宽度 OTF，放到 E:\\project\\Polaris-Todo\\scripts\\vendor\\glow-sans\\；写 scripts/split-fonts.mjs：import { fontSplit } from 'cn-font-split'; await fontSplit({ input: new Uint8Array(await readFile(src)), outDir: 'src/renderer/src/assets/fonts/glow-sans', css: { fontFamily: 'Glow Sans', fontWeight: '400 700', fontDisplay: 'swap' }, chunkSize: 70 * 1024 })；在 main.tsx 追加 import './assets/fonts/glow-sans/result.css'，再把 globals.css:86 的 --font-display 改成 \"Manrope Variable\", \"Glow Sans\", \"Noto Sans SC Variable\", ...。cn-font-split 7.4.3 是 Apache-2.0 的 Rust/WASM 本地工具，只在构建期跑，运行时零依赖。",
+      "replacesExisting": "新增（可选替换 --font-display 里的中文回退）。替换理由：比思源更紧的中宫与更几何的笔画，和 Manrope 的展示气质更一致；代价是归档项目、无可变轴、需自建分片，所以只值得用在展示位。",
+      "score": 6.5
+    },
+    {
+      "name": "LXGW WenKai Screen",
+      "nameZh": "霞鹜文楷 屏幕阅读版",
+      "oneLiner": "楷体（兼有仿宋意味）的屏显特调版：把原版 Bold Medium 的字重属性改成 Regular，并把度量对齐 Android 的 Roboto，专门补偿楷体在屏幕上「太细」的问题。",
+      "homepage": "https://github.com/lxgw/LxgwWenKai-Screen",
+      "repoUrl": "https://github.com/lxgw/LxgwWenKai-Screen",
+      "previewUrl": "https://github.com/lxgw/LxgwWenKai",
+      "npmPackage": "lxgw-wenkai-screen-webfont",
+      "version": "上游 v1.530（2026-10-18）；npm 包 1.7.0",
+      "licenseSpdx": "OFL-1.1",
+      "licenseUrl": "https://raw.githubusercontent.com/lxgw/LxgwWenKai/main/OFL.txt",
+      "licenseEvidence": "OFL.txt 原文：\"SIL OPEN FONT LICENSE Version 1.1 - 26 February 2007\"，保留名声明含 \"霞鹜\"、\"霞鶩\"、\"落霞孤鶩\"、\"LXGW\"；并附额外许可，允许为 web 分发制作子集或转成 WOFF/WOFF2 的 Modified Version（只要不作为可安装桌面字体分发）。Screen 仓库 README 亦写明 SIL Open Font License 1.1。",
+      "licenseCaveat": "OFL 允许嵌入与再分发，须附 OFL.txt；保留名 LXGW/霞鹜 不得用于衍生字体名（web 子集有附加例外）。npm 包 license 字段是 MIT，那只覆盖打包脚本，字体本体仍是 OFL-1.1，第三方声明里两者都要写。Screen 版基于 FONTWORKS 的 Klee（OFL）并合并 Roboto（Apache-2.0）与 Inconsolata（OFL），署名链要一并保留。",
+      "sizeNote": "npm dist.unpackedSize = 19,729,431 B / 399 files。unpkg 实测：388 个 woff2（4 个变体 × 97 个 unicode-range 分片）合计 19,292,392 B ≈ 19.3 MB，最大分片 lxgwwenkaiscreenr-subset-62.woff2 = 73,008 B。style.css 只有 162 B，内容是 4 条 @import；单独引入 lxgwwenkaigbscreen.css 时对应 97 片约 4.54 MB，lxgwwenkaiscreen.css 约 5.10 MB。非可变字体。",
+      "themeFit": "currentColor 继承，六套主题不需要颜色覆盖。楷体在暖砂 #ECE0C6 / 昼白 #F4F3EF 这类暖瓷画布上最协调（纸感），在夜阑 #080A0F 上起收锋会显脏，暗色家族建议不用或提高字重。与 teal 无冲突。",
+      "recommendedUse": "只用于需要「手写温度」的局部：任务详情的备注/笔记正文（≥14px）、空状态的一句引言。绝不做全局 UI 字体，也不进 11–13px 的任务行——楷体在 11px 下起收锋丢失，且会打破 Manrope/Inter/Noto/Geist 的四字体层级。",
+      "integration": "npm i -D lxgw-wenkai-screen-webfont@1.7.0，然后只引入单个变体 CSS：在 main.tsx 加 import 'lxgw-wenkai-screen-webfont/lxgwwenkaigbscreen.css'（不要 import 'lxgw-wenkai-screen-webfont/style.css'，它会把 4 个变体 388 个分片 19.3 MB 全部打进 out/）。font-family 以该 CSS 内声明为准（上游 README 列出的族名是 \"LXGW WenKai Screen\"）。在 globals.css 新增 --font-note: \"LXGW WenKai Screen\", \"Noto Sans SC Variable\", serif，只挂到详情备注的 textarea/正文上。Lite 版（lxgw-wenkai-lite-webfont 1.7.0，26,355,179 B）更适合嵌入：官方明确「适合嵌入于 APP 中」，覆盖 GB2312 6763 + 通用规范汉字表 8105 + 现代汉语常用字表 3603，剔除了谚文与生僻字。",
+      "replacesExisting": "新增。不替换 Noto Sans SC——楷体承担不了密集列表的正文；它只是在备注区补一种情绪，且必须限制在 ≥14px。",
+      "score": 5.5
+    },
+    {
+      "name": "Smiley Sans",
+      "nameZh": "得意黑",
+      "oneLiner": "现代窄斜体黑体，字身窄而斜、大弧度、几何与人文折中；是一款性格极强的展示字体，官方明确不推荐用于正文与界面。",
+      "homepage": "https://atelier-anchor.com/typefaces/smiley-sans",
+      "repoUrl": "https://github.com/atelier-anchor/smiley-sans",
+      "previewUrl": "https://atelier-anchor.com/typefaces/smiley-sans",
+      "npmPackage": "",
+      "version": "v2.0.1（官网下载文件名 smiley-sans-v2.0.1.zip）",
+      "licenseSpdx": "OFL-1.1",
+      "licenseUrl": "https://raw.githubusercontent.com/atelier-anchor/smiley-sans/main/LICENSE",
+      "licenseEvidence": "LICENSE 原文：\"Copyright (c) 2022--2024, atelierAnchor <https://atelier-anchor.com>,\"，Reserved Font Names 为 \"<Smiley>\" 与 \"<得意黑>\"；\"SIL OPEN FONT LICENSE Version 1.1 - 26 February 2007\"。README：\"本字体的发布遵守 SIL Open Font License v1.1。\"",
+      "licenseCaveat": "OFL，可子集化、可随 NSIS 分发，须附许可证与版权声明；衍生名不得含 Smiley / 得意黑。不要用 npm 上的第三方包（见 rejected 两条）：@fontpkg/smiley-sans 的 license 是 \"SEE LICENSE IN README.md\" 但包内无 readme、仓库指向占位地址；cn-fontsource-smiley-sans-oblique-regular 的 license 字段是 \"unknown\"。只从官网 zip 取原始字体自行子集化。",
+      "sizeNote": "覆盖 GB/T 2312-1980 全部 6763 字 + 《通用规范汉字表》全部 8105 字，补充后共 8335 个汉字；另有 415 拉丁、80 西里尔、71 希腊、174 假名。官方提供 woff2（README 称「供网站开发人员使用」）。是否可变、单文件字节数：未验证（README 与官网均未标注）。",
+      "themeFit": "currentColor 继承，无需颜色覆盖。窄斜体在昼白/暖砂的暖瓷画布上像海报字，在夜阑冷墨上更像科技标题；但它自带的倾斜与 teal→violet 渐变同属「强信号」，两者不能同框叠加，否则空状态会有两个视觉焦点，违反「一颗四角星、一个 teal 信号」。",
+      "recommendedUse": "全站最多一处：空状态构图的中文大标题（≥24px），例如「今天没有待办」这类句子，且该处不再使用渐变。禁止进入任务行、按钮、导航、11–13px 任何位置。",
+      "integration": "从 https://atelier-anchor.com/downloads/smiley-sans-v2.0.1.zip 取 woff2，落到 E:\\project\\Polaris-Todo\\src\\renderer\\src\\assets\\fonts\\smiley-sans\\；因为只有 8335 字且只用在固定文案上，直接用 pyftsubset 按实际文案子集即可：pyftsubset SmileySans-Oblique.ttf --text-file=scripts/empty-state-copy.txt --layout-features='*' --flavor=woff2 --output-file=src/renderer/src/assets/fonts/smiley-sans/empty.woff2（文案固定，不存在用户输入掉字问题）。在 globals.css 写一条 @font-face（font-family: 'Smiley Sans'; font-display: swap; unicode-range 可省），新增 --font-hero: \"Smiley Sans\", \"Manrope Variable\", sans-serif，只挂到空状态标题类名上。",
+      "replacesExisting": "新增，且是「一处即用」的点缀，不替换任何现有字体。替换 Manrope 做展示会破坏已定的四字体层级，不建议。",
+      "score": 5
+    },
+    {
+      "name": "MiSans",
+      "nameZh": "小米兰亭 / MiSans",
+      "oneLiner": "小米 HyperOS 系统字体，与 Monotype、汉仪联合开发，屏显优化到位、10 字重 + 可变轴，简中字形 29,608 个；视觉上是本轮除思源外最适合做 UI 的一款。",
+      "homepage": "https://hyperos.mi.com/font/",
+      "repoUrl": "",
+      "previewUrl": "https://hyperos.mi.com/font/en/download/",
+      "npmPackage": "",
+      "version": "未验证（官方下载页未标版本号）",
+      "licenseSpdx": "LicenseRef-自定义",
+      "licenseUrl": "https://hyperos.mi.com/font/en/download/",
+      "licenseEvidence": "官方下载页 LICENSE AGREEMENT 原文：\"royalty-free, revocable, worldwide copyright license to use MiSans Fonts\"；\"You should specifically note in the software that MiSans Fonts was used.\"；\"You may not adapt or redevelop MiSans Fonts or any of its components.\"。中文 FAQ 原文：\"MiSans Global 所有的字体都是供全球免费商用，您可以在任何平台、任何商业项目中使用所有字体。\"；\"可以。但您应在软件中特别注明使用了 MiSans 字体。\"；\"您可以自由调节字体的粗细、间距等。但您不得单独将 MiSans 字体或其组件进行外观上的更改。\"",
+      "licenseCaveat": "不是 OSI 开源许可，是小米自定义 EULA（中文正式本为 https://hyperos.mi.com/font-download/MiSans%E5%AD%97%E4%BD%93%E7%9F%A5%E8%AF%86%E4%BA%A7%E6%9D%83%E8%AE%B8%E5%8F%AF%E5%8D%8F%E8%AE%AE.pdf，4 页，2023-10-19 创建；本轮抓到 PDF 但环境无 poppler/pypdf，未能解码正文，条款以官方 HTML 页原文为准）。三条硬限制：①许可可撤销（revocable）；②嵌入软件必须显著署名；③禁止改编/二次开发 → 子集化、转 woff2、改名在法律上存疑，保守按禁止处理。允许原样嵌入并随软件分发，但 Polaris 是对外发布的开源仓库，把一份可撤销的 EULA 字体打进 NSIS 是长期风险。",
+      "sizeNote": "官方下载页：MiSans 29,608 字形 / 10 字重 + Variable / 11 种语言；MiSans TC 15,116；MiSans L3（GB18030-2022 级别 3 生僻字）60,340 字形但仅 Regular，其余全部支持可变。官方页未给字节数。第三方 npm 包 misans@5.0.0 的 dist.unpackedSize = 53,774,303 B / 1569 files（见 rejected）。",
+      "themeFit": "currentColor 继承，六套主题不需要颜色覆盖，可变轴也能像思源一样按暗色家族补字重。适配成本全在法律与体积，不在视觉。",
+      "recommendedUse": "不推荐进入 Polaris 正式发布包。若只是内部实验对比屏显效果，可临时替换 --font-ui 的中文回退做截图对比，但不得随 build:win 产物分发。",
+      "integration": "若仅本地实验：从 https://hyperos.mi.com/font/en/download/ 下载官方包，原样（不可子集化、不可转格式）放 src/renderer/src/assets/fonts/misans/，手写 @font-face 并在关于页加「本软件使用 MiSans 字体」署名。不要用 npm 的 misans 包——它自称 subsetted，与 EULA 的禁止改编条款冲突，且其 Apache-2.0 只覆盖打包代码。",
+      "replacesExisting": "不替换。视觉上够格，法律上不够格：可撤销 + 禁改 + 强制署名，对开源发布项目不如 OFL 的思源。",
+      "score": 5
+    },
+    {
+      "name": "HarmonyOS Sans",
+      "nameZh": "鸿蒙字体 / 鸿蒙黑体",
+      "oneLiner": "华为 HarmonyOS 系统字体，屏显黑体，官方设计资源页提供整包下载；许可允许原样嵌入软件并再分发，但禁止任何修改。",
+      "homepage": "https://developer.huawei.com/consumer/cn/design/resource/",
+      "repoUrl": "https://atomgit.com/openharmony/resources",
+      "previewUrl": "https://developer.huawei.com/consumer/cn/design/resource/",
+      "npmPackage": "",
+      "version": "未验证（官方设计资源页只标字体包 21.6 MB / 2026-06-12，无版本号与字重表）",
+      "licenseSpdx": "LicenseRef-自定义",
+      "licenseUrl": "https://atomgit.com/openharmony/resources/blob/master/LICENSE_Fonts",
+      "licenseEvidence": "OpenHarmony 官方仓库 LICENSE_Fonts 原文：\"Copyright 2021 Huawei Device Co., Ltd.\"；\"a non-transferable, non-exclusive, royalty-free, revocable, worldwide copyright license to use,copy, merge, embed,\"（授权对象为未修改副本，可随除字体软件外的任何软件捆绑再分发）；\"YOU shall make a prominent notice in the software to state that HarmonyOS Sans Fonts are used.\"；\"YOU may not make any modifications to HarmonyOS Sans Fonts or any of their individual components.\"；\"Neither HarmonyOS Sans Fonts nor any of their individual components may be redistributed or sold in a stand-alone base.\"；\"This Agreement will be automatically terminated if YOU breach any of this Agreement.\"",
+      "licenseCaveat": "自定义 EULA，非 OSI 开源。允许：未修改副本随应用嵌入、捆绑、再分发（NSIS 可以带）。禁止：任何修改（含子集化/转 woff2 的保守解读）、单独再分发或出售字体、违约自动终止。义务：软件内显著声明使用了 HarmonyOS Sans、保留版权与协议全文。许可同样是 revocable。华为开发者论坛官方口径一致：\"您应在软件中显著声明使用了 HarmonyOS Sans 字体\"、\"您不得对 HarmonyOS Sans 字体或其任何单独组件进行修改\"。",
+      "sizeNote": "官方设计资源页字体包 21.6 MB（2026/06/12）。字重数量、字形总数、是否提供可变字体：未验证（官方页未列，维基百科条目被重定向到 HarmonyOS 主条目，无字体数据）。因禁止修改，无法子集化，21.6 MB 整包对 Polaris 是净负担。",
+      "themeFit": "currentColor 继承，六套主题零颜色改造；但因不可子集化、不可转 woff2，只能以原始 OTF/TTF 全量落地，无法像现有 fontsource 那样按 unicode-range 分片，首屏解码成本明显高于现状。",
+      "recommendedUse": "不推荐。唯一可能的用途是「想要鸿蒙系统观感」的品牌向需求，Polaris 没有这个诉求。",
+      "integration": "若一定要用：从官方设计资源页下载 zip，原样放 src/renderer/src/assets/fonts/harmonyos-sans/，手写 @font-face 指向未修改的 TTF，并在设置面板的「关于」里加显著署名与协议全文。禁止跑 pyftsubset / cn-font-split。",
+      "replacesExisting": "不替换。与 MiSans 同类问题：禁改导致无法瘦身，且许可可撤销。",
+      "score": 4.5
+    },
+    {
+      "name": "Chiron Hei HK",
+      "nameZh": "昭源黑体",
+      "oneLiner": "基于思源黑体香港繁体版改造的黑体，笔形偏「现代印刷体」，收字量大、字重丰富，提供静态/可变 OTF·TTF 与 WOFF2；但字形标准是港式繁体，不是大陆规范字形。",
+      "homepage": "https://github.com/chiron-fonts/chiron-hei-hk",
+      "repoUrl": "https://github.com/chiron-fonts/chiron-hei-hk",
+      "previewUrl": "https://github.com/chiron-fonts/chiron-hei-hk",
+      "npmPackage": "",
+      "version": "v2.609（2026-05-13）",
+      "licenseSpdx": "OFL-1.1",
+      "licenseUrl": "https://raw.githubusercontent.com/chiron-fonts/chiron-hei-hk/release/LICENSE.md",
+      "licenseEvidence": "LICENSE.md 原文：\"Copyright 2023-2026 Tamcy (https://github.com/chiron-fonts/chiron-hei-hk).\"；\"Based on Source Han Sans, Copyright 2014-2025 Adobe (http://www.adobe.com/).\"；\"SIL OPEN FONT LICENSE Version 1.1 - 26 February 2007\"。README：\"昭源黑體採用 SIL Open Font License, 版本 1.1 授權。\"（LICENSE.md 只提供英文版，未声明 Reserved Font Name）",
+      "licenseCaveat": "许可证本身无风险：OFL-1.1，可子集化、可随 NSIS 分发，附许可证即可。真正的排除理由是字形标准而非法律：README 明确以「思源黑體香港」为基础，参考《香港電腦漢字參考字形》并按港式事实标准调整，全文未声明简体支持。",
+      "sizeNote": "仓库 release 分支含 STATIC_OTF / STATIC_TTF / VAR_OTF / VAR_TTF / WOFF2_OTF / WOFF2_TTF，即可变字体与 woff2 都现成。具体字数、字重数、文件字节数：未验证（README 只有「收字量大」「字重豐富」的定性描述，无数字）。",
+      "themeFit": "currentColor 继承，六套主题零颜色改造。但简体 UI 用港式字形会出现部件差异（同一句话里简繁笔形混杂），这不是主题能覆盖的问题，属于内容正确性问题。",
+      "recommendedUse": "不推荐用于 Polaris 的简体中文界面。仅当未来做繁体/港版界面时再评估。",
+      "integration": "若将来做港版：直接取仓库 WOFF2_TTF 目录的现成 woff2（无需自建分片），落 src/renderer/src/assets/fonts/chiron-hei-hk/，按 locale 切换 --font-ui 的中文回退。当前简体版本不引入。",
+      "replacesExisting": "不替换。OFL 干净、格式齐全，但字形标准与简体中文应用不匹配，比思源没有增益只有风险。",
+      "score": 4
+    }
+  ],
+  "rejected": [
+    {
+      "name": "Alibaba PuHuiTi 3.0 / 阿里巴巴普惠体 3.0",
+      "reason": "自定义 EULA，非 OSI 开源，且与 Polaris 的离线瘦身方案直接冲突。逐字转载的官方《阿里巴巴普惠体3.0版》法律声明第 4.1 条原文：\"对阿里巴巴字体进行仿制、转换、翻译、反编译、反向工程、拆分、破解、或以其他方式试图从该字库软件获取源代码\"；4.3 条：\"将阿里巴巴字体进行单独定价出售、出租、出借、转让、转授权、或采取其他未经阿里巴巴明确授权的行为\"。授权本身是免费的普通许可（\"该授权是免费的普通许可，用户可基于合法目的用于商业用途或非商业用途\"），但「转换/拆分」被明确禁止 → pyftsubset 子集化、cn-font-split 分片、转 woff2 全部落在禁止范围内，只能原样整包嵌入。另：官方站 fonts.alibabagroup.com 与官方语雀声明页均为 JS 应用，本轮 WebFetch 取不到正文，只取到声明为「逐字转载、未经任何删改」的副本，权威原文待人工核对（官方语雀 https://www.yuque.com/yiguang-wkqc2/puhuiti/nus9wiinq4aeiegy）。",
+      "sourceUrl": "https://raw.githubusercontent.com/flyanx/html-poster-to-psd/main/fonts/LICENSE-AlibabaPuHuiTi-3.0.md"
+    },
+    {
+      "name": "OPPO Sans 3.0",
+      "reason": "官方 ColorOS 发布文章原文：\"OPPO Sans（含中文及西文，3 款字重）允许个人或企业免费使用，含商业用途，版权归 OPPO 广东移动通信有限公司所有。\" 同页列出四项禁止：不得对字体进行修改或二次开发、不得对外销售字体、不得向他人提供字体的其他下载渠道、不得用于违法用途，并声明\"违者将会被追究法律责任\"。第三项「不得向他人提供字体的其他下载渠道」使「把字体文件打进 NSIS 安装包对外分发」处于高风险解释区间 → 明确不能随 Polaris 安装包分发。加上只有 3 款字重、无可变轴、官方页未给任何字数/GB 标准覆盖声明，视觉收益也不足以抵消风险。",
+      "sourceUrl": "https://www.coloros.com/article/A00000050/"
+    },
+    {
+      "name": "LXGW Neo XiHei / 霞鹜新晰黑（含 Screen / Plus 变体）",
+      "reason": "许可证不是 OFL：README 原文\"依照 IPA 开放字体授权条款 1.0 版（IPA Font License 1.0）授权\"，并明确\"IPA Font License 1.0 与 SIL OFL 1.1 互不兼容\"。IPA 虽是 OSI 批准许可（SPDX: IPA），但第 3 条要求衍生程序必须提供还原途径：\"provide a difference file from the Original Program, or instructions setting out a method to replace the Derived Program\"，作者的嵌入说明文档写得更直白：\"应当提供一种方法，让用户可以按照自己的意愿将衍生程序恢复到原始的 IPA 字体。\"，否则\"禁止再分发衍生字体\"。桌面应用要为此额外做字体目录指引或还原开关，成本不划算。另外它只有一个字重（上游 IPAex Gothic 单字重，作者称\"没有制作多字重的计划\"），无法承担 Polaris 的字重层级。字形覆盖倒是达标：共收录 2.2 万字，覆盖《通用规范汉字表》8105 字，Plus 版补到 GB 18030-2022 实现级别 2。",
+      "sourceUrl": "https://github.com/lxgw/LxgwNeoXiHei"
+    },
+    {
+      "name": "I.Ming / 一點明體",
+      "reason": "双重不合适。①字形风格：明体（衬线），单字重，与 Polaris 已定的 Manrope/Inter/Noto Sans SC/Geist Mono 全无衬线体系冲突，11–13px 下衬线与横细竖粗对比会糊。②许可证：README 原文\"使用「I.明體」時，請遵從「IPA開放字型授權協議 1.0版」之規定。\"，同样是 IPA Font License 1.0，带「必须提供还原为原始 IPA 字体的方法」的再分发义务，不是 OFL。最新 8.10（2024-04-20），全部为 TTF，无可变、无 woff2。",
+      "sourceUrl": "https://github.com/ichitenfont/I.Ming"
+    },
+    {
+      "name": "@fontpkg/smiley-sans（npm 第三方包）",
+      "reason": "许可证不可核验，不能用于对外发布的产品。registry 元数据 license 字段为 \"SEE LICENSE IN README.md\"，但该版本 JSON 内没有 readme 字段；repository 指向 \"git+https://github.com/user/fontpkg.git\"、homepage \"https://github.com/user/fontpkg#readme\"，是占位地址而非真实仓库。版本 2.0.4，unpackedSize 7,148,539 B / 6 files。上游得意黑本身是 OFL-1.1，改为从官网 zip 取原始字体自行子集化。",
+      "sourceUrl": "https://registry.npmjs.org/@fontpkg/smiley-sans/latest"
+    },
+    {
+      "name": "cn-fontsource-smiley-sans-oblique-regular（npm 第三方包）",
+      "reason": "registry 元数据 license 字段为 \"unknown\"，包本身未声明许可证（上游字体是 OFL-1.1，但打包产物的授权状态不明）。版本 1.0.1，unpackedSize 1,262,451 B / 85 files，来自 wc-ex/cn-fontsource。对外发布的开源仓库不应引入 license unknown 的资产，改用官方 zip + 自建分片。",
+      "sourceUrl": "https://registry.npmjs.org/cn-fontsource-smiley-sans-oblique-regular/latest"
+    },
+    {
+      "name": "misans（npm，dsrkafuu/misans）",
+      "reason": "包描述自称 \"MiSans (subsetted) fonts from Xiaomi for free commercial use.\"，即已对字体做过子集化；而小米官方 EULA 原文\"You may not adapt or redevelop MiSans Fonts or any of its components.\"禁止改编/二次开发，中文 FAQ 亦禁止对字体或组件做外观更改。包的 license 字段是 Apache-2.0，那只覆盖打包代码，不能替字体授权。版本 5.0.0，unpackedSize 53,774,303 B / 1569 files。作为分发来源不采用。",
+      "sourceUrl": "https://registry.npmjs.org/misans/latest"
+    },
+    {
+      "name": "lxgw-wenkai-webfont（原版全量楷体 webfont）",
+      "reason": "不是许可证问题（字体 OFL-1.1、打包 MIT），是体积与场景问题：dist.unpackedSize 29,934,273 B / 595 files，含全部 11172 个谚文音节与大量生僻字，对简体中文待办应用是纯浪费。同系列的 Screen 版（19,729,431 B，屏显度量特调）与 Lite 版（26,355,179 B，官方称「适合嵌入于 APP 中」，覆盖 GB2312 6763 + 通用规范汉字表 8105）都更贴合，故排除原版。",
+      "sourceUrl": "https://registry.npmjs.org/lxgw-wenkai-webfont/latest"
+    }
+  ],
+  "notes": "【总结论】不换中文字体。Polaris 现有的 @fontsource-variable/noto-sans-sc@5.3.1 已经是本轮最优解：OFL-1.1、可变轴 100–900、97 个 unicode-range woff2 分片合计仅 3.97 MiB、最大分片 76 KB、零运行时依赖、随 Vite 打进 out/ 后 NSIS 自动包含。其余候选要么法律上不能子集化（MiSans / HarmonyOS Sans / OPPO Sans / 阿里巴巴普惠体），要么字形标准不对（昭源黑体是港式繁体），要么风格承担不了密集列表（文楷、得意黑、一點明體），要么已归档且只有 OTF（未来荧黑）。真正值得做的三件事都不涉及换字体：①暗色家族（夜阑/暮蓝）把中文正文可变字重从 400 提到 450–500；②若要给空状态加一点性格，只引入得意黑做 ≥24px 的一处标题；③若要在备注区加纸感，只引入 lxgw-wenkai-screen-webfont 的单个变体 CSS。\n\n【子集化方案对比：Electron 离线打包该选哪种】\n1. unicode-range 分片（现状，推荐保持）：fontsource 已经把 CJK 切成 97 片并写好 unicode-range。Electron 从本地 out/renderer/assets 按 file:// 读取，没有网络往返，分片只影响磁盘占用与首次解码，不影响首屏；相对 Electron 本体体积，4 MB 可忽略。结论：不需要引入任何子集化工具。\n2. fonttools pyftsubset（适合「文案固定」的小字体，如得意黑做空状态标题）：fonttools subset font.ttf --unicodes-file=chars.txt --layout-features='*' --flavor=woff2 --output-file=out.woff2（--flavor=woff2 需要 Brotli 扩展；默认会丢 JSTF/DSIG/EBDT 等表、name 表只留 nameID 0–6 的英文名、丢 TrueType kern 与 .notdef 轮廓，保留 hinting）。关键风险：任务标题是用户任意输入，正文字体一旦子集化，生僻字会掉回 Segoe UI / 微软雅黑，同一行出现两种字形。所以正文中文字体不要做「按文案子集」，除非同时保留全量分片兜底——那体积就没省，不划算。\n3. cn-font-split 7.4.3（Apache-2.0，Rust/WASM，官方称「2MB 字体只需要 50ms」）：适合把「只有 OTF/TTF 的字体」（未来荧黑、得意黑官方 zip、LXGW TTF）转成与现有 fontsource 一致的分片形态。用法：import { fontSplit } from 'cn-font-split'，必填 input(Uint8Array) 与 outDir，可选 css.fontFamily / css.fontWeight / chunkSize（默认约 70KB）/ renameOutputFont，产出 woff2 分片 + 带 unicode-range 的 result.css。构建期跑一次，产物纯本地，运行时零依赖。注意 README 提到 CN_FONT_SPLIT_GH_HOST 环境变量，说明构建期可能需要拉一次 GitHub 资源，离线构建机要预先缓存。\n法律边界：pyftsubset 与 cn-font-split 都属于「修改字体软件」。OFL-1.1 明确允许（LXGW 的 OFL 还附加了「允许为 web 分发做子集/转 WOFF2」的例外）；MiSans / HarmonyOS Sans / OPPO Sans / 阿里巴巴普惠体的 EULA 都禁止修改/改编/拆分，这四家只能原样打包，不能子集化、不能改名，转 woff2 是否算修改无明文、保守按禁止处理。\n\n【11–13px 小字号与 Inter 混排】\n- Noto Sans SC / 思源黑体是本轮唯一在 11px 仍可靠的中文黑体：字面率高、中宫开阔、笔画间距均匀。Windows 11 的 DirectWrite 灰度抗锯齿下，深底（夜阑 #080A0F、暮蓝 #132644）上 400 字重的横画会被抹淡，建议暗色家族正文走可变轴 450–500，浅色家族维持 400。项目硬约束「中文不得小于 11px」应继续保留。\n- 混排：Inter 的 x-height 明显低于汉字字面高度，同一行里中文会显得更大更满、视觉重心略低。不要靠 baseline-shift 补偿（会破坏行盒与焦点环对齐），改为给中文密集行单独放宽 line-height（正文 13px 配 1.55 左右），标题不低于 12px。具体 x-height 数值未验证，不给数字。\n- 未来荧黑中宫收紧、字身变窄，同字号下比思源显小，混排 Inter 时字面率反而更接近拉丁，但 11px 细节丢失更多，建议 ≥12px 且只用于展示位。\n- 文楷有起收锋，11px 下锋芒丢失；Screen 版正是把 Bold Medium 当 Regular 并对齐 Roboto 度量来补偿屏显，最小建议 13–14px。\n- 得意黑是窄斜体，斜笔画叠加窄字身在 11–13px 会糊，官方也明确「不推荐用于正文排版、编程代码、手机界面」，只用于 ≥24px。\n\n【明确哪些不能随 NSIS 安装包分发】\n- 不能：OPPO Sans 3.0（官方授权禁止「向他人提供字体的其他下载渠道」，随安装包分发字体文件属高风险）。\n- 不采用：阿里巴巴普惠体 3.0（免费商用但禁止「转换/拆分」，与子集化方案冲突；且官方声明页为 JS 应用，本轮只取到逐字转载副本）。\n- 法律上可以但不建议：MiSans、HarmonyOS Sans。两者都允许未修改副本随软件嵌入并再分发，但必须在软件里显著署名、许可可撤销（revocable）、禁止任何修改导致无法瘦身（HarmonyOS 官方包 21.6 MB 只能整包带）。对 Polaris 这种对外发布的开源仓库，把可撤销 EULA 打进安装包是长期风险。\n- 可以但成本不划算：IPA Font License 1.0 系（霞鹜新晰黑、一點明體）。允许嵌入，但必须提供「让用户按自己意愿恢复到原始 IPA 字体」的方法，否则禁止再分发；桌面应用要额外做字体目录指引或还原开关。\n- 可以自由分发：OFL-1.1 系（思源黑体/Noto Sans SC、霞鹜文楷及 Screen/Lite、得意黑、未来荧黑、昭源黑体）。只需在关于页或随包第三方声明里附 OFL 全文与版权声明，不得单独售卖字体文件；做子集并改名时避开各自 Reserved Font Name（Source / LXGW·霞鹜 / Smiley·得意黑）。建议新增 build/THIRD-PARTY-FONTS.txt 汇总这些声明，随 out/ 一起打包。\n\n【落地文件路径（均为绝对路径）】\n- 字体引入：E:\\project\\Polaris-Todo\\src\\renderer\\src\\main.tsx（第 3–6 行是现有四个 fontsource import）\n- 字体栈令牌：E:\\project\\Polaris-Todo\\src\\renderer\\src\\styles\\globals.css 第 4 行 --font-sans、第 84 行 --font-ui、第 86 行 --font-display、第 88 行 --font-mono\n- 新字体资产落点：E:\\project\\Polaris-Todo\\src\\renderer\\src\\assets\\fonts\\<family>\\\n- 构建期分片脚本（若需要）：E:\\project\\Polaris-Todo\\scripts\\split-fonts.mjs\n- 第三方字体声明：E:\\project\\Polaris-Todo\\build\\THIRD-PARTY-FONTS.txt\n- 依赖声明：E:\\project\\Polaris-Todo\\package.json 的 devDependencies（现有四个 fontsource 都在这里；字体经 Vite 打进 out/renderer/assets，NSIS 自动包含，不需要 extraResources）\n- 改字体后必跑：npm run build && npm run smoke（smoke 会在 100/125/150/200% 缩放下用 getBoundingClientRect 校验行高，换字体会直接影响这些断言）；涉及主题字重改动再跑 npm run verify:themes。\n\n【未验证项（不编造）】\n- MiSans 版本号、单文件字节数；HarmonyOS Sans 的字重数/字形总数/是否可变；未来荧黑单文件体积；得意黑是否有可变版本；昭源黑体的字数与字重数。以上官方页面均未给出数字，已逐条标注「未验证」。\n- MiSans 中文正式许可 PDF（hyperos.mi.com/font-download/MiSans字体知识产权许可协议.pdf，4 页）本轮已抓到文件，但本机无 poppler/pypdf，无法解码正文；条款引用以官方 HTML 页（/font/en/download/ 与 /font/faq）原文为准。\n- 阿里巴巴普惠体官方语雀声明页与 fonts.alibabagroup.com 均为 JS 应用，WebFetch 取不到正文；引用来自声明「逐字转载、未经任何删改」的 GitHub 副本，正式发布前建议人工打开官方语雀页核对。\n- Google Fonts 的 Noto Sans SC 预览页（fonts.google.com/noto/specimen/Noto+Sans+SC）本轮抓取返回 socket 错误，URL 真实但正文未验证，需浏览器打开看字形。\n- 任务文本中的 {{PERSON_*}} 占位符按上下文还原为字体名处理：思源黑体、霞鹜文楷、得意黑、未来荧黑、HarmonyOS Sans、OPPO Sans、MiSans、阿里巴巴普惠体、昭源黑体、一點明體均已覆盖；仍有两个占位符无法唯一还原（列表中第 8 与第 11 项），未凭猜测编造条目。若这两项指朱雀仿宋 / 京华老宋体一类，结论同样是「衬线/仿宋，不承担 UI 正文」，可后续补查。"
+}

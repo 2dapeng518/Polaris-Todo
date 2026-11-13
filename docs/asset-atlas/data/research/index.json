@@ -1,0 +1,116 @@
+[
+  {
+    "label": "调研:icons",
+    "file": "调研_icons.json",
+    "chars": 20420,
+    "tools": 6
+  },
+  {
+    "label": "调研:illustration",
+    "file": "调研_illustration.json",
+    "chars": 18299,
+    "tools": 6
+  },
+  {
+    "label": "调研:cjk-fonts",
+    "file": "调研_cjk-fonts.json",
+    "chars": 24078,
+    "tools": 7
+  },
+  {
+    "label": "调研:effects",
+    "file": "调研_effects.json",
+    "chars": 22245,
+    "tools": 7
+  },
+  {
+    "label": "调研:mono-fonts",
+    "file": "调研_mono-fonts.json",
+    "chars": 21252,
+    "tools": 9
+  },
+  {
+    "label": "核验:effects",
+    "file": "核验_effects.json",
+    "chars": 10553,
+    "tools": 6
+  },
+  {
+    "label": "核验:illustration",
+    "file": "核验_illustration.json",
+    "chars": 18377,
+    "tools": 6
+  },
+  {
+    "label": "核验:icons",
+    "file": "核验_icons.json",
+    "chars": 20689,
+    "tools": 5
+  },
+  {
+    "label": "调研:motion",
+    "file": "调研_motion.json",
+    "chars": 24417,
+    "tools": 8
+  },
+  {
+    "label": "核验:cjk-fonts",
+    "file": "核验_cjk-fonts.json",
+    "chars": 28277,
+    "tools": 7
+  },
+  {
+    "label": "调研:latin-fonts",
+    "file": "调研_latin-fonts.json",
+    "chars": 19412,
+    "tools": 8
+  },
+  {
+    "label": "核验:mono-fonts",
+    "file": "核验_mono-fonts.json",
+    "chars": 21150,
+    "tools": 8
+  },
+  {
+    "label": "核验:latin-fonts",
+    "file": "核验_latin-fonts.json",
+    "chars": 30540,
+    "tools": 8
+  },
+  {
+    "label": "核验:motion",
+    "file": "核验_motion.json",
+    "chars": 17774,
+    "tools": 6
+  },
+  {
+    "label": "集成方案",
+    "file": "集成方案.md",
+    "chars": 20578,
+    "tools": 3
+  },
+  {
+    "label": "合规复核",
+    "file": "合规复核.md",
+    "chars": 19618,
+    "tools": 8
+  },
+  {
+    "label": "合成清单",
+    "file": "合成清单.md",
+    "chars": 42624,
+    "tools": 3
+  },
+  {
+    "label": "完整性批判",
+    "file": "完整性批判.md",
+    "chars": 4468,
+    "tools": 6
+  },
+  {
+    "label": "补漏",
+    "file": "补漏.md",
+    "chars": 12313,
+    "tools": 8
+  }
+]

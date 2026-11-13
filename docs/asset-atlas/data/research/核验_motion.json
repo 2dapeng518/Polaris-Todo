@@ -1,0 +1,217 @@
+{
+  "category": "动画与微交互（Animation & Micro-interactions）",
+  "checked": [
+    {
+      "name": "Motion <AnimateView> (motion/react-animate-view)",
+      "verdict": "pass",
+      "finalLicenseSpdx": "MIT",
+      "finalLicenseUrl": "https://raw.githubusercontent.com/motiondivision/motion/main/LICENSE.md",
+      "licenseQuote": "The MIT License (MIT) — Copyright (c) 2024 Motion B.V. — \"Permission is hereby granted, free of charge, to any person obtaining a copy\"",
+      "urlChecks": [
+        {
+          "url": "https://raw.githubusercontent.com/motiondivision/motion/main/LICENSE.md",
+          "ok": true,
+          "note": "抓到原文，标题 The MIT License (MIT)，版权行 Copyright (c) 2024 Motion B.V.，与调研声称一致。"
+        },
+        {
+          "url": "https://motion.dev/docs/react-animate-view",
+          "ok": true,
+          "note": "页面真实存在，<title>AnimateView — Motion for React</title>。逐句核到原文：\"AnimateView no longer requires a Motion+ membership or access token.\"、\"React and React DOM 19.3 or later are required by AnimateView.\"、\"Import from the dedicated \\\"motion/react-animate-view\\\" entry point — it is not exported from \\\"motion/react\\\".\"、\"Wrap state changes in startTransition to trigger a view transition. Without it, no transition runs.\"、\"powered by Motion's mini animate() and React's ViewTransition\"。调研引用的五处全部属实。首次抓取报 Socket is closed，重试后成功。"
+        },
+        {
+          "url": "https://github.com/motiondivision/motion",
+          "ok": true,
+          "note": "仓库真实，README 原文 \"Motion is MIT licensed.\"；Motion+ 是另售的示例/教程/Cursor/Ticker/AI Kit，与本组件分离。"
+        },
+        {
+          "url": "https://registry.npmjs.org/motion/latest",
+          "ok": true,
+          "note": "version 14.13.0、license MIT，exports 含 \"./react-animate-view\" 与 \"./mini\"，与调研的 registry 最新版一致。"
+        }
+      ],
+      "corrections": "无。许可证、四个链接、免费声明全部核实属实。补充三项本机独立复核（不是照抄调研）：(1) node_modules/motion/package.json 版本 14.12.0、license MIT，exports 键实测为 . ./debug ./mini ./three ./vgpu ./remix ./react ./react-client ./react-m ./react-mini ./react-animate-view ./package.json，dist/es/react-animate-view.mjs 确实存在；react 与 react-dom 均为 19.3.1，满足 ≥19.3。(2) 对 framer-motion/dist/es/components/AnimateView/ 整目录 grep useReducedMotion|reducedMotion|prefers-reduced-motion，命中 0 —— 源码级证实「MotionConfig 管不到 AnimateView、reduced motion 必须自己补」这条警告成立，不是推测。(3) motion.dev/docs/react-motion-config 抓到原文 \"Other animations, like opacity and backgroundColor, will persist.\"，证实 notes 里「MotionConfig reducedMotion=\\\"user\\\" 不等于直接渲染终态」的缺口属实。",
+      "riskLevel": "attribution-required"
+    },
+    {
+      "name": "Motion mini / hybrid animate() + SVG pathLength 描边",
+      "verdict": "pass",
+      "finalLicenseSpdx": "MIT",
+      "finalLicenseUrl": "https://raw.githubusercontent.com/motiondivision/motion/main/LICENSE.md",
+      "licenseQuote": "The MIT License (MIT) — Copyright (c) 2024 Motion B.V. — \"Permission is hereby granted, free of charge, to any person obtaining a copy\"",
+      "urlChecks": [
+        {
+          "url": "https://raw.githubusercontent.com/motiondivision/motion/main/LICENSE.md",
+          "ok": true,
+          "note": "MIT 原文，同候选 1。"
+        },
+        {
+          "url": "https://motion.dev/docs/react-reduce-bundle-size",
+          "ok": true,
+          "note": "抓到原文体积表：useAnimate mini \"3.3kb\"、hybrid \"23kb\"，与调研引用的 3.3kb/23kb 逐字一致；同页确认 import 路径 \"motion/react-m\" 与 LazyMotion/domAnimation/domMax 来自 \"motion/react\"。"
+        },
+        {
+          "url": "https://motion.dev/docs/react-svg-animation",
+          "ok": true,
+          "note": "页面真实（<title>SVG Animation — Motion for React</title>）。抓到原文 \"These values work on `path`, `circle`, `ellipse`, `line`, `polygon`, `polyline`, `rect`.\"，以及 pathLength=total drawn length / pathSpacing=length between segments / pathOffset=where the segment starts，示例 initial={{pathLength:0}} animate={{pathLength:1}}。调研引用属实。"
+        },
+        {
+          "url": "https://bundlephobia.com/api/size?package=motion@14.13.0",
+          "ok": true,
+          "note": "直接取 API JSON：size=187900、gzip=64325、version=14.13.0，与调研写的 187,900 B raw / 64,325 B gzip 完全一致，非估算。dependencyCount=2。"
+        }
+      ],
+      "corrections": "无。许可、链接、体积三类全部对上。两点补充：(1) bundlephobia 的 dependencyCount=2（motion-dom / motion-utils），所以「零新增依赖」只在「motion 已装」的前提下成立，措辞本身没问题。(2) 本机实测 motion 14.12.0 的 exports 确有 \"./mini\" 与 \"./react-mini\"，dist/es/mini.mjs 与 react-mini.mjs 均存在，`import { animate } from 'motion/mini'` 的写法可用。落点 TaskItem.tsx:52-56 也核过：现状确为 initial scale 0.4→1 + opacity、duration 0.14、Check size=12 strokeWidth=2.6 stroke=var(--check-mark)，替换描述准确。",
+      "riskLevel": "attribution-required"
+    },
+    {
+      "name": "Native CSS one-shot entry (@starting-style / transition-behavior: allow-discrete / interpolate-size)",
+      "verdict": "corrected",
+      "finalLicenseSpdx": "NONE",
+      "finalLicenseUrl": "https://raw.githubusercontent.com/electron/electron/main/LICENSE",
+      "licenseQuote": "w3c/csswg-drafts LICENSE.md 原文：\"All documents in this Repository are licensed by contributors under the\" → W3C Software and Document License。Electron LICENSE 原文：\"Copyright (c) Electron contributors\" / \"Copyright (c) 2013-2020 GitHub Inc.\"（MIT）",
+      "urlChecks": [
+        {
+          "url": "https://raw.githubusercontent.com/w3c/csswg-drafts/main/LICENSE.md",
+          "ok": true,
+          "note": "抓到原文，确为 W3C Software and Document License，只覆盖规范文档文本。调研引用属实，但它管不到 Polaris 分发的任何东西。"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/electron/electron/main/LICENSE",
+          "ok": true,
+          "note": "MIT，两行版权与调研引用逐字一致。这是本条目里唯一真正随 NSIS 安装包分发的运行时许可。"
+        },
+        {
+          "url": "https://www.electronjs.org/blog/electron-45-0",
+          "ok": true,
+          "note": "真实发布说明（2026-10-21，作者 ckerr），原文 \"Chromium 156.0.8078.48, V8 15.6, and Node v24.22.0\"，与调研引用一致。但它是运行时版本公告，不是 @starting-style / allow-discrete / interpolate-size 的功能文档，当 homepage 用属于弱相关。"
+        },
+        {
+          "url": "https://motion.dev/docs/react-animate-view",
+          "ok": false,
+          "note": "链接本身能打开，但指向的是候选 1 的 Motion AnimateView 组件文档，跟本条目的原生 CSS 入场配方不是同一个素材，不能当预览。判定为「指向别的东西」。"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/w3c/csswg-drafts/main/css-transitions-2/Overview.bs",
+          "ok": true,
+          "note": "补的可达一手规范源：HTTP 200，正文含 @starting-style 与 allow-discrete 定义。"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/w3c/csswg-drafts/main/css-values-5/Overview.bs",
+          "ok": true,
+          "note": "补的可达一手规范源：HTTP 200，正文含 interpolate-size 定义。"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/w3c/csswg-drafts/main/css-view-transitions-1/Overview.bs",
+          "ok": true,
+          "note": "补的可达一手规范源：HTTP 200，正文含 view-transition-group，可用于候选 1 的 reduced motion 伪元素补丁。"
+        }
+      ],
+      "corrections": "改了两处。(1) 许可证字段：原 licenseSpdx=\"LicenseRef-自定义\" + 指向 w3c/csswg-drafts 的 LICENSE，会让下游误以为存在自定义 EULA 义务。本条目不是第三方素材，是 Chromium 内置能力，不随包分发任何 W3C 文本，也不引入任何署名/分发义务。改为 finalLicenseSpdx=NONE，许可证链接改指真正随包分发的 Electron MIT LICENSE；W3C 文档许可原文已抓到并保留在 urlChecks 里备查，但对 Polaris 无约束力。(2) previewUrl 无效：原值 https://motion.dev/docs/react-animate-view 打开的是 Motion AnimateView 文档，不是原生 CSS 入场，标 ok=false。已补三个实测 HTTP 200 的一手规范源（css-transitions-2 定义 @starting-style 与 allow-discrete、css-values-5 定义 interpolate-size、css-view-transitions-1 定义 view-transition-group），都在同一个 csswg-drafts 仓库、同一份许可下，且 raw.githubusercontent 本机可达 —— 这解决了调研 notes 里「MDN / w3.org / drafts.csswg.org 全部抓不到」的取证缺口。另：本机独立确认 node_modules/electron 版本 45.3.0；globals.css:83 --ease-out、2425 @keyframes detail-in、2434 @keyframes pop-in、3346 @media (prefers-reduced-motion: reduce){*,*::before,*::after{animation-duration:0.01ms!important;transition-duration:0.01ms!important}} 四处行号与内容全部核对属实。调研自称的 Electron 探针（Chromium 156.0.8078.96）我没有复跑，只核实了 Electron 版本与官方公告的 156.0.8078.48，补丁号差异属正常，探针结论标为「调研自测、未复核」。",
+      "riskLevel": "none"
+    },
+    {
+      "name": "Motion layout animation + LazyMotion / m 瘦身",
+      "verdict": "pass",
+      "finalLicenseSpdx": "MIT",
+      "finalLicenseUrl": "https://raw.githubusercontent.com/motiondivision/motion/main/LICENSE.md",
+      "licenseQuote": "The MIT License (MIT) — Copyright (c) 2024 Motion B.V. — \"Permission is hereby granted, free of charge, to any person obtaining a copy\"",
+      "urlChecks": [
+        {
+          "url": "https://raw.githubusercontent.com/motiondivision/motion/main/LICENSE.md",
+          "ok": true,
+          "note": "MIT 原文，同候选 1。"
+        },
+        {
+          "url": "https://motion.dev/docs/react-layout-animations",
+          "ok": true,
+          "note": "抓到三处原文：\"Layout animations are around 12kb in size.\"、\"SVG components aren't currently supported with layout animations.\"、\"`border` can't render smaller than `1px`, which limits the degree of scale correction\"，并给出 padded parent 代替 border 的示例。Motion vs View Transitions 对比表也逐项核实：不可中断（snaps to end）、遮挡指针事件、一次只能一个、滚动 delta 计算错误、重名 ID 会坏。调研引用全部属实。"
+        },
+        {
+          "url": "https://motion.dev/docs/react-reduce-bundle-size",
+          "ok": true,
+          "note": "抓到原文：motion 组件最小 \"43kb\"、m+LazyMotion \"just over 5kb\"、domAnimation \"+24kb\"（不含 layout/pan/drag）、domMax \"+38kb\"（含 layout）。调研的「只能用 domMax、同步加载 5+38≈43kb 几乎没省」这笔诚实账，数字与包含关系全部对得上。strict 会抛错的说明也在原文。"
+        },
+        {
+          "url": "https://registry.npmjs.org/motion/latest",
+          "ok": true,
+          "note": "14.13.0 / MIT，exports 含 \"./react-m\"，本机 14.12.0 同样有该键。"
+        }
+      ],
+      "corrections": "无（许可、链接、体积、domAnimation/domMax 包含关系全部属实）。附一处措辞需要收敛，不影响结论：调研 notes 写「官方自己的压测里快照方案比 layout 动画更慢更耗内存」，但我抓到的 layout 页只有对比表和 FAQ 里的 \"less performant with many elements\"，没有任何压测数据或内存数字，不应写成官方实测结论。另核实两处仓库落点与一处数学：TaskItem.tsx:38 确为 layout、:42 确为 { type:'spring', stiffness:420, damping:40 }；ζ=40/(2√420)=0.976 计算无误，确为欠阻尼，改 tween 的建议成立。",
+      "riskLevel": "attribution-required"
+    },
+    {
+      "name": "Motion spring() → 构建期生成 CSS linear() 缓动",
+      "verdict": "corrected",
+      "finalLicenseSpdx": "MIT",
+      "finalLicenseUrl": "https://raw.githubusercontent.com/motiondivision/motion/main/LICENSE.md",
+      "licenseQuote": "The MIT License (MIT) — Copyright (c) 2024 Motion B.V. — \"Permission is hereby granted, free of charge, to any person obtaining a copy\"",
+      "urlChecks": [
+        {
+          "url": "https://raw.githubusercontent.com/motiondivision/motion/main/LICENSE.md",
+          "ok": true,
+          "note": "MIT 原文，同候选 1。生成物是一串 CSS 数值，不含第三方代码。"
+        },
+        {
+          "url": "https://motion.dev/docs/css",
+          "ok": true,
+          "note": "页面可达，抓到 \"toString() returns the spring as a CSS duration and easing.\"、\"A spring(visualDuration, bounce) shorthand.\"、示例 transition: transform ${spring(0.5, 0.2)} → transition: transform 800ms linear(...)。但调研挂在同一页名下的另两句（duration 单位是毫秒、负 bounce 过阻尼不过冲）在本页抓不到。"
+        },
+        {
+          "url": "https://motion.dev/docs/spring",
+          "ok": true,
+          "note": "上一条缺的两句在这里，原文：\"When using duration directly via the spring() function, it must be specified in milliseconds. The visualDuration option uses seconds instead.\" 与 \"0 is critically damped (no overshoot), positive values add bounce, negative values create overdamped motion that starts quicker then settles slowly.\"。语义与调研一致，但出处应改标 /docs/spring。"
+        },
+        {
+          "url": "https://github.com/motiondivision/motion",
+          "ok": true,
+          "note": "仓库真实，README \"Motion is MIT licensed.\"。"
+        }
+      ],
+      "corrections": "许可与链接没问题，改的是集成方案里一个会直接写错时长的数值断言。调研写「取 String(spring(0.2, 0)) 得到形如 200ms linear(0, 0.006, ...) 的字符串」——我用本机已装的 motion 14.12.0 实跑，真实输出是 400ms linear(0, 0.2175, 0.5207, 0.7361, 0.8631, 0.9317, 0.9668, 0.9842, 0.9926, 0.9966, 0.9984, 0.9993, 1)，是 400ms 不是 200ms，直接照抄会做出一个 400ms 的浮层入场，超出设计硬约束的 320ms 上限。实测对照：spring(0.1,0)→250ms、spring(0.12,0)→250ms、spring(0.2,-0.2)→450ms，都不等于 visualDuration×1000。要精确落在 Polaris 的 200ms，正确写法是对象式并显式给 keyframes：String(spring({ duration: 200, bounce: 0, keyframes: [0, 1] })) → \"200ms linear(0, 0.4551, 0.8122, 0.9445, 0.9848, 0.996, 1)\"；漏掉 keyframes 会抛 TypeError: Cannot read properties of undefined (reading '0')（motion-dom/dist/es/animation/generators/spring.mjs:208），已实测。另两处小改：(a) 毫秒单位与负 bounce 的引文出处从 /docs/css 改为 /docs/spring；(b) 官方 /docs/css 示例说 spring(0.5,0.2) 输出 800ms，本机 14.12.0 实跑是 900ms，文档示例不能当精确产物引用。bounce 0 与 -0.2 不过冲这条我按数值验过：生成的 linear() 采样点没有任何 >1 的值，成立。",
+      "riskLevel": "none"
+    },
+    {
+      "name": "tw-animate-css",
+      "verdict": "corrected",
+      "finalLicenseSpdx": "MIT",
+      "finalLicenseUrl": "https://raw.githubusercontent.com/Wombosvideo/tw-animate-css/main/LICENSE",
+      "licenseQuote": "MIT License — Copyright (c) 2025 Wombosvideo — \"Permission is hereby granted, free of charge, to any person obtaining a copy\"",
+      "urlChecks": [
+        {
+          "url": "https://raw.githubusercontent.com/Wombosvideo/tw-animate-css/main/LICENSE",
+          "ok": true,
+          "note": "抓到原文，MIT License / Copyright (c) 2025 Wombosvideo，与调研逐字一致。"
+        },
+        {
+          "url": "https://github.com/Wombosvideo/tw-animate-css",
+          "ok": true,
+          "note": "仓库真实，侧栏与徽章均为 MIT。README 原文核到 \"The upcoming release v2.0.0 will include breaking changes.\"、\"This package is a replacement for tailwindcss-animate.\"、npm install -D tw-animate-css、accordion-down/accordion-up、blur-in-*/blur-out-*、caret-blink 全部存在。"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/Wombosvideo/tw-animate-css/main/README.md",
+          "ok": true,
+          "note": "原文只给出 @import \"tw-animate-css\";（手动下载则 @import \"./tw-animate.css\";），全篇没有与 @import \"tailwindcss\" 的先后顺序说明。"
+        },
+        {
+          "url": "https://registry.npmjs.org/tw-animate-css/latest",
+          "ok": true,
+          "note": "version 1.4.0、license MIT、dist.unpackedSize 47012，无 dependencies 也无 peerDependencies。三项与调研一致。"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/Wombosvideo/tw-animate-css/main/src/tw-animate.css",
+          "ok": true,
+          "note": "直接下载实测 17423 字节，与调研的 17,423 B 精确一致。本地 grep：prefers-reduced-motion 命中 0 次；第 270 行 --animate-caret-blink: caret-blink 1.25s ease-out infinite;（无限循环，违反硬约束 5，必须禁用）。两条都属实。"
+        },
+        {
+          "url": "https://github.com/Wombosvideo/tw-animate-css#readme",
+          "ok": true,
+          "note": "作为 previewUrl 可用，但确实只是工具类清单，没有可视化 demo，调研已如实标注。"
+        }
+      ],
+      "corrections": "许可证、版本号、两处体积、reduced motion 缺失、caret-blink 无限循环全部核实属实，这些不改。改两处集成描述：(1)「@import 顺序不能反」在 README 与仓库页都找不到依据，属于调研自行添加的未标注推断，降级为「未验证；Tailwind v4 的 @import 层叠顺序需自行确认」，不要写成官方要求。(2)「accordion 需要 --radix-accordion-content-height 之类的内容高度变量，Polaris 可以自己量一次写进 CSS 变量」不准确：实测 1.4.0 的 @keyframes accordion-down 是 var(--radix-accordion-content-height, var(--bits-…, var(--reka-…, var(--kb-…, var(--ngp-accordion-content-height, auto))))) 的多级回落，最终兜底 auto，变量不是硬性必需，Polaris 可以完全不量高度；代价是 height:auto 的补间在 Chromium 需要 :root{interpolate-size:allow-keywords}（正好是候选 3 的能力）。这一改让候选 6 唯一的推荐理由从「必须自己量高度」变成「零测量即可折叠」，结论方向不变但成本更低。另：bundlephobia 对 tw-animate-css 取不到数据（纯 CSS 包无 JS 入口），所以体积只能引 registry unpackedSize 与源文件字节数，这两个我已实测。",
+      "riskLevel": "attribution-required"
+    }
+  ],
+  "summary": "宝贝，6 条候选全部核完：3 条 pass（AnimateView、mini+pathLength、layout+LazyMotion），3 条 corrected（原生 CSS 入场、spring() 生成缓动、tw-animate-css），0 条 drop。许可证全部抓到一手原文，没有一条对不上：motion 系四条均为 MIT（Copyright (c) 2024 Motion B.V.），tw-animate-css 为 MIT（Copyright (c) 2025 Wombosvideo），不存在把自定义 EULA 说成 MIT 的情况。\n\n最要紧的一处事实错误在候选 5：调研说 String(spring(0.2, 0)) 产出 200ms，我用本机已装的 motion 14.12.0 实跑是 400ms，照抄会做出超出 320ms 硬约束的浮层入场。精确 200ms 的正确写法是 spring({ duration: 200, bounce: 0, keyframes: [0, 1] })，漏 keyframes 直接抛 TypeError。候选 3 的 previewUrl 指向的是候选 1 的 Motion 文档（标 ok=false），SPDX 从 LicenseRef-自定义 改为 NONE 并改指真正随包分发的 Electron MIT；同时补了三个实测 HTTP 200 的 csswg-drafts 规范源，填上调研「MDN/w3.org 全抓不到」的取证缺口。候选 6 的「@import 顺序不能反」无出处，accordion 高度变量实际有 auto 兜底、不必自己量。\n\nrejected 名单抽查全部成立，没有冤枉：animate.css 仓库 LICENSE 第三行确为 \"Hippocratic License Version Number: 2.1.\"，而 npm registry 的 license 字段仍是 \"MIT\"——这个陷阱是真的；Lottie Simple License 的文件级 share-alike、禁止附加条款、竞争性用途限制三条原文逐字核到；Rive README 原文 \"Free exports play a short Rive splash screen; paid plans export without it.\" 属实。registry 核对版本与许可：gsap 3.15.1（license 字段就是 \"Standard 'no charge' license: https://gsap.com/standard-license.\"，非 OSI）、auto-animate 0.10.2、animejs 4.5.0、lottie-web 5.13.0、dotlottie-web 0.83.2、@rive-app/canvas 2.50.0、tailwindcss-animate 1.0.7 均 MIT，版本号无一写错。bundlephobia 体积也逐个复算：motion 187900/64325、auto-animate 8786/3459、animejs 117314/40512、lottie-web 305885/76789、dotlottie gzip 31446、rive 345367/86646，与调研数字全部精确一致。\n\n未验证项如实标注：gsap.com/standard-license 本机 curl 报 schannel SSL 握手失败、WebFetch 四次均 Socket is closed，该页原文我没抓到；但 npm registry 的 license 字段已独立证明它不是开源许可，驳回结论不受影响。调研自称的 Electron 探针（Chromium 156.0.8078.96、各项 CSS 特性可用）我没有复跑，只核实了本机 Electron 45.3.0 与官方公告的 Chromium 156.0.8078.48 / V8 15.6 / Node v24.22.0；lottie_light.min.js 的本地 gzip 实测值与 jsDelivr 的 WASM 字节清单也未复核。\n\n额外做了源码级复核支持调研的两条 reduced motion 警告：framer-motion/dist/es/components/AnimateView/ 整目录 grep reducedMotion 命中 0，AnimateView 确实不管 reduced motion；motion-config 文档原文 \"Other animations, like opacity and backgroundColor, will persist.\" 也属实。仓库行号锚点（globals.css:83/2425/2434/3346、TaskItem.tsx:38/42/52-56）逐一核对无误。离线合规成立：六条候选全部可本地化，无一需要 CDN、WASM 下载或外部运行时。本次核验没有改动仓库任何文件、没有安装任何包，下载的核对材料隔离在 C:\\Users\\jelly\\AppData\\Local\\Temp\\polaris-verify-raw\\。\n\n**已完成**\n- 6 条候选的许可证原文、链接、版本、体积全部实抓核对，3 条确认、3 条纠错，没有一条需要驳回。\n- 揪出一个会写错动画时长的硬伤（spring(0.2,0) 是 400ms 不是 200ms），并给出实测可用的替代写法。\n- 顺手抽查了 11 条 rejected，许可陷阱和体积数字都站得住。\n\n**剩余**\n- gsap.com 许可页本机连不上，原文未取到（不影响驳回结论）；Electron 探针和几个 WASM 体积没复跑。"
+}

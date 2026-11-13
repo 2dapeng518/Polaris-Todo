@@ -1,0 +1,188 @@
+{
+  "category": "插画与空状态（Illustrations & Empty States）",
+  "candidates": [
+    {
+      "name": "shadcn/ui Empty",
+      "nameZh": "空状态骨架组件",
+      "oneLiner": "不是插画，是一套「媒体槽 + 标题 + 说明 + 操作」的空状态组合式骨架；默认媒体槽就是一个 40px 图标容器，全站零插画，正好是安静工具型产品的空状态语言。",
+      "homepage": "https://ui.shadcn.com/docs/components/empty",
+      "previewUrl": "https://github.com/shadcn-ui/ui/blob/main/apps/v4/registry/new-york-v4/ui/empty.tsx",
+      "repoUrl": "https://github.com/shadcn-ui/ui",
+      "npmPackage": "",
+      "version": "",
+      "licenseSpdx": "MIT",
+      "licenseUrl": "https://raw.githubusercontent.com/shadcn-ui/ui/main/LICENSE.md",
+      "licenseEvidence": "MIT License / Copyright (c) 2023 shadcn",
+      "licenseCaveat": "只需保留版权与许可声明（抄进源码时在文件头或安装包内 THIRD_PARTY_NOTICES 注明）。无署名展示要求、无再分发限制，可随 NSIS 出货。",
+      "sizeNote": "单文件 6 个导出：Empty / EmptyHeader / EmptyMedia / EmptyTitle / EmptyDescription / EmptyContent。EmptyMedia 的 icon variant 是固定 size-10（40px）容器 + 子 SVG 强制 size-6（24px）。原文件依赖 class-variance-authority 与 cn(tailwind-merge)，Polaris 移植时这两个都可以去掉，净增 0 依赖。",
+      "themeFit": "纯结构、零颜色资产。移植时把 muted-foreground → var(--text-tertiary)、border → var(--line)、bg-muted → var(--surface-1)，媒体槽里放 lucide-react 图标走 currentColor。六套主题零覆盖成本。",
+      "recommendedUse": "用来重写 src/renderer/src/components/EmptyState.tsx 的组合结构：现在三种 view 的标题/说明是三元表达式写死的，将来加「项目内无任务」「搜索无结果」「已完成按项目筛选」就得改组件本体。改成 EmptyHeader/EmptyTitle/EmptyDescription/EmptyContent 后，媒体槽固定放四角星轨道，文案由调用方传入。",
+      "integration": "不要 npm 安装（shadcn 是 copy-paste registry，不是运行时包）。照抄 apps/v4/registry/new-york-v4/ui/empty.tsx 的 DOM 层级，删掉 cva/cn，class 换成 Polaris 现有的 .empty-state / .empty-orbit / .empty-title / .empty-desc / .empty-cta。落点：src/renderer/src/components/EmptyState.tsx（改写）+ src/renderer/src/styles/globals.css 约 2828 行起的 /* ---------- empty state ---------- */ 段。注意别抄它默认的 dashed border 和 p-6 md:p-12 —— Polaris 是安静表面，现有 padding 76px 24px 64px 保留。",
+      "replacesExisting": "替换现有 EmptyState.tsx 的「结构」而非视觉：四角星 + 轨道环 + 18px 标题 + 13px 说明的视觉全部保留，只把写死的文案三元式换成可组合 API。",
+      "score": 7
+    },
+    {
+      "name": "Primer Blankslate (GitHub)",
+      "nameZh": "GitHub 空状态版式参照",
+      "oneLiner": "GitHub 自家产品里用了多年的空状态组件：图标 → 标题 → 一句解释 → 主/次操作，示例里直接放 <BookIcon>，明确不用插画。是「安静工具」空状态最有说服力的现成参照。",
+      "homepage": "https://primer.style/components/blankslate",
+      "previewUrl": "https://primer.style/components/blankslate",
+      "repoUrl": "https://github.com/primer/react",
+      "npmPackage": "",
+      "version": "",
+      "licenseSpdx": "MIT",
+      "licenseUrl": "https://raw.githubusercontent.com/primer/react/main/LICENSE",
+      "licenseEvidence": "MIT License / Copyright (c) 2018 GitHub, Inc.",
+      "licenseCaveat": "保留版权行即可，可随安装包分发。但文档把 React 版标为 experimental（Rails 版 ready），不要因此引入整个 @primer/react。",
+      "sizeNote": "文档示例原文：<Blankslate.Visual><BookIcon size=\"medium\" /></Blankslate.Visual> —— 视觉位就是图标，没有位图/插画资产，体积成本为零。",
+      "themeFit": "不携带任何颜色资产，只借版式约定；映射到 --text（标题）/ --text-tertiary（说明）/ --line（可选分隔）。六套主题自动跟随。",
+      "recommendedUse": "当设计参照用，不落代码：用它校验 Polaris 现有 empty-title 18px / empty-desc 13px / CTA 36px 的层级比例，以及「说明只写一句、CTA 只给一个」的克制原则。特别是「已完成」视图现在连 CTA 都没有，可以按 Blankslate 的次操作位补一个「查看今天」。",
+      "integration": "零依赖、不装包。把结论写进 design-system/polaris-design/references/ 的空状态条目，代码仍走 src/renderer/src/components/EmptyState.tsx。若要抄结构，只抄 Visual/Heading/Description/Actions 四段划分，不要引 Primer 的 CSS 变量体系（与 Polaris 的 --surface-1 命名冲突）。",
+      "replacesExisting": "新增（设计参照，不产生运行时依赖）",
+      "score": 6
+    },
+    {
+      "name": "Open Doodles",
+      "nameZh": "开放涂鸦",
+      "oneLiner": "Pablo Stanley 的手绘线稿涂鸦集，黑白线条为主、少量色块，逐张提供 SVG/PNG（部分有 GIF），CC0 公共领域。",
+      "homepage": "https://www.opendoodles.com/",
+      "previewUrl": "https://www.opendoodles.com/",
+      "repoUrl": "https://github.com/lunahq/react-open-doodles",
+      "npmPackage": "react-open-doodles",
+      "version": "1.0.5（第三方 React 包装，非素材本体）",
+      "licenseSpdx": "CC0-1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/legalcode",
+      "licenseEvidence": "官网原文：\"Free for Commercial and Personal Use. No need to credit, license, or anything.\" 并挂 CC0 Public Domain 徽章；CC0 原文：\"for any purposes, including without limitation commercial purposes\"。",
+      "licenseCaveat": "无。CC0 可改色、可随 NSIS 安装包分发、不需署名。注意 react-open-doodles 的 MIT 只覆盖包装代码，素材本体仍是 CC0。",
+      "sizeNote": "react-open-doodles 1.0.5 的 dist.unpackedSize = 4,761,379 字节（约 4.5 MB，含 PNG），peerDependencies 只写 react ^15.0.0 || ^16.0.0，与 React 19 不兼容。单张 SVG 手抄成组件后通常 2–8 KB。",
+      "themeFit": "线稿是纯黑 path，改成 fill/stroke=\"currentColor\" 后由父级 color: var(--text-tertiary) 驱动；想强调的那一块单独填 var(--accent)。这是本轮所有插画里主题适配成本最低的一个，六套主题零覆盖。",
+      "recommendedUse": "只挑 1–2 张静态、无人物夸张动作的构图（阅读/静坐/冥想类），用在「已完成」视图的空状态——那里目前只有一颗星且没有 CTA，最空。不要用在「今天」首屏，四角星轨道已经足够，加人物会把安静的工具变成营销页。",
+      "integration": "不要 npm i react-open-doodles（React 19 peer 冲突 + 4.5 MB）。从官网逐张下 SVG，落到 src/renderer/src/assets/illustrations/*.svg，再照 src/renderer/src/components/PolarisMark.tsx 的写法手抄成 src/renderer/src/components/illustrations/EmptyCompleted.tsx：fill 写成 style={{ fill: 'var(--text-tertiary)' }}，强调块 var(--accent)，<svg> 上加 aria-hidden=\"true\"。Vite 的 import raw from '...svg?raw' + dangerouslySetInnerHTML 也可行（项目当前 grep 不到任何 CSP），但手抄组件能顺手剔掉第三方 SVG 里的 <style>/<script>，更可控。",
+      "replacesExisting": "新增。现有 EmptyState 只有星 + 环，没有插画位。",
+      "score": 6
+    },
+    {
+      "name": "IRA Design",
+      "nameZh": "IRA 渐变插画",
+      "oneLiner": "Creative Tim 的手绘 sketch 组件库，人物/物件/背景自由拼装，5 套预设渐变；MIT 许可，是本轮唯一「真正 OSI 开源 + 可参数化颜色」的插画库。",
+      "homepage": "https://iradesign.io/",
+      "previewUrl": "https://www.creative-tim.com/tools/ira-design",
+      "repoUrl": "https://github.com/ira-design/ira-illustrations",
+      "npmPackage": "",
+      "version": "",
+      "licenseSpdx": "MIT",
+      "licenseUrl": "https://raw.githubusercontent.com/ira-design/ira-illustrations/master/LICENSE.md",
+      "licenseEvidence": "MIT License / Copyright (c) 2013-2021 Creative Tim (https://www.creative-tim.com) / \"Permission is hereby granted, free of charge, to any person obtaining a copy\"",
+      "licenseCaveat": "需在安装包内保留版权与许可声明（建议 build/THIRD_PARTY_NOTICES.txt + electron-builder extraResources）。除此之外无限制，可随 NSIS 分发、可改色、不需界面署名。",
+      "sizeNote": "README 原文：36 characters (19 Gradient + 17 Outline)、52 objects (26 Gradient + 26 Outline)、15 backgrounds、5 gradients；导出 AI/SVG/PNG。SVG 资产在仓库的 SVG 分支，路径 SVG/SVG.zip。",
+      "themeFit": "渐变版是 5 套固定多色渐变（紫/蓝/橙等），直接用会违反「一个 teal 信号色」。两条路：(1) 只用 Outline 版，stroke=currentColor 继承 --text-tertiary；(2) 用渐变版但把 <linearGradient> 的 stop 改成 var(--mark-a)/var(--mark-b)，即 PolarisMark 已有的 teal→violet，且只允许出现在空状态构图里。",
+      "recommendedUse": "只取 Outline 的人物/物件拼一个小场景，用在「项目视图内无任务」。渐变版最多用于一次性的首启引导，且必须先换成 Polaris 的 teal→violet，不能保留原配的多色渐变。",
+      "integration": "从 https://github.com/ira-design/ira-illustrations 的 SVG 分支取 SVG/SVG.zip，解压到仓库外的独立临时目录（下载物按不可信数据处理），只把选中的 3–5 个 SVG 拷进 src/renderer/src/assets/illustrations/ira/，再手抄成 React 组件。关键坑：渐变 id 必须加唯一前缀（如 ira-grad-a），否则会和 PolarisMark.tsx 里的 id=\"polaris-gradient\" 在同一文档里撞 id，导致星标记取到别人的渐变。",
+      "replacesExisting": "新增",
+      "score": 5
+    },
+    {
+      "name": "Humaaans",
+      "nameZh": "混搭人物插画",
+      "oneLiner": "Pablo Stanley 的分层人物插画库（发型/上衣/裤子/姿势可混搭）。重要更正：官网当前标注的是 CC0，不是任务里假设的 CC BY 4.0。",
+      "homepage": "https://www.humaaans.com/",
+      "previewUrl": "https://www.humaaans.com/",
+      "repoUrl": "",
+      "npmPackage": "react-humaaans",
+      "version": "1.0.1（第三方 React 包装，非素材本体）",
+      "licenseSpdx": "CC0-1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/legalcode",
+      "licenseEvidence": "官网原文（两次抓取一致）：\"CC0 Free for commercial or personal use by Pablo Stanley.\" 与 \"Free for commercial or personal use. CC0 Public DomainLicense\"，license 链接 href 指向 https://creativecommons.org/share-your-work/public-domain/cc0/",
+      "licenseCaveat": "与任务假设不符：官网只字未提 BY/attribution/credit，写的是 CC0。但站内没有独立 LICENSE 文件，只有 CC0 说明页链接；第三方 allsvgicons.com（2025）声称它「不是正式 CC0」。保守做法：按 CC0 用，同时在 THIRD_PARTY_NOTICES 里自愿署名 Pablo Stanley + humaaans.com（成本为零）。另注意 CC0 只放弃著作权，人物形象的肖像/人格权不在授权范围内。",
+      "sizeNote": "react-humaaans 1.0.1 的 dist.unpackedSize = 1,657,351 字节（约 1.6 MB），peerDependencies 锁 react 16.6.3，dependencies 含 fs@^0.0.1-security（npm 占位包）与 tinycolor2 —— 沙箱渲染器里绝对不要装。",
+      "themeFit": "最差的一类：写实多色色块（肤色/发色/衣服），无法靠 currentColor 继承，必须逐层颜色覆盖——衣服/物件改 var(--accent)，肤色与背景改 --surface-2 / --line 派生值，且六套主题下要分别复核对比度。工作量数倍于线稿类。",
+      "recommendedUse": "不推荐进主界面。真要用，只用在设置面板的「关于/欢迎」这类一次性插图，且只取单人剪影，不要多人场景。",
+      "integration": "官网 Download 走 Gumroad（页面上的 gum.co/humaaans）拿源文件，不要 npm i react-humaaans。选中的 SVG 落 src/renderer/src/assets/illustrations/humaaans/，手抄组件时把每个 fill 换成 CSS 变量；分层文件先合并再抄，避免几十个 <g> 带进渲染树。",
+      "replacesExisting": "新增",
+      "score": 4
+    },
+    {
+      "name": "Lukasz Adam MIT Free Illustrations",
+      "nameZh": "Lukasz Adam MIT免费插画",
+      "oneLiner": "扁平 SaaS 风格的免费插画包，含 Outline Characters 线稿组；站点声称 CC0（同时又写 MIT），无署名要求，但下载需填邮箱。",
+      "homepage": "https://lukaszadam.com/illustrations",
+      "previewUrl": "https://lukaszadam.com/illustrations",
+      "repoUrl": "",
+      "npmPackage": "",
+      "version": "",
+      "licenseSpdx": "CC0-1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/legalcode",
+      "licenseEvidence": "站内原文：\"Free SVG illustrations (commercial and personal use) under the CC0 license (MIT license). No attribution required.\"（页面标题另写 \"(CC0 Licensed)\"）",
+      "licenseCaveat": "同一句里同时声称 CC0 与 MIT，两者法律含义不同（CC0 是放弃著作权，MIT 是保留著作权的授权）；站内没有 LICENSE 文件、没有仓库、没有许可证原文链接。按 CC0 处理风险低，但建议留存页面截图作为授权证据。下载 zip 需填邮箱并会订阅更新邮件。",
+      "sizeNote": "可见列表约 117 项且还有 Load More，未给总数。文件以 .svg 为主但混有 .png/.webp/.jpg —— 「Free SVG」名不副实，位图那部分在 125%/150%/200% 显示缩放下会糊，Polaris 的 smoke 恰好覆盖这些缩放档。",
+      "themeFit": "扁平多色，需要整套颜色覆盖才能统一到 teal；只有 Outline Characters / 线稿物件那几组能走 currentColor 继承 --text-tertiary。",
+      "recommendedUse": "只考虑 Outline 组里的「空文件夹 / 空清单 / 空盒子」这类纯物件图，用在项目视图无任务时。人物、火箭、机器人、城市天际线一律不用——那是营销页语汇，不是待办工具语汇。",
+      "integration": "填邮箱下 https://lukaszadam.com/downloads/free-illustrations.zip，解压到仓库外的独立临时目录，只把选中的 SVG 拷进 src/renderer/src/assets/illustrations/adam/；位图一律不入仓。手抄成 React 组件时同样注意渐变/滤镜 id 加前缀。",
+      "replacesExisting": "新增",
+      "score": 4
+    },
+    {
+      "name": "Hero Patterns",
+      "nameZh": "几何纹样",
+      "oneLiner": "Steve Schoger（Heroicons 作者）的可平铺 SVG 背景纹样，前景色/背景色/前景透明度三个参数可调，单个纹样只有几百字节。",
+      "homepage": "https://heropatterns.com/",
+      "previewUrl": "https://heropatterns.com/",
+      "repoUrl": "",
+      "npmPackage": "",
+      "version": "",
+      "licenseSpdx": "CC-BY-4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
+      "licenseEvidence": "CC BY 4.0 deed：\"copy and redistribute the material in any medium or format for any purpose, even commercially.\" 以及 \"You must give appropriate credit, provide a link to the license, and indicate if changes were made.\"",
+      "licenseCaveat": "必须署名 + 给出许可证链接 + 说明是否改动。随 NSIS 分发时要在设置面板「关于」区放可见的 credits，Polaris 目前没有这一块，需要新增。",
+      "sizeNote": "纹样是可平铺的小 path，站上直接提供「复制 CSS」，内联成 data URI 后通常 < 1 KB，无运行时依赖、无网络请求。",
+      "themeFit": "最好的参数化模型：前景色填 currentColor 或 var(--text-tertiary)，透明度直接对齐现有 --noise-opacity（暗 0.032 / 浅 0.018），背景留透明。六套主题自动跟随，无需任何颜色覆盖。",
+      "recommendedUse": "可选、默认不启用。只有当空状态被评价为「太素」时，才在 .empty-state 背后铺一层 ≤3% 的几何纹样。绝不能铺到列表/导航/复选框（违反安静表面）。它与现有 --noise-opacity 噪点功能重叠，二选一，不叠加。",
+      "integration": "站上选纹样 → 复制 CSS → 把 fill 换成 currentColor → 写进 src/renderer/src/styles/globals.css 的 .empty-state::before { background-image: url(\"data:image/svg+xml,...\"); opacity: var(--noise-opacity); pointer-events: none; }，并在设置面板关于区加署名与 CC BY 4.0 链接。",
+      "replacesExisting": "新增，但与 --noise-opacity 噪点二选一（替换关系而非叠加）",
+      "score": 3
+    }
+  ],
+  "rejected": [
+    {
+      "name": "unDraw",
+      "reason": "许可禁止再分发，不适合随 NSIS 安装包出货。license 原文授予 \"All images, assets and vectors published on unDraw can be used for free.\"，但排除 \"distribute the assets in packs or otherwise.\"，TL;DR 更直接点名 \"add them in an app), then you probably should not proceed.\"；另明确禁止 AI/ML 用途。它确实支持一键改主色（首页原文 \"Customize your main color on-the-fly and simply click download!\"），把主色改成 Polaris teal 技术上完全可行——但许可这一关过不去。结论：只能用在官网/营销页，不能进安装包。",
+      "sourceUrl": "https://undraw.co/license"
+    },
+    {
+      "name": "ManyPixels Gallery",
+      "reason": "许可与 unDraw 同源，同样禁止再分发。原文 \"You do not need to ask permission from or provide credit to the creator or ManyPixels.\"（免署名），但紧接 \"(e.g. sell or re-distribute one/some of them, add them in an app), then you probably should not proceed.\" 与 \"distribute the assets in packs or otherwise.\"。20000+ 张、SVG、带 Colors 筛选，条件很诱人，但随安装包分发落在禁止条款里。",
+      "sourceUrl": "https://www.manypixels.co/gallery"
+    },
+    {
+      "name": "Storyset（免费部分）",
+      "reason": "免费必须署名且禁止再分发。FAQ 原文 \"you must always include the attribution to Storyset every time you use our free illustrations\"；terms 原文 \"any use of the Storyset Content by the User is credited to the Company/Website as stated by the Company from time to time\"，并禁止 \"not used or included (in whole or in part) in a database, archive or in any other media/stock product, collection, set of clips, or library\"，去署名需买 Flaticon Premium。风格也偏营销插画，与安静桌面工具不符。",
+      "sourceUrl": "https://storyset.com/terms"
+    },
+    {
+      "name": "DrawKit（免费部分）",
+      "reason": "免署名但禁止再分发，且免费与付费同一份许可。原文 \"Attribution is not required.\"，同时 \"You may not sell, distribute, lease, license, sub-license or offer icon and illustration files to any third party.\" 与禁止 stand-alone / compilation 再分发；另禁止用于 AI 训练。随 NSIS 分发不合法。",
+      "sourceUrl": "https://www.drawkit.com/license"
+    },
+    {
+      "name": "Pixeltrue（免费部分）",
+      "reason": "许可明确点名禁止放进可分发的应用模板。原文 \"You do not have the rights to redistribute, resell, lease, license, sub-license or offer the file downloaded to any third party\"，以及 \"web templates, app templates, merchandise etc. you should not include our graphics resources\"。另：所谓 Free 包在列表页实际标价 $1，下载是 Firebase zip，包内格式（SVG/PNG）未在页面标注，未验证。",
+      "sourceUrl": "https://www.pixeltrue.com/license"
+    },
+    {
+      "name": "Blush",
+      "reason": "免署名但禁止再分发：原文 \"You can't re-sell, or re-distribute Blush Illustrations.\"。注意 Open Doodles 与 Humaaans 页面上的 \"Edit in Blush\" 只是编辑器入口，不要因此把 Blush 当成素材来源——从 Blush 导出的成品受 Blush 许可约束，而原始 CC0 素材不受。（「SVG/矢量属付费」这一点在 license 页未得到确认，未据此下结论；排除依据是已核实的禁止再分发条款。）",
+      "sourceUrl": "https://blush.design/license"
+    },
+    {
+      "name": "Streamline（免费部分）",
+      "reason": "免费素材强制署名且有张数上限。官方帮助中心原文 \"Attribution is required for all assets used under the Streamline Free License\"，桌面/移动应用必须在 About 或 Credits 页署名并链接 https://streamlinehq.com；每项目上限 50 icons / 25 illustrations / 25 elements / 25 emojis。Polaris 目前没有 About 页，且 25 张插画对「六套主题 × 多视图」不够用。付费才免署名。",
+      "sourceUrl": "https://help.streamlinehq.com/en/articles/5354376-streamline-free-license"
+    },
+    {
+      "name": "react-open-doodles / react-humaaans（npm 包装）",
+      "reason": "许可没问题（都是 MIT），但技术上不能进 Polaris。react-open-doodles 1.0.5：peerDependencies react ^15.0.0 || ^16.0.0，与 React 19 冲突，unpackedSize 4,761,379 B。react-humaaans 1.0.1：peerDependencies 锁 react 16.6.3，dependencies 含 fs@^0.0.1-security（npm 安全占位包，说明作者误把 Node 内建模块写进依赖）和 tinycolor2，unpackedSize 1,657,351 B。正确做法是取 CC0 素材本体手抄成内联 SVG 组件，而不是装这两个包。",
+      "sourceUrl": "https://registry.npmjs.org/react-open-doodles/latest"
+    }
+  ],
+  "notes": "【整体判断】这一类素材对 Polaris 基本不合适，建议以「自绘几何 SVG + 现有四角星」为主，插画只做极少量点缀。理由是许可与风格恰好错位：能合法随 NSIS 分发的只有 CC0（Open Doodles、Humaaans）和 MIT（IRA Design、shadcn Empty、Primer），而这几家的视觉都是「手绘人物 / 营销 SaaS」；反过来，风格最克制、最像桌面工具的 unDraw / ManyPixels，许可里都写着「add them in an app … you probably should not proceed」。\n\n【分发合规三分法（均已抓原文核实）】\n1) 可随 NSIS 分发、无需界面署名：Open Doodles（CC0）、Humaaans（官网标 CC0，有争议，建议自愿署名）、IRA Design（MIT，安装包内附版权行）、shadcn Empty / Primer（MIT，同上）。\n2) 可分发但必须界面署名：Hero Patterns（CC BY 4.0，需 credit + 许可证链接 + 改动说明）、Streamline 免费（About/Credits 页 + 链接，且每项目 ≤25 张插画）。\n3) 禁止再分发、不能进安装包：unDraw、ManyPixels、Storyset、DrawKit、Pixeltrue、Blush。这几家只可用于官网/营销页。\n\n【首选替代方案：自绘几何 SVG（零新依赖、零许可风险）】\n现有资产其实已经够用：src/renderer/src/components/PolarisMark.tsx 的四角星 path 用 var(--mark-a)/var(--mark-b) 渐变；EmptyState.tsx 的 .empty-orbit（88px）+ .empty-orbit-ring（1px var(--line) 圆环，顶端 4px var(--accent) 圆点）就是「一颗星 + 一条轨道」的几何构图。扩展方向是换几何容器而不是换插画：\n- 今天 = 轨道环（保持现状）\n- 未来 = 三段等距刻度弧\n- 已完成 = 闭合圆 + 内嵌 lucide Check（currentColor）\n- 项目内无任务 = 三个 8px 圆角方块（--radius-sm）\n- 搜索无结果 = 虚线圆环\n全部 stroke=\"currentColor\"，父级 color: var(--text-tertiary)；只有那颗星和一个点用 var(--accent)。这样六套主题零覆盖，teal→violet 渐变只出现在星上，符合硬约束 1。\n动效只做一次性入场：200ms var(--ease-out)，opacity 0→1 + translateY 4px→0；MotionConfig reducedMotion=\"user\" 已全局生效，reduced motion 直接渲染终态。禁止轨道旋转循环（硬约束 5）。\n落地文件：src/renderer/src/components/EmptyState.tsx（改组合结构）、src/renderer/src/styles/globals.css 约 2828 行起的 empty state 段；PolarisMark.tsx 不动。\n\n【六套主题的颜色映射（任何插画素材通用）】线稿 → currentColor ← --text-tertiary；次级面 → --surface-1/--surface-2；描边 → --line/--line-strong；唯一强调 → --accent（夜阑/暮蓝 #5EEAD4，昼白 #0F766E，暖砂/天蓝 #0D6E66，护眼绿 #0B6B63）；星渐变 → --mark-a/--mark-b。禁止把 --inner-highlight 用在插画的饱和色块上（浅色家族 90% 白会描出近白边）。\n\n【中文场景】插画类素材本身不含文字，CJK 不是问题；但要避免选带英文字样的构图（unDraw/Storyset 里不少图内嵌英文标签），否则中文界面里会出现英文残留。文案仍走 Manrope/Inter/Noto Sans SC，中文 ≥11px。\n\n【工程注意】(1) 项目 grep 不到任何 Content-Security-Policy，所以 Vite 的 ?raw + dangerouslySetInnerHTML 技术上可行，但仍建议手抄成 React 组件，顺手剔掉第三方 SVG 里的 <style>/<script>。(2) 内联多个 SVG 时渐变/滤镜 id 必须加唯一前缀，否则会撞上 PolarisMark.tsx 的 id=\"polaris-gradient\"。(3) 下载的 zip 属不可信数据，解压到仓库外的独立空目录，只把选中的 SVG 拷进仓库。\n\n【未验证 / 与任务假设不符，如实标注】\n- Humaaans：任务说是 CC BY 4.0，但我两次抓取 https://www.humaaans.com/ 都只有 CC0（\"CC0 Free for commercial or personal use by Pablo Stanley.\"），站内没有 BY/attribution/credit 字样，也没有独立 LICENSE 文件。第三方 allsvgicons.com 声称它「不是正式 CC0」。已按 CC0 记录并加了自愿署名建议。\n- Open Doodles 的 /about 页、Lukasz Adam 根域 lukaszadam.com 多次抓取返回 \"Socket is closed\"，未抓到。所以 Open Doodles 的「Dropbox 源文件下载」只来自搜索摘要、未亲自核实；Lukasz Adam 的许可只有 /illustrations 页那一句，没有 LICENSE 原文。\n- Blush 的「SVG 属付费」未在 license 页确认，未据此下结论。\n- DrawKit / Pixeltrue / Storyset 的免费张数与包内格式未逐一核实。\n- 版本号 react-open-doodles 1.0.5、react-humaaans 1.0.1 及各自 unpackedSize 均来自 registry.npmjs.org 的 latest JSON，非记忆。\n- ui.shadcn.com/docs/components/empty 抓到的页面 markup 与官方 Next.js 站点不太一致（疑似镜像/缓存），因此 shadcn Empty 的组件结构结论以 raw.githubusercontent.com 上的 empty.tsx 与 LICENSE.md 为准，这两个是核实过的。"
+}

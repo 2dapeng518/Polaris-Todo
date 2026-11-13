@@ -1,0 +1,183 @@
+{
+  "category": "等宽与数字字体（OFL monospace / numeric fonts）",
+  "candidates": [
+    {
+      "name": "保留 Geist Mono + 补 Noto Sans SC 中文回退（不新增素材）",
+      "nameZh": "现有方案修回退链",
+      "oneLiner": "字体本身没问题，问题在 --font-mono 的回退链里一个中文字形都没有；补一个已经在依赖里的中文字体即可，新增 0 字节。",
+      "homepage": "https://github.com/vercel/geist-font",
+      "repoUrl": "https://github.com/vercel/geist-font",
+      "previewUrl": "https://fontsource.org/fonts/geist-mono",
+      "npmPackage": "@fontsource-variable/geist-mono",
+      "version": "包 5.3.0 / 字体 Version 1.701（实测 nameID 5）",
+      "licenseSpdx": "OFL-1.1",
+      "licenseUrl": "https://raw.githubusercontent.com/vercel/geist-font/main/OFL.txt",
+      "licenseEvidence": "This Font Software is licensed under the SIL Open Font License, Version 1.1.",
+      "licenseCaveat": "无 Reserved Font Name，原样随包分发 OFL 全文即可。",
+      "themeFit": "字体不含颜色，六套主题全部靠 --text / --text-secondary / --text-tertiary 继承，不需要任何颜色覆盖或 CSS 变量映射。Geist wght 轴实测 100–900 默认 400，可给暗色家族（夜阑/暮蓝）400、浅色家族（昼白/暖砂/天蓝/护眼绿）450–500 补偿浅底视觉减重。",
+      "recommendedUse": "globals.css 里全部 23 处 var(--font-mono)：计数徽标、时间戳、due chip、TaskDetail 截止/提醒行、命令面板快捷键、DateTimePicker 的 HH:mm 字段。中文部分（年/月/日/周/今天/明天）由回退字体承接，字号仍守 11px 下限。",
+      "integration": "只改一行：src/renderer/src/styles/globals.css:88 → `--font-mono: \"Geist Mono Variable\", \"Noto Sans SC Variable\", \"Cascadia Code\", \"Consolas\", monospace;`。Noto Sans SC Variable 已在 package.json devDependencies（@fontsource-variable/noto-sans-sc ^5.3.1）且已在 src/renderer/src/main.tsx 导入，无需新增依赖、无需改 formatParsedDue、无需改构建配置。改完跑 npm run build && npm run smoke 与 npm run verify:themes。",
+      "sizeNote": "实测 geist-mono-latin-wght-normal.woff2 = 23,128 B；npm 包 unpackedSize 172,241 B / 24 文件；264 字形；fvar wght 100–900 默认 400。实测 cmap 对「年月日周今天明天时分秒上午下午星期一二三四五六」26 字覆盖数为 0；当前第二回退 Cascadia Code 实测同样为 0，Consolas 也无 CJK，所以中文一路掉到系统字体。本方案新增 0 B。",
+      "replacesExisting": "不替换。理由：换任何一款 OFL 等宽字体都解决不了「中文由谁渲染」——本轮实测的 10 款拉丁等宽全部 0 CJK 字形。真正的缺陷是回退链缺中文，补回退比换字体更对症，且零体积零风险。",
+      "score": 9
+    },
+    {
+      "name": "Maple Mono CN",
+      "nameZh": "枫树等宽 中文版",
+      "oneLiner": "本轮唯一实测真正做到「汉字 2 格、拉丁 1 格」的开源等宽：汉字 advance 1200、拉丁 600、upm 1000，中文时间戳不再半格错位。",
+      "homepage": "https://github.com/subframe7536/maple-font",
+      "repoUrl": "https://github.com/subframe7536/maple-font",
+      "previewUrl": "https://fontsource.org/fonts/maple-mono",
+      "npmPackage": "@mogeko/maple-mono-cn（7.9.0，社区 cn-font-split 分包）；官方拉丁版 @fontsource/maple-mono 5.3.0",
+      "version": "字体 Version 7.900 / MapleMono-CN-Regular（实测 nameID 5）；上游 release v7.9",
+      "licenseSpdx": "OFL-1.1",
+      "licenseUrl": "https://github.com/subframe7536/maple-font/blob/v7/OFL.txt",
+      "licenseEvidence": "Copyright 2022 The Maple Mono Project Authors (https://github.com/subframe7536/maple-font) — This Font Software is licensed under the SIL Open Font License, Version 1.1.",
+      "licenseCaveat": "两层要分清：(1) CN 内嵌的中文来自 Resource Han Rounded，其 OFL 原文写「Portions © 2014-2021 Adobe (http://www.adobe.com/), with Reserved Font Name 'Source'.」——原样分发没问题，改字形后不能沿用 Source 名。(2) @mogeko/maple-mono-cn 的 npm license 字段写的是 MIT，那是打包脚本的协议，字体本体仍是 OFL-1.1；合规清单要按 OFL 收录，别只抄 npm 的 MIT。",
+      "themeFit": "无颜色，靠 --text* 继承，六套主题通用。实测 CN 版 fvar 缺失（只有静态字重），所以暗/浅两族不能像 Geist 那样用 wght 轴微调，只能切 400/500 两个静态文件。风格代价要接受：CN 的中文是圆角的 Resource Han Rounded，和正文 Noto Sans SC 的方角不同，同一屏里中文时间戳会比正文「圆」一点。",
+      "recommendedUse": "只给「中文＋数字混排」的那几处用：QuickAdd 的 due chip、TaskDetail 截止行与提醒行、ReminderView 的时间、重复规则描述（每周一 / 每月 15 日）。纯数字计数徽标继续留给 Geist Mono，避免整套数字观感被换掉，也守住「字体承担层级」的分工。",
+      "integration": "推荐自裁而不是整包塞进渲染器。落点 src/renderer/src/assets/fonts/maple-cn/。从 upstream MapleMono-CN-Regular.ttf 裁一个只含 Polaris 用字的 woff2：`python -m fontTools.subset MapleMono-CN-Regular.ttf --text-file=polaris-mono-chars.txt --flavor=woff2 --layout-features='*' --output-file=maple-cn-subset.woff2`，字符表取自 src/shared/quickAddParse.ts 的 formatParsedDue 与 src/shared/recurrence.ts 的输出（年月日周今天明时分秒上午下午星期一二三四五六无期昨后每…）。再在 globals.css 写 @font-face{font-family:\"Maple Mono CN\";src:url(...);unicode-range:U+4E00-9FFF,U+3000-303F;} 并把它插到 --font-mono 的 Geist 之后。图省事可 `npm i -D @mogeko/maple-mono-cn@7.9.0` 后 `import '@mogeko/maple-mono-cn/dist/font/result.css'`（实测 main 入口就是 dist/font/result.css，font-family 名为 \"Maple Mono CN\"），代价是 239 个分包 9.3 MB 进安装包。",
+      "sizeNote": "实测 @mogeko/maple-mono-cn 解包 9,472,387 B / 244 文件，其中 239 个 woff2 共 9,297,880 B；Polaris 时间戳用到的 26 个汉字只落在 12 个分包里，合计 348,468 B；自行 pyftsubset 可再压一个数量级。官方 @fontsource/maple-mono 5.3.0 是拉丁-only（实测 cmap 无中文），解包 3,114,169 B / 76 文件，单文件 maple-mono-latin-400-normal.woff2 = 74,088 B。CN 无可变版本（实测 axes=null，上游 README 亦注明 CN 不支持 variable）。实测特性：calt 开、zero 开、ss 11 个、cv 31 个；0 为斜杠零，l 带右弯尾。",
+      "replacesExisting": "部分替换：只在中英混排处替换 Geist Mono，纯数字保留。理由是它是本轮唯一实测给出严格 2:1（1200:600）的方案，直接命中「年/月只能回退到 UI 字体」这个真实痛点。",
+      "score": 8
+    },
+    {
+      "name": "JetBrains Mono",
+      "nameZh": "",
+      "oneLiner": "x-height 高、11–12px 下数字最立得住的可变等宽；点状零 + l 弯尾，比 Geist 的「1 和 l 同底衬线」更好分。",
+      "homepage": "https://github.com/JetBrains/JetBrainsMono",
+      "repoUrl": "https://github.com/JetBrains/JetBrainsMono",
+      "previewUrl": "https://fontsource.org/fonts/jetbrains-mono",
+      "npmPackage": "@fontsource-variable/jetbrains-mono",
+      "version": "包 5.3.0 / 字体 Version 2.211（实测；上游最新 release 为 v2.304，fontsource 尚未跟上）",
+      "licenseSpdx": "OFL-1.1",
+      "licenseUrl": "https://raw.githubusercontent.com/JetBrains/JetBrainsMono/master/OFL.txt",
+      "licenseEvidence": "Copyright 2020 The JetBrains Mono Project Authors (https://github.com/JetBrains/JetBrainsMono) — This Font Software is licensed under the SIL Open Font License, Version 1.1.",
+      "licenseCaveat": "仓库 README 明确字体 OFL-1.1、源码 Apache-2.0，别把 Apache 当成字体协议写进合规清单。无 Reserved Font Name。",
+      "themeFit": "currentColor 继承 --text*，六套主题不需要颜色覆盖。实测 wght 100–800 默认 400，暗色家族 400、浅色家族 450–500 用轴调即可，不必额外加载静态文件。",
+      "recommendedUse": "整体接管 --font-mono：计数徽标、时间戳、命令面板快捷键、DateTimePicker 的时/分字段。它的点状零在「10:00 / 20:00」这类时间里比斜杠零安静，符合「安静表面」的取向。",
+      "integration": "`npm i -D @fontsource-variable/jetbrains-mono@5.3.0`；src/renderer/src/main.tsx:6 把 `import '@fontsource-variable/geist-mono'` 换成 `import '@fontsource-variable/jetbrains-mono'`；globals.css:88 改 `--font-mono: \"JetBrains Mono Variable\", \"Noto Sans SC Variable\", \"Cascadia Code\", \"Consolas\", monospace;`；并在所有 mono 规则上加 `font-variant-ligatures: none`（calt 实测存在且默认开，标题/笔记里的 -> == != 会被连字）。想彻底免连字可改用上游 JetBrains Mono NL 自行托管。",
+      "sizeNote": "实测 jetbrains-mono-latin-wght-normal.woff2 = 40,404 B；包 unpackedSize 203,866 B / 24 文件；394 字形；0 / : / / / M advance 全为 600（upm 1000），真等宽。重要坑：实测该 woff2 的 GSUB+GPOS 特性只有 calt / ccmp / frac / locl / mark —— 没有 zero、没有 ss01–20、没有 cv01–99，上游宣传的字符替换在 fontsource 这个构建里用不了。实测无 tnum 特性。",
+      "replacesExisting": "可替换 Geist Mono。理由：实测 Geist 的 1 与 l 都以整条底衬线收尾，只靠顶部小旗区分；JetBrains 的 l 带右弯尾、1 带底衬线、I 双衬线，三者一眼可分，且 x-height 更高，中文 11px 下限旁的数字更清楚。代价：仍无中文，且包内没有 zero/cv/ss 可调。",
+      "score": 7
+    },
+    {
+      "name": "Commit Mono",
+      "nameZh": "",
+      "oneLiner": "连字默认关闭的中性等宽，斜杠零 + l 弯尾；官网明说不会加纯装饰性连字，最贴合待办应用的克制取向。",
+      "homepage": "https://commitmono.com/",
+      "repoUrl": "https://github.com/eigilnikolajsen/commit-mono",
+      "previewUrl": "https://commitmono.com/",
+      "npmPackage": "@fontsource/commit-mono（静态）",
+      "version": "字体 v1.143（release 发布于 2023-12-28，实测 nameID 5 = Version 1.143）；包 5.3.0",
+      "licenseSpdx": "OFL-1.1",
+      "licenseUrl": "https://raw.githubusercontent.com/eigilnikolajsen/commit-mono/main/LICENSE-FONT",
+      "licenseEvidence": "This Font Software is licensed under the SIL Open Font License, Version 1.1.",
+      "licenseCaveat": "仓库双协议：字体文件走 LICENSE-FONT（OFL-1.1），网站代码走 LICENSE（MIT）。GitHub 侧栏显示「MIT, OFL-1.1 licenses found」，合规清单必须写 OFL-1.1，不能写 MIT。无 Reserved Font Name。",
+      "themeFit": "currentColor 继承 --text*。官网建议「Recommended weight: 400 for dark mode, 450 for light mode.」正好对应 Polaris 的暗/浅两族；但 fontsource 是静态包，没有 450，只能暗 400 / 浅 500 二选一。想要 450 得去官网 design 包取可变字体自行托管。",
+      "recommendedUse": "整体接管 --font-mono，尤其是 TaskDetail 的备注/标题里可能出现 -> == 等符号的场景——它默认不连字，不需要额外写 font-variant-ligatures: none 也不会出意外。",
+      "integration": "`npm i -D @fontsource/commit-mono@5.3.0`；main.tsx 加 `import '@fontsource/commit-mono/400.css'` 与 `import '@fontsource/commit-mono/500.css'`；globals.css:88 改 `--font-mono: \"CommitMono\", \"Noto Sans SC Variable\", \"Cascadia Code\", \"Consolas\", monospace;`。注意实测 family 名是 CommitMono（无空格），写成 \"Commit Mono\" 会静默掉回退。",
+      "sizeNote": "实测 commit-mono-latin-400-normal.woff2 = 48,128 B；@fontsource/commit-mono 解包 1,326,237 B；官方 CommitMono-1.143.zip 724,227 B，内含 CommitMono-400-Regular.ttf 377,980 B / 1932 字形。静态，实测 fvar 缺失；calt 存在但默认关，ss 5 个、cv 11 个；无 tnum、无 zero。0 为斜杠零（实测字形内轮廓被斜杠切成上下两半）。",
+      "replacesExisting": "可替换 Geist Mono。理由：连字默认关这一条直接消掉了待办应用里最尴尬的一类渲染意外，且字形中性不抢 Manrope 的展示位。代价：2023-12 之后没再发版，静态包没有 450 字重，中文仍然缺失。",
+      "score": 6.5
+    },
+    {
+      "name": "Cascadia Mono（把现有回退位真正打进安装包）",
+      "nameZh": "",
+      "oneLiner": "globals.css 已经写了 \"Cascadia Code\" 当回退却没随包分发；换成无连字的 Cascadia Mono 可变版并本地化，让回退在任何机器上都确定。",
+      "homepage": "https://github.com/microsoft/cascadia-code",
+      "repoUrl": "https://github.com/microsoft/cascadia-code",
+      "previewUrl": "https://fontsource.org/fonts/cascadia-code",
+      "npmPackage": "@fontsource-variable/cascadia-mono（无连字版）/ @fontsource-variable/cascadia-code",
+      "version": "包 5.3.0 / 字体 Version 2407.024（实测 Cascadia Code 拉丁可变文件）；上游最新 release v2407.24",
+      "licenseSpdx": "OFL-1.1",
+      "licenseUrl": "https://raw.githubusercontent.com/microsoft/cascadia-code/main/LICENSE",
+      "licenseEvidence": "Copyright (c) 2019 - Present, Microsoft Corporation, with Reserved Font Name Cascadia Code. — This Font Software is licensed under the SIL Open Font License, Version 1.1.",
+      "licenseCaveat": "有 Reserved Font Name「Cascadia Code」：原样分发没问题，但一旦自行 subset/改字形就不能继续沿用该名字（pyftsubset 保留原名属于常见做法，严格合规建议改名或不改字形只裁 cmap）。这是本轮唯一带 RFN 的推荐项。",
+      "themeFit": "currentColor 继承 --text*。实测 wght 200–700 默认 400，暗色 400 / 浅色 450–500 都能用轴调，六套主题不需要颜色覆盖。",
+      "recommendedUse": "只占 --font-mono 的回退位，不当主字体：主字体加载失败或用户系统缺字时兜底拉丁数字与标点。选 Mono 而非 Code，因为 Mono 无连字，符合待办场景。",
+      "integration": "`npm i -D @fontsource-variable/cascadia-mono@5.3.0`；main.tsx 加 `import '@fontsource-variable/cascadia-mono'`；globals.css:88 改 `--font-mono: \"Geist Mono Variable\", \"Noto Sans SC Variable\", \"Cascadia Mono Variable\", \"Consolas\", monospace;`。注意顺序：中文回退必须排在 Cascadia 之前，否则中文又一次落空（实测 Cascadia 的 CJK 覆盖为 0）。",
+      "sizeNote": "实测 cascadia-code-latin-wght-normal.woff2 = 48,600 B；448 字形；wght 200–700 默认 400；advance 1200 / upm 2048（≈0.586 em，比 Geist 的 0.6 em 略窄，混排时宽度会微跳）；calt 存在，无 tnum / zero / ss；CJK 覆盖实测为 0。上游 README 说明 ttf 可变版覆盖 200–700，woff2 同时提供可变与静态实例。",
+      "replacesExisting": "替换的是「回退位」而不是主字体。理由：现在这一位实际是空的（未打包，靠用户机器恰好装过 Windows Terminal），实测它又完全没有中文字形，所以它只能兜拉丁，中文仍必须靠 Noto Sans SC。",
+      "score": 6
+    },
+    {
+      "name": "IBM Plex Mono",
+      "nameZh": "",
+      "oneLiner": "本轮体积最小的等宽（拉丁 400 只有 14.7 KB），无连字特性、点状零；但没有可变轴，1 和 l 的区分弱。",
+      "homepage": "https://github.com/IBM/plex",
+      "repoUrl": "https://github.com/IBM/plex",
+      "previewUrl": "https://fontsource.org/fonts/ibm-plex-mono",
+      "npmPackage": "@fontsource/ibm-plex-mono（官方另有 @ibm/plex-mono 2.5.0）",
+      "version": "包 5.3.0 / 字体 Version 2.3（实测）；IBM 官方 @ibm/plex-mono 为 2.5.0",
+      "licenseSpdx": "OFL-1.1",
+      "licenseUrl": "https://raw.githubusercontent.com/IBM/plex/master/LICENSE.txt",
+      "licenseEvidence": "Copyright © 2017 IBM Corp. with Reserved Font Name \"Plex\" — This Font Software is licensed under the SIL Open Font License, Version 1.1.",
+      "licenseCaveat": "有 Reserved Font Name「Plex」，改名或改字形后不得沿用。原样使用无附加义务。",
+      "themeFit": "currentColor 继承 --text*，六套主题通用。静态 7 个字重 100–700，暗 400 / 浅 500 需要各自加载一个 CSS 文件，不能像可变字体那样一份文件覆盖两族。",
+      "recommendedUse": "如果最终目标是「把安装包体积压到极限」，用它接管 --font-mono 的纯数字位（计数徽标、快捷键提示）。不建议用在中文混排处。",
+      "integration": "`npm i -D @fontsource/ibm-plex-mono@5.3.0`；main.tsx 加 `import '@fontsource/ibm-plex-mono/400.css'` 与 `import '@fontsource/ibm-plex-mono/500.css'`；globals.css:88 改 `--font-mono: \"IBM Plex Mono\", \"Noto Sans SC Variable\", \"Cascadia Code\", \"Consolas\", monospace;`。注意 `@fontsource-variable/ibm-plex-mono` 实测返回 404，不存在，别照可变字体的写法引。",
+      "sizeNote": "实测 ibm-plex-mono-latin-400-normal.woff2 = 14,708 B（本轮最小）；包 unpackedSize 1,489,824 B / 244 文件；280 字形；advance 600 / upm 1000；实测 fvar 缺失（静态）；特性只有 ccmp/dnom/frac/locl/mark/mkmk/numr —— 无 calt、无 liga、无 tnum、无 zero，所以天然没有连字风险。0 为点零（实测内点 bbox 124×118 居中）。",
+      "replacesExisting": "可替换但不划算。理由：体积最小、无连字是优点，但没有可变轴（六套主题要各自加载静态文件）、实测 1 与 l 都带底衬线只靠顶部旗区分（和 Geist 同一个毛病），且 IBM 的编辑气质与 Manrope/Inter 不是一路。",
+      "score": 5.5
+    },
+    {
+      "name": "Roboto Mono",
+      "nameZh": "",
+      "oneLiner": "1/l/I 三者分得最开的可变等宽（1 无底衬线、l 有底衬线、I 双衬线），斜杠零；但字形数最少、Android 味明显。",
+      "homepage": "https://github.com/googlefonts/RobotoMono",
+      "repoUrl": "https://github.com/googlefonts/RobotoMono",
+      "previewUrl": "https://fontsource.org/fonts/roboto-mono",
+      "npmPackage": "@fontsource-variable/roboto-mono",
+      "version": "包 5.3.0 / 字体 Version 3.001（实测）",
+      "licenseSpdx": "OFL-1.1",
+      "licenseUrl": "https://raw.githubusercontent.com/google/fonts/main/ofl/robotomono/OFL.txt",
+      "licenseEvidence": "Copyright 2015 The Roboto Mono Project Authors (https://github.com/googlefonts/robotomono) — This Font Software is licensed under the SIL Open Font License, Version 1.1.",
+      "licenseCaveat": "无 Reserved Font Name。仓库根 OFL.txt 与 Google Fonts 仓库副本一致。",
+      "themeFit": "currentColor 继承 --text*。实测 wght 100–700 默认 400，暗 400 / 浅 450–500 用轴调，六套主题不需要颜色覆盖。",
+      "recommendedUse": "只在「辨识度优先于气质」的场景考虑：DateTimePicker 的时/分输入、命令面板快捷键串。不建议作为全局 --font-mono 首选。",
+      "integration": "`npm i -D @fontsource-variable/roboto-mono@5.3.0`；main.tsx 加 `import '@fontsource-variable/roboto-mono'`；globals.css:88 改 `--font-mono: \"Roboto Mono Variable\", \"Noto Sans SC Variable\", \"Cascadia Code\", \"Consolas\", monospace;`。",
+      "sizeNote": "实测 roboto-mono-latin-wght-normal.woff2 = 32,796 B；包 unpackedSize 304,012 B / 24 文件；228 字形（本轮最少，生僻符号如 → ✓ 可能缺）；wght 100–700 默认 400；advance 1229 / upm 2048；实测 GSUB/GPOS 特性列表为空 —— 无 calt/liga/tnum/zero/ss，既没有连字风险也没有任何可调项。",
+      "replacesExisting": "可替换，但不推荐。理由：官方 README 明说「Narrow glyphs like 'I', 'l', and 'i' receive added serifs」，实测 1/l/I 区分确实是本轮最好的；但整体是 Android 系统字气质，和 Manrope 的几何展示体同屏会显得「默认而非设计」，且字形数最少。",
+      "score": 5
+    }
+  ],
+  "rejected": [
+    {
+      "name": "Iosevka",
+      "reason": "体积与版本双重不合格。实测 @fontsource/iosevka 的 iosevka-latin-400-normal.woff2 = 984,084 B，是 JetBrains Mono 同位文件（40,404 B）的 24 倍，单个拉丁子集就接近 1 MB；包内字体版本实测为 Version 22.1.2，而上游最新 release 已是 v34.9.1（2026-10-24），fontsource 落后十几个大版本。`@fontsource-variable/iosevka` 实测 registry 返回 404，没有可变包；上游 release 453 个资产全是 TTC/SuperTTC，没有可直接给 Chromium 用的可变 woff2。默认 advance 500/upm 1000（半宽），放在 Inter 正文旁数字会明显偏窄。许可证本身没问题（LICENSE.md 实测为 OFL-1.1，Copyright (c) 2015-2026 Renzhi Li）。中文要靠姊妹项目 Sarasa Gothic，本项目不需要再引一条字体链。",
+      "sourceUrl": "https://github.com/be5invis/Iosevka"
+    },
+    {
+      "name": "Martian Mono",
+      "reason": "气质与宽度都不匹配「安静表面」。实测 advance 700/upm 1000，比 Geist 的 600 宽 17%，密集列表里的时间戳会把行撑开；README 自述是 Martian Grotesk 的等宽版本、带 brutalist 气质，用于 code style design，放进待办应用会抢 Manrope 的展示位。更关键的是 fontsource 构建缺轴：上游 METADATA.pb 实测有 wdth 75–112.5 与 wght 100–800 双轴，但实测 martian-mono-latin-wght-normal.woff2 只有 wght 一个轴，拿不到窄版来救宽度。许可证 OFL-1.1 已核实（google/fonts 副本 OFL.txt，Copyright 2021 The Martian Mono Project Authors），仓库是 evilmartians/mono，不是 evil-martians/martian-mono（后者 404）。",
+      "sourceUrl": "https://github.com/evilmartians/mono"
+    },
+    {
+      "name": "Fira Code",
+      "reason": "默认字重是 Light，且核心卖点（编程连字）在待办应用里是负资产。实测 fira-code-latin-wght-normal.woff2 的 fvar 为 wght 300–700 默认 300，family 名实测是「Fira Code Light」——直接引会在六套主题里都渲染成细体，必须处处显式写 font-weight 才不出错。calt 实测存在且默认开，标题/笔记里的 -> == != 会被连字，得额外全局写 font-variant-ligatures: none。上游最新 release 仍是 6.2（2021-12-06），fontsource 包内字体实测 Version 5.002。相对 Geist Mono 没有任何针对本项目的增益，中文覆盖同样为 0。许可证 OFL-1.1 已核实。",
+      "sourceUrl": "https://github.com/tonsky/FiraCode"
+    },
+    {
+      "name": "Source Code Pro",
+      "reason": "默认字重是 ExtraLight，比 Fira Code 更极端。实测 source-code-pro-latin-wght-normal.woff2 的 fvar 为 wght 200–900 默认 200，family 名实测「Source Code Pro ExtraLight」，ASCII 渲染出来几乎是一根发丝，在暖砂/天蓝/护眼绿这类浅底上会直接跌破可读对比。带 Reserved Font Name 'Source'（LICENSE.md 实测：© 2023 Adobe ... with Reserved Font Name 'Source'），自裁 subset 时要额外注意命名。无 calt 无 tnum 无 zero，中文覆盖 0，相对已在用的 Geist Mono 没有增益。",
+      "sourceUrl": "https://github.com/adobe-fonts/source-code-pro/blob/release/LICENSE.md"
+    },
+    {
+      "name": "Maple Mono NF-CN（Nerd Font 完整版）",
+      "reason": "NF 后缀只是在 CN 基础上再打 Nerd Font 图标补丁，Polaris 的图标已经由 lucide-react 1.72.0 统一承担（线性描边、24 网格），终端图标一个都用不上，白白增加体积和字形数。上游 release v7.9 的资产表实测同时提供 MapleMono-CN.zip 与 MapleMono-NF-CN.zip，本项目应取 CN 而不是 NF-CN。同理 MapleMono-NL-CN 值得考虑（无连字），但 NF 系列整体排除。",
+      "sourceUrl": "https://github.com/subframe7536/maple-font/releases/tag/v7.9"
+    },
+    {
+      "name": "@chinese-fonts/maple-mono-cn",
+      "reason": "体积不可接受。实测 registry 元数据：version 2.0.0，dist.unpackedSize 146,183,714 B（约 139 MB），fileCount 3795，license 字段 MIT。这是整站中文字体合集的打包方式，塞进 NSIS 安装包会让体积失控。要用 Maple CN 就走自裁 subset 或 @mogeko/maple-mono-cn（实测解包 9,472,387 B）。",
+      "sourceUrl": "https://registry.npmjs.org/@chinese-fonts/maple-mono-cn/latest"
+    },
+    {
+      "name": "@automann/maple-mono-cn",
+      "reason": "协议标注更干净（实测 license OFL-1.1，version 7.9.2）但体积仍是 @mogeko 版的 7 倍：实测 dist.unpackedSize 65,534,647 B / 1195 文件，且把 100–700 全部静态字重都打了进去，而 Polaris 只需要 400/500 两档。作为备选可以，作为默认引入路径排除。",
+      "sourceUrl": "https://registry.npmjs.org/@automann/maple-mono-cn/latest"
+    }
+  ],
+  "notes": "结论先行：不建议整体替换 @fontsource-variable/geist-mono。本轮把 10 个点名家族全部下载实测后，真正的问题不是「Geist 不够好」，而是 --font-mono 的回退链里没有任何一个带 CJK 的字体——先改这一行，再决定要不要为中文混排单独引 Maple Mono CN。\\n\\n【实测方法】所有体积/轴/特性/字形结论不是凭记忆：从 registry.npmjs.org 拉了 11 个 fontsource  tarball 与 Commit Mono 官方 v1.143 zip，用 fontTools 4.68 读 fvar/GSUB/GPOS/cmap/hmtx，用 freetype-py 2.5.1 把 woff2 转 ttf 后把「0O 1lI」渲成点阵逐个看。工作目录 C:\\\\Users\\\\jelly\\\\AppData\\\\Local\\\\Temp\\\\polaris-fontprobe（probe.json 是原始数据，scripts/probe.py、scripts/render.py、scripts/cn.py 是可复跑脚本）。仓库本身一个文件都没改。\\n\\n【三条和宣传不一样的实测结论】\\n1. tnum 全线不存在。11 款字体的 GSUB 里都没有 tnum 特性。原因是它们是真等宽：实测 0 / : / / / M 的 advance 完全相同（Geist、JetBrains、Commit、Maple、IBM Plex、Source Code Pro 均为 600/upm 1000）。所以 globals.css 里那 8 处 font-variant-numeric: tabular-nums 对 mono 规则是空操作——无害，可以留着当声明式意图，但别指望它解决对齐；真正决定对齐的是「中文用谁渲染」。\\n2. fontsource 的 JetBrains Mono 可变构建被裁掉了字符替换特性。实测其 GSUB+GPOS 只有 calt/ccmp/frac/locl/mark，没有 zero、ss01–20、cv01–99。也就是说上游 README 大书特书的「点零换斜杠零」「l 换写法」在这个 npm 包里根本调不动。相比之下 Maple（ss 11 / cv 31 / zero）、Iosevka（ss 19 / cv 98）、Commit Mono（ss 5 / cv 11）的特性都保留了。选型时别按上游 README 的能力表去期待 fontsource 包。\\n3. 可变字体的默认实例是个坑。实测默认字重：Geist 400、JetBrains 400、Roboto Mono 400、Cascadia 400、Martian 400，但 Fira Code 是 300（family 名 Fira Code Light）、Source Code Pro 是 200（family 名 Source Code Pro ExtraLight）。后两者直接 import 会在六套主题里一起变细，这是排除它们的主要技术理由之一。\\n\\n【0/O、1/l/I 实测区分度排名】最好：Roboto Mono（1 无底衬线 / l 有底衬线 / I 双衬线，三者形状完全不同）、JetBrains Mono、Commit Mono、Maple Mono、Fira Code（1 底衬线 / l 右弯尾 / I 双衬线）。较弱：Geist Mono 与 IBM Plex Mono（1 和 l 都以整条底衬线收尾，只靠顶部小旗区分）。零的样式：点零 = JetBrains Mono、IBM Plex Mono、Source Code Pro、Geist Mono 为斜杠零；斜杠零 = Commit Mono、Maple Mono、Martian Mono、Fira Code、Roboto Mono、Iosevka。冒号与斜杠在所有候选里都与数字同 advance，时间戳 18:00 与 3/9 不会跳格——问题从来不在标点，在汉字。\\n\\n【中文 2:1 这件事是真的，但只对 CN 版成立】实测 @mogeko/maple-mono-cn 的分包里，「年」「周」advance = 1200，upm = 1000，而拉丁 600，严格 2:1。同时实测官方 @fontsource/maple-mono（拉丁版）对 26 个常用中文时间字符覆盖为 0——买错包等于白买。CN 版没有可变轴（实测 fvar 缺失，上游 README 也写明），所以暗/浅两族只能切静态 400/500，不能像 Geist 那样一份文件用 wght 轴微调。\\n\\n【连字策略】待办应用应当全局关掉。建议不管最终选谁，都在 mono 规则里写 font-variant-ligatures: none；标题和备注是用户自由文本，-> == != >= 这类序列被连成箭头会改变语义观感，也违反「动效/装饰只做确认不做装饰」的克制原则。Commit Mono 是唯一默认就关的（官网原文：Commit Mono won't be updated with ligatures that purely serve aesthetic purposes.），选它可以少写一条防御性 CSS。\\n\\n【许可证逐条回答任务里的两个疑问】Cascadia Code 是 OFL-1.1，但带 Reserved Font Name「Cascadia Code」（原文：Copyright (c) 2019 - Present, Microsoft Corporation, with Reserved Font Name Cascadia Code.）。Iosevka 也是 OFL-1.1，LICENSE.md 原文 Copyright (c) 2015-2026, Renzhi Li，无 RFN。另外三个容易搞错的：JetBrains Mono 字体 OFL / 源码 Apache-2.0；Commit Mono 字体 OFL（LICENSE-FONT）/ 网站代码 MIT（LICENSE）；@mogeko/maple-mono-cn 的 npm license 字段是 MIT 但字体本体是 OFL-1.1，且内嵌中文来自 Resource Han Rounded，其 OFL 带 Adobe 的 Reserved Font Name 'Source'。带 RFN 的一共三个：Cascadia Code、IBM Plex、Source Code Pro（以及 Maple CN 内嵌的 Source 部分）——如果打算自裁 subset，这几个要留意命名条款。\\n\\n【未验证项，如实标注】font.subf.dev（Maple 官方文档站）、jetbrains.com/lp/mono、typeof.net/Iosevka、programmingfonts.org、fonts.google.com 这几个页面本次 WebFetch 多次返回 Socket is closed，没抓到，所以关于它们的任何细节我都没有引用；Maple 的 CN/2:1/连字结论全部来自 github.com/subframe7536/maple-font 的 README 原文加本地实测，不依赖那个文档站。npmjs.com 的网页版对 WebFetch 返回 403，所有版本号与体积改用 registry.npmjs.org 的 JSON 接口取得，数字是 dist.unpackedSize 原值。GitHub release 页的资产列表多次加载失败，Iosevka 与 Commit Mono 的资产清单改用 gh api 取得。各候选的 previewUrl 里，fontsource.org/fonts/{jetbrains-mono,maple-mono,martian-mono,cascadia-code,ibm-plex-mono,roboto-mono,geist-mono} 与 commitmono.com 均已实际抓取确认可访问。"
+}

@@ -1,0 +1,295 @@
+{
+  "category": "插画与空状态（Illustrations & Empty States）",
+  "checked": [
+    {
+      "name": "shadcn/ui Empty",
+      "verdict": "pass",
+      "finalLicenseSpdx": "MIT",
+      "finalLicenseUrl": "https://raw.githubusercontent.com/shadcn-ui/ui/main/LICENSE.md",
+      "licenseQuote": "MIT License / Copyright (c) 2023 shadcn / \"Permission is hereby granted, free of charge, to any person obtaining a copy\"",
+      "urlChecks": [
+        {
+          "url": "https://raw.githubusercontent.com/shadcn-ui/ui/main/LICENSE.md",
+          "ok": true,
+          "note": "MIT 原文直接抓取确认"
+        },
+        {
+          "url": "https://ui.shadcn.com/docs/components/empty",
+          "ok": true,
+          "note": "文档页正常，列出 Empty/EmptyHeader/EmptyMedia/EmptyTitle/EmptyDescription/EmptyContent 六个导出；调研担心的「镜像/缓存」未复现，页面与源码一致"
+        },
+        {
+          "url": "https://github.com/shadcn-ui/ui/blob/main/apps/v4/registry/new-york-v4/ui/empty.tsx",
+          "ok": true,
+          "note": "raw 源码抓取确认：6 个具名导出、import cva(class-variance-authority) 与 cn、EmptyMedia icon variant 容器 size-10 + 子 SVG size-6、根元素 border-dashed + p-6 md:p-12，均与调研一致"
+        }
+      ],
+      "corrections": "无。许可证、组件结构、size-10/size-6、dashed border、p-6 md:p-12、cva/cn 依赖全部核实。MIT 只需在安装包内保留版权与许可声明（THIRD_PARTY_NOTICES），无需界面署名，可随 NSIS 分发。移植时删 cva/cn 净增 0 依赖的说法成立。",
+      "riskLevel": "attribution-required"
+    },
+    {
+      "name": "Primer Blankslate (GitHub)",
+      "verdict": "pass",
+      "finalLicenseSpdx": "MIT",
+      "finalLicenseUrl": "https://raw.githubusercontent.com/primer/react/main/LICENSE",
+      "licenseQuote": "MIT License / Copyright (c) 2018 GitHub, Inc. / \"Permission is hereby granted, free of charge, to any person obtaining a copy\"",
+      "urlChecks": [
+        {
+          "url": "https://raw.githubusercontent.com/primer/react/main/LICENSE",
+          "ok": true,
+          "note": "MIT 原文直接抓取确认，版权行 2018 GitHub, Inc. 一致"
+        },
+        {
+          "url": "https://primer.style/components/blankslate",
+          "ok": true,
+          "note": "文档页确认 Blankslate，React=experimental / Rails=ready；示例原文 <Blankslate.Visual><BookIcon size=\"medium\" /></Blankslate.Visual>，视觉位即图标、无插画资产"
+        }
+      ],
+      "corrections": "许可证与「experimental」状态、BookIcon 示例均核实。一处小修正：实际子组件 API 是 Visual / Heading / Description / PrimaryAction / SecondaryAction，并没有名为 Actions 的包裹组件；调研写的「Visual/Heading/Description/Actions 四段划分」应改为「Visual/Heading/Description + PrimaryAction/SecondaryAction」。仅作设计参照、不引 @primer/react 的建议成立。MIT 保留版权行即可，无需界面署名。",
+      "riskLevel": "attribution-required"
+    },
+    {
+      "name": "Open Doodles",
+      "verdict": "pass",
+      "finalLicenseSpdx": "CC0-1.0",
+      "finalLicenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/legalcode",
+      "licenseQuote": "官网原文（curl 直连抓到）：\"Free for Commercial and Personal Use. No need to credit, license, or anything.\" + CC0 Public Domain 徽章（alt=\"CC0 Public Domain\"）；CC0 legalcode：\"for any purposes, including without limitation commercial purposes\" / \"waives, abandons, and surrenders all of Affirmer's Copyright\"",
+      "urlChecks": [
+        {
+          "url": "https://www.opendoodles.com/",
+          "ok": true,
+          "note": "WebFetch 多次 Socket closed（工具问题），改用 curl 直连返回 200，并抓到上述许可原文与 CC0 徽章；站点存活"
+        },
+        {
+          "url": "https://creativecommons.org/publicdomain/zero/1.0/legalcode",
+          "ok": true,
+          "note": "CC0 1.0 法律原文直接抓取确认；注意第 4(a) 条商标/专利不在放弃范围"
+        },
+        {
+          "url": "https://github.com/lunahq/react-open-doodles",
+          "ok": true,
+          "note": "仓库存在（82 star），MIT 包装，README 自述「only a utility」，props ink/accent；未提及素材本体 CC0"
+        },
+        {
+          "url": "https://registry.npmjs.org/react-open-doodles/latest",
+          "ok": true,
+          "note": "registry 原文：name react-open-doodles / version 1.0.5 / license MIT / dist.unpackedSize 4,761,379 B / peerDependencies react ^15.0.0 || ^16.0.0（含 react-dom、prop-types），与调研完全一致"
+        }
+      ],
+      "corrections": "无实质错误。CC0 经官网原文 + CC0 legalcode + 多个第三方来源佐证。react-open-doodles 1.0.5 的 MIT 只覆盖包装代码、peer 锁 React 15/16 与 React 19 冲突、4.5 MB 含 PNG，均核实，「不要 npm 装、手抄 SVG」的建议成立。调研标注「Dropbox 源文件下载未亲自核实」属实（我亦未单独核实 Dropbox 链接，但官网存活与 CC0 已确认）。单张 SVG 2–8 KB 为估算、非抓取数据，不影响结论。CC0 无需署名、可改色、可随 NSIS 分发。",
+      "riskLevel": "none"
+    },
+    {
+      "name": "IRA Design",
+      "verdict": "pass",
+      "finalLicenseSpdx": "MIT",
+      "finalLicenseUrl": "https://raw.githubusercontent.com/ira-design/ira-illustrations/master/LICENSE.md",
+      "licenseQuote": "MIT License / Copyright (c) 2013-2021 Creative Tim (https://www.creative-tim.com) / \"Permission is hereby granted, free of charge, to any person obtaining a copy\"；官网（curl 直连）：\"...can be downloaded for free under MIT License.\"",
+      "urlChecks": [
+        {
+          "url": "https://raw.githubusercontent.com/ira-design/ira-illustrations/master/LICENSE.md",
+          "ok": true,
+          "note": "MIT 原文直接抓取确认，版权行 2013-2021 Creative Tim 一致"
+        },
+        {
+          "url": "https://github.com/ira-design/ira-illustrations",
+          "ok": true,
+          "note": "仓库存在（637 star），README 原文 36 characters (19 Gradient + 17 Outline) / 52 objects (26 Gradient + 26 Outline) / 15 backgrounds / 5 gradients / ai、svg、png 格式；SVG 分支路径 SVG/SVG.zip 确认（blob/SVG/SVG.zip?raw=true）"
+        },
+        {
+          "url": "https://iradesign.io/",
+          "ok": true,
+          "note": "WebFetch Socket closed，curl 直连 200，抓到「MIT License」标题与「free under MIT License」原文；站点存活"
+        },
+        {
+          "url": "https://www.creative-tim.com/tools/ira-design",
+          "ok": false,
+          "note": "WebFetch 直连失败，未单独核实该预览页；素材本体与许可已由 iradesign.io（curl 200）+ GitHub LICENSE.md 充分确认，不影响结论"
+        }
+      ],
+      "corrections": "无。MIT、版权行、组件数量、SVG 分支/SVG.zip、导出格式全部核实。MIT 需安装包内保留版权与许可声明（建议 build/THIRD_PARTY_NOTICES.txt + extraResources），无需界面署名。渐变版多色渐变违反「一个 teal 信号色」、需改 stop 为 --mark-a/--mark-b 且渐变 id 加前缀避免撞 PolarisMark 的 id=\"polaris-gradient\" 的工程提醒成立。",
+      "riskLevel": "attribution-required"
+    },
+    {
+      "name": "Humaaans",
+      "verdict": "pass",
+      "finalLicenseSpdx": "CC0-1.0",
+      "finalLicenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/legalcode",
+      "licenseQuote": "官网原文（直接抓取）：\"CC0 Free for commercial or personal use by Pablo Stanley.\" 与 \"Free for commercial or personal use.\" / \"CC0 Public DomainLicense\"；license 链接 href 指向 https://creativecommons.org/share-your-work/public-domain/cc0/；全站无 CC BY / attribution / credit 字样",
+      "urlChecks": [
+        {
+          "url": "https://www.humaaans.com/",
+          "ok": true,
+          "note": "直接抓取确认只标 CC0、无 CC BY/署名要求；下载入口 Blush（blush.design/collections/humaaans）与 Gumroad（gum.co/humaaans）"
+        },
+        {
+          "url": "https://creativecommons.org/publicdomain/zero/1.0/legalcode",
+          "ok": true,
+          "note": "CC0 1.0 法律原文直接抓取确认"
+        },
+        {
+          "url": "https://registry.npmjs.org/react-humaaans/latest",
+          "ok": true,
+          "note": "registry 原文：name react-humaaans / version 1.0.1 / license MIT / dist.unpackedSize 1,657,351 B / peerDependencies react 16.6.3（精确锁定）/ dependencies fs ^0.0.1-security、prop-types ^15.6.2、tinycolor2 ^1.4.1，与调研一致（调研漏列 prop-types，无关紧要）"
+        }
+      ],
+      "corrections": "调研对任务假设的更正正确：官网确为 CC0，不是 CC BY 4.0，我直接抓取复核一致。react-humaaans 1.0.1 的 MIT 仅覆盖包装、peer 锁 React 16.6.3、含 fs 占位包与 tinycolor2、1.6 MB，均核实，「沙箱渲染器绝不装、手抄 SVG」建议成立。保留调研的谨慎提示：站内无独立 LICENSE 文件、第三方 allsvgicons 声称「非正式 CC0」，建议 THIRD_PARTY_NOTICES 自愿署名 Pablo Stanley（成本为零）；CC0 不覆盖人物肖像/人格权。多色色块需逐层颜色覆盖、六主题分别复核对比度的判断成立。",
+      "riskLevel": "none"
+    },
+    {
+      "name": "Lukasz Adam MIT Free Illustrations",
+      "verdict": "drop",
+      "finalLicenseSpdx": "NOASSERTION",
+      "finalLicenseUrl": "https://lukaszadam.com/illustrations",
+      "licenseQuote": "站内原文（直接抓取）：页面标题 \"Free SVG Illustrations For Websites (CC0 Licensed)\"；正文 \"CC0 license (MIT license)\" / \"No attribution required.\" / \"commercial and personal use\"；下载需邮箱：\"Enter your email to get the download button.\"",
+      "urlChecks": [
+        {
+          "url": "https://lukaszadam.com/illustrations",
+          "ok": true,
+          "note": "直接抓取确认（首次 Socket closed，重试成功）：CC0 与 MIT 同句混称、邮箱门槛、SVG 为主混 PNG/WebP/JPG、约 120 项 + Load More，均与调研一致"
+        },
+        {
+          "url": "https://creativecommons.org/publicdomain/zero/1.0/legalcode",
+          "ok": true,
+          "note": "CC0 通用原文可以抓取，但这是 CC 的通用法律文本，并非该作者对素材的授权原文；站内无 LICENSE 文件、无仓库、无授权原文链接"
+        }
+      ],
+      "corrections": "调研对页面文字的描述准确（CC0+MIT 混称、邮箱门槛、混合格式、约 117–120 项均核实）。但按核验规则 4「完全无法验证许可证 → drop / unclear」：同一句同时声称 CC0（放弃著作权）与 MIT（保留著作权的授权），法律含义互斥，站内无任何 LICENSE 原文或仓库可佐证究竟是哪一种，无法确认一个自洽的授权。故由调研的「保留、按 CC0 低风险」下调为 drop，riskLevel=unclear，SPDX 记 NOASSERTION。若团队仍想用，必须先留存带日期的页面截图作为 CC0 授权证据、最好邮件联系作者确认，且只取线稿物件、位图一律不入仓（125/150/200% 缩放会糊，smoke 恰好覆盖这些档）。",
+      "riskLevel": "unclear"
+    },
+    {
+      "name": "Hero Patterns",
+      "verdict": "pass",
+      "finalLicenseSpdx": "CC-BY-4.0",
+      "finalLicenseUrl": "https://creativecommons.org/licenses/by/4.0/",
+      "licenseQuote": "站点页脚原文（直接抓取）：\"CC BY 4.0\" 链接指向 https://creativecommons.org/licenses/by/4.0/；CC BY 4.0 deed：\"copy and redistribute the material in any medium or format for any purpose, even commercially.\" / \"You must give appropriate credit, provide a link to the license, and indicate if changes were made.\"",
+      "urlChecks": [
+        {
+          "url": "https://heropatterns.com/",
+          "ok": true,
+          "note": "直接抓取确认：CC BY 4.0 标注、作者 Steve Schoger、前景色/背景色/前景透明度三参数、「Generated CSS code」区 + 「Download unstyled SVG」"
+        },
+        {
+          "url": "https://creativecommons.org/licenses/by/4.0/",
+          "ok": true,
+          "note": "CC BY 4.0 deed 原文直接抓取确认，署名+许可证链接+改动说明三项义务齐全"
+        }
+      ],
+      "corrections": "无。CC BY 4.0 在站点本身明确标注（不是只有网站代码许可），deed 原文核实。调研「复制 CSS」对应站上的 Generated CSS code 区，措辞略有出入但功能一致。必须界面署名 + 许可证链接 + 改动说明，Polaris 需新增设置面板「关于」credits 区；与 --noise-opacity 噪点二选一、不叠加、默认不启用的克制建议成立。前景色 currentColor/--text-tertiary、透明度对齐 --noise-opacity 的参数化模型成立。",
+      "riskLevel": "attribution-required"
+    },
+    {
+      "name": "unDraw（被驳回项，核验驳回理由）",
+      "verdict": "corrected",
+      "finalLicenseSpdx": "LicenseRef-unDraw",
+      "finalLicenseUrl": "https://undraw.co/license",
+      "licenseQuote": "\"All images, assets and vectors published on unDraw can be used for free.\"；排除 \"distribute the assets in packs or otherwise\"；TL;DR 把 \"sell or re-distribute one/some of them, train an ai model, add them in an app\" 列为「in the center of what you are doing」的核心用途示例；另明确禁止 AI/ML 训练/微调/验证。Copyright 2026 Katerina Limpitsouni",
+      "urlChecks": [
+        {
+          "url": "https://undraw.co/license",
+          "ok": true,
+          "note": "许可原文直接抓取确认（两次），上述引文均属实"
+        }
+      ],
+      "corrections": "驳回结论维持，但理由措辞需修正：调研写「许可禁止再分发，不适合随 NSIS 安装包出货」过于绝对。原文的「add them in an app」是以「插画处于你产品的核心目的」为前提的限制示例，普通装饰性内嵌（下载后用在自家 App 里）其实落在一般授权范围内；真正禁止的是把素材打包再分发、做竞品服务、以及 AI/ML 用途。因此驳回的准确依据应是「自定义 EULA、非 OSI 开源许可 + 禁止 AI/ML + 禁止打包再分发」，这仍独立地违反用户「仅选 MIT/Apache/OFL/CC0 等开源许可」的硬约束，故 unDraw 仍不能进安装包。riskLevel=custom-eula。",
+      "riskLevel": "custom-eula"
+    },
+    {
+      "name": "ManyPixels Gallery（被驳回项，核验驳回理由）",
+      "verdict": "pass",
+      "finalLicenseSpdx": "LicenseRef-ManyPixels",
+      "finalLicenseUrl": "https://www.manypixels.co/gallery",
+      "licenseQuote": "\"You do not need to ask permission from or provide credit to the creator or ManyPixels.\"；\"(e.g. sell or re-distribute one/some of them, add them in an app), then you probably should not proceed.\"；\"distribute the assets in packs or otherwise\"；\"nonexclusive, worldwide copyright license to download, copy, modify, distribute, perform, and use the assets\"；禁止 \"compile assets... to replicate a similar or competing service\"",
+      "urlChecks": [
+        {
+          "url": "https://www.manypixels.co/gallery",
+          "ok": true,
+          "note": "许可原文直接抓取确认；20,000+ 张、SVG、五种风格，引文均属实"
+        }
+      ],
+      "corrections": "驳回成立，引文准确。与 unDraw 同源结构：「add them in an app」同样以「核心用途」为前提，普通装饰性内嵌并非绝对禁止；但它是自定义 EULA、非 OSI 开源许可，且明确禁止打包再分发与竞品服务，独立违反用户开源硬约束，故不能进 NSIS。riskLevel=custom-eula。免署名属实但不改变非开源定性。",
+      "riskLevel": "custom-eula"
+    },
+    {
+      "name": "Storyset（免费部分，被驳回项，核验驳回理由）",
+      "verdict": "pass",
+      "finalLicenseSpdx": "LicenseRef-Storyset",
+      "finalLicenseUrl": "https://storyset.com/terms",
+      "licenseQuote": "\"The authorization to use the Storyset Content shall be free provided that any use... is credited to the Company/Website.\"；\"The Storyset Content or any derivative work is not used or included (in whole or in part) in a database, archive or in any other media/stock product, collection, set of clips, or library, for distribution or resale...\"；去署名需 Flaticon Premium",
+      "urlChecks": [
+        {
+          "url": "https://storyset.com/terms",
+          "ok": true,
+          "note": "官网直连被反爬拦截（curl 000 / WebFetch Socket closed），但 WebSearch 抓到该官网页原文并逐句佐证上述条款，另有 canuseit.com / lucky.graphics 第三方分析一致；URL 有效、内容属实"
+        }
+      ],
+      "corrections": "驳回成立。免费必须署名 + 禁止纳入 database/archive/stock library 再分发（免费与付费同样受此再分发限制），去署名需 Flaticon Premium。属自定义 EULA、非 OSI 开源，且风格偏营销插画，与安静桌面工具不符。riskLevel=custom-eula（含强制署名）。注：官网直连被拦截，条款经搜索引用的官网原文佐证，非我直接抓取。",
+      "riskLevel": "custom-eula"
+    },
+    {
+      "name": "DrawKit（免费部分，被驳回项，核验驳回理由）",
+      "verdict": "pass",
+      "finalLicenseSpdx": "LicenseRef-DrawKit",
+      "finalLicenseUrl": "https://www.drawkit.com/license",
+      "licenseQuote": "\"Attribution is not required\"；\"You may not sell, distribute, lease, license, sub-license or offer icon and illustration files to any third party\"；禁止 stand-alone / compilation 再分发（商业或非商业）；授权为 non-exclusive, non-transferable, royalty-free, worldwide（license 页标注 Last updated May 11, 2021）",
+      "urlChecks": [
+        {
+          "url": "https://www.drawkit.com/license",
+          "ok": true,
+          "note": "官网直连被反爬拦截（curl 000 / WebFetch Socket closed），WebSearch 抓到该官网 license 页原文并佐证上述条款；URL 有效、内容属实"
+        }
+      ],
+      "corrections": "驳回成立：免署名但禁止把图标/插画文件再分发给第三方、禁止 stand-alone/compilation 再分发，免费与付费同一份许可，属自定义 EULA、非 OSI 开源，随 NSIS 分发不合法。一处未证实：调研称「另禁止用于 AI 训练」，我的来源未在 DrawKit 许可中确认到 AI 条款（搜索里 AI/ML 禁令出现在 Coolors 等其它站），该句标注未验证；但核心再分发禁令已确认，不影响驳回。riskLevel=custom-eula。",
+      "riskLevel": "custom-eula"
+    },
+    {
+      "name": "Pixeltrue（免费部分，被驳回项，核验驳回理由）",
+      "verdict": "pass",
+      "finalLicenseSpdx": "LicenseRef-Pixeltrue",
+      "finalLicenseUrl": "https://www.pixeltrue.com/license",
+      "licenseQuote": "\"You do not have the rights to redistribute, resell, lease, license, sub-license or offer the file downloaded to any third party.\"；禁止在 \"web templates, app templates, merchandise etc.\" 中包含其图形资源",
+      "urlChecks": [
+        {
+          "url": "https://www.pixeltrue.com/license",
+          "ok": true,
+          "note": "许可原文直接抓取确认（首次 Socket closed，重试成功），两段引文均属实，明确把 app templates 列为禁止的再分发场景"
+        }
+      ],
+      "corrections": "驳回成立，引文准确：明确禁止再分发、且点名 app templates 不得包含其图形资源，属自定义 EULA、非 OSI 开源，不能进安装包。调研标注的「Free 包实际标价 $1、Firebase zip、包内格式未验证」我亦未核实定价/格式，维持未验证标注，但不影响许可层面的驳回。riskLevel=custom-eula。",
+      "riskLevel": "custom-eula"
+    },
+    {
+      "name": "Blush（被驳回项，核验驳回理由）",
+      "verdict": "pass",
+      "finalLicenseSpdx": "LicenseRef-Blush",
+      "finalLicenseUrl": "https://blush.design/license",
+      "licenseQuote": "\"You can't re-sell, or re-distribute Blush Illustrations.\"；允许嵌入 sites/apps/social media/e-books；禁止 merchandising、print-on-demand 模板、商标/logo 用途",
+      "urlChecks": [
+        {
+          "url": "https://blush.design/license",
+          "ok": true,
+          "note": "官网直连被反爬拦截（curl 000 / WebFetch Socket closed），WebSearch 经 canuseit.com 分析引用 Blush ToS 原文佐证上述条款；URL 有效、内容属实"
+        }
+      ],
+      "corrections": "驳回成立。关键澄清：Blush 允许把插画嵌入 App/网站，禁止的是再分发插画本身——所以调研的核心论点正确：Open Doodles/Humaaans 原始素材是 CC0，但经 Blush 编辑器导出的成品受 Blush 许可约束，不能把 Blush 当素材来源。另，调研留作未验证的「SVG/矢量属付费」其实有第三方佐证（canuseit：免费 Doodler 档仅低清 PNG，SVG 与印刷级 PNG 需 Pro），但驳回依据是已核实的再分发禁令，不依赖该点。riskLevel=custom-eula。",
+      "riskLevel": "custom-eula"
+    },
+    {
+      "name": "Streamline（免费部分，被驳回项，核验驳回理由）",
+      "verdict": "pass",
+      "finalLicenseSpdx": "LicenseRef-Streamline-Free",
+      "finalLicenseUrl": "https://help.streamlinehq.com/en/articles/5354376-streamline-free-license",
+      "licenseQuote": "\"Attribution is required for all assets used under the Streamline Free License\"；桌面/移动应用须 \"Add the proper credit in the 'About' or 'Credits' page\" 并链接 https://streamlinehq.com；每项目上限 50 icons / 25 illustrations / 25 elements / 25 emojis；付费去署名并解除上限",
+      "urlChecks": [
+        {
+          "url": "https://help.streamlinehq.com/en/articles/5354376-streamline-free-license",
+          "ok": true,
+          "note": "官方帮助中心原文直接抓取确认，署名义务、About/Credits 位置、四类张数上限均属实"
+        }
+      ],
+      "corrections": "驳回成立，引文准确：免费强制署名 + About/Credits 页 + 链接，且每项目 25 张插画上限对「六主题 × 多视图」不够用，Polaris 当前无 About 页。属自定义免费许可（非 OSI），付费才免署名。riskLevel=attribution-required（含张数上限）。",
+      "riskLevel": "attribution-required"
+    }
+  ],
+  "summary": "7 条候选许可证全部用原文核实：shadcn Empty / Primer Blankslate / IRA Design = MIT（只需安装包内保留版权+许可声明，无需界面署名）；Open Doodles / Humaaans = CC0（Humaaans 官网确为 CC0 而非任务假设的 CC BY 4.0，调研的更正正确，我直接抓取复核一致）；Hero Patterns = CC BY 4.0（站点本身标注，需界面署名+许可证链接+改动说明，Polaris 要新增 About/credits 区）。唯一被下调的是 Lukasz Adam：站内同句混称「CC0 license (MIT license)」、无 LICENSE 原文/仓库，无法确认自洽授权，按规则 4 由「保留」改判 drop / unclear / NOASSERTION。两个 npm 包装 react-open-doodles 1.0.5（MIT、4,761,379 B、peer React 15/16）与 react-humaaans 1.0.1（MIT、1,657,351 B、peer 锁 React 16.6.3、含 fs 占位包+tinycolor2）的版本/体积/依赖均与 registry 原文一致，React 19 不兼容属实，不应安装、应取 CC0 素材手抄内联 SVG。7 条被驳回素材的条款经原文或搜索佐证均成立（unDraw/ManyPixels/Storyset/DrawKit/Pixeltrue/Blush 为自定义 EULA、非 OSI 且禁再分发；Streamline 免费需署名+25 张上限）。需修正的一处措辞：unDraw/ManyPixels 的「add them in an app」是以「插画为核心目的」为前提的限制，普通装饰性内嵌其实被允许，调研「禁止再分发」说得过绝对——但它们仍因「非 OSI 开源许可」独立违反用户硬约束，驳回结论不变。整体结论（以自绘几何 SVG+现有四角星为主、插画极少量点缀、线稿走 currentColor←--text-tertiary、唯一强调 --accent、星渐变 --mark-a/--mark-b、禁持续循环动画）成立。取证说明：opendoodles.com 与 iradesign.io 经 curl 直连 200 并抓到许可原文；storyset/drawkit/blush 官网反爬拦截直连（curl 000 / WebFetch Socket closed），条款经 WebSearch 引用的官网原文+第三方分析佐证；creativecommons.org、GitHub raw、npm registry、heropatterns、primer.style、ui.shadcn.com、lukaszadam、pixeltrue、streamline 均直接抓取成功。"
+}

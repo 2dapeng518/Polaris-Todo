@@ -1,0 +1,407 @@
+{
+  "category": "图标库（线性描边 / line-stroke icon sets）",
+  "checked": [
+    {
+      "name": "Phosphor Icons",
+      "verdict": "pass",
+      "finalLicenseSpdx": "MIT",
+      "finalLicenseUrl": "https://github.com/phosphor-icons/core/blob/main/LICENSE",
+      "licenseQuote": "MIT License — Copyright (c) 2023 Phosphor Icons（core LICENSE 原文）；react README 结尾：MIT © Phosphor Icons",
+      "urlChecks": [
+        {
+          "url": "https://github.com/phosphor-icons/core/blob/main/LICENSE",
+          "ok": true,
+          "note": "声称的 licenseUrl 可访问，MIT 原文与声称一致"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/phosphor-icons/core/main/LICENSE",
+          "ok": true,
+          "note": "MIT 原文独立复核"
+        },
+        {
+          "url": "https://github.com/phosphor-icons/react",
+          "ok": true,
+          "note": "仓库页确认：A flexible icon family for React，MIT sidebar，发布 @phosphor-icons/react（首次抓取输出异常，重抓后干净）"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/phosphor-icons/react/master/README.md",
+          "ok": true,
+          "note": "默认分支是 master（main 分支 404）；深路径示例 '@phosphor-icons/react/dist/csr/BellSimple'、IconContext.Provider 示例、六字重 thin/light/regular/bold/fill/duotone 均实锤"
+        },
+        {
+          "url": "https://phosphoricons.com/",
+          "ok": false,
+          "note": "本轮两次抓取均 Socket closed，未验证页面内容；GitHub org 页（github.com/phosphor-icons）确认该域名为官方主页，URL 本身真实"
+        },
+        {
+          "url": "https://icon-sets.iconify.design/ph/",
+          "ok": true,
+          "note": "9,072 icons、MIT、六字重变体，与调研一致（1512×6=9072 自洽）"
+        },
+        {
+          "url": "https://registry.npmjs.org/@phosphor-icons/react/latest",
+          "ok": true,
+          "note": "2.1.10 / MIT / dist.unpackedSize 33027417 / sideEffects false / peer react>=16.8（另有 react-dom>=16.8），与调研逐字一致"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/phosphor-icons/core/main/assets/regular/tray.svg",
+          "ok": true,
+          "note": "tray 存在，viewBox 0 0 256 256，根元素 fill=currentColor 无 stroke——填充化路径断言实锤；tray-arrow-up / tray-arrow-down regular 亦存在；thin/light/bold/fill/duotone 五字重按 <name>-<weight>.svg 命名全部抓到（如 assets/fill/tray-fill.svg），「六字重齐全」成立；repeat-once regular+fill 亦存在。注意：非 regular 字重文件名带字重后缀，调研未写明此命名规则"
+        }
+      ],
+      "corrections": "无。许可证、版本、体积、几何、tray 六字重、深路径导入示例全部核实。补充两点落地提示：core 仓库非 regular 字重的文件名是 <name>-<weight>.svg（regular 无后缀）；phosphoricons.com 本轮不可达但经 GitHub org 页确认为官方域名。",
+      "riskLevel": "none"
+    },
+    {
+      "name": "MingCute Icons",
+      "verdict": "pass",
+      "finalLicenseSpdx": "Apache-2.0",
+      "finalLicenseUrl": "https://raw.githubusercontent.com/Richard9394/MingCute/main/LICENSE",
+      "licenseQuote": "Apache License / Version 2.0, January 2004（标准全文，无自定义附加条款）；README：MingCute Icons is licensed under the [Apache License 2.0]；Iconify 集页：Apache 2.0 (No attribution required, commercial use is allowed)",
+      "urlChecks": [
+        {
+          "url": "https://raw.githubusercontent.com/Richard9394/MingCute/main/LICENSE",
+          "ok": true,
+          "note": "声称的 licenseUrl 可访问（raw 跟随仓库迁移重定向），Apache-2.0 标准原文"
+        },
+        {
+          "url": "https://github.com/Richard9394/MingCute",
+          "ok": true,
+          "note": "可访问，301 迁移至 mingcute-design/mingcute-icons；README 确认 2263 regular + 2263 filled、24×24 网格、一致 2px 描边、Pro（Cute/Sharp）为单独商业授权"
+        },
+        {
+          "url": "https://github.com/mingcute-design/mingcute-icons",
+          "ok": true,
+          "note": "@mingcute/react 的真实源仓库；Apache-2.0 sidebar；导入示例 '@mingcute/react/core-regular'、'@mingcute/react/core-regular/home-1' 与调研一致"
+        },
+        {
+          "url": "https://icon-sets.iconify.design/mingcute/",
+          "ok": true,
+          "note": "4526 icons、Apache 2.0、(No attribution required, commercial use is allowed)，与调研引文一致"
+        },
+        {
+          "url": "https://registry.npmjs.org/@mingcute/react/latest",
+          "ok": true,
+          "note": "3.1.0 / Apache-2.0 / dist.unpackedSize 2956439 / sideEffects false / peer react ^18.0.0||^19.0.0 / dep @mingcute/icons 3.1.0 / type: module（ESM-only 成立）/ exports 含 ./core-regular 与 ./core-filled 子路径，全部与调研一致"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/mingcute-design/mingcute-icons/main/packages/svg/core-regular/flag-1.svg",
+          "ok": true,
+          "note": "flag-1 存在，24 网格，path fill=currentColor（填充化路径实锤）；core-filled/flag-4.svg 亦存在——四档旗标配对抽查通过"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/mingcute-design/mingcute-icons/main/packages/svg/core-regular/repeat-one.svg",
+          "ok": true,
+          "note": "文件存在（core-filled/repeat-one.svg 亦存在），但两次抓取对形状的描述均为「方框+向外箭头」的分享/导出形，与「重复一次」语义不符；Iconify API 429、集页搜索纯 JS，形状无法独立确认"
+        }
+      ],
+      "corrections": "许可证与链接全部通过，两处更新/存疑：① 仓库已迁移到 mingcute-design/mingcute-icons（旧地址 Richard9394/MingCute 经 301 仍可访问，npm repository 字段指向新仓库），落地文档建议写新地址；② 「repeat-one = 重复一次」的语义推荐存疑：文件确实存在且线/面配对齐全，但抓取到的形状描述更像分享/导出图标，落地前必须在预览页肉眼核对形状（本轮无法独立确认）。另提醒：Iconify 的 No attribution required 标注不豁免 Apache-2.0 随包保留 LICENSE 的义务，调研对此已正确提示，NSIS 第三方声明必须带上。",
+      "riskLevel": "attribution-required"
+    },
+    {
+      "name": "Tabler Icons",
+      "verdict": "pass",
+      "finalLicenseSpdx": "MIT",
+      "finalLicenseUrl": "https://raw.githubusercontent.com/tabler/tabler-icons/master/LICENSE",
+      "licenseQuote": "MIT License — Copyright (c) 2020-2026 Paweł Kuna；仓库 README：Tabler Icons is licensed under the MIT License.",
+      "urlChecks": [
+        {
+          "url": "https://raw.githubusercontent.com/tabler/tabler-icons/master/LICENSE",
+          "ok": true,
+          "note": "声称的 licenseUrl 可访问，版权行与调研逐字一致"
+        },
+        {
+          "url": "https://github.com/tabler/tabler-icons",
+          "ok": true,
+          "note": "MIT sidebar；README 计数 6287，与调研的官网计数一致"
+        },
+        {
+          "url": "https://tabler.io/icons",
+          "ok": false,
+          "note": "本轮三次抓取（含 ?ref 变体）均 Socket closed，官网页面内容未验证；但旧域名 tabler-icons.io 返回 301 指向 tabler.io/icons，证明该 URL 为官方现用地址，且 6287 计数与 MIT 声明经仓库 README 独立证实"
+        },
+        {
+          "url": "https://tabler-icons.io/",
+          "ok": true,
+          "note": "301 → https://tabler.io/icons?ref=tabler-icons.io，官方域名迁移实锤"
+        },
+        {
+          "url": "https://registry.npmjs.org/@tabler/icons-react/latest",
+          "ok": true,
+          "note": "3.51.0 / MIT / dist.unpackedSize 17658962 / sideEffects false / peer react>=16，与调研逐字一致"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/tabler/tabler-icons/master/icons/outline/repeat-once.svg",
+          "ok": true,
+          "note": "存在；viewBox 24、fill=none、stroke=currentColor、stroke-width=2、round 端点——真 stroke 断言实锤；calendar-repeat.svg 亦存在"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/tabler/tabler-icons/master/icons/filled/flag-x.svg",
+          "ok": false,
+          "note": "404——恰好证实调研「flag-x 只有 outline 没有 -filled、filled 非全量配对」的断言（此 404 是预期证据，不是链接错误）"
+        }
+      ],
+      "corrections": "无。许可证、版本、体积、真 stroke 几何、repeat-once/calendar-repeat 存在性、filled 非全量覆盖全部核实。两处本轮未验证项如实标注：官网 tabler.io/icons 页面内容（Socket closed，计数与 MIT 已经仓库 README 证实）；Iconify 收录 6545 的计数（API 429 限流），调研已如实并列两个数字。",
+      "riskLevel": "none"
+    },
+    {
+      "name": "Iconoir",
+      "verdict": "pass",
+      "finalLicenseSpdx": "MIT",
+      "finalLicenseUrl": "https://raw.githubusercontent.com/iconoir-icons/iconoir/main/LICENSE",
+      "licenseQuote": "MIT License — Copyright (c) 2021 Luca Burgio；官网：Iconoir is free and open source under the MIT license.",
+      "urlChecks": [
+        {
+          "url": "https://raw.githubusercontent.com/iconoir-icons/iconoir/main/LICENSE",
+          "ok": true,
+          "note": "声称的 licenseUrl 可访问，版权行与调研逐字一致"
+        },
+        {
+          "url": "https://iconoir.com/",
+          "ok": true,
+          "note": "1,671 icons、MIT、默认 size 24 / stroke 1.5、版本 v7.12.2，与调研一致"
+        },
+        {
+          "url": "https://github.com/iconoir-icons/iconoir",
+          "ok": true,
+          "note": "MIT sidebar；README：1,383 regular + 288 solid = 1,671 SVGs，与调研一致"
+        },
+        {
+          "url": "https://registry.npmjs.org/iconoir-react/latest",
+          "ok": true,
+          "note": "7.12.2 / MIT / dist.unpackedSize 6445611 / sideEffects false / peer react 18||19，与调研逐字一致"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/iconoir-icons/iconoir/main/packages/iconoir-react/README.md",
+          "ok": true,
+          "note": "React 组件默认 width/height 均为 \"1.5em\"、color 默认 currentColor、IconoirProvider iconProps 示例存在——调研指出的「必须用 Provider 钉死像素尺寸」这一关键坑实锤"
+        }
+      ],
+      "corrections": "无。全部声称核实通过，包括 1.5em 默认尺寸这一集成陷阱。",
+      "riskLevel": "none"
+    },
+    {
+      "name": "Heroicons",
+      "verdict": "pass",
+      "finalLicenseSpdx": "MIT",
+      "finalLicenseUrl": "https://raw.githubusercontent.com/tailwindlabs/heroicons/master/LICENSE",
+      "licenseQuote": "MIT License — Copyright (c) Tailwind Labs, Inc.；官网：316 icons / MIT license；仓库 README：A set of free MIT-licensed high-quality SVG icons for UI development.",
+      "urlChecks": [
+        {
+          "url": "https://raw.githubusercontent.com/tailwindlabs/heroicons/master/LICENSE",
+          "ok": true,
+          "note": "声称的 licenseUrl 可访问，版权归属 Tailwind Labs, Inc. 与调研一致"
+        },
+        {
+          "url": "https://heroicons.com/",
+          "ok": true,
+          "note": "316 icons、MIT license、四规格 24 outline(1.5px)/24 solid/20 mini/16 micro，与调研一致"
+        },
+        {
+          "url": "https://github.com/tailwindlabs/heroicons",
+          "ok": true,
+          "note": "MIT sidebar，四规格变体确认"
+        },
+        {
+          "url": "https://registry.npmjs.org/@heroicons/react/latest",
+          "ok": true,
+          "note": "2.2.0 / MIT / dist.unpackedSize 3688492 / sideEffects false / peer react \">= 16 || ^19.0.0-rc\"，与调研逐字一致"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/tailwindlabs/heroicons/master/optimized/24/outline/bell.svg",
+          "ok": true,
+          "note": "viewBox 24、fill=none、stroke=currentColor、stroke-width=1.5、round 端点——几何断言实锤（linecap/linejoin 实际在内层 path 上而非 svg 根，数值与调研一致，不构成错误）"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/tailwindlabs/heroicons/master/optimized/16/solid/bell-snooze.svg",
+          "ok": true,
+          "note": "存在，viewBox 0 0 16 16——16-solid bell-snooze 变体实锤"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/tailwindlabs/heroicons/master/optimized/16/outline/bell.svg",
+          "ok": false,
+          "note": "404——恰好证实「16/20 只有实心没有线性」的断言（预期证据，非链接错误）"
+        }
+      ],
+      "corrections": "无。许可证、版本、体积、316 计数、四规格、16/20 无线性、bell 系列变体全部核实。",
+      "riskLevel": "none"
+    },
+    {
+      "name": "Iconify 聚合管线（unplugin-icons + @iconify-json/*）",
+      "verdict": "pass",
+      "finalLicenseSpdx": "MIT（管线本体；各图标集逐集授权，ph=MIT、mingcute=Apache-2.0 已单独核实）",
+      "finalLicenseUrl": "https://raw.githubusercontent.com/unplugin/unplugin-icons/main/LICENSE",
+      "licenseQuote": "MIT License — Copyright (c) 2020-PRESENT Anthony Fu；README 结尾：[MIT](./LICENSE) License © 2020-PRESENT Anthony Fu",
+      "urlChecks": [
+        {
+          "url": "https://raw.githubusercontent.com/unplugin/unplugin-icons/main/LICENSE",
+          "ok": true,
+          "note": "声称的 licenseUrl 可访问，MIT 原文与调研一致"
+        },
+        {
+          "url": "https://github.com/unplugin/unplugin-icons",
+          "ok": true,
+          "note": "MIT sidebar；按需把 Iconify 集编成组件、只打包实际用到的图标"
+        },
+        {
+          "url": "https://registry.npmjs.org/unplugin-icons/latest",
+          "ok": true,
+          "note": "24.0.0 / MIT / dist.unpackedSize 70960，与调研一致；但正式 peerDependencies 只列 @svgr/core>=7.0.0（optional）及 svelte/@svgx/core/@vue/compiler-sfc/@vue/compiler-vapor（均 optional），不含 @svgr/plugin-jsx"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/unplugin/unplugin-icons/main/README.md",
+          "ok": true,
+          "note": "Icons({ compiler: 'jsx', jsx: 'react' })、'~icons/mdi/account-box' 约定、\"This installs all icon sets (~120MB)\"、\"Only icons you actually use will be bundled in production.\" 均抓到（抓取模型输出裹了一层生成 HTML，引文内容与 LICENSE 及调研交叉一致）；React 节指引安装 @svgr/core 与 @svgr/plugin-jsx"
+        },
+        {
+          "url": "https://icon-sets.iconify.design/",
+          "ok": false,
+          "note": "根页本轮两次 Socket closed；但子页 /ph/、/mingcute/、/radix-icons/、/solar/ 全部抓通，站点真实可用，根页不可达判为本环境网络抖动"
+        },
+        {
+          "url": "https://registry.npmjs.org/@iconify-json/ph/latest",
+          "ok": true,
+          "note": "1.2.2 / MIT / dist.unpackedSize 4569308，与调研逐字一致"
+        },
+        {
+          "url": "https://registry.npmjs.org/@iconify-json/mingcute/latest",
+          "ok": true,
+          "note": "1.2.10 / Apache-2.0 / dist.unpackedSize 3979156，与调研逐字一致"
+        },
+        {
+          "url": "https://registry.npmjs.org/@iconify/json/latest",
+          "ok": true,
+          "note": "2.2.556 / MIT / dist.unpackedSize 646475464（≈616 MiB），与调研逐字一致——「坚决不装全量包」的结论成立"
+        }
+      ],
+      "corrections": "一处小更正：调研称「peer 是 @svgr/core 与 @svgr/plugin-jsx」，registry 正式 peerDependencies 只含 @svgr/core（optional，>=7.0.0），@svgr/plugin-jsx 不在 registry peers 里——两个都装是 README React 节的安装指引，不是注册表 peer 声明，落地按 README 装即可。Vite 8 / electron-vite 6 兼容性与 TypeScript 声明章节本轮仍未验证（调研已如实自标），落地前必须 npm run build && npm run smoke。「逐集核对上游 LICENSE」的警告经 Remix Icon 案例证实完全必要。",
+      "riskLevel": "none"
+    },
+    {
+      "name": "Radix Icons",
+      "verdict": "pass",
+      "finalLicenseSpdx": "MIT",
+      "finalLicenseUrl": "https://raw.githubusercontent.com/radix-ui/icons/master/LICENSE",
+      "licenseQuote": "MIT License — Copyright (c) 2022 WorkOS；README：Licensed under the MIT License, Copyright © 2022-present WorkOS. / A crisp set of 15×15 icons designed by the @workos team.",
+      "urlChecks": [
+        {
+          "url": "https://raw.githubusercontent.com/radix-ui/icons/master/LICENSE",
+          "ok": true,
+          "note": "声称的 licenseUrl 可访问，版权行与调研逐字一致"
+        },
+        {
+          "url": "https://www.radix-ui.com/icons",
+          "ok": true,
+          "note": "15×15 网格、MIT（© 2022–present WorkOS）、npm install @radix-ui/react-icons 均确认（首次抓取输出被生成式内容污染，重抓后干净）；页面未显示总数，332 经 Iconify 集页证实"
+        },
+        {
+          "url": "https://github.com/radix-ui/icons",
+          "ok": true,
+          "note": "MIT sidebar，README 许可句与 15×15 描述实锤"
+        },
+        {
+          "url": "https://registry.npmjs.org/@radix-ui/react-icons/latest",
+          "ok": true,
+          "note": "1.3.2 / MIT / dist.unpackedSize 3442784 / sideEffects false / peer ^16.x||^17.x||^18.x||^19.0.0||^19.0.0-rc，与调研一致"
+        },
+        {
+          "url": "https://icon-sets.iconify.design/radix-icons/",
+          "ok": true,
+          "note": "332 icons、MIT、grid 15，与调研一致"
+        }
+      ],
+      "corrections": "无。许可证、版本、体积、15 网格、332 计数全部核实。「搜索 repeat 返回 0 条」因 Iconify API 429 本轮未能复核，标注未验证（不影响许可证与链接结论，且与其语义覆盖窄的总判断一致）。",
+      "riskLevel": "none"
+    },
+    {
+      "name": "Solar Icons",
+      "verdict": "pass",
+      "finalLicenseSpdx": "CC-BY-4.0",
+      "finalLicenseUrl": "https://creativecommons.org/licenses/by/4.0/legalcode",
+      "licenseQuote": "If You Share the Licensed Material (including in modified form), You must:（CC BY 4.0 legalcode Section 3(a)(1) 署名义务）；Iconify 集页 license：CC BY 4.0",
+      "urlChecks": [
+        {
+          "url": "https://icon-sets.iconify.design/solar/",
+          "ok": true,
+          "note": "调研 sourceUrl 可访问：9102 icons、CC BY 4.0、作者 480 Design，与调研一致"
+        },
+        {
+          "url": "https://creativecommons.org/licenses/by/4.0/legalcode",
+          "ok": true,
+          "note": "确认为 CC BY 4.0（Attribution）而非 CC0，署名条款原文抓到"
+        }
+      ],
+      "corrections": "无（驳回维持）。CC BY 4.0 署名义务实锤，随 NSIS 分发须在关于页保留 attribution，调研的许可证+风格双重排除理由成立。",
+      "riskLevel": "attribution-required"
+    },
+    {
+      "name": "Remix Icon",
+      "verdict": "pass",
+      "finalLicenseSpdx": "LicenseRef-Remix-Icon-License-v1.0（自定义，非 OSI）",
+      "finalLicenseUrl": "https://raw.githubusercontent.com/Remix-Design/RemixIcon/master/License",
+      "licenseQuote": "Remix Icon License v1.0 / Version 1.0 – January 2026（© 2017–2026 Remix Design）；§3.3 禁止用作 A logo, trademark, or brand identifier 及 app icon；§3.2 禁止 use the Icons to create, distribute, or sell a competing icon library or icon set",
+      "urlChecks": [
+        {
+          "url": "https://raw.githubusercontent.com/Remix-Design/RemixIcon/master/License",
+          "ok": true,
+          "note": "调研 sourceUrl 可访问：上游确为自定义许可证 v1.0（2026 年 1 月），logo/商标/app 图标禁令与竞品库禁令原文实锤——不再是 Apache-2.0"
+        },
+        {
+          "url": "https://registry.npmjs.org/remixicon/latest",
+          "ok": true,
+          "note": "4.9.1，license 字段仍为 \"Apache-2.0\"——npm 元数据与上游许可证原文冲突实锤，调研「不能采信元数据」的警告正确"
+        },
+        {
+          "url": "https://icon-sets.iconify.design/ri/",
+          "ok": false,
+          "note": "本轮三次 Socket closed；「Iconify ri 集元数据仍标 Apache 2.0 且指向 cyberalien fork」这一子断言未验证（Iconify API 亦 429）"
+        }
+      ],
+      "corrections": "无（驳回维持）。核心驳回理由——上游自定义 EULA 禁止 app 图标用途、与 Polaris 自有四角星 app 图标长期冲突——经原文实锤；npm license 字段滞后也实锤。唯一未复核项是 Iconify ri 集页的元数据标注（抓取失败），不影响驳回结论。",
+      "riskLevel": "custom-eula"
+    },
+    {
+      "name": "Untitled UI Icons",
+      "verdict": "pass",
+      "finalLicenseSpdx": "LicenseRef-Untitled-UI-Icons（自定义，非 OSI）",
+      "finalLicenseUrl": "https://raw.githubusercontent.com/untitleduico/icons/main/LICENSE",
+      "licenseQuote": "© 2025 Untitled UI；禁止 Sell, sublicense, or distribute the icons (in original or modified form) / Create derivative icon libraries based on the icons / Use the icons in any form of UI kit, library, or template intended for resale",
+      "urlChecks": [
+        {
+          "url": "https://raw.githubusercontent.com/untitleduico/icons/main/LICENSE",
+          "ok": true,
+          "note": "调研 sourceUrl 可访问：自定义许可证，三条禁止条款逐字实锤，禁止再分发与 NSIS 本地化分发直接冲突"
+        },
+        {
+          "url": "https://registry.npmjs.org/@untitledui/icons/latest",
+          "ok": true,
+          "note": "0.0.23，license 字段 \"MIT\"——与仓库自定义 LICENSE 冲突实锤，调研「以原文为准」的处理正确"
+        }
+      ],
+      "corrections": "无（驳回维持）。自定义 EULA + npm 元数据虚标 MIT 两点全部实锤，不是开源素材，排除正确。",
+      "riskLevel": "custom-eula"
+    },
+    {
+      "name": "Hugeicons（免费档 Stroke Rounded）",
+      "verdict": "pass",
+      "finalLicenseSpdx": "MIT（仅免费档；Pro 为单独按 seat 商业授权）",
+      "finalLicenseUrl": "https://hugeicons.com/docs/faqs/license-questions",
+      "licenseQuote": "The free icons are licensed separately under the MIT License / provided you keep the MIT copyright and permission notice with any copy of the source files / This Agreement covers the Pro icons only.",
+      "urlChecks": [
+        {
+          "url": "https://hugeicons.com/docs/faqs/license-questions",
+          "ok": true,
+          "note": "调研 sourceUrl 可访问：免费档（含 @hugeicons/core-free-icons）MIT + 保留声明条件实锤；Pro 按 seat 付费、禁止再分发源素材，免费/Pro 边界与调研描述一致"
+        },
+        {
+          "url": "https://registry.npmjs.org/@hugeicons/core-free-icons/latest",
+          "ok": true,
+          "note": "4.4.0 / MIT / dist.unpackedSize 80557312（≈76.8 MiB），与调研逐字一致——「本轮最大免费包」的排除理由成立"
+        }
+      ],
+      "corrections": "无（驳回维持）。许可证本身确为 MIT 无风险，排除 purely 是工程理由（单风格无实心配对、76.8 MiB 包体、额外运行时包装层、免费/Pro 边界易误踩），调研表述准确。",
+      "riskLevel": "none"
+    }
+  ],
+  "summary": "怀疑立场逐条核验完毕：7 个候选全部通过（6 个 MIT + MingCute Apache-2.0），许可证原文、版本号、dist.unpackedSize、sideEffects、peerDependencies 与 registry.npmjs.org 及仓库 LICENSE 逐字吻合，无一虚报；4 个被驳回素材的理由全部维持——Solar 确为 CC BY 4.0（署名义务原文实锤）、Remix Icon 上游确已改为自定义「Remix Icon License v1.0（2026-01）」且 npm 字段仍虚标 Apache-2.0、Untitled UI 自定义 EULA 禁止再分发且 npm 虚标 MIT、Hugeicons 免费档确为 MIT 但 76.8 MiB 包体等工程排除理由属实。关键技术断言抽查通过：Phosphor tray 六字重齐全（256 网格 fill=currentColor，非 regular 字重文件名带 -weight 后缀）、Tabler 真 stroke 2 且 filled/flag-x 确 404、Iconoir 默认 1.5em 陷阱、Heroicons 16 无线性、MingCute type:module 与 core-regular/core-filled 子路径。需要修正/留意的三点：① MingCute 仓库已迁移至 mingcute-design/mingcute-icons（旧 URL 301 可达）；② MingCute repeat-one 线/面文件存在，但两次抓取形状描述均似「分享/导出」而非「重复一次」，语义落地前须肉眼核对；③ unplugin-icons 的 registry 正式 peer 只含 @svgr/core（optional），@svgr/plugin-jsx 是 README 安装指引而非 registry peer。本轮不可达（如实标注未验证，不影响许可证结论）：phosphoricons.com、tabler.io/icons、icon-sets 根页、ri 集页（均 Socket closed，前两者经 GitHub org 页/301 重定向/仓库 README 间接证实为官方地址）；Iconify API 429 限流导致 ri 元数据滞后、Radix repeat 零结果、Tabler 6545 计数三个子断言未复核。调研对简报表格的更正（六套主题 --accent-2 均有值：sand #9a3412 / sky #075985 / green #3f6212 等）经本地 globals.css 逐行核实属实。总体结论：这份调研可信度高，可照单落地，唯 MingCute repeat-one 形状与 unplugin-icons 的 Vite 8 兼容性须落地前验证。"
+}

@@ -1,0 +1,420 @@
+{
+  "category": "等宽与数字字体（OFL monospace / numeric fonts）",
+  "checked": [
+    {
+      "name": "保留 Geist Mono + 补 Noto Sans SC 中文回退（不新增素材）",
+      "verdict": "pass",
+      "finalLicenseSpdx": "OFL-1.1",
+      "finalLicenseUrl": "https://raw.githubusercontent.com/vercel/geist-font/main/OFL.txt",
+      "licenseQuote": "Copyright 2026 The Geist Project Authors (https://github.com/vercel/geist-font) — This Font Software is licensed under the SIL Open Font License, Version 1.1.",
+      "urlChecks": [
+        {
+          "url": "https://github.com/vercel/geist-font",
+          "ok": true,
+          "note": "Geist 仓库，README 声明 OFL-1.1，含 Geist Mono"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/vercel/geist-font/main/OFL.txt",
+          "ok": true,
+          "note": "OFL-1.1 原文，无 Reserved Font Name"
+        },
+        {
+          "url": "https://fontsource.org/fonts/geist-mono",
+          "ok": true,
+          "note": "预览页存在，OFL-1.1，可变 9 字重"
+        },
+        {
+          "url": "https://registry.npmjs.org/@fontsource-variable/geist-mono/5.3.0",
+          "ok": true,
+          "note": "5.3.0 / OFL-1.1 / unpackedSize 172241 B / 24 文件，与调研一致"
+        },
+        {
+          "url": "https://registry.npmjs.org/@fontsource-variable/noto-sans-sc/5.3.1",
+          "ok": true,
+          "note": "回退字体包真实存在 / OFL-1.1，已在 devDependencies 且 main.tsx:4 已导入"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/google/fonts/main/ofl/notosanssc/OFL.txt",
+          "ok": true,
+          "note": "Noto Sans SC OFL-1.1，版权行 Copyright 2014-2021 Adobe … with Reserved Font Name 'Source'"
+        }
+      ],
+      "corrections": "推荐文案事实错误：globals.css 及整个 src 中 var(--font-mono) 实为 11 处（Grep 实测），调研写「全部 23 处」，应改为 11。许可证/链接/体积均核实无误，globals.css:88 确为 --font-mono 定义且回退链无 CJK。另补充：作为回退的 Noto Sans SC 其 OFL 本身带 Adobe RFN 'Source'（原样分发无碍；调研只在 Maple CN 处提到该 RFN，未提 Noto Sans SC 自身）。独立实测 Geist wght 100–900 默认 400、Version 1.701、264 字形、advance 600、CJK 覆盖 0，均与调研一致。",
+      "riskLevel": "attribution-required"
+    },
+    {
+      "name": "Maple Mono CN",
+      "verdict": "pass",
+      "finalLicenseSpdx": "OFL-1.1",
+      "finalLicenseUrl": "https://raw.githubusercontent.com/subframe7536/maple-font/v7/OFL.txt",
+      "licenseQuote": "Copyright 2022 The Maple Mono Project Authors (https://github.com/subframe7536/maple-font) — This Font Software is licensed under the SIL Open Font License, Version 1.1. ｜ 内嵌中文 Resource Han Rounded：Portions © 2014-2021 Adobe (http://www.adobe.com/), with Reserved Font Name 'Source'.",
+      "urlChecks": [
+        {
+          "url": "https://github.com/subframe7536/maple-font",
+          "ok": true,
+          "note": "OFL-1.1；CN 基于 Resource Han Rounded；README 明示 CN 无 variable、中英 2:1；最新 v7.9"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/subframe7536/maple-font/v7/OFL.txt",
+          "ok": true,
+          "note": "OFL-1.1 原文，主 OFL 无 RFN"
+        },
+        {
+          "url": "https://fontsource.org/fonts/maple-mono",
+          "ok": true,
+          "note": "页面存在、OFL-1.1，但预览的是拉丁版（非 CN）"
+        },
+        {
+          "url": "https://registry.npmjs.org/@mogeko/maple-mono-cn/7.9.0",
+          "ok": true,
+          "note": "7.9.0 / license 字段 MIT / unpackedSize 9472387 B / 244 文件 / main=dist/font/result.css，与调研一致"
+        },
+        {
+          "url": "https://registry.npmjs.org/@fontsource/maple-mono/5.3.0",
+          "ok": true,
+          "note": "5.3.0 / OFL-1.1 / 3114169 B / 76 文件；拉丁 only（实测 cmap 无中文，Version 7.800）"
+        },
+        {
+          "url": "https://github.com/CyanoHao/Resource-Han-Rounded",
+          "ok": true,
+          "note": "CN 内嵌中文字体仓库，派生自 Source Han Sans"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/CyanoHao/Resource-Han-Rounded/master/LICENSE.md",
+          "ok": true,
+          "note": "字体 OFL-1.1，含 Adobe RFN 'Source' 原文；代码部分 MIT"
+        }
+      ],
+      "corrections": "许可证与链接核实一致。两点澄清：(a) previewUrl fontsource.org/fonts/maple-mono 预览的是拉丁版（实测 cmap 无中文），并非所推荐的 CN 版，CN 的 2:1 效果在该页看不到；(b) @mogeko/maple-mono-cn 的 npm license 字段确为 MIT（打包脚本），字体本体仍 OFL-1.1，调研已正确区分，合规须按 OFL 收录。独立实测 CN 分包：年/一/周/今/明 advance=1200、拉丁 0/:/M=600、upm=1000（严格 2:1）、fvar 缺失（无可变轴）、239 个分包，均与调研一致。CN 内嵌 Resource Han Rounded 的 Adobe RFN 'Source' 已逐字核实。",
+      "riskLevel": "attribution-required"
+    },
+    {
+      "name": "JetBrains Mono",
+      "verdict": "pass",
+      "finalLicenseSpdx": "OFL-1.1",
+      "finalLicenseUrl": "https://raw.githubusercontent.com/JetBrains/JetBrainsMono/master/OFL.txt",
+      "licenseQuote": "Copyright 2020 The JetBrains Mono Project Authors (https://github.com/JetBrains/JetBrainsMono) — This Font Software is licensed under the SIL Open Font License, Version 1.1.",
+      "urlChecks": [
+        {
+          "url": "https://github.com/JetBrains/JetBrainsMono",
+          "ok": true,
+          "note": "README：字体 OFL-1.1、源码 Apache-2.0，双协议属实"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/JetBrains/JetBrainsMono/master/OFL.txt",
+          "ok": true,
+          "note": "OFL-1.1 原文，无 RFN"
+        },
+        {
+          "url": "https://fontsource.org/fonts/jetbrains-mono",
+          "ok": true,
+          "note": "预览页存在，OFL-1.1，可变 8 字重"
+        },
+        {
+          "url": "https://registry.npmjs.org/@fontsource-variable/jetbrains-mono/5.3.0",
+          "ok": true,
+          "note": "5.3.0 / OFL-1.1 / 203866 B / 24 文件，与调研一致"
+        }
+      ],
+      "corrections": "无。独立实测坐实调研关键断言：fontsource 包内字体 Version 2.211（上游最新 v2.304，2023-01-14，确未跟上）、wght 100–800 默认 400、394 字形、advance 600、GSUB/GPOS 特性仅 calt/ccmp/frac/locl/mark——确无 zero/ss01-20/cv01-99/tnum，上游宣传的字符替换在此包调不动。CJK 覆盖 0。",
+      "riskLevel": "attribution-required"
+    },
+    {
+      "name": "Commit Mono",
+      "verdict": "pass",
+      "finalLicenseSpdx": "OFL-1.1",
+      "finalLicenseUrl": "https://raw.githubusercontent.com/eigilnikolajsen/commit-mono/main/LICENSE-FONT",
+      "licenseQuote": "Copyright (c) 2023 Eigil Nikolajsen — This Font Software is licensed under the SIL Open Font License, Version 1.1.",
+      "urlChecks": [
+        {
+          "url": "https://commitmono.com/",
+          "ok": true,
+          "note": "官网：连字默认关、 won't be updated with purely aesthetic ligatures 、Recommended weight 400 dark / 450 light、OFL-1.1"
+        },
+        {
+          "url": "https://github.com/eigilnikolajsen/commit-mono",
+          "ok": true,
+          "note": "字体 OFL(LICENSE-FONT) / 网站代码 MIT(LICENSE)，侧栏 MIT, OFL-1.1 licenses found"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/eigilnikolajsen/commit-mono/main/LICENSE-FONT",
+          "ok": true,
+          "note": "OFL-1.1 原文，无 RFN"
+        },
+        {
+          "url": "https://fontsource.org/fonts/commit-mono",
+          "ok": true,
+          "note": "预览页存在（首次抓取 Socket closed，重试成功），OFL-1.1，静态 6 字重"
+        },
+        {
+          "url": "https://registry.npmjs.org/@fontsource/commit-mono/5.3.0",
+          "ok": true,
+          "note": "5.3.0 / OFL-1.1 / 1326237 B，与调研一致"
+        }
+      ],
+      "corrections": "无。上游最新 release 经 gh API 确认仍为 v1.143（2023-12-28），此后未发版，与调研一致。独立实测：family 名 CommitMono（无空格）、Version 1.143、fvar 缺失（静态）、calt+cv01-11+ss01-05（5 ss/11 cv）、advance 600、官方 ttf 377980 B/1932 字形、fontsource 拉丁 400 woff2 48128 B，均与调研一致。",
+      "riskLevel": "attribution-required"
+    },
+    {
+      "name": "Cascadia Mono（把现有回退位真正打进安装包）",
+      "verdict": "pass",
+      "finalLicenseSpdx": "OFL-1.1",
+      "finalLicenseUrl": "https://raw.githubusercontent.com/microsoft/cascadia-code/main/LICENSE",
+      "licenseQuote": "Copyright (c) 2019 - Present, Microsoft Corporation, with Reserved Font Name Cascadia Code. — This Font Software is licensed under the SIL Open Font License, Version 1.1.",
+      "urlChecks": [
+        {
+          "url": "https://github.com/microsoft/cascadia-code",
+          "ok": true,
+          "note": "Code 含连字 / Mono 无连字；ttf 可变 200–700；LICENSE+OFL-FAQ.txt"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/microsoft/cascadia-code/main/LICENSE",
+          "ok": true,
+          "note": "OFL-1.1 原文，RFN 'Cascadia Code' 逐字核实"
+        },
+        {
+          "url": "https://fontsource.org/fonts/cascadia-code",
+          "ok": true,
+          "note": "预览页存在，OFL-1.1，可变 200–700"
+        },
+        {
+          "url": "https://fontsource.org/fonts/cascadia-mono",
+          "ok": true,
+          "note": "Cascadia Mono 预览页存在，OFL-1.1"
+        },
+        {
+          "url": "https://registry.npmjs.org/@fontsource-variable/cascadia-mono/5.3.0",
+          "ok": true,
+          "note": "无连字可变包真实存在 / 5.3.0 / OFL-1.1 / 407893 B / 32 文件"
+        },
+        {
+          "url": "https://registry.npmjs.org/@fontsource-variable/cascadia-code/5.3.0",
+          "ok": true,
+          "note": "5.3.0 / OFL-1.1 / 458669 B / 32 文件"
+        }
+      ],
+      "corrections": "无。RFN 'Cascadia Code' 属实（本轮唯一带 RFN 的推荐项，自裁 subset 改字形须改名）。独立实测：Version 2407.024、wght 200–700 默认 400、448 字形、advance 1200/upm 2048、calt 存在、无 tnum/zero/ss、CJK 覆盖 0，均与调研一致。上游最新 v2407.24（2024-11-27）。",
+      "riskLevel": "attribution-required"
+    },
+    {
+      "name": "IBM Plex Mono",
+      "verdict": "pass",
+      "finalLicenseSpdx": "OFL-1.1",
+      "finalLicenseUrl": "https://raw.githubusercontent.com/IBM/plex/master/LICENSE.txt",
+      "licenseQuote": "Copyright © 2017 IBM Corp. with Reserved Font Name \"Plex\" — This Font Software is licensed under the SIL Open Font License, Version 1.1.",
+      "urlChecks": [
+        {
+          "url": "https://github.com/IBM/plex",
+          "ok": true,
+          "note": "OFL-1.1，含 IBM Plex Mono 与 @ibm/plex-mono 包"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/IBM/plex/master/LICENSE.txt",
+          "ok": true,
+          "note": "OFL-1.1 原文，RFN 'Plex' 逐字核实"
+        },
+        {
+          "url": "https://fontsource.org/fonts/ibm-plex-mono",
+          "ok": true,
+          "note": "预览页存在，OFL-1.1，静态 7 字重"
+        },
+        {
+          "url": "https://registry.npmjs.org/@fontsource/ibm-plex-mono/5.3.0",
+          "ok": true,
+          "note": "5.3.0 / OFL-1.1 / 1489824 B / 244 文件，与调研一致"
+        },
+        {
+          "url": "https://registry.npmjs.org/@ibm/plex-mono/latest",
+          "ok": true,
+          "note": "IBM 官方包 2.5.0 / OFL-1.1，与调研一致"
+        },
+        {
+          "url": "https://registry.npmjs.org/@fontsource-variable/ibm-plex-mono",
+          "ok": false,
+          "note": "404，确无此可变包——与调研声称一致（预期的不存在）"
+        }
+      ],
+      "corrections": "小出入（非许可证）：拉丁 400 子集独立实测 GSUB/GPOS 特性为 ccmp/dnom/frac/mark/numr，调研多列了 locl/mkmk（可能测的是其它子集/全量）；关键结论『无 calt/liga/tnum/zero、天然无连字风险』成立。其余核实一致：OFL-1.1+RFN 'Plex'、Version 2.3、280 字形、advance 600/upm 1000、fvar 缺失、拉丁 400 woff2 14708 B（本轮最小）、@fontsource-variable 确 404。",
+      "riskLevel": "attribution-required"
+    },
+    {
+      "name": "Roboto Mono",
+      "verdict": "pass",
+      "finalLicenseSpdx": "OFL-1.1",
+      "finalLicenseUrl": "https://raw.githubusercontent.com/google/fonts/main/ofl/robotomono/OFL.txt",
+      "licenseQuote": "Copyright 2015 The Roboto Mono Project Authors (https://github.com/googlefonts/robotomono) — This Font Software is licensed under the SIL Open Font License, Version 1.1.",
+      "urlChecks": [
+        {
+          "url": "https://github.com/googlefonts/RobotoMono",
+          "ok": true,
+          "note": "OFL-1.1；README 确述 I/l/i 加衬线"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/google/fonts/main/ofl/robotomono/OFL.txt",
+          "ok": true,
+          "note": "OFL-1.1 原文，无 RFN"
+        },
+        {
+          "url": "https://fontsource.org/fonts/roboto-mono",
+          "ok": true,
+          "note": "预览页存在，OFL-1.1，可变 7 字重"
+        },
+        {
+          "url": "https://registry.npmjs.org/@fontsource-variable/roboto-mono/5.3.0",
+          "ok": true,
+          "note": "5.3.0 / OFL-1.1 / 304012 B / 24 文件，与调研一致"
+        }
+      ],
+      "corrections": "引文措辞（非许可证）：README 原文为「narrow glyphs like 'I', 'l' and 'i' have added serifs for more even texture while wider glyphs are adjusted for weight.」，调研以引号给出的「Narrow glyphs … receive added serifs」是转述而非逐字，含义一致。其余核实一致：Version 3.001、wght 100–700 默认 400、228 字形（本轮最少）、advance 1229/upm 2048、GSUB/GPOS 特性表为空、CJK 0。",
+      "riskLevel": "attribution-required"
+    },
+    {
+      "name": "Iosevka",
+      "verdict": "pass",
+      "finalLicenseSpdx": "OFL-1.1",
+      "finalLicenseUrl": "https://raw.githubusercontent.com/be5invis/Iosevka/master/LICENSE.md",
+      "licenseQuote": "Copyright (c) 2015-2026, Renzhi Li (aka. Belleve Invis) — This Font Software is licensed under the SIL Open Font License, Version 1.1.",
+      "urlChecks": [
+        {
+          "url": "https://github.com/be5invis/Iosevka",
+          "ok": true,
+          "note": "OFL-1.1；README 指向 CJK 姊妹项目 Sarasa Gothic"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/be5invis/Iosevka/master/LICENSE.md",
+          "ok": true,
+          "note": "OFL-1.1 原文，Copyright 2015-2026 Renzhi Li，无 RFN"
+        },
+        {
+          "url": "https://registry.npmjs.org/@fontsource/iosevka/latest",
+          "ok": true,
+          "note": "包 5.3.0 / OFL-1.1 / 53326653 B / 84 文件；包内字体实测 Version 22.1.2"
+        },
+        {
+          "url": "https://registry.npmjs.org/@fontsource-variable/iosevka",
+          "ok": false,
+          "note": "404，确无此可变包——与调研声称一致（预期的不存在）"
+        }
+      ],
+      "corrections": "驳回项：许可证与来源核实一致，驳回理由成立。独立实测坐实：包内字体 Version 22.1.2（上游最新 v34.9.1，2026-10-24，453 个资产全为 PkgTTC-*.zip，落后十几个大版本）、advance 500/upm 1000（半宽）、拉丁 400 woff2 984084 B（约为 JetBrains 同位 24 倍）、fvar 缺失、CJK 0。",
+      "riskLevel": "attribution-required"
+    },
+    {
+      "name": "Martian Mono",
+      "verdict": "pass",
+      "finalLicenseSpdx": "OFL-1.1",
+      "finalLicenseUrl": "https://raw.githubusercontent.com/google/fonts/main/ofl/martianmono/OFL.txt",
+      "licenseQuote": "Copyright 2021 The Martian Mono Project Authors (https://github.com/evilmartians/mono) — This Font Software is licensed under the SIL Open Font License, Version 1.1.",
+      "urlChecks": [
+        {
+          "url": "https://github.com/evilmartians/mono",
+          "ok": true,
+          "note": "OFL-1.1；README 自述为 Martian Grotesk 的等宽版、brutalist 气质、for code style design"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/google/fonts/main/ofl/martianmono/OFL.txt",
+          "ok": true,
+          "note": "OFL-1.1 原文，无 RFN"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/google/fonts/main/ofl/martianmono/METADATA.pb",
+          "ok": true,
+          "note": "上游双轴 wdth 75–112.5 + wght 100–800，license OFL"
+        },
+        {
+          "url": "https://github.com/evil-martians/martian-mono",
+          "ok": false,
+          "note": "404——证实调研「后者 404」的说法（预期的不存在）"
+        }
+      ],
+      "corrections": "驳回项：许可证与来源核实一致，驳回理由成立。独立实测坐实：fontsource latin-wght 文件仅 wght 一个轴（拿不到窄版救宽度）、family 名 Martian Mono SemiExpanded、advance 700/upm 1000（比 Geist 600 宽约 17%）、Version 1.000。上游 METADATA.pb 确有 wdth+wght 双轴，与调研一致。",
+      "riskLevel": "attribution-required"
+    },
+    {
+      "name": "Fira Code",
+      "verdict": "pass",
+      "finalLicenseSpdx": "OFL-1.1",
+      "finalLicenseUrl": "https://raw.githubusercontent.com/tonsky/FiraCode/master/LICENSE",
+      "licenseQuote": "Copyright (c) 2014, The Fira Code Project Authors (https://github.com/tonsky/FiraCode) — This Font Software is licensed under the SIL Open Font License, Version 1.1.",
+      "urlChecks": [
+        {
+          "url": "https://github.com/tonsky/FiraCode",
+          "ok": true,
+          "note": "OFL-1.1；主打编程连字（-> <= := 等）"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/tonsky/FiraCode/master/LICENSE",
+          "ok": true,
+          "note": "OFL-1.1 原文，无 RFN"
+        }
+      ],
+      "corrections": "驳回项：许可证与来源核实一致，驳回理由成立。独立实测坐实关键驳回依据：fvar wght 300–700 默认 300、family 名「Fira Code Light」、Version 5.002、calt 存在且默认开、CJK 0——直接 import 会在六套主题里都渲染成细体。上游最新 release 经 gh API 确认仍为 6.2（2021-12-06）。",
+      "riskLevel": "attribution-required"
+    },
+    {
+      "name": "Source Code Pro",
+      "verdict": "pass",
+      "finalLicenseSpdx": "OFL-1.1",
+      "finalLicenseUrl": "https://raw.githubusercontent.com/adobe-fonts/source-code-pro/release/LICENSE.md",
+      "licenseQuote": "© 2023 Adobe (http://www.adobe.com/), with Reserved Font Name 'Source'. — This Font Software is licensed under the SIL Open Font License, Version 1.1.",
+      "urlChecks": [
+        {
+          "url": "https://raw.githubusercontent.com/adobe-fonts/source-code-pro/release/LICENSE.md",
+          "ok": true,
+          "note": "OFL-1.1 原文，RFN 'Source'、© 2023 Adobe 逐字核实（sourceUrl 的 blob 页与此 raw 等价）"
+        }
+      ],
+      "corrections": "驳回项：许可证与来源核实一致，驳回理由成立。独立实测坐实关键驳回依据：fvar wght 200–900 默认 200、family 名「Source Code Pro ExtraLight」、无 calt、advance 600、CJK 0——默认实例比 Fira Code 更细，浅底上跌破可读对比。RFN 'Source' 自裁 subset 须留意命名。",
+      "riskLevel": "attribution-required"
+    },
+    {
+      "name": "Maple Mono NF-CN（Nerd Font 完整版）",
+      "verdict": "pass",
+      "finalLicenseSpdx": "OFL-1.1",
+      "finalLicenseUrl": "https://raw.githubusercontent.com/subframe7536/maple-font/v7/OFL.txt",
+      "licenseQuote": "Copyright 2022 The Maple Mono Project Authors (https://github.com/subframe7536/maple-font) — This Font Software is licensed under the SIL Open Font License, Version 1.1.",
+      "urlChecks": [
+        {
+          "url": "https://github.com/subframe7536/maple-font/releases/tag/v7.9",
+          "ok": true,
+          "note": "经 gh API 确认 v7.9 资产同时含 MapleMono-CN.zip / MapleMono-NF-CN.zip / MapleMonoNL-CN.zip，应取 CN 或 NL-CN 而非 NF-CN"
+        }
+      ],
+      "corrections": "驳回项：许可证与来源核实一致，驳回理由成立。NF 后缀仅在 CN 基础上再打 Nerd Font 图标补丁，图标已由 lucide-react 1.72.0 统一承担，终端图标用不上，白白增体积。许可证同 Maple 本体 OFL-1.1（内嵌中文仍带 Adobe RFN 'Source'）。",
+      "riskLevel": "attribution-required"
+    },
+    {
+      "name": "@chinese-fonts/maple-mono-cn",
+      "verdict": "pass",
+      "finalLicenseSpdx": "OFL-1.1",
+      "finalLicenseUrl": "https://raw.githubusercontent.com/subframe7536/maple-font/v7/OFL.txt",
+      "licenseQuote": "Copyright 2022 The Maple Mono Project Authors (https://github.com/subframe7536/maple-font) — This Font Software is licensed under the SIL Open Font License, Version 1.1.",
+      "urlChecks": [
+        {
+          "url": "https://registry.npmjs.org/@chinese-fonts/maple-mono-cn/latest",
+          "ok": true,
+          "note": "version 2.0.0 / license 字段 MIT / unpackedSize 146183714 B / fileCount 3795，与调研一致"
+        }
+      ],
+      "corrections": "驳回项：registry 元数据核实一致，体积驳回成立（约 139 MB 塞进 NSIS 会失控）。注意 npm license 字段写 MIT 是打包方式协议，字体本体仍 OFL-1.1，合规按 OFL 收录。要用 Maple CN 应走自裁 subset 或 @mogeko/maple-mono-cn。",
+      "riskLevel": "attribution-required"
+    },
+    {
+      "name": "@automann/maple-mono-cn",
+      "verdict": "pass",
+      "finalLicenseSpdx": "OFL-1.1",
+      "finalLicenseUrl": "https://raw.githubusercontent.com/subframe7536/maple-font/v7/OFL.txt",
+      "licenseQuote": "Copyright 2022 The Maple Mono Project Authors (https://github.com/subframe7536/maple-font) — This Font Software is licensed under the SIL Open Font License, Version 1.1.",
+      "urlChecks": [
+        {
+          "url": "https://registry.npmjs.org/@automann/maple-mono-cn/latest",
+          "ok": true,
+          "note": "version 7.9.2 / license OFL-1.1 / unpackedSize 65534647 B / fileCount 1195，与调研一致"
+        }
+      ],
+      "corrections": "驳回项：registry 元数据核实一致，协议标注确比 @mogeko 干净（OFL-1.1），但体积约为 @mogeko 版 7 倍且把 100–700 全静态字重都打包，Polaris 只需 400/500，作为默认引入路径驳回成立。字体本体 OFL-1.1。",
+      "riskLevel": "attribution-required"
+    }
+  ],
+  "summary": "怀疑式核验完成：14 条（7 候选 + 7 驳回）许可证全部抓原文核实为 OFL-1.1，无自定义 EULA、无「免费商用≠开源」陷阱、无 drop；所有主页/仓库/预览/npm 链接真实可达且指向对应素材，包名/版本/体积与 registry.npmjs.org 逐字一致。方法：每条抓「仓库/官网 + 许可证原文」至少 2 个 URL，另用 vendored fontTools 4.68 独立复跑 13 款字体的 fvar/GSUB/GPOS/cmap/hmtx，并用 gh api 核上游 release。\n\n独立实测坐实了调研几乎全部关键技术断言：Fira Code 默认字重 300（family「Fira Code Light」）、Source Code Pro 默认 200（「ExtraLight」）——两条驳回依据成立；JetBrains fontsource 包内确为 Version 2.211（上游已 v2.304）且特性仅 calt/ccmp/frac/locl/mark，确无 zero/ss/cv/tnum；Maple CN 汉字 advance 1200 / 拉丁 600 严格 2:1、无可变轴、239 分包；Iosevka 包内 22.1.2 落后上游 v34.9.1（453 个 TTC 资产）、latin-400 984084 B；Geist wght 100–900 默认 400、CJK 0；@fontsource-variable/ibm-plex-mono 与 /iosevka 确 404；@mogeko/maple-mono-cn npm license 字段 MIT 但字体 OFL-1.1（陷阱已正确识别）；Resource Han Rounded 与 Source Code Pro 均带 Adobe RFN 'Source'，Cascadia 带 RFN 'Cascadia Code'、IBM Plex 带 RFN 'Plex'。\n\n揪出的错误均非许可证/链接问题：①最实质——调研称「globals.css 全部 23 处 var(--font-mono)」，Grep 实测整个 src 仅 11 处，应改 11；②IBM Plex 拉丁 400 子集特性实测 ccmp/dnom/frac/mark/numr，调研多列 locl/mkmk，但「无 calt/liga/tnum/zero」结论成立；③Roboto README 引文是转述非逐字（含义一致）；④Maple 的 previewUrl 指向拉丁版而非 CN，2:1 效果在该预览页看不到；⑤补充：回退字体 Noto Sans SC 自身 OFL 也带 Adobe RFN 'Source'（调研只在 Maple CN 处提到）。\n\n风险定级：全部 OFL-1.1 → attribution-required（随安装包附 OFL 全文与版权声明即可）；带 RFN 的 Cascadia Code / IBM Plex / Source Code Pro / 以及 Source 派生的 Noto Sans SC 与 Maple CN 内嵌 Resource Han Rounded，若自裁 subset 改字形须改名，原样分发无碍。总体结论与调研一致：优先「保留 Geist Mono + 补 Noto Sans SC 回退」（零新增体积），中文混排再按需自裁 Maple CN；不建议整体替换 Geist。所有链接可本地化（npm/本地文件），无运行时 CDN 依赖。"
+}

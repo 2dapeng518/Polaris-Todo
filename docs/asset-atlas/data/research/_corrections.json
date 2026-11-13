@@ -1,0 +1,720 @@
+[
+  {
+    "category": "特效纹理与背景（aurora / 噪点 / 分隔 / 空状态）",
+    "name": "CSS-Pattern（css-pattern.com）",
+    "verdict": "pass",
+    "license": "MIT",
+    "licenseUrl": "https://github.com/Afif13/CSS-Pattern/blob/main/LICENCE",
+    "risk": "attribution-required",
+    "corrections": "无实质错误。GitHub API 复核：242 stars、default_branch=main、license=MIT、homepage=https://css-pattern.com，与调研完全一致。补充一点：README 极简（仅横幅+站点链接），没有单独声明图案许可，MIT 覆盖来自仓库根 LICENCE 对整库代码（含图案 CSS）的授权；使用时保留版权与许可声明即可。图案外观仍未目视，调研的未验证标注诚实。",
+    "failedUrls": [
+      "https://css-pattern.com — 两次抓取均 Socket is closed，与调研所述 TLS 失败一致；域名由 GitHub API homepage 字段确认"
+    ]
+  },
+  {
+    "category": "特效纹理与背景（aurora / 噪点 / 分隔 / 空状态）",
+    "name": "Bifiku Mesh Gradient Generator",
+    "verdict": "pass",
+    "license": "MIT",
+    "licenseUrl": "https://github.com/Bifiku/mesh-gradient-generator/blob/main/LICENSE",
+    "risk": "attribution-required",
+    "corrections": "无。许可证原文、README 的 MIT 句、~2 KB 声明、2 stars、预览页三个导出按钮与零 CDN 引用全部复核一致；GitHub API 亦确认 license=MIT、homepage 即预览页。~2 KB 仍是上游 README 声明，未自行导出称重（调研已如实标注此边界）。",
+    "failedUrls": []
+  },
+  {
+    "category": "特效纹理与背景（aurora / 噪点 / 分隔 / 空状态）",
+    "name": "Pattern Monster",
+    "verdict": "pass",
+    "license": "MIT",
+    "licenseUrl": "https://github.com/catchspider2002/svelte-svg-patterns/blob/master/LICENSE.md",
+    "risk": "attribution-required",
+    "corrections": "两处是升级而非错误：(1) 调研标注「未验证」的 320+ 图案数已从 README 原文核实；(2) 站点本次抓取成功（调研本机 TLS 失败），付费 Pro/API 档链接确认存在，「只用免费网页导出、不接 API」的边界建议成立。GitHub API 复核 750 stars、master、license=MIT、homepage=https://pattern.monster，与调研一致。",
+    "failedUrls": []
+  },
+  {
+    "category": "特效纹理与背景（aurora / 噪点 / 分隔 / 空状态）",
+    "name": "Tabbied 图案库（packages/tabbied）",
+    "verdict": "corrected",
+    "license": "MIT",
+    "licenseUrl": "https://github.com/tabbied-design/tabbied/blob/main/packages/tabbied/LICENSE",
+    "risk": "attribution-required",
+    "corrections": "licenseUrl 必须从根 LICENSE 改为 packages/tabbied/LICENSE：根文件是「Copyright (c) 2020-2026 Sy Hong and Ye Joo Park. All rights reserved.」的专有许可，仅以豁免条款把三个 packages 目录授为 MIT，真正的 MIT 原文在子目录。SPDX 仍为 MIT 但范围仅限 packages/tabbied（含图案设计），调研的 licenseCaveat 已正确识别此边界，只是 licenseUrl 与 licenseEvidence 的出处标错（引文实际出自 README 而非根 LICENSE）。另两点修正：(1)「不装 npm 以免拉进专有模板」的理由不成立——README 明确 npm install tabbied 安装的就是 MIT 图案库本体（TabbiedPattern from 'tabbied/react'），不含专有模板目录；「从网站导出」的集成结论仍可行，但理由要改。(2) React 组件形态来自 npm 包，README 列出的网站导出是 PNG（3000px）与 SVG；「网站导出 React 组件」未获证实。",
+    "failedUrls": [
+      "https://tabbied.com/ — 两次抓取均 Socket is closed，调研引用的官网原文未能验证"
+    ]
+  },
+  {
+    "category": "特效纹理与背景（aurora / 噪点 / 分隔 / 空状态）",
+    "name": "Hero Patterns",
+    "verdict": "pass",
+    "license": "CC-BY-4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
+    "risk": "attribution-required",
+    "corrections": "无。CC-BY-4.0 判定正确且署名义务提示到位：仓库确实无 LICENSE（API license=null），许可证据只在站点页脚，raw index.html 已核实。svg/ 100 个文件、topography.svg 存在、根目录文件列表（.gitignore/CNAME/css/img/index.html/js/spectrum/svg/test.html）均与调研一致。站点本身不可达，但证据链完整。",
+    "failedUrls": [
+      "https://heropatterns.com/ — 两次抓取均 Socket is closed；域名由仓库 CNAME 文件确认"
+    ]
+  },
+  {
+    "category": "特效纹理与背景（aurora / 噪点 / 分隔 / 空状态）",
+    "name": "shape-dividers（andraswebcode）",
+    "verdict": "corrected",
+    "license": "CC0-1.0",
+    "licenseUrl": "https://github.com/andraswebcode/shape-dividers/blob/master/LICENSE",
+    "risk": "none",
+    "corrections": "两处修正：(1) previewUrl 已 404——andrasweb.com 主站改版，编辑器不存在，README 里的链接同样指向死地址；预览改用仓库 svg/ 目录（curve.svg、tilt.svg 均实测存在）。(2) svg/ 文件数当前 GitHub API 实测为 34，不是调研声称的 25（上游可能已更新，调研数字过时）。许可证 CC0-1.0 无误，无署名义务；调研对其风格风险（营销落地页语汇）的保留意见不受影响。",
+    "failedUrls": [
+      "https://andrasweb.com/shape-divider-editor/ — 实测 HTTP 404，预览链接已失效（调研标注的「未验证」现在证实为死链）"
+    ]
+  },
+  {
+    "category": "插画与空状态（Illustrations & Empty States）",
+    "name": "shadcn/ui Empty",
+    "verdict": "pass",
+    "license": "MIT",
+    "licenseUrl": "https://raw.githubusercontent.com/shadcn-ui/ui/main/LICENSE.md",
+    "risk": "attribution-required",
+    "corrections": "无。许可证、组件结构、size-10/size-6、dashed border、p-6 md:p-12、cva/cn 依赖全部核实。MIT 只需在安装包内保留版权与许可声明（THIRD_PARTY_NOTICES），无需界面署名，可随 NSIS 分发。移植时删 cva/cn 净增 0 依赖的说法成立。",
+    "failedUrls": []
+  },
+  {
+    "category": "插画与空状态（Illustrations & Empty States）",
+    "name": "Primer Blankslate (GitHub)",
+    "verdict": "pass",
+    "license": "MIT",
+    "licenseUrl": "https://raw.githubusercontent.com/primer/react/main/LICENSE",
+    "risk": "attribution-required",
+    "corrections": "许可证与「experimental」状态、BookIcon 示例均核实。一处小修正：实际子组件 API 是 Visual / Heading / Description / PrimaryAction / SecondaryAction，并没有名为 Actions 的包裹组件；调研写的「Visual/Heading/Description/Actions 四段划分」应改为「Visual/Heading/Description + PrimaryAction/SecondaryAction」。仅作设计参照、不引 @primer/react 的建议成立。MIT 保留版权行即可，无需界面署名。",
+    "failedUrls": []
+  },
+  {
+    "category": "插画与空状态（Illustrations & Empty States）",
+    "name": "IRA Design",
+    "verdict": "pass",
+    "license": "MIT",
+    "licenseUrl": "https://raw.githubusercontent.com/ira-design/ira-illustrations/master/LICENSE.md",
+    "risk": "attribution-required",
+    "corrections": "无。MIT、版权行、组件数量、SVG 分支/SVG.zip、导出格式全部核实。MIT 需安装包内保留版权与许可声明（建议 build/THIRD_PARTY_NOTICES.txt + extraResources），无需界面署名。渐变版多色渐变违反「一个 teal 信号色」、需改 stop 为 --mark-a/--mark-b 且渐变 id 加前缀避免撞 PolarisMark 的 id=\"polaris-gradient\" 的工程提醒成立。",
+    "failedUrls": [
+      "https://www.creative-tim.com/tools/ira-design — WebFetch 直连失败，未单独核实该预览页；素材本体与许可已由 iradesign.io（curl 200）+ GitHub LICENSE.md 充分确认，不影响结论"
+    ]
+  },
+  {
+    "category": "插画与空状态（Illustrations & Empty States）",
+    "name": "Lukasz Adam MIT Free Illustrations",
+    "verdict": "drop",
+    "license": "NOASSERTION",
+    "licenseUrl": "https://lukaszadam.com/illustrations",
+    "risk": "unclear",
+    "corrections": "调研对页面文字的描述准确（CC0+MIT 混称、邮箱门槛、混合格式、约 117–120 项均核实）。但按核验规则 4「完全无法验证许可证 → drop / unclear」：同一句同时声称 CC0（放弃著作权）与 MIT（保留著作权的授权），法律含义互斥，站内无任何 LICENSE 原文或仓库可佐证究竟是哪一种，无法确认一个自洽的授权。故由调研的「保留、按 CC0 低风险」下调为 drop，riskLevel=unclear，SPDX 记 NOASSERTION。若团队仍想用，必须先留存带日期的页面截图作为 CC0 授权证据、最好邮件联系作者确认，且只取线稿物件、位图一律不入仓（125/150/200% 缩放会糊，smoke 恰好覆盖这些档）。",
+    "failedUrls": []
+  },
+  {
+    "category": "插画与空状态（Illustrations & Empty States）",
+    "name": "Hero Patterns",
+    "verdict": "pass",
+    "license": "CC-BY-4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
+    "risk": "attribution-required",
+    "corrections": "无。CC BY 4.0 在站点本身明确标注（不是只有网站代码许可），deed 原文核实。调研「复制 CSS」对应站上的 Generated CSS code 区，措辞略有出入但功能一致。必须界面署名 + 许可证链接 + 改动说明，Polaris 需新增设置面板「关于」credits 区；与 --noise-opacity 噪点二选一、不叠加、默认不启用的克制建议成立。前景色 currentColor/--text-tertiary、透明度对齐 --noise-opacity 的参数化模型成立。",
+    "failedUrls": []
+  },
+  {
+    "category": "插画与空状态（Illustrations & Empty States）",
+    "name": "unDraw（被驳回项，核验驳回理由）",
+    "verdict": "corrected",
+    "license": "LicenseRef-unDraw",
+    "licenseUrl": "https://undraw.co/license",
+    "risk": "custom-eula",
+    "corrections": "驳回结论维持，但理由措辞需修正：调研写「许可禁止再分发，不适合随 NSIS 安装包出货」过于绝对。原文的「add them in an app」是以「插画处于你产品的核心目的」为前提的限制示例，普通装饰性内嵌（下载后用在自家 App 里）其实落在一般授权范围内；真正禁止的是把素材打包再分发、做竞品服务、以及 AI/ML 用途。因此驳回的准确依据应是「自定义 EULA、非 OSI 开源许可 + 禁止 AI/ML + 禁止打包再分发」，这仍独立地违反用户「仅选 MIT/Apache/OFL/CC0 等开源许可」的硬约束，故 unDraw 仍不能进安装包。riskLevel=custom-eula。",
+    "failedUrls": []
+  },
+  {
+    "category": "插画与空状态（Illustrations & Empty States）",
+    "name": "ManyPixels Gallery（被驳回项，核验驳回理由）",
+    "verdict": "pass",
+    "license": "LicenseRef-ManyPixels",
+    "licenseUrl": "https://www.manypixels.co/gallery",
+    "risk": "custom-eula",
+    "corrections": "驳回成立，引文准确。与 unDraw 同源结构：「add them in an app」同样以「核心用途」为前提，普通装饰性内嵌并非绝对禁止；但它是自定义 EULA、非 OSI 开源许可，且明确禁止打包再分发与竞品服务，独立违反用户开源硬约束，故不能进 NSIS。riskLevel=custom-eula。免署名属实但不改变非开源定性。",
+    "failedUrls": []
+  },
+  {
+    "category": "插画与空状态（Illustrations & Empty States）",
+    "name": "Storyset（免费部分，被驳回项，核验驳回理由）",
+    "verdict": "pass",
+    "license": "LicenseRef-Storyset",
+    "licenseUrl": "https://storyset.com/terms",
+    "risk": "custom-eula",
+    "corrections": "驳回成立。免费必须署名 + 禁止纳入 database/archive/stock library 再分发（免费与付费同样受此再分发限制），去署名需 Flaticon Premium。属自定义 EULA、非 OSI 开源，且风格偏营销插画，与安静桌面工具不符。riskLevel=custom-eula（含强制署名）。注：官网直连被拦截，条款经搜索引用的官网原文佐证，非我直接抓取。",
+    "failedUrls": []
+  },
+  {
+    "category": "插画与空状态（Illustrations & Empty States）",
+    "name": "DrawKit（免费部分，被驳回项，核验驳回理由）",
+    "verdict": "pass",
+    "license": "LicenseRef-DrawKit",
+    "licenseUrl": "https://www.drawkit.com/license",
+    "risk": "custom-eula",
+    "corrections": "驳回成立：免署名但禁止把图标/插画文件再分发给第三方、禁止 stand-alone/compilation 再分发，免费与付费同一份许可，属自定义 EULA、非 OSI 开源，随 NSIS 分发不合法。一处未证实：调研称「另禁止用于 AI 训练」，我的来源未在 DrawKit 许可中确认到 AI 条款（搜索里 AI/ML 禁令出现在 Coolors 等其它站），该句标注未验证；但核心再分发禁令已确认，不影响驳回。riskLevel=custom-eula。",
+    "failedUrls": []
+  },
+  {
+    "category": "插画与空状态（Illustrations & Empty States）",
+    "name": "Pixeltrue（免费部分，被驳回项，核验驳回理由）",
+    "verdict": "pass",
+    "license": "LicenseRef-Pixeltrue",
+    "licenseUrl": "https://www.pixeltrue.com/license",
+    "risk": "custom-eula",
+    "corrections": "驳回成立，引文准确：明确禁止再分发、且点名 app templates 不得包含其图形资源，属自定义 EULA、非 OSI 开源，不能进安装包。调研标注的「Free 包实际标价 $1、Firebase zip、包内格式未验证」我亦未核实定价/格式，维持未验证标注，但不影响许可层面的驳回。riskLevel=custom-eula。",
+    "failedUrls": []
+  },
+  {
+    "category": "插画与空状态（Illustrations & Empty States）",
+    "name": "Blush（被驳回项，核验驳回理由）",
+    "verdict": "pass",
+    "license": "LicenseRef-Blush",
+    "licenseUrl": "https://blush.design/license",
+    "risk": "custom-eula",
+    "corrections": "驳回成立。关键澄清：Blush 允许把插画嵌入 App/网站，禁止的是再分发插画本身——所以调研的核心论点正确：Open Doodles/Humaaans 原始素材是 CC0，但经 Blush 编辑器导出的成品受 Blush 许可约束，不能把 Blush 当素材来源。另，调研留作未验证的「SVG/矢量属付费」其实有第三方佐证（canuseit：免费 Doodler 档仅低清 PNG，SVG 与印刷级 PNG 需 Pro），但驳回依据是已核实的再分发禁令，不依赖该点。riskLevel=custom-eula。",
+    "failedUrls": []
+  },
+  {
+    "category": "插画与空状态（Illustrations & Empty States）",
+    "name": "Streamline（免费部分，被驳回项，核验驳回理由）",
+    "verdict": "pass",
+    "license": "LicenseRef-Streamline-Free",
+    "licenseUrl": "https://help.streamlinehq.com/en/articles/5354376-streamline-free-license",
+    "risk": "attribution-required",
+    "corrections": "驳回成立，引文准确：免费强制署名 + About/Credits 页 + 链接，且每项目 25 张插画上限对「六主题 × 多视图」不够用，Polaris 当前无 About 页。属自定义免费许可（非 OSI），付费才免署名。riskLevel=attribution-required（含张数上限）。",
+    "failedUrls": []
+  },
+  {
+    "category": "图标库（线性描边 / line-stroke icon sets）",
+    "name": "MingCute Icons",
+    "verdict": "pass",
+    "license": "Apache-2.0",
+    "licenseUrl": "https://raw.githubusercontent.com/Richard9394/MingCute/main/LICENSE",
+    "risk": "attribution-required",
+    "corrections": "许可证与链接全部通过，两处更新/存疑：① 仓库已迁移到 mingcute-design/mingcute-icons（旧地址 Richard9394/MingCute 经 301 仍可访问，npm repository 字段指向新仓库），落地文档建议写新地址；② 「repeat-one = 重复一次」的语义推荐存疑：文件确实存在且线/面配对齐全，但抓取到的形状描述更像分享/导出图标，落地前必须在预览页肉眼核对形状（本轮无法独立确认）。另提醒：Iconify 的 No attribution required 标注不豁免 Apache-2.0 随包保留 LICENSE 的义务，调研对此已正确提示，NSIS 第三方声明必须带上。",
+    "failedUrls": []
+  },
+  {
+    "category": "图标库（线性描边 / line-stroke icon sets）",
+    "name": "Solar Icons",
+    "verdict": "pass",
+    "license": "CC-BY-4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/4.0/legalcode",
+    "risk": "attribution-required",
+    "corrections": "无（驳回维持）。CC BY 4.0 署名义务实锤，随 NSIS 分发须在关于页保留 attribution，调研的许可证+风格双重排除理由成立。",
+    "failedUrls": []
+  },
+  {
+    "category": "图标库（线性描边 / line-stroke icon sets）",
+    "name": "Remix Icon",
+    "verdict": "pass",
+    "license": "LicenseRef-Remix-Icon-License-v1.0（自定义，非 OSI）",
+    "licenseUrl": "https://raw.githubusercontent.com/Remix-Design/RemixIcon/master/License",
+    "risk": "custom-eula",
+    "corrections": "无（驳回维持）。核心驳回理由——上游自定义 EULA 禁止 app 图标用途、与 Polaris 自有四角星 app 图标长期冲突——经原文实锤；npm license 字段滞后也实锤。唯一未复核项是 Iconify ri 集页的元数据标注（抓取失败），不影响驳回结论。",
+    "failedUrls": [
+      "https://icon-sets.iconify.design/ri/ — 本轮三次 Socket closed；「Iconify ri 集元数据仍标 Apache 2.0 且指向 cyberalien fork」这一子断言未验证（Iconify API 亦 429）"
+    ]
+  },
+  {
+    "category": "图标库（线性描边 / line-stroke icon sets）",
+    "name": "Untitled UI Icons",
+    "verdict": "pass",
+    "license": "LicenseRef-Untitled-UI-Icons（自定义，非 OSI）",
+    "licenseUrl": "https://raw.githubusercontent.com/untitleduico/icons/main/LICENSE",
+    "risk": "custom-eula",
+    "corrections": "无（驳回维持）。自定义 EULA + npm 元数据虚标 MIT 两点全部实锤，不是开源素材，排除正确。",
+    "failedUrls": []
+  },
+  {
+    "category": "中文字体（CJK fonts，可离线随 NSIS 安装包分发）",
+    "name": "Noto Sans SC / Source Han Sans SC",
+    "verdict": "corrected",
+    "license": "OFL-1.1",
+    "licenseUrl": "https://raw.githubusercontent.com/adobe-fonts/source-han-sans/release/LICENSE.txt",
+    "risk": "attribution-required",
+    "corrections": "许可证判断完全正确（OFL-1.1 + Adobe 保留名 'Source' + Noto 侧无保留名），但体积数字三处说错，已按 unpkg ?meta 实测改正：①文件数 108 → 112；②woff2 分片 97 → 101（97 个数字分片之外还有 latin / latin-ext / cyrillic / vietnamese 四片）；③woff2 合计 4,163,588 B ≈ 3.97 MiB → 4,500,544 B ≈ 4.29 MiB。分项：97 个数字分片小计 4,448,664 B，另外四片 51,880 B（latin 24,880 / cyrillic 9,896 / vietnamese 8,976 / latin-ext 8,128）。原调研的 4,163,588 B 既不等于全量也不等于数字分片小计，来源不明。最大分片 76,324 B、index.css 101,698 B、registry 4,872,883 B / 112 files、metadata v41 / 2026-10-01 均逐项复现。版本日期微调：2.005R 的发布日是 2025-06-18，2025-06-25 是 atom 里的 updated 时间，写「2025-06-25」不算错但应注明是更新时间。落地路径也已核对无误：main.tsx 第 3–6 行确为四个 fontsource import（noto-sans-sc 在第 4 行），globals.css 第 4 行 --font-sans、84 行 --font-ui、86 行 --font-display、88 行 --font-mono 全部对得上。「不换字体、只做暗色家族字重微调」的总结论不受影响：4.29 MiB 相对 Electron 本体仍可忽略。",
+    "failedUrls": [
+      "https://fonts.google.com/noto/specimen/Noto+Sans+SC — WebFetch 返回 Socket is closed，正文未验证；URL 形态正确但本轮无法确认页面内容，需浏览器打开"
+    ]
+  },
+  {
+    "category": "中文字体（CJK fonts，可离线随 NSIS 安装包分发）",
+    "name": "Glow Sans",
+    "verdict": "corrected",
+    "license": "OFL-1.1",
+    "licenseUrl": "https://raw.githubusercontent.com/welai/glow-sans/master/OFL.txt",
+    "risk": "attribution-required",
+    "corrections": "许可证判断正确（字体 OFL-1.1、构建代码 MIT，二分无误），三处事实要改：①版权行不是 \"Copyright (c) 2020, welai\"——OFL.txt 与 LICENSE 写的都是个人作者名（抓取结果里被还原为占位符 Celestial Phineas），welai 是组织名；做 THIRD-PARTY-FONTS.txt 时必须照抄原文那一行，不能写 welai。②「Releases 页未抓到体积、单文件字节数未验证」不成立：Releases 页明码标了各宽度 zip 体积，简体 Normal 宽度整包 64.3 MB（9 字重），单个 OTF 的字节数仍未验证，但整包量级已经足以说明「只有 OTF、需自建分片」的代价。③「9 字重 × 5 宽度共 44 款」的乘法表述不准，README 说的是 9 字重加宽度系列共 44 款，不是完整的 9×5=45 矩阵。归档日期 2023-08-27、v0.93 / 2021-09-10、非可变、仅 OTF、不支持韩语、删字符与缺 feature 等描述全部属实。「只用于 ≥16px 展示位、不做全局替换」的结论维持。",
+    "failedUrls": []
+  },
+  {
+    "category": "中文字体（CJK fonts，可离线随 NSIS 安装包分发）",
+    "name": "LXGW WenKai Screen",
+    "verdict": "pass",
+    "license": "OFL-1.1",
+    "licenseUrl": "https://raw.githubusercontent.com/lxgw/LxgwWenKai/main/OFL.txt",
+    "risk": "attribution-required",
+    "corrections": "无。所有许可证、版本号与体积数字（19,729,431 B / 399 files / 388 woff2 / 19,292,392 B / 73,008 B 最大片 / 162 B style.css / GB 变体 4.54 MB / 全量变体 5.10 MB）逐项复现，是本轮数据最扎实的一条。补充一条实测细节强化原结论：四个变体 CSS 声明的是同一个 font-family 'LXGW WenKai Screen' 且都是 font-weight: 400，因此同时引入两个变体会互相覆盖而不是形成字重层级——「只引入单个变体 CSS」不只是体积建议，而是正确性要求。另核实 npm 的 MIT 只覆盖打包脚本、字体本体 OFL-1.1，第三方声明两者都要写；上游 Klee/Roboto/Inconsolata 署名链确实存在。",
+    "failedUrls": []
+  },
+  {
+    "category": "中文字体（CJK fonts，可离线随 NSIS 安装包分发）",
+    "name": "Smiley Sans",
+    "verdict": "pass",
+    "license": "OFL-1.1",
+    "licenseUrl": "https://raw.githubusercontent.com/atelier-anchor/smiley-sans/main/LICENSE",
+    "risk": "attribution-required",
+    "corrections": "无。许可证、保留名、字数覆盖、woff2 存在、官方「不推荐正文/代码/手机界面」全部逐字核实。另把原调研标为「未验证」的两项补齐了：官方 zip 实测 5,781,344 B，内含 SmileySans-Oblique.ttf 2,629,764 B、SmileySans-Oblique.otf 2,003,884 B、SmileySans-Oblique.ttf.woff2 1,150,924 B、SmileySans-Oblique.otf.woff2 1,361,268 B——只有 Oblique 一款，包内没有任何可变字体文件，所以「是否可变」现在可以定为「v2.0.1 不提供」。集成命令里的 SmileySans-Oblique.ttf 文件名正确；又因为官方已给现成 woff2（1.15 MB），pyftsubset 只是可选优化而非必需步骤。「全站最多一处、≥24px、不与 teal→violet 渐变同框」的用法限制维持。",
+    "failedUrls": []
+  },
+  {
+    "category": "中文字体（CJK fonts，可离线随 NSIS 安装包分发）",
+    "name": "MiSans",
+    "verdict": "corrected",
+    "license": "LicenseRef-MiSans-EULA",
+    "licenseUrl": "https://hyperos.mi.com/font/en/download/",
+    "risk": "custom-eula",
+    "corrections": "实质推翻一条关键结论。原调研写「允许原样嵌入并随软件分发」「法律上可以但不建议：MiSans、HarmonyOS」——不成立。官方英文 EULA 的授权动词只有 use，没有 HarmonyOS 那样的 embed / bundle / redistribute；而第 3 项条件明文禁止 \"redistribute or sell the font software or any copies thereof\"，例外只覆盖「用字体创作出来的作品（宣传物料、logo、app 等）」，不覆盖把字体文件本身打进安装包。保守且正确的结论：MiSans 字体文件不得随 NSIS 分发，等级与 OPPO Sans 相同，而不是「可以但不建议」。原调研只摘了授权句和「禁止改编」，漏掉了这一整条再分发禁令，导致总结论里的分级错误。第二处：SPDX 写法 \"LicenseRef-自定义\" 含非 ASCII 字符，不符合 SPDX LicenseRef 语法，改为 LicenseRef-MiSans-EULA。其余属实：revocable、强制署名、禁止改编、29,608 字形 / 10 字重 / 可变、TC 15,116、L3 60,340 且仅 Regular、官方页无版本号与字节数、中文 PDF 存在但正文未解码。",
+    "failedUrls": []
+  },
+  {
+    "category": "中文字体（CJK fonts，可离线随 NSIS 安装包分发）",
+    "name": "HarmonyOS Sans",
+    "verdict": "corrected",
+    "license": "LicenseRef-HarmonyOS-Sans-EULA",
+    "licenseUrl": "https://atomgit.com/openharmony/resources/blob/master/LICENSE_Fonts",
+    "risk": "custom-eula",
+    "corrections": "实质结论全部成立，不改判：允许未修改副本随软件 embed / bundle / redistribute（NSIS 可以带）、禁止任何修改、必须显著署名、许可 revocable、违约自动终止、不得单独再分发或出售；21.6 MB / 2026-06-12 属实，字重数与字形总数官方页确实未列。只改两处表述：①SPDX 写法 \"LicenseRef-自定义\" 不合语法（含非 ASCII），改为 LicenseRef-HarmonyOS-Sans-EULA；②不能再把 MiSans 与 HarmonyOS 并列成「法律上可以但不建议」——鸿蒙的授权动词明确包含 embed/bundle/redistribute unmodified copies，MiSans 的授权只有 use 且另有再分发禁令，两者等级不同，本轮已把 MiSans 降为「不可随包分发」。",
+    "failedUrls": []
+  },
+  {
+    "category": "中文字体（CJK fonts，可离线随 NSIS 安装包分发）",
+    "name": "Chiron Hei HK",
+    "verdict": "pass",
+    "license": "OFL-1.1",
+    "licenseUrl": "https://raw.githubusercontent.com/chiron-fonts/chiron-hei-hk/release/LICENSE.md",
+    "risk": "attribution-required",
+    "corrections": "无。许可证 OFL-1.1、双版权行、无保留名、v2.609 / 2026-05-13、现成 woff2 与可变字体目录、以及「排除理由是港式字形标准而非法律」全部核实。补充一点：README 说明它在《香港電腦漢字參考字形》基础上还会向印刷惯用笔形调整，所以它既不是纯港标也不是大陆规范，用于简体 UI 的部件不一致风险成立，维持不引入。",
+    "failedUrls": []
+  },
+  {
+    "category": "中文字体（CJK fonts，可离线随 NSIS 安装包分发）",
+    "name": "Alibaba PuHuiTi 3.0 / 阿里巴巴普惠体 3.0（rejected 条目）",
+    "verdict": "pass",
+    "license": "LicenseRef-Alibaba-PuHuiTi-EULA",
+    "licenseUrl": "https://raw.githubusercontent.com/flyanx/html-poster-to-psd/main/fonts/LICENSE-AlibabaPuHuiTi-3.0.md",
+    "risk": "custom-eula",
+    "corrections": "排除结论成立，条款引用逐字无误。补两点：①许可副本里写的官方站是 www.alibabafonts.com，原调研只提了 fonts.alibabagroup.com，两个域名本轮都返回 200 但都是 JS 应用，正式发布前仍需人工打开语雀页核对；②SPDX 建议写成 LicenseRef-Alibaba-PuHuiTi-EULA（自定义 EULA，非 OSI 开源）。核心冲突不变：免费商用 ≠ 开源，4.1 的「转换/拆分」禁令直接封死 pyftsubset / cn-font-split / 转 woff2，只能原样整包嵌入，与 Polaris 的离线瘦身方案不兼容。",
+    "failedUrls": []
+  },
+  {
+    "category": "中文字体（CJK fonts，可离线随 NSIS 安装包分发）",
+    "name": "OPPO Sans 3.0（rejected 条目）",
+    "verdict": "pass",
+    "license": "LicenseRef-OPPO-Sans-EULA",
+    "licenseUrl": "https://www.coloros.com/article/A00000050/",
+    "risk": "custom-eula",
+    "corrections": "排除结论成立。一处措辞订正：第三项禁止的原文是「不向他方提供其他下载渠道；」，原调研写成「不得向他人提供字体的其他下载渠道」属意译，做合规记录时应引用原文。其余属实：3 款字重、无可变轴、无字数/GB 标准覆盖声明。把字体文件打进对外分发的 NSIS 安装包确实落在「提供其他下载渠道」的高风险解释区间，维持不能随包分发。另可补记：MiSans 本轮已被降到同一等级（官方 EULA 明文禁止再分发字体软件本体）。",
+    "failedUrls": []
+  },
+  {
+    "category": "中文字体（CJK fonts，可离线随 NSIS 安装包分发）",
+    "name": "LXGW Neo XiHei / 霞鹜新晰黑（含 Screen / Plus 变体）（rejected 条目）",
+    "verdict": "pass",
+    "license": "IPA",
+    "licenseUrl": "https://moji.or.jp/ipafont/license/",
+    "risk": "attribution-required",
+    "corrections": "无。排除结论成立且证据更硬：IPA 的「必须提供还原为原始字体的途径」义务本轮直接从 IPA 官方许可英文原文第 3 条核到，不再只依赖作者文档的中文转述（原调研引用的「应当提供一种方法，让用户可以按照自己的意愿将衍生程序恢复到原始的 IPA 字体。」出自作者嵌入说明，本轮未单独抓该文档，但同等义务已由许可原文确认）。SPDX: IPA 的 OSI 批准状态也已在 spdx.org 核实。注意 riskLevel 标为 attribution-required 只是分类取值所限——IPA 的义务远不止署名，还包括同名禁止、衍生同许可、提供还原途径，桌面应用要额外做字体目录指引或还原开关，成本判断维持「不划算」。",
+    "failedUrls": []
+  },
+  {
+    "category": "中文字体（CJK fonts，可离线随 NSIS 安装包分发）",
+    "name": "I.Ming / 一點明體（rejected 条目）",
+    "verdict": "pass",
+    "license": "IPA",
+    "licenseUrl": "https://moji.or.jp/ipafont/license/",
+    "risk": "attribution-required",
+    "corrections": "无。双重排除理由（衬线明体与已定四字体无衬线体系冲突、11–13px 糊；许可是 IPA 1.0 而非 OFL，带还原途径义务）全部核实，版本 8.10 / 2024-04-20 与仅 TTF 也属实。",
+    "failedUrls": []
+  },
+  {
+    "category": "中文字体（CJK fonts，可离线随 NSIS 安装包分发）",
+    "name": "@fontpkg/smiley-sans（npm 第三方包，rejected 条目）",
+    "verdict": "drop",
+    "license": "NOASSERTION",
+    "licenseUrl": "",
+    "risk": "unclear",
+    "corrections": "维持排除，且按核验规则判为 drop：许可证完全无法核验（声明指向不存在的 readme，仓库是占位地址），riskLevel=unclear。所有元数据数字复现无误。替代路径不变——从官网 zip 取原始 OFL 字体（本轮已实测该 zip 可下载，5,781,344 B，含现成 woff2）。",
+    "failedUrls": []
+  },
+  {
+    "category": "中文字体（CJK fonts，可离线随 NSIS 安装包分发）",
+    "name": "cn-fontsource-smiley-sans-oblique-regular（npm 第三方包，rejected 条目）",
+    "verdict": "drop",
+    "license": "NOASSERTION",
+    "licenseUrl": "",
+    "risk": "unclear",
+    "corrections": "维持排除，判为 drop：打包产物 license 字段为 unknown，对外发布的开源仓库不应引入授权状态不明的资产，riskLevel=unclear。上游得意黑本体确为 OFL-1.1，但那不能替打包产物授权。数字全部复现无误。",
+    "failedUrls": []
+  },
+  {
+    "category": "中文字体（CJK fonts，可离线随 NSIS 安装包分发）",
+    "name": "misans（npm，dsrkafuu/misans）（rejected 条目）",
+    "verdict": "pass",
+    "license": "LicenseRef-MiSans-EULA",
+    "licenseUrl": "https://hyperos.mi.com/font/en/download/",
+    "risk": "custom-eula",
+    "corrections": "排除结论成立，而且理由比原调研更硬：除了「已 subsetted 与禁止改编冲突」，官方 EULA 还明文禁止再分发字体软件本体或其任何副本，所以这个包连「原样转发」都不合法，不只是子集化的问题。包的 Apache-2.0 只覆盖打包代码，不能替字体授权。finalLicenseSpdx 记的是字体本体的许可（自定义 EULA），不是包字段的 Apache-2.0。数字全部复现无误。",
+    "failedUrls": []
+  },
+  {
+    "category": "中文字体（CJK fonts，可离线随 NSIS 安装包分发）",
+    "name": "lxgw-wenkai-webfont（原版全量楷体 webfont，rejected 条目）",
+    "verdict": "pass",
+    "license": "OFL-1.1",
+    "licenseUrl": "https://raw.githubusercontent.com/lxgw/LxgwWenKai/main/OFL.txt",
+    "risk": "attribution-required",
+    "corrections": "排除结论成立（是体积与场景问题，不是许可证问题）。体积数字全部复现：原版 29,934,273 B / 595 files、Screen 19,729,431 B、Lite 26,355,179 B。唯一未验证项：「含全部 11172 个谚文音节」本轮没有逐字检查 cmap，属未核实的细节，但不影响「对简体中文待办应用是纯浪费」的排除结论。",
+    "failedUrls": []
+  },
+  {
+    "category": "等宽与数字字体（OFL monospace / numeric fonts）",
+    "name": "保留 Geist Mono + 补 Noto Sans SC 中文回退（不新增素材）",
+    "verdict": "pass",
+    "license": "OFL-1.1",
+    "licenseUrl": "https://raw.githubusercontent.com/vercel/geist-font/main/OFL.txt",
+    "risk": "attribution-required",
+    "corrections": "推荐文案事实错误：globals.css 及整个 src 中 var(--font-mono) 实为 11 处（Grep 实测），调研写「全部 23 处」，应改为 11。许可证/链接/体积均核实无误，globals.css:88 确为 --font-mono 定义且回退链无 CJK。另补充：作为回退的 Noto Sans SC 其 OFL 本身带 Adobe RFN 'Source'（原样分发无碍；调研只在 Maple CN 处提到该 RFN，未提 Noto Sans SC 自身）。独立实测 Geist wght 100–900 默认 400、Version 1.701、264 字形、advance 600、CJK 覆盖 0，均与调研一致。",
+    "failedUrls": []
+  },
+  {
+    "category": "等宽与数字字体（OFL monospace / numeric fonts）",
+    "name": "Maple Mono CN",
+    "verdict": "pass",
+    "license": "OFL-1.1",
+    "licenseUrl": "https://raw.githubusercontent.com/subframe7536/maple-font/v7/OFL.txt",
+    "risk": "attribution-required",
+    "corrections": "许可证与链接核实一致。两点澄清：(a) previewUrl fontsource.org/fonts/maple-mono 预览的是拉丁版（实测 cmap 无中文），并非所推荐的 CN 版，CN 的 2:1 效果在该页看不到；(b) @mogeko/maple-mono-cn 的 npm license 字段确为 MIT（打包脚本），字体本体仍 OFL-1.1，调研已正确区分，合规须按 OFL 收录。独立实测 CN 分包：年/一/周/今/明 advance=1200、拉丁 0/:/M=600、upm=1000（严格 2:1）、fvar 缺失（无可变轴）、239 个分包，均与调研一致。CN 内嵌 Resource Han Rounded 的 Adobe RFN 'Source' 已逐字核实。",
+    "failedUrls": []
+  },
+  {
+    "category": "等宽与数字字体（OFL monospace / numeric fonts）",
+    "name": "JetBrains Mono",
+    "verdict": "pass",
+    "license": "OFL-1.1",
+    "licenseUrl": "https://raw.githubusercontent.com/JetBrains/JetBrainsMono/master/OFL.txt",
+    "risk": "attribution-required",
+    "corrections": "无。独立实测坐实调研关键断言：fontsource 包内字体 Version 2.211（上游最新 v2.304，2023-01-14，确未跟上）、wght 100–800 默认 400、394 字形、advance 600、GSUB/GPOS 特性仅 calt/ccmp/frac/locl/mark——确无 zero/ss01-20/cv01-99/tnum，上游宣传的字符替换在此包调不动。CJK 覆盖 0。",
+    "failedUrls": []
+  },
+  {
+    "category": "等宽与数字字体（OFL monospace / numeric fonts）",
+    "name": "Commit Mono",
+    "verdict": "pass",
+    "license": "OFL-1.1",
+    "licenseUrl": "https://raw.githubusercontent.com/eigilnikolajsen/commit-mono/main/LICENSE-FONT",
+    "risk": "attribution-required",
+    "corrections": "无。上游最新 release 经 gh API 确认仍为 v1.143（2023-12-28），此后未发版，与调研一致。独立实测：family 名 CommitMono（无空格）、Version 1.143、fvar 缺失（静态）、calt+cv01-11+ss01-05（5 ss/11 cv）、advance 600、官方 ttf 377980 B/1932 字形、fontsource 拉丁 400 woff2 48128 B，均与调研一致。",
+    "failedUrls": []
+  },
+  {
+    "category": "等宽与数字字体（OFL monospace / numeric fonts）",
+    "name": "Cascadia Mono（把现有回退位真正打进安装包）",
+    "verdict": "pass",
+    "license": "OFL-1.1",
+    "licenseUrl": "https://raw.githubusercontent.com/microsoft/cascadia-code/main/LICENSE",
+    "risk": "attribution-required",
+    "corrections": "无。RFN 'Cascadia Code' 属实（本轮唯一带 RFN 的推荐项，自裁 subset 改字形须改名）。独立实测：Version 2407.024、wght 200–700 默认 400、448 字形、advance 1200/upm 2048、calt 存在、无 tnum/zero/ss、CJK 覆盖 0，均与调研一致。上游最新 v2407.24（2024-11-27）。",
+    "failedUrls": []
+  },
+  {
+    "category": "等宽与数字字体（OFL monospace / numeric fonts）",
+    "name": "IBM Plex Mono",
+    "verdict": "pass",
+    "license": "OFL-1.1",
+    "licenseUrl": "https://raw.githubusercontent.com/IBM/plex/master/LICENSE.txt",
+    "risk": "attribution-required",
+    "corrections": "小出入（非许可证）：拉丁 400 子集独立实测 GSUB/GPOS 特性为 ccmp/dnom/frac/mark/numr，调研多列了 locl/mkmk（可能测的是其它子集/全量）；关键结论『无 calt/liga/tnum/zero、天然无连字风险』成立。其余核实一致：OFL-1.1+RFN 'Plex'、Version 2.3、280 字形、advance 600/upm 1000、fvar 缺失、拉丁 400 woff2 14708 B（本轮最小）、@fontsource-variable 确 404。",
+    "failedUrls": [
+      "https://registry.npmjs.org/@fontsource-variable/ibm-plex-mono — 404，确无此可变包——与调研声称一致（预期的不存在）"
+    ]
+  },
+  {
+    "category": "等宽与数字字体（OFL monospace / numeric fonts）",
+    "name": "Roboto Mono",
+    "verdict": "pass",
+    "license": "OFL-1.1",
+    "licenseUrl": "https://raw.githubusercontent.com/google/fonts/main/ofl/robotomono/OFL.txt",
+    "risk": "attribution-required",
+    "corrections": "引文措辞（非许可证）：README 原文为「narrow glyphs like 'I', 'l' and 'i' have added serifs for more even texture while wider glyphs are adjusted for weight.」，调研以引号给出的「Narrow glyphs … receive added serifs」是转述而非逐字，含义一致。其余核实一致：Version 3.001、wght 100–700 默认 400、228 字形（本轮最少）、advance 1229/upm 2048、GSUB/GPOS 特性表为空、CJK 0。",
+    "failedUrls": []
+  },
+  {
+    "category": "等宽与数字字体（OFL monospace / numeric fonts）",
+    "name": "Iosevka",
+    "verdict": "pass",
+    "license": "OFL-1.1",
+    "licenseUrl": "https://raw.githubusercontent.com/be5invis/Iosevka/master/LICENSE.md",
+    "risk": "attribution-required",
+    "corrections": "驳回项：许可证与来源核实一致，驳回理由成立。独立实测坐实：包内字体 Version 22.1.2（上游最新 v34.9.1，2026-10-24，453 个资产全为 PkgTTC-*.zip，落后十几个大版本）、advance 500/upm 1000（半宽）、拉丁 400 woff2 984084 B（约为 JetBrains 同位 24 倍）、fvar 缺失、CJK 0。",
+    "failedUrls": [
+      "https://registry.npmjs.org/@fontsource-variable/iosevka — 404，确无此可变包——与调研声称一致（预期的不存在）"
+    ]
+  },
+  {
+    "category": "等宽与数字字体（OFL monospace / numeric fonts）",
+    "name": "Martian Mono",
+    "verdict": "pass",
+    "license": "OFL-1.1",
+    "licenseUrl": "https://raw.githubusercontent.com/google/fonts/main/ofl/martianmono/OFL.txt",
+    "risk": "attribution-required",
+    "corrections": "驳回项：许可证与来源核实一致，驳回理由成立。独立实测坐实：fontsource latin-wght 文件仅 wght 一个轴（拿不到窄版救宽度）、family 名 Martian Mono SemiExpanded、advance 700/upm 1000（比 Geist 600 宽约 17%）、Version 1.000。上游 METADATA.pb 确有 wdth+wght 双轴，与调研一致。",
+    "failedUrls": [
+      "https://github.com/evil-martians/martian-mono — 404——证实调研「后者 404」的说法（预期的不存在）"
+    ]
+  },
+  {
+    "category": "等宽与数字字体（OFL monospace / numeric fonts）",
+    "name": "Fira Code",
+    "verdict": "pass",
+    "license": "OFL-1.1",
+    "licenseUrl": "https://raw.githubusercontent.com/tonsky/FiraCode/master/LICENSE",
+    "risk": "attribution-required",
+    "corrections": "驳回项：许可证与来源核实一致，驳回理由成立。独立实测坐实关键驳回依据：fvar wght 300–700 默认 300、family 名「Fira Code Light」、Version 5.002、calt 存在且默认开、CJK 0——直接 import 会在六套主题里都渲染成细体。上游最新 release 经 gh API 确认仍为 6.2（2021-12-06）。",
+    "failedUrls": []
+  },
+  {
+    "category": "等宽与数字字体（OFL monospace / numeric fonts）",
+    "name": "Source Code Pro",
+    "verdict": "pass",
+    "license": "OFL-1.1",
+    "licenseUrl": "https://raw.githubusercontent.com/adobe-fonts/source-code-pro/release/LICENSE.md",
+    "risk": "attribution-required",
+    "corrections": "驳回项：许可证与来源核实一致，驳回理由成立。独立实测坐实关键驳回依据：fvar wght 200–900 默认 200、family 名「Source Code Pro ExtraLight」、无 calt、advance 600、CJK 0——默认实例比 Fira Code 更细，浅底上跌破可读对比。RFN 'Source' 自裁 subset 须留意命名。",
+    "failedUrls": []
+  },
+  {
+    "category": "等宽与数字字体（OFL monospace / numeric fonts）",
+    "name": "Maple Mono NF-CN（Nerd Font 完整版）",
+    "verdict": "pass",
+    "license": "OFL-1.1",
+    "licenseUrl": "https://raw.githubusercontent.com/subframe7536/maple-font/v7/OFL.txt",
+    "risk": "attribution-required",
+    "corrections": "驳回项：许可证与来源核实一致，驳回理由成立。NF 后缀仅在 CN 基础上再打 Nerd Font 图标补丁，图标已由 lucide-react 1.72.0 统一承担，终端图标用不上，白白增体积。许可证同 Maple 本体 OFL-1.1（内嵌中文仍带 Adobe RFN 'Source'）。",
+    "failedUrls": []
+  },
+  {
+    "category": "等宽与数字字体（OFL monospace / numeric fonts）",
+    "name": "@chinese-fonts/maple-mono-cn",
+    "verdict": "pass",
+    "license": "OFL-1.1",
+    "licenseUrl": "https://raw.githubusercontent.com/subframe7536/maple-font/v7/OFL.txt",
+    "risk": "attribution-required",
+    "corrections": "驳回项：registry 元数据核实一致，体积驳回成立（约 139 MB 塞进 NSIS 会失控）。注意 npm license 字段写 MIT 是打包方式协议，字体本体仍 OFL-1.1，合规按 OFL 收录。要用 Maple CN 应走自裁 subset 或 @mogeko/maple-mono-cn。",
+    "failedUrls": []
+  },
+  {
+    "category": "等宽与数字字体（OFL monospace / numeric fonts）",
+    "name": "@automann/maple-mono-cn",
+    "verdict": "pass",
+    "license": "OFL-1.1",
+    "licenseUrl": "https://raw.githubusercontent.com/subframe7536/maple-font/v7/OFL.txt",
+    "risk": "attribution-required",
+    "corrections": "驳回项：registry 元数据核实一致，协议标注确比 @mogeko 干净（OFL-1.1），但体积约为 @mogeko 版 7 倍且把 100–700 全静态字重都打包，Polaris 只需 400/500，作为默认引入路径驳回成立。字体本体 OFL-1.1。",
+    "failedUrls": []
+  },
+  {
+    "category": "西文字体（OFL 西文 UI / 展示字体）",
+    "name": "Geist Sans",
+    "verdict": "corrected",
+    "license": "OFL-1.1",
+    "licenseUrl": "https://raw.githubusercontent.com/vercel/geist-font/main/LICENSE.txt",
+    "risk": "attribution-required",
+    "corrections": "许可证判定成立（OFL-1.1），但包结构说错了。原文「该包只有 index.css，实测无 wght.css」不成立：unpkg ?meta 实测 @fontsource-variable/geist@5.3.0 有三个入口 /index.css、/wght.css、/wght-italic.css，后两个都抓到了真实 CSS。因此「包内无 italic」也错——index.css 只含 5 条 normal 面是对的，但包里有整套 italic。集成写法应改为 import '@fontsource-variable/geist/wght.css'（与其余五款一致），控体积仍可手写单条 @font-face 只引 latin。另澄清许可证证据的文件归属：licenseUrl 指向的 vercel/LICENSE.txt 版权行是 2023 Vercel + basement.studio，原文引用的 2024 Geist Project Authors 出自 google/fonts 的 OFL.txt，两份都是 OFL-1.1，两份都没有 Reserved Font Name，随包放哪份都可以（建议两份都放）。二进制复核全部命中：Version 1.800、fvar wght 100-400-900（无 opsz/wdth）、x-height 0.530em、cap 0.710em、975 字形、GSUB 有 tnum/pnum/ss01–ss11 且无 zero、maxp 全 0、小写均宽 0.5338em；latin woff2 29,400 B 与现用 Inter latin 48,256 B（本地 node_modules 5.3.0 实测）相差 18,856 B，「省 19KB / 小 39%」成立。",
+    "failedUrls": []
+  },
+  {
+    "category": "西文字体（OFL 西文 UI / 展示字体）",
+    "name": "IBM Plex Sans",
+    "verdict": "corrected",
+    "license": "OFL-1.1",
+    "licenseUrl": "https://raw.githubusercontent.com/IBM/plex/master/LICENSE.txt",
+    "risk": "attribution-required",
+    "corrections": "许可证、版本、体积、度量、hinting 全部逐条命中，唯一说错的是主页可达性：原文「ibm.com/plex 从本机网络实测不可达（curl 返回 000）」本次复核为 HTTP 200、标题 \"Introduction | IBM Plex\"。用仓库当主页的结论可以保留，但理由必须改成「仓库是许可证与源文件的权威位置」，不能再写官网打不开。二进制复核（我第一遍解析读错了 maxp 字段偏移，纠正后与原文完全一致）：Version 3.201、fvar wght 100-400-700 + wdth 75-100-100、x-height 0.516em / cap 0.698em、1025 字形、GSUB 有 lnum/onum/zero/ss01–ss06 且确无 tnum/pnum、0–9 advance 全为 600/1000（默认等宽，写 tnum 是空操作）、maxp maxSizeOfInstructions=3971 / maxFunctionDefs=154 / maxStorage=47 / maxStackElements=322 / maxTwilightPoints=16，是 12 款里唯一非零，其余 11 款（含现用 Inter / Manrope / Noto Sans SC）maxp 全 0 也已复核。小写均宽 0.5050em 一致。附带跨条纠错：Plex 自己就带 wdth 75–100，所以 Instrument Sans 那条「本轮唯一带宽度轴」是错的。合规提醒：派生版不得继续叫 Plex（RFN），随 NSIS 分发属 bundling，需附 LICENSE.txt 与版权行，UI 内无需署名。",
+    "failedUrls": []
+  },
+  {
+    "category": "西文字体（OFL 西文 UI / 展示字体）",
+    "name": "Plus Jakarta Sans",
+    "verdict": "corrected",
+    "license": "OFL-1.1",
+    "licenseUrl": "https://raw.githubusercontent.com/tokotype/PlusJakartaSans/master/OFL.txt",
+    "risk": "attribution-required",
+    "corrections": "许可证、链接、体积、度量全部核实无误，补两处原文漏掉的事实。(1) 漏报了一个比 Public Sans 更严重的行高坑：实测 PlusJakartaSans[wght].ttf upem 1000、winAscent 1296 / winDescent 356，合计 1.652em，是本轮 12 款里最高的（原文只为 Public Sans 的 1.405em 写了行高警告）。任何 line-height: normal 的位置换上去行盒都会更高，globals.css:86 换字体后必须重跑 npm run build && npm run smoke 的 sub-pixel 行高断言。(2) 版本号写法要标清来源：GF/fontsource 这条线的 name 表实测是 \"Version 2.071;gftools[0.9.30]\"，而上游 tokotype 仓库 README 写的是 v2.7.1 / v2.700，两套编号不同，别把 2.071「纠正」成 2.700。其余全部命中：fvar wght 200-400-800、x-height 0.536em / cap 0.745em、1188 字形、GSUB tnum/pnum/ss01–ss03、maxp 全 0、小写均宽 0.5403em（比本地 Manrope TTF 实测 0.5027em 宽 7.5%，原文该比值也成立）。结论「不引入、只做 Manrope 的等价备选」维持。",
+    "failedUrls": []
+  },
+  {
+    "category": "西文字体（OFL 西文 UI / 展示字体）",
+    "name": "Public Sans",
+    "verdict": "corrected",
+    "license": "OFL-1.1",
+    "licenseUrl": "https://raw.githubusercontent.com/uswds/public-sans/develop/LICENSE.md",
+    "risk": "attribution-required",
+    "corrections": "许可证与全部二进制数值命中，两处要改。(1) 上游状态比原文说的更糟：README 原文 \"Public Sans as a font is not currently being actively developed or maintained.\"——不只是可变版实验性，整个字体已停止开发维护，排除理由应从「可变版实验性」升级为「上游停更」。(2) 主页不是「不可达」：https://public-sans.digital.gov/ 实测 301 跳到 https://digital.gov/resources/an-introduction-to-typography，是专页下线后跳向无关文章。改用仓库当主页的结论对，理由要改写。默认字重争议已用二进制定案：PublicSans[wght].ttf 实测 fvar wght 100-100-900、name 表 family 名就是 \"Public Sans Thin\"，原文的「默认 100」正确；fontsource metadata.json 写的 default 400 是目录元数据不是二进制默认值，别被它带偏。但原文的推论「不显式设 font-weight 就会拿到 Thin、浅色家族 teal 小字直接不可读」被高估了：CSS 里 UA 默认 font-weight:400 落在声明的 100–900 区间内并会生效，fvar 默认值不会漏出来——本项目现用的 Manrope（实测 fvar 默认 200）与 Noto Sans SC（实测 fvar 默认 100）就是现成反例，它们并没有渲染成 ExtraLight/Thin。显式写字重仍是好习惯，但不构成排除理由（此推论为机制推断＋现成反例，未做像素实测）。其余命中：Version 2.001、upem 2000、winAscent 2315 / winDescent 495（1.405em）、x-height 0.517em、648 字形、GSUB tnum/pnum/lnum/onum/ss01、maxp 全 0、小写均宽 0.5129em。",
+    "failedUrls": [
+      "https://public-sans.digital.gov/ — 实测 301，Location: https://digital.gov/resources/an-introduction-to-typography —— 专页已下线，跳到无关的通用排版文章，不是「不可达」"
+    ]
+  },
+  {
+    "category": "西文字体（OFL 西文 UI / 展示字体）",
+    "name": "Instrument Sans",
+    "verdict": "corrected",
+    "license": "OFL-1.1",
+    "licenseUrl": "https://raw.githubusercontent.com/Instrument/instrument-sans/master/OFL.txt",
+    "risk": "attribution-required",
+    "corrections": "核心卖点说错了：「本轮唯一带 wdth 75–100 宽度轴的候选」不成立——IBM Plex Sans 同样有 wdth 75–100（原文自己的 sizeNote 就写了，我也用二进制复核过），宽度轴不是它的独占优势，这条卖点要删，评分理由随之减弱。其余全部命中：README 轴表笔误确实存在（Weight 行被写成 wdth），且 README 还多列了一行 ital 0-100，这个范围本身也是错的（fontsource metadata 里 ital 是 0–1，包内另有 italic 样式）；roman TTF 的 fvar 确实只有 wdth 75-100-100 与 wght 400-400-700 两轴，「以二进制为准」的处理正确；Version 1.000;gftools[0.9.28]、x-height 0.510em、501 字形、GSUB tnum/pnum/ss01–ss12、maxp 全 0、小写均宽 0.5249em、latin 30,092 B、包 424,093 B 全部一致。wght.css 与 standard.css 都实抓存在，家族名 'Instrument Sans Variable' 无误。结论「不替换 Inter」维持。",
+    "failedUrls": []
+  },
+  {
+    "category": "西文字体（OFL 西文 UI / 展示字体）",
+    "name": "Figtree",
+    "verdict": "pass",
+    "license": "OFL-1.1",
+    "licenseUrl": "https://raw.githubusercontent.com/erikdkennedy/figtree/master/OFL.txt",
+    "risk": "attribution-required",
+    "corrections": "无。逐条复核全部命中：OFL-1.1、erikdkennedy.com/figtree 确为 404、npm 5.3.0 / 81,105 B、latin woff2 20,156 B（我把 12 款的 latin woff2 都量了一遍，它确实最小）、Version 2.002、fvar wght 300-300-900（name 表 family 名就是 \"Figtree Light\"，默认 300 属实）、x-height 0.500em / cap 0.700em、459 字形、GSUB tnum/pnum/ss01/ss02/rvrn、maxp 全 0、小写均宽 0.4988em、index.css 即 wght-only 且家族名 'Figtree Variable'。唯一要弱化的是与 Public Sans 同款的推论：「默认 300 不显式设字重就偏细」在 CSS 下同样不成立（UA 默认 400 会生效），但这条不影响它因 x-height 0.500 被排除的主结论。「不引入」维持。",
+    "failedUrls": [
+      "https://www.erikdkennedy.com/figtree/ — 实测 HTTP 404，原文剔除该主页的处理正确"
+    ]
+  },
+  {
+    "category": "西文字体（OFL 西文 UI / 展示字体）",
+    "name": "Inter Tight",
+    "verdict": "pass",
+    "license": "OFL-1.1",
+    "licenseUrl": "https://raw.githubusercontent.com/googlefonts/inter-gf-tight/main/OFL.txt",
+    "risk": "attribution-required",
+    "corrections": "无（维持排除）。两条硬证据都复核成立：上游 rsms/inter-tight 确 301 跳到 googlefonts/inter-gf-tight，该仓库确于 2024-02-12 归档且 README 明写不跟随标准 Inter 更新；许可证确为干净 OFL-1.1。latin woff2 44,872 B 实测一致。未复核项：它自身的 x-height 0.5459 / cap 0.7275 / 小写均宽 0.486em 没有重新解析（作为基准的 Inter 我复核了：x-height 0.5459em、cap 0.7275em、小写均宽 0.5363em，与原文一致）。",
+    "failedUrls": []
+  },
+  {
+    "category": "西文字体（OFL 西文 UI / 展示字体）",
+    "name": "Space Grotesk",
+    "verdict": "pass",
+    "license": "OFL-1.1",
+    "licenseUrl": "https://raw.githubusercontent.com/floriankarsten/space-grotesk/master/OFL.txt",
+    "risk": "attribution-required",
+    "corrections": "无（维持排除）。许可证 OFL-1.1 属实，仓库可达未归档，latin woff2 22,288 B 实测一致。未复核项：x-height 0.486em、wght 300–700、小写均宽 0.555em、maxp 为 0 等二进制指标本轮没有重新解析（rejected 条目只核许可证与链接）。",
+    "failedUrls": []
+  },
+  {
+    "category": "西文字体（OFL 西文 UI / 展示字体）",
+    "name": "Sora",
+    "verdict": "pass",
+    "license": "OFL-1.1",
+    "licenseUrl": "https://raw.githubusercontent.com/sora-xor/sora-font/master/OFL.txt",
+    "risk": "attribution-required",
+    "corrections": "无（维持排除）。许可证 OFL-1.1 属实，仓库可达，latin woff2 33,652 B 实测一致。未复核项：小写均宽 0.5774em、'0' advance 743/1000、x-height 0.534em 等宽度指标本轮没有重新解析——宽度是它的主要否决理由，若要正式写进决策文档建议补一次二进制复核。",
+    "failedUrls": []
+  },
+  {
+    "category": "西文字体（OFL 西文 UI / 展示字体）",
+    "name": "Outfit",
+    "verdict": "corrected",
+    "license": "OFL-1.1",
+    "licenseUrl": "https://raw.githubusercontent.com/Outfitio/Outfit-Fonts/main/OFL.txt",
+    "risk": "attribution-required",
+    "corrections": "许可证判定无误（OFL-1.1），但漏了一条与 Inter Tight / Geologica 同级的排除硬证据：Outfitio/Outfit-Fonts 已于 2025-02-25 被作者归档，仓库 read-only，上游同样无后续维护。原文只按 x-height 0.460em 与默认 wght 100 排除，应把「上游已归档」补进理由。另与 Public Sans / Figtree 同款：「默认 wght=100，不显式设字重就是 Thin」在 CSS 下不成立（UA 默认 400 生效），这条不要当排除理由用；x-height 0.460em 才是决定性的（该值本轮未重新解析）。latin woff2 32,292 B 实测一致。",
+    "failedUrls": []
+  },
+  {
+    "category": "西文字体（OFL 西文 UI / 展示字体）",
+    "name": "Bricolage Grotesque",
+    "verdict": "corrected",
+    "license": "OFL-1.1",
+    "licenseUrl": "https://raw.githubusercontent.com/ateliertriay/bricolage/main/OFL.txt",
+    "risk": "attribution-required",
+    "corrections": "许可证无误（OFL-1.1），但引文是错的：原文「作者自述 \"I forked the font and worked to make it fully display-oriented.\"」在仓库 README 里根本不存在——我把 raw README（3,776 B）下载后逐字检索，全文没有 display 这个词。实际句子是 \"It started as a fork of Mayenne Sans, an open-source single weight font designed by Jérémy Landes.\"，仓库简介写的是 \"an expressive variable font with weight, width and optical size axis\"。要保留「表情强、偏展示」的判断就改引这两处，不要继续用那句查无实据的引文。另补包名事实：npm 上的 id 是 @fontsource-variable/bricolage-grotesque（不是 bricolage），5.3.0 / 544,183 B / latin wght 41,344 B 三项体积均实测一致。未复核项：fvar 默认 opsz 96 + wght 800、cap 0.660em 本轮未解析；且「不显式设置就拿到最粗最大形态」这个坑在 CSS 下同样被高估（UA 默认 font-weight:400 生效、font-optical-sizing:auto 会按字号设 opsz），真正的排除理由是气质与生态位，不是默认值。",
+    "failedUrls": []
+  },
+  {
+    "category": "西文字体（OFL 西文 UI / 展示字体）",
+    "name": "Geologica",
+    "verdict": "corrected",
+    "license": "OFL-1.1",
+    "licenseUrl": "https://raw.githubusercontent.com/googlefonts/geologica/main/OFL.txt",
+    "risk": "attribution-required",
+    "corrections": "许可证无误（OFL-1.1），归档事实成立但日期口径要改：仓库横幅写的是 2026-04-19 归档，原文给的 2023-04-13 是「最后推送」而不是归档时间，两者不能混写；而 pushed_at 这次没能核实（GitHub API 从本机返回 rate limit exceeded），所以「最后推送 2023-04-13」应标注未验证，或直接改写为「上游已于 2026-04-19 归档」。轴表与体积全部命中：wght 100–900 默认 100、CRSV 0–1、SHRP 0–100、slnt 0…−12；full 轴 latin woff2 48,536 B、包 804,217 B。未复核项：x-height 0.480em、maxp 为 0。结论「维持排除」不变，理由（表情轴无价值＋上游归档）成立。",
+    "failedUrls": [
+      "https://api.github.com/repos/googlefonts/geologica — 本机 GitHub API 返回 rate limit exceeded，pushed_at 无法核实"
+    ]
+  },
+  {
+    "category": "动画与微交互（Animation & Micro-interactions）",
+    "name": "Motion <AnimateView> (motion/react-animate-view)",
+    "verdict": "pass",
+    "license": "MIT",
+    "licenseUrl": "https://raw.githubusercontent.com/motiondivision/motion/main/LICENSE.md",
+    "risk": "attribution-required",
+    "corrections": "无。许可证、四个链接、免费声明全部核实属实。补充三项本机独立复核（不是照抄调研）：(1) node_modules/motion/package.json 版本 14.12.0、license MIT，exports 键实测为 . ./debug ./mini ./three ./vgpu ./remix ./react ./react-client ./react-m ./react-mini ./react-animate-view ./package.json，dist/es/react-animate-view.mjs 确实存在；react 与 react-dom 均为 19.3.1，满足 ≥19.3。(2) 对 framer-motion/dist/es/components/AnimateView/ 整目录 grep useReducedMotion|reducedMotion|prefers-reduced-motion，命中 0 —— 源码级证实「MotionConfig 管不到 AnimateView、reduced motion 必须自己补」这条警告成立，不是推测。(3) motion.dev/docs/react-motion-config 抓到原文 \"Other animations, like opacity and backgroundColor, will persist.\"，证实 notes 里「MotionConfig reducedMotion=\\\"user\\\" 不等于直接渲染终态」的缺口属实。",
+    "failedUrls": []
+  },
+  {
+    "category": "动画与微交互（Animation & Micro-interactions）",
+    "name": "Motion mini / hybrid animate() + SVG pathLength 描边",
+    "verdict": "pass",
+    "license": "MIT",
+    "licenseUrl": "https://raw.githubusercontent.com/motiondivision/motion/main/LICENSE.md",
+    "risk": "attribution-required",
+    "corrections": "无。许可、链接、体积三类全部对上。两点补充：(1) bundlephobia 的 dependencyCount=2（motion-dom / motion-utils），所以「零新增依赖」只在「motion 已装」的前提下成立，措辞本身没问题。(2) 本机实测 motion 14.12.0 的 exports 确有 \"./mini\" 与 \"./react-mini\"，dist/es/mini.mjs 与 react-mini.mjs 均存在，`import { animate } from 'motion/mini'` 的写法可用。落点 TaskItem.tsx:52-56 也核过：现状确为 initial scale 0.4→1 + opacity、duration 0.14、Check size=12 strokeWidth=2.6 stroke=var(--check-mark)，替换描述准确。",
+    "failedUrls": []
+  },
+  {
+    "category": "动画与微交互（Animation & Micro-interactions）",
+    "name": "Native CSS one-shot entry (@starting-style / transition-behavior: allow-discrete / interpolate-size)",
+    "verdict": "corrected",
+    "license": "NONE",
+    "licenseUrl": "https://raw.githubusercontent.com/electron/electron/main/LICENSE",
+    "risk": "none",
+    "corrections": "改了两处。(1) 许可证字段：原 licenseSpdx=\"LicenseRef-自定义\" + 指向 w3c/csswg-drafts 的 LICENSE，会让下游误以为存在自定义 EULA 义务。本条目不是第三方素材，是 Chromium 内置能力，不随包分发任何 W3C 文本，也不引入任何署名/分发义务。改为 finalLicenseSpdx=NONE，许可证链接改指真正随包分发的 Electron MIT LICENSE；W3C 文档许可原文已抓到并保留在 urlChecks 里备查，但对 Polaris 无约束力。(2) previewUrl 无效：原值 https://motion.dev/docs/react-animate-view 打开的是 Motion AnimateView 文档，不是原生 CSS 入场，标 ok=false。已补三个实测 HTTP 200 的一手规范源（css-transitions-2 定义 @starting-style 与 allow-discrete、css-values-5 定义 interpolate-size、css-view-transitions-1 定义 view-transition-group），都在同一个 csswg-drafts 仓库、同一份许可下，且 raw.githubusercontent 本机可达 —— 这解决了调研 notes 里「MDN / w3.org / drafts.csswg.org 全部抓不到」的取证缺口。另：本机独立确认 node_modules/electron 版本 45.3.0；globals.css:83 --ease-out、2425 @keyframes detail-in、2434 @keyframes pop-in、3346 @media (prefers-reduced-motion: reduce){*,*::before,*::after{animation-duration:0.01ms!important;transition-duration:0.01ms!important}} 四处行号与内容全部核对属实。调研自称的 Electron 探针（Chromium 156.0.8078.96）我没有复跑，只核实了 Electron 版本与官方公告的 156.0.8078.48，补丁号差异属正常，探针结论标为「调研自测、未复核」。",
+    "failedUrls": [
+      "https://motion.dev/docs/react-animate-view — 链接本身能打开，但指向的是候选 1 的 Motion AnimateView 组件文档，跟本条目的原生 CSS 入场配方不是同一个素材，不能当预览。判定为「指向别的东西」。"
+    ]
+  },
+  {
+    "category": "动画与微交互（Animation & Micro-interactions）",
+    "name": "Motion layout animation + LazyMotion / m 瘦身",
+    "verdict": "pass",
+    "license": "MIT",
+    "licenseUrl": "https://raw.githubusercontent.com/motiondivision/motion/main/LICENSE.md",
+    "risk": "attribution-required",
+    "corrections": "无（许可、链接、体积、domAnimation/domMax 包含关系全部属实）。附一处措辞需要收敛，不影响结论：调研 notes 写「官方自己的压测里快照方案比 layout 动画更慢更耗内存」，但我抓到的 layout 页只有对比表和 FAQ 里的 \"less performant with many elements\"，没有任何压测数据或内存数字，不应写成官方实测结论。另核实两处仓库落点与一处数学：TaskItem.tsx:38 确为 layout、:42 确为 { type:'spring', stiffness:420, damping:40 }；ζ=40/(2√420)=0.976 计算无误，确为欠阻尼，改 tween 的建议成立。",
+    "failedUrls": []
+  },
+  {
+    "category": "动画与微交互（Animation & Micro-interactions）",
+    "name": "Motion spring() → 构建期生成 CSS linear() 缓动",
+    "verdict": "corrected",
+    "license": "MIT",
+    "licenseUrl": "https://raw.githubusercontent.com/motiondivision/motion/main/LICENSE.md",
+    "risk": "none",
+    "corrections": "许可与链接没问题，改的是集成方案里一个会直接写错时长的数值断言。调研写「取 String(spring(0.2, 0)) 得到形如 200ms linear(0, 0.006, ...) 的字符串」——我用本机已装的 motion 14.12.0 实跑，真实输出是 400ms linear(0, 0.2175, 0.5207, 0.7361, 0.8631, 0.9317, 0.9668, 0.9842, 0.9926, 0.9966, 0.9984, 0.9993, 1)，是 400ms 不是 200ms，直接照抄会做出一个 400ms 的浮层入场，超出设计硬约束的 320ms 上限。实测对照：spring(0.1,0)→250ms、spring(0.12,0)→250ms、spring(0.2,-0.2)→450ms，都不等于 visualDuration×1000。要精确落在 Polaris 的 200ms，正确写法是对象式并显式给 keyframes：String(spring({ duration: 200, bounce: 0, keyframes: [0, 1] })) → \"200ms linear(0, 0.4551, 0.8122, 0.9445, 0.9848, 0.996, 1)\"；漏掉 keyframes 会抛 TypeError: Cannot read properties of undefined (reading '0')（motion-dom/dist/es/animation/generators/spring.mjs:208），已实测。另两处小改：(a) 毫秒单位与负 bounce 的引文出处从 /docs/css 改为 /docs/spring；(b) 官方 /docs/css 示例说 spring(0.5,0.2) 输出 800ms，本机 14.12.0 实跑是 900ms，文档示例不能当精确产物引用。bounce 0 与 -0.2 不过冲这条我按数值验过：生成的 linear() 采样点没有任何 >1 的值，成立。",
+    "failedUrls": []
+  },
+  {
+    "category": "动画与微交互（Animation & Micro-interactions）",
+    "name": "tw-animate-css",
+    "verdict": "corrected",
+    "license": "MIT",
+    "licenseUrl": "https://raw.githubusercontent.com/Wombosvideo/tw-animate-css/main/LICENSE",
+    "risk": "attribution-required",
+    "corrections": "许可证、版本号、两处体积、reduced motion 缺失、caret-blink 无限循环全部核实属实，这些不改。改两处集成描述：(1)「@import 顺序不能反」在 README 与仓库页都找不到依据，属于调研自行添加的未标注推断，降级为「未验证；Tailwind v4 的 @import 层叠顺序需自行确认」，不要写成官方要求。(2)「accordion 需要 --radix-accordion-content-height 之类的内容高度变量，Polaris 可以自己量一次写进 CSS 变量」不准确：实测 1.4.0 的 @keyframes accordion-down 是 var(--radix-accordion-content-height, var(--bits-…, var(--reka-…, var(--kb-…, var(--ngp-accordion-content-height, auto))))) 的多级回落，最终兜底 auto，变量不是硬性必需，Polaris 可以完全不量高度；代价是 height:auto 的补间在 Chromium 需要 :root{interpolate-size:allow-keywords}（正好是候选 3 的能力）。这一改让候选 6 唯一的推荐理由从「必须自己量高度」变成「零测量即可折叠」，结论方向不变但成本更低。另：bundlephobia 对 tw-animate-css 取不到数据（纯 CSS 包无 JS 入口），所以体积只能引 registry unpackedSize 与源文件字节数，这两个我已实测。",
+    "failedUrls": []
+  }
+]
