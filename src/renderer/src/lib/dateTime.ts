@@ -105,6 +105,16 @@ export function normalizeDigits(raw: string): string {
     .slice(0, 2)
 }
 
+// A first digit of 3+ (hours) or 6+ (minutes) cannot start a two-digit value, so
+// it is already complete; anything else waits for the second digit. Typing and
+// blur share this predicate so they can never disagree about what "finished"
+// means — that disagreement is what let a stray blur commit '1' as 01:00.
+export function isComplete(part: TimePart, digits: string): boolean {
+  if (digits.length === 2) return true
+  if (digits.length !== 1) return false
+  return part === 'hour' ? Number(digits[0]) >= 3 : Number(digits[0]) >= 6
+}
+
 // Whole-time nudges stay inside the current day; only the calendar changes days.
 export function shiftMinutes(draft: Draft, delta: number): Draft {
   const total = Math.min(1439, Math.max(0, draft.hour * 60 + draft.minute + delta))

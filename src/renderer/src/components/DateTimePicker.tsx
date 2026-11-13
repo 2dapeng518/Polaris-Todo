@@ -19,6 +19,7 @@ import {
   dayPart,
   draftFrom,
   draftToIso,
+  isComplete,
   laterToday,
   monthFor,
   monthLabel,
@@ -358,11 +359,8 @@ function TimeField({
     const digits = normalizeDigits(raw)
     setText(part, digits)
     if (!digits) return
-    // A first digit of 3+ (hours) or 6+ (minutes) cannot start a two-digit
-    // value, so it commits immediately; anything else waits for the second.
-    const complete =
-      digits.length === 2 || (part === 'hour' ? Number(digits[0]) >= 3 : Number(digits[0]) >= 6)
-    if (!complete) return
+    // 完整性判据与失焦共用 isComplete，两处不能对「打完了没」各自解释。
+    if (!isComplete(part, digits)) return
     onCommit(withPart(part, clampPart(part, Number(digits))))
     if (part === 'hour' && advance) {
       requestAnimationFrame(() => {
@@ -463,7 +461,10 @@ function TimeField({
         onBlur={(event) => {
           const digits = normalizeDigits(event.target.value)
           setText(part, null)
-          if (!digits) return
+          // 半截数字（小时的 '1'）打字时被判定为「还没打完」，失焦不能反过来把它
+          // 定稿成 1 点：真实鼠标点 ±15 会先失焦，那样步进就基于错误的小时计算。
+          // 丢弃即可，显示回落到已存储值。Enter 与 ':' 是显式确认，仍提交单个数字。
+          if (!digits || !isComplete(part, digits)) return
           const value = clampPart(part, Number(digits))
           if (value !== draft[part]) onCommit(withPart(part, value))
         }}
