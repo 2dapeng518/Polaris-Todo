@@ -2928,6 +2928,12 @@ textarea {
   opacity: 0.7;
 }
 
+/* 版本号走等宽，与设置面板的版本号同一套排版；父级的字距对数字不适用。 */
+.footer-version {
+  font-family: var(--font-mono);
+  letter-spacing: normal;
+}
+
 /* ---------- loading ---------- */
 
 .app-loading {
@@ -3258,6 +3264,12 @@ textarea {
   color: var(--text-tertiary);
   font-size: 11px;
   letter-spacing: 0.08em;
+}
+
+/* 版本号走等宽，与日期/时间数字同一套排版；父级的字距对数字不适用。 */
+.settings-version {
+  font-family: var(--font-mono);
+  letter-spacing: normal;
 }
 
 .switch {

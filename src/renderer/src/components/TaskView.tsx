@@ -3,6 +3,7 @@ import { AnimatePresence } from 'motion/react'
 import { Search } from 'lucide-react'
 import type { AppView, Task } from '@shared/types'
 import { useTaskStore } from '../stores/useTaskStore'
+import { useAppVersion } from '../stores/useAppVersion'
 import { EmptyState } from './EmptyState'
 import { ProgressRing } from './ProgressRing'
 import { QuickAdd } from './QuickAdd'
@@ -31,6 +32,8 @@ export function TaskView() {
   const setPaletteOpen = useTaskStore((state) => state.setPaletteOpen)
   const selectedTaskId = useTaskStore((state) => state.selectedTaskId)
   const paletteOpen = useTaskStore((state) => state.paletteOpen)
+  // 页脚常驻，挂载即取；与设置面板共用同一份版本号。
+  const version = useAppVersion()
 
   const quickAddRef = useRef<HTMLInputElement>(null)
 
@@ -166,7 +169,15 @@ export function TaskView() {
           <span>
             <kbd>Ctrl K</kbd> 命令面板
           </span>
-          <span className="footer-brand">Polaris 0.1</span>
+          <span className="footer-brand">
+            Polaris
+            {version && (
+              <>
+                {' '}
+                <span className="footer-version">{version}</span>
+              </>
+            )}
+          </span>
         </div>
       </div>
     </main>
