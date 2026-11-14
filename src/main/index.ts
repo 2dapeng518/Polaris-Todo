@@ -118,6 +118,38 @@ async function captureSettingsScreenshot(filename: string): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, 200))
 }
 
+async function captureThemePaletteScreenshot(filename: string): Promise<void> {
+  if (!mainWindow) return
+
+  await mainWindow.webContents.executeJavaScript(
+    `document.querySelector('.search-trigger')?.click()`
+  )
+  await new Promise((resolve) => setTimeout(resolve, 500))
+  await mainWindow.webContents.executeJavaScript(`(() => {
+    const input = document.querySelector('.command-input');
+    if (!input) return;
+    const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+    setter.call(input, '主题');
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  })()`)
+  await new Promise((resolve) => setTimeout(resolve, 500))
+  await captureTo(filename)
+}
+
+async function captureThemeMenuScreenshot(filename: string): Promise<void> {
+  if (!mainWindow) return
+
+  await mainWindow.webContents.executeJavaScript(
+    `document.querySelector('.theme-menu-trigger')?.click()`
+  )
+  await new Promise((resolve) => setTimeout(resolve, 450))
+  await captureTo(filename)
+  await mainWindow.webContents.executeJavaScript(
+    `document.querySelector('.theme-menu-trigger')?.click()`
+  )
+  await new Promise((resolve) => setTimeout(resolve, 250))
+}
+
 async function captureRecurrenceScreenshot(filename: string): Promise<void> {
   if (!mainWindow) return
 
@@ -273,6 +305,7 @@ async function captureDemo(mode: string): Promise<void> {
         )
         await new Promise((resolve) => setTimeout(resolve, 550))
         await captureTo(`screenshot-theme-${id}.png`)
+        await captureThemeMenuScreenshot(`screenshot-theme-menu-${id}.png`)
       }
       await captureSettingsScreenshot('screenshot-theme-picker.png')
       await mainWindow.webContents.executeJavaScript(
@@ -327,6 +360,10 @@ async function captureDemo(mode: string): Promise<void> {
         await captureReminderDetailScreenshot('screenshot-light-reminder-detail.png')
       } else if (mode === 'light-settings') {
         await captureSettingsScreenshot('screenshot-light-settings.png')
+      } else if (mode === 'light-theme-menu') {
+        await captureThemeMenuScreenshot('screenshot-light-theme-menu.png')
+      } else if (mode === 'light-palette-theme') {
+        await captureThemePaletteScreenshot('screenshot-light-palette-theme.png')
       } else if (mode === 'light-toast') {
         await captureToastScreenshot('screenshot-light-toast.png')
       } else if (mode === 'light-recurrence') {
@@ -373,6 +410,10 @@ async function captureDemo(mode: string): Promise<void> {
       await captureReminderDetailScreenshot('screenshot-reminder-detail.png')
     } else if (mode === 'settings') {
       await captureSettingsScreenshot('screenshot-settings.png')
+    } else if (mode === 'theme-menu') {
+      await captureThemeMenuScreenshot('screenshot-theme-menu.png')
+    } else if (mode === 'palette-theme') {
+      await captureThemePaletteScreenshot('screenshot-palette-theme.png')
     } else if (mode === 'toast') {
       await captureToastScreenshot('screenshot-toast.png')
     } else if (mode === 'recurrence') {
@@ -905,6 +946,62 @@ async function runSmokeTest(): Promise<void> {
         const restore = document.documentElement.dataset.theme;
         themeMatrix = themeMatrix && flip === b && restore === a;
       }
+      // 主题菜单：右段箭头展开六选一，够到配对快切永远够不着的另外四套。
+      // 先 focus 再 click —— 程序化 click 不移焦点，不先构造真实前置状态，
+      // 「焦点回到箭头」那条就是在测假象。
+      const menuTrigger = document.querySelector('.theme-menu-trigger');
+      menuTrigger.focus();
+      menuTrigger.click();
+      await waitFor(() => document.querySelector('.theme-menu'));
+      await sleep(220);
+      const menuIds = [...document.querySelectorAll('[data-theme-menu-item]')].map((el) => el.dataset.themeMenuItem);
+      const menuListed = menuIds.length === 6 &&
+        ['dark', 'light', 'dusk', 'sand', 'sky', 'green'].every((id, i) => menuIds[i] === id);
+      // 打开即聚焦当前主题行。这条断了 Esc 就会打在箭头上而不是菜单里 ——
+      // 曾经因为「首帧 visibility:hidden 占位」静默失败过。
+      const menuInitialFocus = document.activeElement?.getAttribute('role') === 'menuitemradio' &&
+        document.activeElement?.getAttribute('aria-checked') === 'true';
+      document.querySelector('[data-theme-menu-item="dusk"]').click();
+      await sleep(280);
+      const menuPicked = document.documentElement.dataset.theme === 'dusk' &&
+        localStorage.getItem('polaris-theme') === 'dusk';
+      const menuClosed = !document.querySelector('.theme-menu') &&
+        document.querySelector('.theme-menu-trigger').getAttribute('aria-expanded') === 'false';
+      const menuFocusReturned = document.activeElement === document.querySelector('.theme-menu-trigger');
+      menuTrigger.click();
+      await waitFor(() => document.querySelector('.theme-menu'));
+      await sleep(220);
+      // Esc 派发到真实焦点节点（菜单行），不是 window：菜单在 #root 上
+      // stopPropagation，直接打 window 会绕过它，测的就不是同一条路径。
+      const preEscActive = document.activeElement?.className || document.activeElement?.tagName;
+      document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      await sleep(280);
+      const menuEscaped = !document.querySelector('.theme-menu') &&
+        document.activeElement === document.querySelector('.theme-menu-trigger');
+      const themeMenuWorks = menuListed && menuInitialFocus && menuPicked && menuClosed && menuFocusReturned && menuEscaped;
+      // 渲染层的 console.error 不会回传到冒烟进程的 stdout，失败原因必须随结果返回。
+      const themeMenuDetail = { ids: menuIds.join(','), listed: menuListed, initialFocus: menuInitialFocus, picked: menuPicked, closed: menuClosed, focus: menuFocusReturned, esc: menuEscaped, preEscActive };
+      // 命令面板六条直达：键盘用户不展开菜单也能任选一套，配对快切够不到的四套在这里。
+      document.querySelector('.search-trigger').click();
+      await waitFor(() => document.querySelector('.command-input'));
+      setInput(document.querySelector('.command-input'), '主题');
+      await sleep(400);
+      const paletteThemeLabels = [...document.querySelectorAll('.command-item .command-title')]
+        .map((el) => el.textContent)
+        .filter((text) => text.startsWith('主题：'));
+      const paletteThemeListed = paletteThemeLabels.length === 6 &&
+        ['夜阑', '昼白', '暮蓝', '暖砂', '天蓝', '护眼绿'].every((name) => paletteThemeLabels.includes('主题：' + name));
+      [...document.querySelectorAll('.command-item')]
+        .find((el) => el.textContent.includes('主题：暖砂')).click();
+      await sleep(300);
+      const paletteThemeApplied = document.documentElement.dataset.theme === 'sand' &&
+        localStorage.getItem('polaris-theme') === 'sand';
+      // AnimatePresence 的退出弹簧会留住节点，等真实卸载而不是加魔法 sleep；
+      // 这里用有界轮询而非 waitFor，超时要把 false 记进结果而不是抛断整轮冒烟。
+      for (let i = 0; i < 40 && document.querySelector('.command-input'); i++) await sleep(50);
+      const paletteThemePicked = paletteThemeApplied && !document.querySelector('.command-input');
+      const themePaletteWorks = paletteThemeListed && paletteThemePicked;
+      const themePaletteDetail = { labels: paletteThemeLabels.join(','), listed: paletteThemeListed, applied: paletteThemeApplied, closed: !document.querySelector('.command-input') };
       // 恢复初始主题，后续 reminder 像素采样据此选定期望色。
       window.__polarisSetTheme(initialTheme);
       await sleep(200);
@@ -1440,6 +1537,14 @@ async function runSmokeTest(): Promise<void> {
       ghosts.push(...ghostScan());
       await escOnce();
       await escOnce();
+      // 第四态：主题菜单展开。roving 当前行是 tabindex=0，会被 ghostScan 的
+      // [tabindex] 选择器扫到，正好覆盖「选中行 + 焦点环」这个最高危组合。
+      document.querySelector('.theme-menu-trigger').click();
+      await waitFor(() => document.querySelector('.theme-menu'));
+      await sleep(350);
+      ghosts.push(...ghostScan());
+      document.querySelector('.theme-menu-trigger').click();
+      await sleep(250);
       const focusRingGhosted = ghosts.length === 0;
       if (!focusRingGhosted) console.error('FOCUS_RING_GHOST', JSON.stringify([...new Set(ghosts)]));
 
@@ -1504,6 +1609,10 @@ async function runSmokeTest(): Promise<void> {
         commandCount,
         themeToggled,
         themeMatrix,
+        themeMenuWorks,
+        themeMenuDetail,
+        themePaletteWorks,
+        themePaletteDetail,
         autoStartTested,
         settingsVersion,
         settingsFastClose,
@@ -1863,6 +1972,8 @@ async function runSmokeTest(): Promise<void> {
       result.commandCount === 1 &&
       result.themeToggled === true &&
       result.themeMatrix === true &&
+      result.themeMenuWorks === true &&
+      result.themePaletteWorks === true &&
       result.autoStartTested === true &&
       // 期望值取自主进程，不经渲染层反算：写死的版本字符串会在这里露馅。
       result.settingsVersion === app.getVersion() &&

@@ -21,7 +21,7 @@ import {
 import type { AppView } from '@shared/types'
 import { useTaskStore } from '../stores/useTaskStore'
 import { useThemeStore } from '../stores/useThemeStore'
-import { THEME_META, partnerTheme, themeFamily } from '@shared/themes'
+import { THEME_META, THEME_ORDER, partnerTheme, themeFamily } from '@shared/themes'
 import { formatDue } from '../lib/dates'
 import { useFocusTrap } from '../lib/useFocusTrap'
 
@@ -55,6 +55,7 @@ export function CommandPalette() {
   const selectTask = useTaskStore((state) => state.selectTask)
   const theme = useThemeStore((state) => state.theme)
   const toggleTheme = useThemeStore((state) => state.toggleTheme)
+  const setTheme = useThemeStore((state) => state.setTheme)
 
   const [query, setQuery] = useState('')
   const [activeIndex, setActiveIndex] = useState(0)
@@ -123,6 +124,18 @@ export function CommandPalette() {
           close()
         }
       },
+      // 六条直达：配对快切只够到两套，键盘用户要能在 Ctrl K 里枚举全部六套。
+      ...THEME_ORDER.map((id) => ({
+        kind: 'command' as const,
+        id: `theme-${id}`,
+        label: `主题：${THEME_META[id].label}`,
+        hint: theme === id ? '当前' : undefined,
+        icon: THEME_META[id].family === 'dark' ? Moon : Sun,
+        run: () => {
+          setTheme(id)
+          close()
+        }
+      })),
       { kind: 'command', id: 'view-today', label: '今天', icon: Sun, run: go('today') },
       {
         kind: 'command',
@@ -140,7 +153,7 @@ export function CommandPalette() {
         run: go('completed')
       }
     ]
-  }, [setOpen, setView, theme, toggleTheme])
+  }, [setOpen, setView, theme, toggleTheme, setTheme])
 
   const items = useMemo<PaletteItem[]>(() => {
     const normalized = query.trim().toLowerCase()

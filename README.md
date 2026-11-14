@@ -110,8 +110,8 @@ build/         应用图标与安装包资源
 - 关闭主窗口后驻留系统托盘，提醒继续运行；托盘菜单可重新打开或退出。
 - 设置里可开启开机自启：登录 Windows 后以 `--hidden` 后台启动到托盘；单实例保护，再次启动会唤起已有窗口。
 - 侧栏新建项目，内置六种配色。
-- 命令面板（`Ctrl K`）：搜索任务、切换视图、新建任务或项目、切换主题。
-- 六套颜色主题（夜阑 / 昼白 / 暮蓝 / 暖砂 / 天蓝 / 护眼绿）：设置面板的主题卡片任选；标题栏按钮或命令面板在配对间快捷翻转（夜阑↔昼白、暮蓝↔暖砂、天蓝↔护眼绿）。切换即时生效并记住，首次启动跟随系统；青绿信号色统一，画布各有气质，文字对比度均达 WCAG AA。
+- 命令面板（`Ctrl K`）：搜索任务、切换视图、新建任务或项目、配对快切主题，另有「主题：夜阑」等六条直达命令可任选一套。
+- 六套颜色主题（夜阑 / 昼白 / 暮蓝 / 暖砂 / 天蓝 / 护眼绿）：标题栏是一枚分体式开关——左段一击在配对间往返（夜阑↔昼白、暮蓝↔暖砂、天蓝↔护眼绿），右段箭头展开六选一菜单，六套一次看全、一次选中；设置面板的主题卡片同样任选。切换即时生效并记住，首次启动跟随系统；青绿信号色统一，画布各有气质，文字对比度均达 WCAG AA。
 - 键盘优先：命令面板、设置和窄屏详情有焦点陷阱；宽屏详情保持列表可操作，支持 skip link、reduced motion 和可见焦点环。
 - SQLite 本地持久化，自定义标题栏保留 Windows 原生最小化 / 最大化 / 关闭按钮。
 
@@ -220,7 +220,7 @@ build/         应用图标与安装包资源
 1. 改代码，用 `npm run dev` 验证交互。
 2. 运行 `npm run typecheck`。
 3. 运行 `npm run build && npm run smoke`。
-4. 需要看视觉结果时，构建后用 `POLARIS_SHOT=<mode> npx electron .` 截图到仓库根目录；模式包括 `detail`、`palette`、`projects`、`reminder`、`reminder-detail`、`settings`、`toast`、`recurrence`、`parse`、`parse-past`、`parse-notice`、`parse-blocked`、`due-picker`、`due-clear` 及各自的 `light-` 变体，另有仅深色的 `narrow`（先把窗口缩到 1100×800 再截详情栏），以及 `themes`（逐套截取六主题主视图与主题选择器）。
+4. 需要看视觉结果时，构建后用 `POLARIS_SHOT=<mode> npx electron .` 截图到仓库根目录；模式包括 `detail`、`palette`、`projects`、`reminder`、`reminder-detail`、`settings`、`theme-menu`、`palette-theme`、`toast`、`recurrence`、`parse`、`parse-past`、`parse-notice`、`parse-blocked`、`due-picker`、`due-clear` 及各自的 `light-` 变体，另有仅深色的 `narrow`（先把窗口缩到 1100×800 再截详情栏），以及 `themes`（逐套截取六主题主视图、展开的主题菜单与主题选择器）。
 5. 发布前运行 `npm run build:win`。
 
 打包产物：
@@ -250,7 +250,9 @@ npm run smoke
 npm run verify:themes
 ```
 
-`scripts/smoke.mjs` 启动真实 Electron，`runSmokeTest()`（在 `src/main/index.ts`）通过 `webContents.executeJavaScript` 驱动界面，覆盖快速添加、详情编辑、完成、删除与撤销、命令面板、主题切换、开机自启、重复任务和「已创建下一次」提示。测试使用临时 userData 配置目录，不会碰本机数据，结束后自动清理；失败时进程以非零退出码结束。
+`scripts/smoke.mjs` 启动真实 Electron，`runSmokeTest()`（在 `src/main/index.ts`）通过 `webContents.executeJavaScript` 驱动界面，覆盖快速添加、详情编辑、完成、删除与撤销、命令面板、主题切换、主题菜单、开机自启、重复任务和「已创建下一次」提示。测试使用临时 userData 配置目录，不会碰本机数据，结束后自动清理；失败时进程以非零退出码结束。
+
+主题相关断言分四层：配对快切连点两次回到原主题（三对逐一校验）、六套主题矩阵的 `data-theme` / 持久化 / 令牌生效、标题栏主题菜单（六行齐全且顺序固定、打开即聚焦当前行、点选落库、菜单卸载后 `aria-expanded` 归位、焦点回到箭头、Esc 只收菜单），以及命令面板输入「主题」命中六条直达并选中生效。焦点环扫描覆盖四种界面状态：主视图、详情栏、日期弹层、主题菜单展开。
 
 日期时间选择器与提醒窗另有断言：弹层内不存在原生 `datetime-local`、月历恒 42 格且只有一个 Tab 位、五种弹层形态都不超过 420px 且零滚动、选日保留时分且秒/毫秒归零、`aria-valuenow` 与落库时刻恒等、上下键回绕、「1830」打字流、±15 跨小时进位与键盘等价、半截数字不会写错值、「今天」不落过去、Esc 只收弹层、清除生效。提醒窗则用 `capturePage` 采样**真实绘制像素**验证单一不透明表面、铺满窗口、无内衬无圆角无描边、长项目名下标题不被压扁，并在提醒窗开着时切换主题验证跨窗同步。
 
