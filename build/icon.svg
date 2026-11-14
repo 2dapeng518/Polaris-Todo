@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024" fill="none">
+  <defs>
+    <linearGradient id="base" x1="180" y1="64" x2="854" y2="968" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#17232E"/>
+      <stop offset=".52" stop-color="#0B111A"/>
+      <stop offset="1" stop-color="#080A0F"/>
+    </linearGradient>
+    <radialGradient id="ambient" cx="0" cy="0" r="1" gradientTransform="matrix(0 528 -528 0 512 502)" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#1A4949" stop-opacity=".48"/>
+      <stop offset="1" stop-color="#0A1118" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="paper" x1="245" y1="158" x2="800" y2="876" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FCFAF4"/>
+      <stop offset="1" stop-color="#E7E5DE"/>
+    </linearGradient>
+    <linearGradient id="star" x1="658" y1="257" x2="776" y2="352" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#51DCC9"/>
+      <stop offset="1" stop-color="#9882E8"/>
+    </linearGradient>
+    <filter id="card-shadow" x="108" y="104" width="824" height="888" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse">
+      <feGaussianBlur stdDeviation="24"/>
+    </filter>
+    <filter id="star-shadow" x="608" y="224" width="230" height="226" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse">
+      <feGaussianBlur stdDeviation="14"/>
+    </filter>
+    <clipPath id="clip"><rect x="24" y="24" width="976" height="976" rx="226"/></clipPath>
+    <path id="star-shape" d="M716 252L739 308L794 330L739 351L716 408L693 351L638 330L693 308L716 252Z"/>
+  </defs>
+  <g clip-path="url(#clip)">
+    <rect x="24" y="24" width="976" height="976" rx="226" fill="url(#base)"/>
+    <rect x="24" y="24" width="976" height="976" fill="url(#ambient)"/>
+    <rect x="182" y="179" width="660" height="716" rx="92" fill="#02050A" fill-opacity=".8" filter="url(#card-shadow)"/>
+    <rect x="190" y="160" width="644" height="704" rx="86" fill="url(#paper)"/>
+    <rect x="191.5" y="161.5" width="641" height="701" rx="84.5" stroke="#FFFDF8" stroke-opacity=".78" stroke-width="3"/>
+
+    <path d="M298 310H533" stroke="#D5D3CC" stroke-width="12" stroke-linecap="round"/>
+    <path d="M298 350H465" stroke="#E2E0D9" stroke-width="8" stroke-linecap="round"/>
+    <circle cx="716" cy="330" r="77" fill="#0B171C" fill-opacity=".1" filter="url(#star-shadow)"/>
+    <circle cx="716" cy="330" r="69" fill="#F5F2EA"/>
+    <circle cx="716" cy="330" r="68" stroke="#D7D4CA" stroke-opacity=".72" stroke-width="2"/>
+    <use href="#star-shape" fill="url(#star)"/>
+    <path d="M716 260L737 312L716 330L695 312L716 260Z" fill="#EFFDF8" fill-opacity=".3"/>
+
+    <rect x="286" y="452" width="70" height="70" rx="22" fill="#0F766E"/>
+    <path d="M305 487L321 503L340 478" stroke="#F5FFFC" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M397 479H708" stroke="#363A3A" stroke-opacity=".86" stroke-width="16" stroke-linecap="round"/>
+    <path d="M397 504H616" stroke="#B6B5AF" stroke-width="8" stroke-linecap="round"/>
+
+    <rect x="286" y="603" width="70" height="70" rx="22" fill="#F7F5EF" stroke="#B8B7B0" stroke-width="4"/>
+    <path d="M397 630H676" stroke="#555954" stroke-opacity=".84" stroke-width="16" stroke-linecap="round"/>
+    <path d="M397 655H574" stroke="#C5C3BC" stroke-width="8" stroke-linecap="round"/>
+
+    <rect x="286" y="754" width="70" height="70" rx="22" fill="#F7F5EF" stroke="#B8B7B0" stroke-width="4"/>
+    <path d="M397 781H645" stroke="#74766F" stroke-opacity=".72" stroke-width="16" stroke-linecap="round"/>
+    <path d="M397 806H558" stroke="#CECCC5" stroke-width="8" stroke-linecap="round"/>
+  </g>
+</svg>
