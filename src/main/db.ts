@@ -92,6 +92,18 @@ function migrate(): void {
     }
     db.pragma('user_version = 3')
   }
+
+  if (version < 4) {
+    const columns = db.prepare('PRAGMA table_info(tasks)').all() as Array<{ name: string }>
+    if (!columns.some((column) => column.name === 'completed_at')) {
+      // updated_at is overwritten by every later edit, so it cannot answer
+      // "when was this finished". Rows completed before this migration stay
+      // NULL: the real instant is unknown and guessing it would poison any
+      // completion statistics built on top.
+      db.exec('ALTER TABLE tasks ADD COLUMN completed_at TEXT')
+    }
+    db.pragma('user_version = 4')
+  }
 }
 
 function seedIfNeeded(): void {
@@ -167,6 +179,7 @@ type TaskRow = {
   title: string
   notes: string
   completed: number
+  completed_at: string | null
   due_at: string | null
   remind_at: string | null
   reminded_at: string | null
@@ -192,6 +205,7 @@ function mapTask(row: TaskRow): Task {
     title: row.title,
     notes: row.notes,
     completed: row.completed === 1,
+    completedAt: row.completed_at,
     dueAt: row.due_at,
     remindAt: row.remind_at,
     remindedAt: row.reminded_at,
@@ -229,6 +243,7 @@ export function listTasks(): Task[] {
       ORDER BY completed ASC,
         CASE WHEN due_at IS NULL THEN 1 ELSE 0 END ASC,
         due_at ASC,
+        priority DESC,
         created_at DESC
     `)
     .all() as TaskRow[]
@@ -338,16 +353,24 @@ export function updateTask(input: UpdateTaskInput): Task {
       : null
   const storedRule = completingRecurrence ? null : next.recurrenceRule
   const now = new Date().toISOString()
+  // Stamp the transition, not the row: re-completing keeps the first instant,
+  // un-completing clears it, and unrelated edits never touch it.
+  const completedAt = !next.completed
+    ? null
+    : existing.completed
+      ? existing.completedAt
+      : now
 
   const write = db.transaction(() => {
     db.prepare(`
       UPDATE tasks
-      SET title = ?, notes = ?, completed = ?, due_at = ?, remind_at = ?, reminded_at = ?, recurrence_rule = ?, project_id = ?, priority = ?, updated_at = ?
+      SET title = ?, notes = ?, completed = ?, completed_at = ?, due_at = ?, remind_at = ?, reminded_at = ?, recurrence_rule = ?, project_id = ?, priority = ?, updated_at = ?
       WHERE id = ?
     `).run(
       next.title,
       next.notes,
       next.completed ? 1 : 0,
+      completedAt,
       next.dueAt,
       next.remindAt,
       next.remindedAt,

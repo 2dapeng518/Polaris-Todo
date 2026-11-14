@@ -3,6 +3,10 @@ export type Task = {
   title: string
   notes: string
   completed: boolean
+  /** When the task was finished. Null while active, and null for rows completed
+   *  before migration 4 — the instant was never recorded. Set by the DB, never
+   *  supplied by the renderer. */
+  completedAt: string | null
   dueAt: string | null
   remindAt: string | null
   remindedAt: string | null
