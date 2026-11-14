@@ -16,6 +16,7 @@ export function ProgressRing({ value, label }: { value: number; label: string })
           strokeWidth="3"
         />
         <circle
+          className="progress-ring-value"
           cx="22"
           cy="22"
           r={radius}
@@ -26,7 +27,6 @@ export function ProgressRing({ value, label }: { value: number; label: string })
           strokeDasharray={circumference}
           strokeDashoffset={offset}
           transform="rotate(-90 22 22)"
-          style={{ transition: 'stroke-dashoffset 320ms cubic-bezier(0.2, 0, 0, 1)' }}
         />
       </svg>
       <div className="progress-label">

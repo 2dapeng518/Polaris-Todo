@@ -852,6 +852,13 @@ async function runSmokeTest(): Promise<void> {
       const done = doneRows.some((el) => el.classList.contains('done'));
       const persisted = (await window.polaris.tasks.list()).find((task) => task.title === title)?.completed ?? false;
 
+      // 勾选描边的渲染终态。check-draw 靠 fill-mode both 停在 dashoffset 0；
+      // 若有人给 path 补上基态 dashoffset 再靠动画归零，reduced motion 下对勾会
+      // 完全不可见，而 .done class 与数据库标志仍为真 —— 这条断言拦的就是这种静默回归。
+      const doneRow = doneRows.find((el) => el.classList.contains('done'));
+      const checkPath = doneRow && doneRow.querySelector('.task-check .lucide path');
+      const checkDrawn = Boolean(checkPath) && getComputedStyle(checkPath).strokeDashoffset === '0px';
+
       document.querySelector('.search-trigger').click();
       await waitFor(() => document.querySelector('.command-input'));
       const commandInput = document.querySelector('.command-input');
@@ -1493,6 +1500,7 @@ async function runSmokeTest(): Promise<void> {
         detailClosed,
         done,
         persisted,
+        checkDrawn,
         commandCount,
         themeToggled,
         themeMatrix,
@@ -1505,6 +1513,60 @@ async function runSmokeTest(): Promise<void> {
         afterDelete
       };
     })()`)
+
+    // reduced-motion 终态。平时 smoke 不仿真这个条件，于是「只在 reduce 下暴露」的
+    // 动效回归能一路绿灯溜过去（例如给 path 补基态 dashoffset 再加 reduce override）。
+    // 这里用 CDP 打开 reduce，并让对勾**重新挂载**——只有重新挂载才走得到 reduce 下的入场路径。
+    let checkDrawnReduced = false
+    if (mainWindow) {
+      const dbg = mainWindow.webContents.debugger
+      const attachedHere = !dbg.isAttached()
+      if (attachedHere) dbg.attach('1.3')
+      try {
+        await dbg.sendCommand('Emulation.setEmulatedMedia', {
+          features: [{ name: 'prefers-reduced-motion', value: 'reduce' }]
+        })
+        checkDrawnReduced = await mainWindow.webContents.executeJavaScript(`(async () => {
+          const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+          const TITLE = '冒烟动效终态';
+          // 自建自清：主块结尾已删掉它自己的任务，这里不能依赖别人的状态。
+          for (const t of (await window.polaris.tasks.list()).filter((t) => t.title === TITLE)) {
+            await window.polaris.tasks.remove(t.id);
+          }
+          window.dispatchEvent(new Event('focus'));
+          await sleep(450);
+
+          const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+          const input = document.querySelector('.quick-add input');
+          if (!input) return false;
+          setter.call(input, TITLE);
+          input.dispatchEvent(new Event('input', { bubbles: true }));
+          await sleep(400);
+          input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+          await sleep(900);
+
+          const findRow = () => [...document.querySelectorAll('.task-item')].find((el) => el.textContent.includes(TITLE));
+          const row = findRow();
+          const box = row && row.querySelector('.task-check');
+          if (!box) return false;
+          box.click();
+          await sleep(700);
+          // 重新取行：React 可能已替换节点，旧引用会指向脱离文档的元素
+          const fresh = findRow();
+          const path = fresh && fresh.querySelector('.task-check .lucide path');
+          const drawn = Boolean(path) && getComputedStyle(path).strokeDashoffset === '0px';
+
+          const created = (await window.polaris.tasks.list()).find((t) => t.title === TITLE);
+          if (created) await window.polaris.tasks.remove(created.id);
+          window.dispatchEvent(new Event('focus'));
+          await sleep(450);
+          return drawn;
+        })()`)
+      } finally {
+        await dbg.sendCommand('Emulation.setEmulatedMedia', { features: [] })
+        if (attachedHere) dbg.detach()
+      }
+    }
 
     const parseAssertions = runParseAssertions()
 
@@ -1797,6 +1859,7 @@ async function runSmokeTest(): Promise<void> {
       result.detailClosed === true &&
       result.done === true &&
       result.persisted === true &&
+      result.checkDrawn === true &&
       result.commandCount === 1 &&
       result.themeToggled === true &&
       result.themeMatrix === true &&
@@ -1843,6 +1906,7 @@ async function runSmokeTest(): Promise<void> {
       result.pickerTodayFuture === true &&
       result.pickerClearWorks === true &&
       result.focusRingGhosted === true &&
+      checkDrawnReduced === true &&
       parseErrorReceipt === true &&
       parseAssertions.grammar === true &&
       parseAssertions.invariants === true &&
@@ -1856,6 +1920,7 @@ async function runSmokeTest(): Promise<void> {
         JSON.stringify({
           ok,
           ...result,
+          checkDrawnReduced,
           parseErrorReceipt,
           parseGrammarTable: parseAssertions.grammar,
           parseInvariants: parseAssertions.invariants,

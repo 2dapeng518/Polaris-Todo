@@ -48,19 +48,15 @@ export function TaskItem({ task }: { task: Task }) {
         aria-label={task.completed ? '标记为未完成' : '标记为完成'}
         aria-pressed={task.completed}
       >
+        {/* 不写 strokeWidth：它是 svg 的 presentation attribute，优先级低于
+            .task-check .lucide 的 CSS，写了也不生效。粗细由 --icon-stroke-strong 决定。
+            入场动画是 globals.css 的 check-draw，一次性描边。 */}
         {task.completed && (
-          <motion.span
-            initial={{ scale: 0.4, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ duration: 0.14, ease: [0.2, 0, 0, 1] }}
-          >
-            <Check
-              size={12}
-              strokeWidth={2.6}
-              aria-hidden="true"
-              style={{ stroke: 'var(--check-mark)' }}
-            />
-          </motion.span>
+          <Check
+            size={12}
+            aria-hidden="true"
+            style={{ stroke: 'var(--check-mark)' }}
+          />
         )}
       </button>
 
