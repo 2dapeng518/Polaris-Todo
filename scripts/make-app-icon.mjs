@@ -1,26 +1,74 @@
 import { deflateSync } from 'node:zlib'
-import { writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 
 const STAR = [
-  [716, 252], [739, 308], [794, 330], [739, 351],
-  [716, 408], [693, 351], [638, 330], [693, 308]
+  [512, 136], [612, 412], [888, 512], [612, 612],
+  [512, 888], [412, 612], [136, 512], [412, 412]
 ]
-const clamp = (value, min = 0, max = 1) => Math.max(min, Math.min(max, value))
-const mix = (a, b, t) => a.map((channel, i) => channel + (b[i] - channel) * t)
+const corners = STAR.map((point, index) => {
+  const previous = STAR[(index + STAR.length - 1) % STAR.length]
+  const next = STAR[(index + 1) % STAR.length]
+  const toPrevious = [previous[0] - point[0], previous[1] - point[1]]
+  const toNext = [next[0] - point[0], next[1] - point[1]]
+  const previousLength = Math.hypot(...toPrevious)
+  const nextLength = Math.hypot(...toNext)
+  const cosine = (toPrevious[0] * toNext[0] + toPrevious[1] * toNext[1]) / (previousLength * nextLength)
+  const angle = Math.acos(Math.max(-1, Math.min(1, cosine)))
+  const distance = Math.min(12 / Math.tan(angle / 2), previousLength * 0.4, nextLength * 0.4)
+  return {
+    point,
+    before: [point[0] + toPrevious[0] / previousLength * distance, point[1] + toPrevious[1] / previousLength * distance],
+    after: [point[0] + toNext[0] / nextLength * distance, point[1] + toNext[1] / nextLength * distance]
+  }
+})
+const ROUNDED_STAR = corners.flatMap(({ point, before, after }) =>
+  Array.from({ length: 6 }, (_, step) => {
+    const t = step / 5
+    const inverse = 1 - t
+    return [
+      inverse * inverse * before[0] + 2 * inverse * t * point[0] + t * t * after[0],
+      inverse * inverse * before[1] + 2 * inverse * t * point[1] + t * t * after[1]
+    ]
+  })
+)
+const starPath = [
+  `M ${corners[0].before[0]} ${corners[0].before[1]}`,
+  ...corners.flatMap((corner, index) => [
+    `Q ${corner.point[0]} ${corner.point[1]} ${corner.after[0]} ${corner.after[1]}`,
+    `L ${corners[(index + 1) % corners.length].before[0]} ${corners[(index + 1) % corners.length].before[1]}`
+  ]),
+  'Z'
+].join(' ')
+let svgSource = readFileSync('build/icon.svg', 'utf8')
+const clipStart = '<clipPath id="star-clip"><path d="'
+const clipEnd = '"/></clipPath>'
+const clipOffset = svgSource.indexOf(clipStart)
+const clipEndOffset = svgSource.indexOf(clipEnd, clipOffset)
+svgSource = svgSource.slice(0, clipOffset + clipStart.length) + starPath + svgSource.slice(clipEndOffset)
+const markStart = '<path id="star" d="'
+const markOffset = svgSource.indexOf(markStart)
+const markEndOffset = svgSource.indexOf('"/>', markOffset)
+svgSource = svgSource.slice(0, markOffset + markStart.length) + starPath + svgSource.slice(markEndOffset)
+writeFileSync('build/icon.svg', svgSource)
 
-function roundedRectDistance(x, y, left, top, width, height, radius) {
-  const qx = Math.abs(x - left - width / 2) - (width / 2 - radius)
-  const qy = Math.abs(y - top - height / 2) - (height / 2 - radius)
-  return Math.hypot(Math.max(qx, 0), Math.max(qy, 0)) + Math.min(Math.max(qx, qy), 0) - radius
+const clamp = (value, min = 0, max = 1) => Math.max(min, Math.min(max, value))
+const lerp = (a, b, t) => a + (b - a) * t
+const mix = (a, b, t) => a.map((channel, i) => lerp(channel, b[i], clamp(t)))
+
+function superellipseValue(x, y, left, top, right, bottom) {
+  const nx = Math.abs((x - (left + right) / 2) / ((right - left) / 2))
+  const ny = Math.abs((y - (top + bottom) / 2) / ((bottom - top) / 2))
+  return nx ** 4 + ny ** 4
 }
 
-function polygonDistance(x, y, points = STAR) {
+function polygonDistance(x, y, points = ROUNDED_STAR) {
   let distanceSquared = Infinity
   let inside = false
   for (let i = 0, j = points.length - 1; i < points.length; j = i++) {
     const [ax, ay] = points[i]
     const [bx, by] = points[j]
-    const dx = bx - ax, dy = by - ay
+    const dx = bx - ax
+    const dy = by - ay
     const t = clamp(((x - ax) * dx + (y - ay) * dy) / (dx * dx + dy * dy))
     distanceSquared = Math.min(distanceSquared, (x - ax - t * dx) ** 2 + (y - ay - t * dy) ** 2)
     if ((ay > y) !== (by > y) && x < ((bx - ax) * (y - ay)) / (by - ay) + ax) inside = !inside
@@ -29,76 +77,82 @@ function polygonDistance(x, y, points = STAR) {
   return inside ? -distance : distance
 }
 
-function lineDistance(x, y, x1, y1, x2, y2) {
-  const dx = x2 - x1, dy = y2 - y1
-  const t = clamp(((x - x1) * dx + (y - y1) * dy) / (dx * dx + dy * dy))
-  return Math.hypot(x - x1 - t * dx, y - y1 - t * dy)
-}
-
-function blend(base, over, alpha = 1) {
-  return mix(base, over, clamp(alpha))
+function pointInPolygon(x, y, points) {
+  let inside = false
+  for (let i = 0, j = points.length - 1; i < points.length; j = i++) {
+    const [xi, yi] = points[i]
+    const [xj, yj] = points[j]
+    if ((yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) inside = !inside
+  }
+  return inside
 }
 
 function colorAt(x, y) {
-  const roundness = roundedRectDistance(x, y, 24, 24, 976, 976, 226)
-  if (roundness > 0) return [0, 0, 0, 0]
+  if (superellipseValue(x, y, 24, 24, 1000, 1000) > 1) return [0, 0, 0, 0]
 
-  const aura = Math.exp(-(((x - 512) / 520) ** 2 + ((y - 500) / 590) ** 2) * 1.6) * 0.4
-  const bg = mix(mix([23, 35, 46], [8, 10, 15], clamp((y - 24) / 976)), [26, 73, 73], aura)
+  const vertical = clamp((y - 24) / 976)
+  let color = mix([255, 255, 255], [242, 245, 251], vertical)
+  const aura = Math.exp(-(((x - 474) / 450) ** 2 + ((y - 488) / 500) ** 2) * 1.3)
+  color = mix(color, [231, 235, 252], aura * 0.18)
+  const blush = Math.exp(-(((x - 292) / 360) ** 2 + ((y - 294) / 360) ** 2) * 1.5)
+  color = mix(color, [255, 222, 228], blush * 0.13)
+  const blueGlow = Math.exp(-(((x - 790) / 390) ** 2 + ((y - 764) / 400) ** 2) * 1.5)
+  color = mix(color, [215, 231, 252], blueGlow * 0.16)
+  const sheen = Math.exp(-(((x - 380) / 490) ** 2 + ((y - 90) / 220) ** 2) * 1.3)
+  color = mix(color, [255, 255, 255], sheen * 0.16)
 
-  const cardShadow = roundedRectDistance(x, y - 14, 190, 160, 644, 704, 86)
-  let color = blend(bg, [2, 5, 10], cardShadow < 0 ? 0.42 : 0.32 * Math.exp(-(cardShadow ** 2) / (2 * 25 ** 2)))
+  const shadowDistance = polygonDistance(x, y - 16)
+  const shadowAlpha = shadowDistance < 0 ? 0.1 : 0.14 * Math.exp(-(shadowDistance ** 2) / (2 * 14 ** 2))
+  color = mix(color, [104, 106, 128], shadowAlpha)
 
-  const card = roundedRectDistance(x, y, 190, 160, 644, 704, 86)
-  if (card <= 0) {
-    const paperT = clamp((y - 160) / 704)
-    color = mix([252, 250, 244], [231, 229, 222], paperT)
-  }
-  if (Math.abs(card) < 1.8) color = blend(color, [255, 253, 248], 0.4)
-
-  // Quiet header rules on the paper surface.
-  if (lineDistance(x, y, 298, 310, 533, 310) < 6) color = [213, 211, 204]
-  if (lineDistance(x, y, 298, 350, 465, 350) < 4) color = [226, 224, 217]
-
-  // Small medallion and the Polaris four-point mark.
-  const medallionDistance = Math.hypot(x - 716, y - 330) - 69
-  const medallionShadow = Math.hypot(x - 716, y - 340) - 69
-  color = blend(color, [9, 14, 19], medallionShadow < 0 ? 0.12 : 0.1 * Math.exp(-(medallionShadow ** 2) / (2 * 15 ** 2)))
-  if (medallionDistance <= 0) color = [245, 242, 234]
-  if (Math.abs(medallionDistance) < 1) color = [215, 212, 202]
-
-  const starDistance = polygonDistance(x, y)
-  color = blend(color, [2, 5, 10], starDistance < 0 ? 0.1 : 0.08 * Math.exp(-(starDistance ** 2) / (2 * 14 ** 2)))
-  if (starDistance <= 0) {
-    const t = clamp((x - 638) / 156)
-    color = mix([81, 220, 201], [152, 130, 232], t)
-    const facet = [[716, 260], [737, 312], [716, 330], [695, 312]]
-    if (polygonDistance(x, y, facet) <= 0) color = blend(color, [239, 253, 248], 0.3)
+  // Slightly extruded lower edge, visible only beyond the original silhouette.
+  const sideDistance = polygonDistance(x, y - 8)
+  const faceDistance = polygonDistance(x, y)
+  if (sideDistance <= 0 && faceDistance > 0) {
+    const sideT = clamp((x - 136) / 752)
+    color = mix([77, 183, 168], [120, 101, 186], sideT)
   }
 
-  // Three task rows; one quiet teal completion signal.
-  const boxes = [
-    { x: 286, y: 452, active: true },
-    { x: 286, y: 603, active: false },
-    { x: 286, y: 754, active: false }
-  ]
-  for (const box of boxes) {
-    const d = roundedRectDistance(x, y, box.x, box.y, 70, 70, 22)
-    if (d <= 0) color = box.active ? [15, 118, 110] : [247, 245, 239]
-    if (!box.active && Math.abs(d) < 2) color = [184, 183, 176]
+  if (faceDistance <= 0) {
+    const t = clamp((x - 136) / 752)
+    color = t < 0.5
+      ? mix([64, 207, 184], [104, 193, 230], t * 2)
+      : mix([104, 193, 230], [159, 132, 230], (t - 0.5) * 2)
+    const topGlow = Math.exp(-(((x - 512) / 245) ** 2 + ((y - 165) / 320) ** 2) * 1.2) * 0.32
+    color = mix(color, [255, 228, 190], topGlow)
+    const greenGlow = Math.exp(-(((x - 505) / 285) ** 2 + ((y - 500) / 280) ** 2) * 1.2) * 0.08
+    color = mix(color, [70, 218, 183], greenGlow)
+    const violetGlow = Math.exp(-(((x - 514) / 300) ** 2 + ((y - 868) / 325) ** 2) * 1.2) * 0.28
+    color = mix(color, [154, 124, 230], violetGlow)
+
+    // Soft top-plane reflection and gentle lower falloff add a glazed ceramic sheen.
+    const topLight = clamp(1 - (y - 136) / 460) * 0.27
+    color = mix(color, [255, 255, 255], topLight)
+    const lowerShade = clamp((y - 480) / 408) * 0.06
+    color = mix(color, [80, 73, 135], lowerShade)
+
+    const facet = [[512, 150], [606, 410], [512, 504], [418, 410]]
+    if (pointInPolygon(x, y, facet)) color = mix(color, [255, 255, 255], 0.05)
+
+    const edge = Math.abs(faceDistance)
+    if (edge < 4) color = mix(color, [255, 255, 255], (1 - edge / 4) * 0.42)
   }
 
-  if (lineDistance(x, y, 305, 487, 321, 503) < 4.5 || lineDistance(x, y, 321, 503, 340, 478) < 4.5) color = [245, 255, 252]
-
-  const bars = [
-    [397, 479, 708, 479, 8, [54, 58, 58]], [397, 504, 616, 504, 4, [182, 181, 175]],
-    [397, 630, 676, 630, 8, [70, 73, 72]], [397, 655, 574, 655, 4, [197, 195, 188]],
-    [397, 781, 645, 781, 8, [116, 118, 111]], [397, 806, 558, 806, 4, [206, 204, 197]]
-  ]
-  for (const [x1, y1, x2, y2, width, ink] of bars) {
-    if (lineDistance(x, y, x1, y1, x2, y2) <= width) color = ink
+  const centerRadius = Math.hypot(x - 512, y - 512)
+  if (centerRadius < 43) {
+    color = mix(color, [136, 148, 168], 0.16)
+    if (centerRadius < 38) color = mix(color, [250, 252, 255], 0.84)
+    if (centerRadius < 30) {
+      const orbT = clamp(centerRadius / 30)
+      color = mix([36, 51, 72], [7, 11, 19], orbT * 0.72)
+    }
+    if (centerRadius < 28) color = mix(color, [7, 11, 19], 0.78)
+    const glint = Math.exp(-(((x - 502) / 14) ** 2 + ((y - 493) / 7) ** 2) * 1.2)
+    color = mix(color, [220, 247, 249], glint * 0.2)
   }
 
+  const rim = Math.abs(superellipseValue(x, y, 38, 38, 986, 986) - 1) * 488
+  if (rim < 2) color = mix(color, [162, 175, 195], 0.22)
   return [...color, 255]
 }
 
@@ -115,7 +169,7 @@ function crc32(buffer) {
   return (crc ^ 0xffffffff) >>> 0
 }
 
-function chunk(type, data) {
+function pngChunk(type, data) {
   const name = Buffer.from(type)
   const length = Buffer.alloc(4)
   length.writeUInt32BE(data.length)
@@ -125,23 +179,28 @@ function chunk(type, data) {
 }
 
 function renderPng(size) {
-  const samples = size >= 128 ? 3 : 4
+  const samples = size >= 512 ? 2 : 4
   const rgba = Buffer.alloc(size * size * 4)
   for (let py = 0; py < size; py++) {
     for (let px = 0; px < size; px++) {
-      let red = 0, green = 0, blue = 0, alpha = 0
+      let red = 0, green = 0, blue = 0, coverage = 0
       for (let sy = 0; sy < samples; sy++) {
         for (let sx = 0; sx < samples; sx++) {
-          const color = colorAt((px + (sx + 0.5) / samples) * 1024 / size, (py + (sy + 0.5) / samples) * 1024 / size)
-          red += color[0]; green += color[1]; blue += color[2]; alpha += color[3] / 255
+          const x = (px + (sx + 0.5) / samples) * 1024 / size
+          const y = (py + (sy + 0.5) / samples) * 1024 / size
+          const [r, g, b, a] = colorAt(x, y)
+          red += r * a / 255
+          green += g * a / 255
+          blue += b * a / 255
+          coverage += a / 255
         }
       }
-      if (!alpha) continue
+      if (!coverage) continue
       const offset = (py * size + px) * 4
-      rgba[offset] = Math.round(red / alpha)
-      rgba[offset + 1] = Math.round(green / alpha)
-      rgba[offset + 2] = Math.round(blue / alpha)
-      rgba[offset + 3] = Math.round(alpha * 255 / (samples * samples))
+      rgba[offset] = Math.round(red / coverage)
+      rgba[offset + 1] = Math.round(green / coverage)
+      rgba[offset + 2] = Math.round(blue / coverage)
+      rgba[offset + 3] = Math.round(coverage * 255 / (samples * samples))
     }
   }
 
@@ -151,33 +210,65 @@ function renderPng(size) {
   header[8] = 8
   header[9] = 6
   const scanlines = Buffer.alloc((size * 4 + 1) * size)
-  for (let y = 0; y < size; y++) rgba.copy(scanlines, y * (size * 4 + 1) + 1, y * size * 4, (y + 1) * size * 4)
+  for (let y = 0; y < size; y++) {
+    rgba.copy(scanlines, y * (size * 4 + 1) + 1, y * size * 4, (y + 1) * size * 4)
+  }
   return Buffer.concat([
     Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
-    chunk('IHDR', header),
-    chunk('IDAT', deflateSync(scanlines, { level: 9 })),
-    chunk('IEND', Buffer.alloc(0))
+    pngChunk('IHDR', header),
+    pngChunk('IDAT', deflateSync(scanlines, { level: 9 })),
+    pngChunk('IEND', Buffer.alloc(0))
   ])
 }
 
 writeFileSync('build/icon.png', renderPng(1024))
+const iconSizes = [16, 24, 32, 48, 64, 128, 256, 512, 1024]
+const iconPngs = new Map(iconSizes.map((size) => [size, renderPng(size)]))
 
-const sizes = [16, 24, 32, 48, 64, 128, 256]
-const images = sizes.map(renderPng)
-const directory = Buffer.alloc(6 + sizes.length * 16)
-directory.writeUInt16LE(0, 0)
-directory.writeUInt16LE(1, 2)
-directory.writeUInt16LE(sizes.length, 4)
-let offset = directory.length
-for (let i = 0; i < sizes.length; i++) {
+const icoSizes = [16, 24, 32, 48, 64, 128, 256]
+const icoImages = icoSizes.map((size) => iconPngs.get(size))
+const icoDirectory = Buffer.alloc(6 + icoSizes.length * 16)
+icoDirectory.writeUInt16LE(0, 0)
+icoDirectory.writeUInt16LE(1, 2)
+icoDirectory.writeUInt16LE(icoSizes.length, 4)
+let icoOffset = icoDirectory.length
+for (let i = 0; i < icoSizes.length; i++) {
   const entry = 6 + i * 16
-  directory[entry] = sizes[i] === 256 ? 0 : sizes[i]
-  directory[entry + 1] = sizes[i] === 256 ? 0 : sizes[i]
-  directory.writeUInt16LE(1, entry + 4)
-  directory.writeUInt16LE(32, entry + 6)
-  directory.writeUInt32LE(images[i].length, entry + 8)
-  directory.writeUInt32LE(offset, entry + 12)
-  offset += images[i].length
+  const size = icoSizes[i]
+  icoDirectory[entry] = size === 256 ? 0 : size
+  icoDirectory[entry + 1] = size === 256 ? 0 : size
+  icoDirectory.writeUInt16LE(1, entry + 4)
+  icoDirectory.writeUInt16LE(32, entry + 6)
+  icoDirectory.writeUInt32LE(icoImages[i].length, entry + 8)
+  icoDirectory.writeUInt32LE(icoOffset, entry + 12)
+  icoOffset += icoImages[i].length
 }
-writeFileSync('build/icon.ico', Buffer.concat([directory, ...images]))
-console.log('Wrote build/icon.png (1024×1024) and build/icon.ico (16–256px)')
+writeFileSync('build/icon.ico', Buffer.concat([icoDirectory, ...icoImages]))
+
+const iconsetDir = 'build/Polaris.iconset'
+mkdirSync(iconsetDir, { recursive: true })
+const iconsetEntries = [
+  [16, 'icon_16x16.png'], [32, 'icon_16x16@2x.png'],
+  [32, 'icon_32x32.png'], [64, 'icon_32x32@2x.png'],
+  [128, 'icon_128x128.png'], [256, 'icon_128x128@2x.png'],
+  [256, 'icon_256x256.png'], [512, 'icon_256x256@2x.png'],
+  [512, 'icon_512x512.png'], [1024, 'icon_512x512@2x.png']
+]
+for (const [size, name] of iconsetEntries) writeFileSync(`${iconsetDir}/${name}`, iconPngs.get(size))
+
+const icnsTypes = [[16, 'icp4'], [32, 'icp5'], [64, 'icp6'], [128, 'ic07'], [256, 'ic08'], [512, 'ic09'], [1024, 'ic10']]
+const chunks = icnsTypes.map(([size, type]) => {
+  const payload = iconPngs.get(size)
+  const header = Buffer.alloc(8)
+  header.write(type, 0, 4, 'ascii')
+  header.writeUInt32BE(payload.length + 8, 4)
+  return Buffer.concat([header, payload])
+})
+const icns = Buffer.alloc(8)
+icns.write('icns', 0, 4, 'ascii')
+icns.writeUInt32BE(8 + chunks.reduce((total, chunk) => total + chunk.length, 0), 4)
+writeFileSync('build/icon.icns', Buffer.concat([icns, ...chunks]))
+
+const trayDataUrl = `data:image/png;base64,${iconPngs.get(32).toString('base64')}`
+writeFileSync('src/main/tray-icon.ts', `// Generated by scripts/make-app-icon.mjs\nexport const TRAY_ICON_DATA_URL =\n  '${trayDataUrl}'\n`)
+console.log('Wrote SVG/PNG, Windows ICO, macOS ICNS and @2x iconset; refreshed tray/window icon data')
