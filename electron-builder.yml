@@ -30,6 +30,8 @@ asarUnpack:
 electronLanguages:
   - zh-CN
   - en-US
+mac:
+  icon: build/icon.icns
 win:
   icon: build/icon.ico
   target:
