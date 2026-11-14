@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, shell } from 'electron'
+import { app, BrowserWindow, ipcMain, nativeImage, shell } from 'electron'
 import { join } from 'node:path'
 import { writeFile } from 'node:fs/promises'
 import { getAutoStartState, setAutoStartState } from './autostart'
@@ -13,6 +13,7 @@ import {
   startReminderScheduler
 } from './reminders'
 import { createTray } from './tray'
+import { TRAY_ICON_DATA_URL } from './tray-icon'
 import { dismissKeys, formatParsedDue, parseQuickAdd, pruneDismissed } from '../shared/quickAddParse'
 
 let mainWindow: BrowserWindow | null = null
@@ -33,6 +34,7 @@ function createWindow(): void {
   mainWindow = new BrowserWindow({
     width: 1280,
     height: 840,
+    icon: nativeImage.createFromDataURL(TRAY_ICON_DATA_URL),
     minWidth: 980,
     minHeight: 640,
     show: false,
@@ -1479,6 +1481,76 @@ async function runSmokeTest(): Promise<void> {
       window.dispatchEvent(new Event('focus'));
       await sleep(300);
 
+      // ---------- priority ordering and completion instant ----------
+      const dataIds = [];
+      const base = Date.now();
+      const sameInstant = new Date(base + 2 * 3600000).toISOString();
+      const earlierInstant = new Date(base + 3600000).toISOString();
+      const mk = async (title, dueAt, priority) => {
+        const t = await window.polaris.tasks.create({ title, dueAt, priority });
+        dataIds.push(t.id);
+        return t;
+      };
+      const hi = await mk('冒烟数据 高', sameInstant, 3);
+      const lo = await mk('冒烟数据 低', sameInstant, 1);
+      const none = await mk('冒烟数据 无', sameInstant, 0);
+      const early = await mk('冒烟数据 更早', earlierInstant, 0);
+      const orderIds = (await window.polaris.tasks.list())
+        .filter((t) => dataIds.includes(t.id))
+        .map((t) => t.id);
+      // Same due instant -> priority decides; an earlier instant still wins
+      // regardless of priority, so explicit scheduling is never reordered.
+      const priorityOrdering =
+        JSON.stringify(orderIds) === JSON.stringify([early.id, hi.id, lo.id, none.id]);
+      if (!priorityOrdering) console.error('PRIORITY_ORDER_FAIL', JSON.stringify(orderIds));
+
+      const fresh = await mk('冒烟数据 完成时刻', sameInstant, 0);
+      const completedAtNullAtCreate = fresh.completedAt === null;
+      const done1 = await window.polaris.tasks.update({ id: fresh.id, completed: true });
+      const stampSet = typeof done1.completedAt === 'string' && done1.completedAt.length > 0;
+      await sleep(60);
+      const edited = await window.polaris.tasks.update({ id: fresh.id, title: '冒烟数据 完成时刻 改' });
+      // The whole point of the column: a later edit moves updated_at but must
+      // not move completed_at.
+      const stampSurvivesEdit =
+        edited.completedAt === done1.completedAt && edited.updatedAt !== done1.updatedAt;
+      const undone = await window.polaris.tasks.update({ id: fresh.id, completed: false });
+      const stampClearedOnUndo = undone.completedAt === null;
+      await sleep(60);
+      const done2 = await window.polaris.tasks.update({ id: fresh.id, completed: true });
+      const stampRenewed =
+        typeof done2.completedAt === 'string' && done2.completedAt !== done1.completedAt;
+      const completedAtTested =
+        completedAtNullAtCreate && stampSet && stampSurvivesEdit && stampClearedOnUndo && stampRenewed;
+      if (!completedAtTested) {
+        console.error('COMPLETED_AT_FAIL', JSON.stringify({
+          completedAtNullAtCreate, stampSet, stampSurvivesEdit, stampClearedOnUndo, stampRenewed
+        }));
+      }
+
+      // A completed recurring instance keeps its stamp; the spawned one has none.
+      const recur = await window.polaris.tasks.create({
+        title: '冒烟数据 重复',
+        dueAt: sameInstant,
+        recurrenceRule: 'FREQ=DAILY'
+      });
+      dataIds.push(recur.id);
+      const recurDone = await window.polaris.tasks.update({ id: recur.id, completed: true });
+      const spawnedList = (await window.polaris.tasks.list()).filter(
+        (t) => t.title === '冒烟数据 重复' && t.id !== recur.id
+      );
+      for (const t of spawnedList) dataIds.push(t.id);
+      const recurrenceStamps =
+        typeof recurDone.completedAt === 'string' &&
+        spawnedList.length === 1 &&
+        spawnedList[0].completedAt === null &&
+        spawnedList[0].completed === false;
+      if (!recurrenceStamps) console.error('RECURRENCE_STAMP_FAIL', JSON.stringify(spawnedList.length));
+
+      for (const id of dataIds) await window.polaris.tasks.remove(id);
+      window.dispatchEvent(new Event('focus'));
+      await sleep(300);
+
       // ---------- focus-ring ghosting ----------
       // A ring in the same colour as the control it surrounds reads as a
       // duplicate of that control. Check every focusable, not a fixed list, so
@@ -1596,6 +1668,9 @@ async function runSmokeTest(): Promise<void> {
         pickerTodayFuture,
         pickerClearWorks,
         focusRingGhosted,
+        priorityOrdering,
+        completedAtTested,
+        recurrenceStamps,
         brand: document.querySelector('.brand-name')?.textContent?.trim(),
         viewTitle: document.querySelector('.view-title')?.textContent?.trim(),
         initial,
@@ -2017,6 +2092,9 @@ async function runSmokeTest(): Promise<void> {
       result.pickerTodayFuture === true &&
       result.pickerClearWorks === true &&
       result.focusRingGhosted === true &&
+      result.priorityOrdering === true &&
+      result.completedAtTested === true &&
+      result.recurrenceStamps === true &&
       checkDrawnReduced === true &&
       parseErrorReceipt === true &&
       parseAssertions.grammar === true &&
