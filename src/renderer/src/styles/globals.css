@@ -605,29 +605,74 @@ textarea {
   letter-spacing: 0.14em;
 }
 
+/* 分体式主题开关：描边与底色在胶囊上，两段各自透明，悬停只点亮所在那一段。
+   整枚胶囊 no-drag —— .titlebar 是 drag 区，不写就变成拖窗口。 */
+.theme-switch {
+  display: flex;
+  align-items: stretch;
+  margin-left: 2px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface-1);
+  -webkit-app-region: no-drag;
+  transition: border-color 0.16s;
+}
+
+.theme-switch:hover {
+  border-color: var(--line-strong);
+}
+
 .theme-toggle {
   display: grid;
   place-items: center;
   width: 28px;
-  height: 28px;
-  margin-left: 2px;
+  height: 26px;
   padding: 0;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  background: var(--surface-1);
+  border: 0;
+  border-radius: 5px 0 0 5px;
+  background: transparent;
   color: var(--text-secondary);
   cursor: default;
   -webkit-app-region: no-drag;
   transition:
     color 0.16s,
-    background 0.16s,
-    border-color 0.16s;
+    background 0.16s;
 }
 
 .theme-toggle:hover {
-  border-color: var(--line-strong);
   background: var(--hover);
   color: var(--text);
+}
+
+/* 24×26 的命中区：够到 WCAG 2.5.8 的 24px 下限，横向空间由 minWidth 980 保证。 */
+.theme-menu-trigger {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-left: 1px solid var(--line);
+  border-radius: 0 5px 5px 0;
+  background: transparent;
+  color: var(--text-tertiary);
+  cursor: default;
+  -webkit-app-region: no-drag;
+  transition:
+    color 0.16s,
+    background 0.16s;
+}
+
+.theme-menu-trigger:hover,
+.theme-menu-trigger[aria-expanded="true"] {
+  background: var(--hover);
+  color: var(--text);
+}
+
+/* 焦点环收进段内：胶囊只有一圈外描边，环在外面会和它叠成双边。 */
+.theme-toggle:focus-visible,
+.theme-menu-trigger:focus-visible {
+  outline-offset: -2px;
 }
 
 .titlebar-hint {
@@ -3296,6 +3341,128 @@ textarea {
   border-radius: 50%;
   background: var(--accent);
   color: var(--on-accent);
+}
+
+/* ---------- 标题栏主题菜单 ---------- */
+/* 复用 .detail-popover 的浮层词汇（panel-bg / line-strong / 12px 圆角 / 同一层阴影
+   与 pop-in），但不挂那个类：280px 宽与 420px 上限是日期选择器的预算，不该耦合。
+   根节点必须 no-drag —— position:fixed 的子节点仍落在 .titlebar 的拖拽矩形里。 */
+.theme-menu {
+  position: fixed;
+  z-index: 60;
+  width: 240px;
+  padding: 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+  background: var(--panel-bg);
+  box-shadow:
+    0 16px 40px rgba(var(--shadow-rgb), 0.32),
+    inset 0 1px 0 var(--inner-highlight);
+  color: var(--text);
+  animation: pop-in 140ms var(--ease-out);
+  -webkit-app-region: no-drag;
+}
+
+.theme-menu-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 2px 6px 8px;
+  color: var(--text-tertiary);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.theme-menu-count {
+  font-weight: 400;
+  letter-spacing: 0;
+}
+
+.theme-menu-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* 行不带描边：选中态靠底色 + 对勾双通道，聚焦时也就不会出现双重 accent 边。 */
+.theme-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 6px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  cursor: default;
+  user-select: none;
+  transition: background 0.16s;
+}
+
+.theme-menu-item:hover,
+.theme-menu-item.is-active {
+  background: var(--hover);
+}
+
+.theme-menu-item.selected {
+  background: rgba(var(--accent-rgb), 0.09);
+}
+
+.theme-menu-item:focus-visible {
+  outline-offset: -2px;
+}
+
+/* 22px 小样：画布色必须占主导。内层 surface 压成一条窄带，否则四套浅色
+   画布在 20px 里全被白surface 盖住，看上去是同一个白方块。 */
+.theme-menu-item .theme-swatch {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+}
+
+.theme-menu-item .theme-swatch-surface {
+  left: 4px;
+  right: 4px;
+  bottom: 4px;
+  height: 6px;
+  border-radius: 3px;
+}
+
+.theme-menu-item .theme-swatch-dot {
+  top: 4px;
+  right: 4px;
+  width: 5px;
+  height: 5px;
+}
+
+.theme-menu-item .theme-option-check {
+  width: 16px;
+  height: 16px;
+}
+
+.theme-menu-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.theme-menu-family {
+  color: var(--text-tertiary);
+  font-size: 11px;
+  font-weight: 400;
+}
+
+.theme-menu-foot {
+  margin-top: 6px;
+  padding: 7px 6px 2px;
+  border-top: 1px solid var(--line);
+  color: var(--text-tertiary);
+  font-size: 11px;
+  line-height: 1.45;
 }
 
 .settings-static {
