@@ -371,13 +371,46 @@
   box-sizing: border-box;
 }
 
+/* 图标描边是几何量，不随主题变化，所以刻意放在 :root 主题令牌块之外
+   （verify-theme-registry 要求 :root 里的非结构性令牌逐主题定义）。
+   html 与 :root 指同一元素，变量照常向下继承。
+
+   优先级要分清两件事：
+   - lucide 的 strokeWidth prop 落在 svg 的 presentation attribute 上，
+     优先级低于任何作者 CSS，所以这里的令牌稳赢、prop 是死值。
+     组件侧写 strokeWidth 不会破坏令牌，只是无效且误导，正在逐步清理。
+   - 但 stroke-width 是从 svg 向 path **继承**的：若 path 自身带 stroke-width
+     （属性或 style），它会盖掉继承。手写 motion.path 时才是真陷阱。 */
+html {
+  --icon-stroke: 1.75;
+  --icon-stroke-strong: 2.2;
+}
+
 .lucide {
-  stroke-width: 1.75;
+  stroke-width: var(--icon-stroke);
 }
 
 .task-check .lucide,
 .reminder-primary .lucide {
-  stroke-width: 2.2;
+  stroke-width: var(--icon-stroke-strong);
+}
+
+/* 勾选描边：对勾画出来而不是弹出来，完成动作的确认感更强。
+   图标是条件挂载的，所以用 animation（挂载即播放）而非 transition。
+   dasharray 24 大于该路径实际长度（约 22.6），足以覆盖整条。 */
+.task-check .lucide path {
+  stroke-dasharray: 24;
+  animation: check-draw 200ms var(--ease-out) both;
+}
+
+@keyframes check-draw {
+  from {
+    stroke-dashoffset: 24;
+  }
+
+  to {
+    stroke-dashoffset: 0;
+  }
 }
 
 html,
@@ -1018,6 +1051,12 @@ textarea {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+/* 进度环过渡从组件内联样式移到这里，与其它动效同处一地、统一走 --ease-out。
+   实心 teal，不用品牌渐变。 */
+.progress-ring-value {
+  transition: stroke-dashoffset 320ms var(--ease-out);
 }
 
 .progress-label {
@@ -2864,6 +2903,24 @@ textarea {
   transform: translateX(-50%);
 }
 
+/* 星点亮：空状态入场一次性播放，不循环。
+   teal→violet 渐变只属于星标记与空状态，这里是它唯一的动效时刻。 */
+.empty-orbit > svg {
+  animation: star-ignite 320ms var(--ease-out) both;
+}
+
+@keyframes star-ignite {
+  from {
+    opacity: 0;
+    transform: scale(0.9) rotate(-12deg);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1) rotate(0deg);
+  }
+}
+
 .empty-title {
   color: var(--text);
   font-size: 18px;
@@ -3350,5 +3407,10 @@ textarea {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+    /* delay 也要压掉：只压 duration 的话，带 delay + fill-mode both 的入场
+       会停在起始帧整个 delay 时长（例如空状态星标记 opacity 0），
+       违反「reduced motion 直接渲染终态」。 */
+    animation-delay: 0s !important;
+    transition-delay: 0s !important;
   }
 }

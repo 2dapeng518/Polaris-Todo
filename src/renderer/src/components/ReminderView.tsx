@@ -78,7 +78,7 @@ export function ReminderView({ taskId }: { taskId: string }) {
             </div>
             <div className="reminder-actions">
               <button className="reminder-primary" onClick={() => void complete()}>
-                <Check size={14} strokeWidth={2.2} aria-hidden="true" />
+                <Check size={14} aria-hidden="true" />
                 完成
               </button>
               <button className="reminder-secondary" onClick={() => void snooze()}>

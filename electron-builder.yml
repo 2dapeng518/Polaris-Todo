@@ -16,6 +16,15 @@ files:
   - "!electron-builder.yml"
   - "!package-lock.json"
   - "!out/**/*.map"
+  # 研究材料、设计参考与本地工具配置不进安装包
+  - "!docs/**/*"
+  - "!design-system/**/*"
+  - "!.claude/**/*"
+  - "!.kilo/**/*"
+  - "!polaris-packaged-debug.log"
+  # 字体是运行时资产，故列在 dependencies；但 Vite 已把用到的 woff2 打进
+  # out/renderer/assets，整包 node_modules 再带一份会让字体体积翻倍。
+  - "!node_modules/@fontsource-variable/**/*"
 asarUnpack:
   - "**/*.node"
 electronLanguages:

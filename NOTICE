@@ -1,0 +1,133 @@
+Polaris — 第三方组件与素材声明
+
+本文件由 scripts/make-notice.mjs 生成（Polaris v0.2.1）。
+采集范围：生产依赖闭包（npm ls --omit=dev --all），共 21 个组件。
+Polaris 以 NSIS 安装包分发，下列组件与字体随包再分发，
+按其许可要求在此保留版权声明与许可指引。许可原文见同目录 licenses/。
+
+本软件自身在 package.json 中声明为 MIT 许可；仓库尚未提供 LICENSE 原文文件。
+
+────────────────────────────────────────────────────────────────
+0BSD    许可原文：licenses/0BSD.txt
+────────────────────────────────────────────────────────────────
+
+  tslib 2.9.1
+    Copyright (c) Microsoft Corporation.
+    https://www.typescriptlang.org/
+
+  0BSD 附加说明：不附加保留条件，此处列出仅为清单完整。
+
+────────────────────────────────────────────────────────────────
+BSD-3-Clause    许可原文：licenses/BSD-3-Clause.txt
+────────────────────────────────────────────────────────────────
+
+  rrule 2.8.1
+    Copyright 2010, Jakub Roztocil <jakub@roztocil.name> and Lars Schöning
+    Copyright (c) 2003-2011 - Gustavo Niemeyer <gustavo@niemeyer.net>
+    Copyright (c) 2012 - Tomi Pieviläinen <tomi.pievilainen@iki.fi>
+    http://jakubroztocil.github.io/rrule/
+
+  BSD-3-Clause 附加说明：
+  - 再分发须保留上述版权声明、条件列表与免责声明（见 licenses/）。
+  - 不得以原作者或贡献者名义为本产品背书或促销。
+
+────────────────────────────────────────────────────────────────
+ISC AND MIT    许可原文：licenses/ISC-AND-MIT.txt
+────────────────────────────────────────────────────────────────
+
+  lucide-react 1.72.0
+    复合许可：ISC + MIT（同一份 LICENSE 内含多段授权）
+    Copyright (c) 2026 Lucide Icons and Contributors
+    Copyright (c) 2013-present Cole Bemis
+    https://lucide.dev
+
+  复合许可说明：该组件的同一份许可文件内含多段授权，
+  各段的版权与义务均须保留，不可只按其中一种许可处理。
+
+────────────────────────────────────────────────────────────────
+MIT    许可原文：licenses/MIT.txt
+────────────────────────────────────────────────────────────────
+
+  @types/react 19.3.0
+    Copyright (c) Microsoft Corporation.
+    https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/react
+
+  better-sqlite3 13.0.3
+    Copyright (c) 2017 Joshua Wise
+    http://github.com/WiseLibs/better-sqlite3
+
+  csstype 3.2.3
+    Copyright (c) 2017-2018 Fredrik Nicol
+
+  date-fns 4.4.0
+    Copyright (c) 2021 Sasha Koss and Lesha Koss https://kossnocorp.mit-license.org
+
+  framer-motion 14.12.0
+    Copyright (c) 2018 Framer B.V.
+
+  motion 14.12.0
+    Copyright (c) 2024 [Motion](https://motion.dev) B.V.
+
+  motion-dom 14.12.0
+    Copyright (c) 2024 [Motion](https://motion.dev) B.V.
+
+  motion-utils 14.7.0
+    Copyright (c) 2024 [Motion](https://motion.dev) B.V.
+
+  node-addon-api 8.9.2
+    Copyright (c) 2017 [Node.js API collaborators](https://github.com/nodejs/node-addon-api#collaborators)
+    https://github.com/nodejs/node-addon-api
+
+  react 19.3.1
+    Copyright (c) Meta Platforms, Inc. and affiliates.
+    https://react.dev/
+
+  react-dom 19.3.1
+    Copyright (c) Meta Platforms, Inc. and affiliates.
+    https://react.dev/
+
+  scheduler 0.28.0
+    Copyright (c) Meta Platforms, Inc. and affiliates.
+    https://react.dev/
+
+  zod 4.6.7
+    Copyright (c) 2025 Colin McDonnell
+    https://zod.dev
+
+  zustand 5.1.0
+    Copyright (c) 2019 Paul Henschel
+    https://github.com/pmndrs/zustand
+
+────────────────────────────────────────────────────────────────
+OFL-1.1    许可原文：licenses/OFL-1.1.txt
+────────────────────────────────────────────────────────────────
+
+  @fontsource-variable/geist-mono 5.3.0
+    Copyright 2024 The Geist Project Authors (https://github.com/vercel/geist-font.git) GeistMono-Italic[wght].ttf: Copyright 2024 The Geist Project Authors (https://github.com/vercel/geist-font.git)
+    https://fontsource.org/fonts/geist-mono
+
+  @fontsource-variable/inter 5.3.0
+    Copyright 2016 The Inter Project Authors (https://github.com/rsms/inter) Inter-Italic[opsz,wght].ttf: Copyright 2016 The Inter Project Authors (https://github.com/rsms/inter)
+    https://fontsource.org/fonts/inter
+
+  @fontsource-variable/manrope 5.3.0
+    Copyright 2019 The Manrope Project Authors (https://github.com/sharanda/manrope)
+    https://fontsource.org/fonts/manrope
+
+  @fontsource-variable/noto-sans-sc 5.3.1
+    Google Inc.
+    https://fontsource.org/fonts/noto-sans-sc
+
+  OFL 附加说明：
+  - 字体随应用分发属于「嵌入软件」，OFL 允许，且不要求应用本身开源。
+  - 不得单独售卖字体本身。
+  - 本项目分发的是 fontsource 提供的 WOFF2 转码与 unicode-range 分片版本。
+    按 OFL DEFINITIONS，格式转换属 Modified Version。
+  - 上述字体的许可头部均未声明 Reserved Font Name，故不触发改名义务。
+    若将来引入声明了 RFN 的字体，本说明会自动改为警告。
+
+────────────────────────────────────────────────────────────────
+
+说明：渲染器依赖由 Vite 打包进 out/renderer/assets，字体 woff2 亦在其中；
+node_modules 内的 @fontsource-variable 整包已在 electron-builder.yml 中排除，
+以免同一份字体被重复打包。声明义务不因打包形式改变而免除。
