@@ -139,3 +139,41 @@ export function nextOccurrence(
     return null
   }
 }
+
+// 自定义重复编辑器的结构化表示：频率 + 间隔 + （周频率的）星期集合。
+export type CustomRecurrence = {
+  freq: 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'YEARLY'
+  interval: number
+  weekdays: string[]
+}
+
+const WEEKDAY_CODES = ['MO', 'TU', 'WE', 'TH', 'FR', 'SA', 'SU']
+
+// 把简单 RRULE 解析成结构化形式供编辑器回显；含 BYMONTHDAY/BYSETPOS 等复杂子句
+// 或 COUNT/UNTIL 的规则返回 null（编辑器不支持，仍按「自定义」只读展示）。
+export function parseCustomRecurrence(rule: string | null): CustomRecurrence | null {
+  if (!rule) return null
+  const freqMatch = /(?:^|;)FREQ=(DAILY|WEEKLY|MONTHLY|YEARLY)(?:;|$)/.exec(rule)
+  if (!freqMatch) return null
+  if (/(?:^|;)(BYMONTHDAY|BYMONTH|BYSETPOS|BYYEARDAY|BYWEEKNO|COUNT|UNTIL)=/i.test(rule)) return null
+
+  const intervalMatch = /(?:^|;)INTERVAL=(\d+)(?:;|$)/.exec(rule)
+  const interval = intervalMatch ? Math.min(99, Math.max(1, parseInt(intervalMatch[1], 10))) : 1
+  const bydayMatch = /(?:^|;)BYDAY=([A-Z,]+)(?:;|$)/.exec(rule)
+  const weekdays = bydayMatch
+    ? bydayMatch[1].split(',').filter((day) => WEEKDAY_CODES.includes(day))
+    : []
+
+  return { freq: freqMatch[1] as CustomRecurrence['freq'], interval, weekdays }
+}
+
+// 由结构化形式构建 RRULE：间隔为 1 时省略 INTERVAL（与预设同形），周频率选了星期才加 BYDAY。
+export function buildCustomRecurrence(custom: CustomRecurrence): string {
+  let rule = `FREQ=${custom.freq}`
+  if (custom.interval > 1) rule += `;INTERVAL=${custom.interval}`
+  if (custom.freq === 'WEEKLY' && custom.weekdays.length > 0) {
+    const ordered = WEEKDAY_CODES.filter((day) => custom.weekdays.includes(day))
+    rule += `;BYDAY=${ordered.join(',')}`
+  }
+  return rule
+}

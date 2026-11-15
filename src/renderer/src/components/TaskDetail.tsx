@@ -21,7 +21,7 @@ import {
 import { formatDistanceToNowStrict } from 'date-fns'
 import { zhCN } from 'date-fns/locale'
 import type { Task } from '@shared/types'
-import { RECURRENCE_PRESETS, nextOccurrence, recurrenceLabel } from '@shared/recurrence'
+import { RECURRENCE_PRESETS, buildCustomRecurrence, nextOccurrence, parseCustomRecurrence, recurrenceLabel, type CustomRecurrence } from '@shared/recurrence'
 import { useTaskStore } from '../stores/useTaskStore'
 import { formatCompletedAt, formatDue, todayAt, tomorrowAt } from '../lib/dates'
 import { useFocusTrap } from '../lib/useFocusTrap'
@@ -1008,7 +1008,52 @@ type RepeatPopoverProps = {
   onPatch: (patch: TaskPatch) => void
 }
 
+const FREQ_OPTIONS: Array<{ freq: CustomRecurrence['freq']; label: string; unit: string }> = [
+  { freq: 'DAILY', label: '天', unit: '天' },
+  { freq: 'WEEKLY', label: '周', unit: '周' },
+  { freq: 'MONTHLY', label: '月', unit: '月' },
+  { freq: 'YEARLY', label: '年', unit: '年' }
+]
+
+const WEEKDAY_OPTIONS = [
+  { code: 'MO', label: '一' },
+  { code: 'TU', label: '二' },
+  { code: 'WE', label: '三' },
+  { code: 'TH', label: '四' },
+  { code: 'FR', label: '五' },
+  { code: 'SA', label: '六' },
+  { code: 'SU', label: '日' }
+]
+
 function RepeatPopover({ task, nextRecurrence, onPatch }: RepeatPopoverProps) {
+  const isCustomRule = recurrenceLabel(task.recurrenceRule) === '自定义'
+  const [customEditing, setCustomEditing] = useState(isCustomRule)
+  const parsed = parseCustomRecurrence(task.recurrenceRule)
+  const showEditor = customEditing || isCustomRule
+  const freq = parsed?.freq ?? 'DAILY'
+  const interval = parsed?.interval ?? 2
+  const weekdays = parsed?.weekdays ?? []
+  const unit = FREQ_OPTIONS.find((option) => option.freq === freq)?.unit ?? '天'
+
+  // 规则是唯一真源：控件改动即时构建 RRULE 落库，回显再从规则解析，避免双状态失同步。
+  const applyCustom = (next: Partial<CustomRecurrence>) => {
+    onPatch({
+      recurrenceRule: buildCustomRecurrence({
+        freq: next.freq ?? freq,
+        interval: next.interval ?? interval,
+        weekdays: next.weekdays ?? weekdays
+      })
+    })
+  }
+
+  const toggleWeekday = (code: string) => {
+    applyCustom({
+      weekdays: weekdays.includes(code)
+        ? weekdays.filter((day) => day !== code)
+        : [...weekdays, code]
+    })
+  }
+
   return (
     <>
       <div className="detail-popover-title detail-popover-head">
@@ -1021,16 +1066,92 @@ function RepeatPopover({ task, nextRecurrence, onPatch }: RepeatPopoverProps) {
         {RECURRENCE_PRESETS.map((preset) => (
           <button
             key={preset.label}
-            className={`detail-chip ${task.recurrenceRule === preset.rule ? 'active' : ''}`}
-            data-popover-focus={task.recurrenceRule === preset.rule}
+            className={`detail-chip ${task.recurrenceRule === preset.rule && !customEditing ? 'active' : ''}`}
+            data-popover-focus={task.recurrenceRule === preset.rule && !customEditing}
             disabled={!task.dueAt && preset.rule !== null}
-            aria-pressed={task.recurrenceRule === preset.rule}
-            onClick={() => onPatch({ recurrenceRule: preset.rule })}
+            aria-pressed={task.recurrenceRule === preset.rule && !customEditing}
+            onClick={() => {
+              setCustomEditing(false)
+              onPatch({ recurrenceRule: preset.rule })
+            }}
           >
             {preset.label}
           </button>
         ))}
+        <button
+          className={`detail-chip ${showEditor ? 'active' : ''}`}
+          disabled={!task.dueAt}
+          aria-pressed={showEditor}
+          onClick={() => {
+            setCustomEditing(true)
+            if (!task.recurrenceRule) onPatch({ recurrenceRule: 'FREQ=DAILY;INTERVAL=2' })
+          }}
+        >
+          自定义
+        </button>
       </div>
+
+      {showEditor && task.dueAt && (
+        <div className="repeat-custom">
+          <div className="repeat-field">
+            <span className="repeat-field-label">频率</span>
+            <div className="detail-chips" role="group" aria-label="重复频率">
+              {FREQ_OPTIONS.map((option) => (
+                <button
+                  key={option.freq}
+                  className={`detail-chip ${freq === option.freq ? 'active' : ''}`}
+                  aria-pressed={freq === option.freq}
+                  onClick={() => applyCustom({ freq: option.freq })}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="repeat-field">
+            <span className="repeat-field-label">间隔</span>
+            <div className="repeat-interval">
+              <span className="repeat-field-label">每</span>
+              <button
+                className="repeat-step"
+                onClick={() => applyCustom({ interval: Math.max(1, interval - 1) })}
+                disabled={interval <= 1}
+                aria-label="减少间隔"
+              >
+                −
+              </button>
+              <span className="repeat-interval-value" aria-live="polite">{interval}</span>
+              <button
+                className="repeat-step"
+                onClick={() => applyCustom({ interval: Math.min(99, interval + 1) })}
+                disabled={interval >= 99}
+                aria-label="增加间隔"
+              >
+                +
+              </button>
+              <span className="repeat-field-label">{unit}</span>
+            </div>
+          </div>
+          {freq === 'WEEKLY' && (
+            <div className="repeat-field">
+              <span className="repeat-field-label">星期</span>
+              <div className="detail-chips" role="group" aria-label="重复星期">
+                {WEEKDAY_OPTIONS.map((option) => (
+                  <button
+                    key={option.code}
+                    className={`detail-chip ${weekdays.includes(option.code) ? 'active' : ''}`}
+                    aria-pressed={weekdays.includes(option.code)}
+                    onClick={() => toggleWeekday(option.code)}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {task.recurrenceRule && (
         <div className="detail-popover-note">
           {nextRecurrence ? `下次：${formatDue(nextRecurrence.toISOString())}` : '没有下一次'}
