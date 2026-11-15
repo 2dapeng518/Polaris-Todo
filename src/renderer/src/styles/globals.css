@@ -3071,6 +3071,34 @@ textarea {
   color: var(--text);
 }
 
+/* 稍后档位：点「稍后」原地展开 10/30/60，复用 secondary 语言，flex:1 均分宽度，
+   不增加行高（提醒窗固定 212px，不能溢出）。 */
+.reminder-snooze-tier {
+  flex: 1;
+  padding: 0 8px;
+}
+
+.reminder-snooze-cancel {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-1);
+  color: var(--text-secondary);
+  cursor: default;
+  -webkit-app-region: no-drag;
+}
+
+.reminder-snooze-cancel:hover {
+  border-color: var(--line-strong);
+  color: var(--text);
+}
+
 .reminder-loading {
   display: grid;
   flex: 1;

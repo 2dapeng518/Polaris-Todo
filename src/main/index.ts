@@ -2896,6 +2896,52 @@ async function runSmokeTest(): Promise<void> {
       await waitForCondition(() => !getReminderWindow(), 4000, 100)
     }
 
+    // 稍后档位：展开 10/30/60 三档，选 30 分钟 → remindAt≈now+30min 且提醒窗关闭。
+    let reminderSnoozeWorks = false
+    let snoozeTaskId: string | null = null
+    try {
+      snoozeTaskId = await mainWindow?.webContents.executeJavaScript(`(async () => {
+        const task = await window.polaris.tasks.create({ title: '冒烟稍后档位', dueAt: new Date(Date.now() + 3600000).toISOString(), projectId: null });
+        await window.polaris.tasks.update({ id: task.id, remindAt: new Date(Date.now() - 60000).toISOString() });
+        return task.id;
+      })()`)
+      checkRemindersNow()
+      await waitForCondition(() => Boolean(getReminderWindow()), 8000, 150)
+      const snoozeReminder = getReminderWindow()
+      if (snoozeReminder && snoozeTaskId) {
+        await waitForCondition(async () => {
+          if (snoozeReminder.isDestroyed() || snoozeReminder.webContents.isDestroyed()) return false
+          return Boolean(await snoozeReminder.webContents.executeJavaScript(`Boolean(document.querySelector('.reminder-secondary'))`))
+        }, 8000)
+        await snoozeReminder.webContents.executeJavaScript(`(() => {
+          const btn = [...document.querySelectorAll('.reminder-secondary')].find((b) => b.textContent.includes('稍后'));
+          btn?.click();
+        })()`)
+        const tiersShown = await waitForCondition(async () => {
+          if (snoozeReminder.isDestroyed() || snoozeReminder.webContents.isDestroyed()) return false
+          return Boolean(await snoozeReminder.webContents.executeJavaScript(`document.querySelectorAll('.reminder-snooze-tier').length === 3`))
+        }, 4000)
+        const before = Date.now()
+        await snoozeReminder.webContents.executeJavaScript(`(() => {
+          const btn = [...document.querySelectorAll('.reminder-snooze-tier')].find((b) => b.textContent.includes('30'));
+          btn?.click();
+        })()`)
+        const dismissed = await waitForCondition(() => !getReminderWindow(), 8000, 150)
+        const storedRemindAt = await mainWindow?.webContents.executeJavaScript(`window.polaris.tasks.list().then((ts) => ts.find((t) => t.id === ${JSON.stringify(snoozeTaskId)})?.remindAt ?? null)`)
+        const deltaMin = storedRemindAt ? (new Date(storedRemindAt).getTime() - before) / 60000 : -1
+        reminderSnoozeWorks = Boolean(tiersShown && dismissed && deltaMin >= 29 && deltaMin <= 31)
+        if (!reminderSnoozeWorks) console.error('REMINDER_SNOOZE_FAIL', JSON.stringify({ tiersShown, dismissed, deltaMin }))
+      }
+    } catch (error) {
+      console.error('REMINDER_SNOOZE_ERROR', error)
+    } finally {
+      dismissReminder()
+      if (snoozeTaskId) {
+        await mainWindow?.webContents.executeJavaScript(`window.polaris.tasks.remove(${JSON.stringify(snoozeTaskId)}).then(() => window.polaris.tasks.deleteForever(${JSON.stringify(snoozeTaskId)}))`)
+      }
+      await waitForCondition(() => !getReminderWindow(), 4000, 100)
+    }
+
     const originalSize = mainWindow?.getSize() ?? [1280, 800]
     const parseLayoutNarrow = await measureStrip(980, false)
     const parseLayoutWide = await measureStrip(1280, true)
@@ -3098,7 +3144,8 @@ async function runSmokeTest(): Promise<void> {
       paletteEscWorks: paletteEscWorks === true,
       emptyStateWorks: emptyStateWorks === true,
       projectManageWorks: projectManageWorks === true,
-      completedAtShown: completedAtShown === true
+      completedAtShown: completedAtShown === true,
+      reminderSnoozeWorks: reminderSnoozeWorks === true
     }
     const failed = Object.keys(checks).filter((name) => !checks[name])
     const ok = failed.length === 0
@@ -3140,6 +3187,7 @@ async function runSmokeTest(): Promise<void> {
           emptyStateWorks,
           projectManageWorks,
           completedAtShown,
+          reminderSnoozeWorks,
           parseGrammarTable: parseAssertions.grammar,
           parseInvariants: parseAssertions.invariants,
           parseFormatNull: parseAssertions.format,
