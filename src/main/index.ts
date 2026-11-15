@@ -5,7 +5,8 @@ import { getAutoStartState, setAutoStartState } from './autostart'
 import { initDatabase, purgeExpiredDeleted } from './db'
 import { registerIpc, registerTaskCreate } from './ipc'
 import { getCurrentTheme, initAppTheme, setCurrentTheme, themeBackgroundColor } from './theme'
-import { isAppTheme, THEME_SYMBOL_COLOR, themeFamily } from '../shared/themes'
+import { createSplashWindow, hasSplashWindow, openSplashWindow, revealMainWindow } from './splash'
+import { isAppTheme, THEME_ORDER, THEME_SYMBOL_COLOR, themeFamily } from '../shared/themes'
 import {
   checkRemindersNow,
   dismissReminder,
@@ -56,7 +57,19 @@ function createWindow(): void {
   })
 
   mainWindow.on('ready-to-show', () => {
+    if (hasSplashWindow()) {
+      if (mainWindow) revealMainWindow(mainWindow)
+      return
+    }
     if (!startHidden) mainWindow?.show()
+  })
+
+  // 主帧真正加载失败时也要收起启动页，把主窗口（哪怕是错误页）交给用户，
+  // 不能让人永远挡在启动页后面。-3 (ABORTED) 是快速重载的正常副产物，忽略。
+  mainWindow.webContents.on('did-fail-load', (_event, errorCode, _description, _url, isMainFrame) => {
+    if (isMainFrame && errorCode !== -3 && hasSplashWindow() && mainWindow) {
+      revealMainWindow(mainWindow)
+    }
   })
 
   mainWindow.on('close', (event) => {
@@ -351,6 +364,30 @@ async function captureDemo(mode: string): Promise<void> {
   }
 
   try {
+    if (mode === 'splash') {
+      // 启动页逐主题截图：与生产共用 createSplashWindow，截完即销毁，
+      // 不触碰主窗口主题，也不走 openSplashWindow 的过渡生命周期。
+      for (const id of THEME_ORDER) {
+        const win = createSplashWindow(id, app.getVersion())
+        await new Promise<void>((resolve) => {
+          win.once('ready-to-show', () => resolve())
+        })
+        win.showInactive()
+        // 动画约 2s 播完；深色主题额外截一帧 500ms 的汇聚中段作为动效证据。
+        if (id === 'dark') {
+          await new Promise((resolve) => setTimeout(resolve, 500))
+          const early = await win.webContents.capturePage()
+          await writeFile(join(process.cwd(), 'screenshot-splash-dark-early.png'), early.toPNG())
+        }
+        await new Promise((resolve) => setTimeout(resolve, id === 'dark' ? 1600 : 2100))
+        const image = await win.webContents.capturePage()
+        await writeFile(join(process.cwd(), `screenshot-splash-${id}.png`), image.toPNG())
+        win.destroy()
+      }
+      app.quit()
+      return
+    }
+
     if (mode === 'themes') {
       for (const id of ['dark', 'light', 'dusk', 'sand', 'sky', 'green']) {
         await mainWindow.webContents.executeJavaScript(
@@ -2987,6 +3024,12 @@ function showMainWindow(): void {
     return
   }
 
+  // 启动页还在时走同一条过渡，避免托盘/第二实例把主窗口直接怼到启动页前面。
+  if (hasSplashWindow()) {
+    revealMainWindow(mainWindow)
+    return
+  }
+
   if (mainWindow.isMinimized()) mainWindow.restore()
   mainWindow.show()
   mainWindow.focus()
@@ -3041,6 +3084,17 @@ app.whenReady().then(() => {
   // string: app.getVersion() reads the packaged package.json, so a release bump
   // reaches the settings panel without a code edit.
   ipcMain.handle('app:get-version', () => app.getVersion())
+
+  // 启动页先于主窗口创建：页面极小，先画出来；主窗口加载并行进行，互不阻塞。
+  // 自启（--hidden）要静默进托盘，三个测试模式要保持确定性，均跳过。
+  const harness = Boolean(
+    process.env['POLARIS_SMOKE'] ||
+    process.env['POLARIS_SHOT'] ||
+    process.env['POLARIS_SCREENSHOT']
+  )
+  if (!startHidden && !harness) {
+    openSplashWindow(getCurrentTheme(), app.getVersion(), () => mainWindow)
+  }
 
   createWindow()
   createTray(showMainWindow, () => app.quit())
