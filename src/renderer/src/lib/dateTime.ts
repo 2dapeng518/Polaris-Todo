@@ -121,25 +121,42 @@ export function shiftMinutes(draft: Draft, delta: number): Draft {
   return { day: draft.day, hour: Math.floor(total / 60), minute: total % 60 }
 }
 
-// 「今天」向上取整到下一个 5 分钟刻度。跨过午夜时，今天通常还剩最后一个整分钟，
-// 就夹到 23:59；但在一天的最后一分钟里 23:59 本身已经过去，夹回去等于交出一个
-// 保存即逾期的时刻，所以只有那一分钟顺延到明天 00:00 —— 下一个可表示的瞬间。
-// 调用方会把日历重新聚焦到返回的那天，跨日是可见的，不是悄悄改。
+const FIVE_MINUTES = 300000
+
+// 一个瞬间 → 它在墙钟上的 Draft。注意这是**有损**的：夏令时回拨那天同一个
+// 时分会出现两次，Draft 无法表达「第二次」，读回时只会解析到较早的那次。
+function draftAt(instant: Date): Draft {
+  return { day: startOfDay(instant), hour: instant.getHours(), minute: instant.getMinutes() }
+}
+
+// 「今天」向上取整到下一个 5 分钟刻度，并保证返回的 Draft **读回真实瞬间后**
+// 严格晚于 now —— 判据是落库的那个瞬间，不是墙钟面上的数字。
 //
-// 已知未覆盖：夏令时回拨的时区里，sameDay 分支把取整后的瞬间拆成墙钟时分回填，
-// 而重复小时里同一时分对应两个瞬间，withTime 只会解析到较早的那个，结果仍可能
-// 落过去（实测 America/New_York 回拨日最多早 55 分钟）。本函数目前只保证在
-// 无 DST 的时区（本应用目标 Asia/Shanghai）不落过去，不要把它当普适不变量引用。
+// 跨过午夜时，今天通常还剩最后一个整分钟，就夹到 23:59；但在一天的最后一分钟里
+// 23:59 本身已经过去，夹回去等于交出一个保存即逾期的时刻，所以那一分钟顺延到
+// 明天 00:00。调用方会把日历重新聚焦到返回的那天，跨日是可见的，不是悄悄改。
+//
+// 为什么必须读回校验：取整算出的是瞬间，拆成墙钟时分再回填却可能落到另一个瞬间。
+// 夏令时回拨的重复小时里 withTime 只解析到较早的那次（实测纽约最多早 55 分钟）；
+// 午夜回拨的时区更狠，墙钟在同一天内倒退，23:59 会算成 23:00（圣地亚哥早 59.5 分钟）。
+// 所以候选不足时就沿真实时间轴继续推进 5 分钟，直到读回值真的在未来。
+// Draft 表达不了重复小时的第二次，跳过这段歧义是唯一诚实的做法。
+// 288 步 = 24 小时的 5 分钟刻度，远大于任何真实时区的跳变幅度。
 export function laterToday(now: Date): Draft {
-  const bumped = new Date(Math.ceil((now.getTime() + 1) / 300000) * 300000)
+  const rounded = Math.ceil((now.getTime() + 1) / FIVE_MINUTES) * FIVE_MINUTES
+  const bumped = new Date(rounded)
   const sameDay = bumped.getFullYear() === now.getFullYear() &&
     bumped.getMonth() === now.getMonth() &&
     bumped.getDate() === now.getDate()
-  if (sameDay) {
-    return { day: startOfDay(now), hour: bumped.getHours(), minute: bumped.getMinutes() }
-  }
   const lastMinute = setMinutes(setHours(startOfDay(now), 23), 59)
-  return lastMinute.getTime() > now.getTime()
-    ? { day: startOfDay(now), hour: 23, minute: 59 }
-    : { day: startOfDay(bumped), hour: bumped.getHours(), minute: bumped.getMinutes() }
+
+  let candidate = sameDay || lastMinute.getTime() <= now.getTime()
+    ? draftAt(bumped)
+    : { day: startOfDay(now), hour: 23, minute: 59 }
+
+  for (let step = 0; step < 288; step++) {
+    if (new Date(draftToIso(candidate)).getTime() > now.getTime()) return candidate
+    candidate = draftAt(new Date(rounded + (step + 1) * FIVE_MINUTES))
+  }
+  return candidate
 }
