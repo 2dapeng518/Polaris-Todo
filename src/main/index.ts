@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, nativeImage, shell } from 'electron'
+import { app, BrowserWindow, ipcMain, nativeImage, shell, type WebContents } from 'electron'
 import { join } from 'node:path'
 import { writeFile } from 'node:fs/promises'
 import { getAutoStartState, setAutoStartState } from './autostart'
@@ -819,13 +819,55 @@ function runParseAssertions(): { grammar: boolean; invariants: boolean; format: 
   return { grammar, invariants, format: formatOk }
 }
 
+// 等一个可观测条件，而不是赌固定延时。超时返回 false 让调用方计入断言，
+// 不抛错 —— 冒烟要跑完并报出全部失败项，而不是在第一个超时处中断。
+// 探测本身可能打在正在导航或已销毁的窗口上，那种失败按「还没就绪」处理。
+async function waitForCondition(
+  probe: () => boolean | Promise<boolean>,
+  timeout = 6000,
+  interval = 50
+): Promise<boolean> {
+  const deadline = Date.now() + timeout
+  for (;;) {
+    try {
+      if (await probe()) return true
+    } catch {
+      // 窗口正在导航或已关闭，继续等。
+    }
+    if (Date.now() >= deadline) return false
+    await new Promise((resolve) => setTimeout(resolve, interval))
+  }
+}
+
+// 截图前的绘制栅栏：两帧 rAF 保证合成器真的画过，而不是 DOM 刚提交就截图。
+// 必须带超时兜底 —— 窗口被遮挡时 rAF 会被节流，裸等这个 Promise 会挂死整轮冒烟。
+async function settledFrames(contents: WebContents): Promise<void> {
+  if (contents.isDestroyed()) return
+  await Promise.race([
+    contents
+      .executeJavaScript(
+        'new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve(true))))'
+      )
+      .catch(() => false),
+    new Promise((resolve) => setTimeout(resolve, 1000))
+  ])
+}
+
 async function runSmokeTest(): Promise<void> {
   if (!mainWindow) {
     app.exit(1)
     return
   }
 
-  await new Promise((resolve) => setTimeout(resolve, 1200))
+  // 等应用真的可交互（快速添加框在、首屏任务已渲染），而不是赌 1200ms 开机够用。
+  await waitForCondition(async () => {
+    if (!mainWindow || mainWindow.webContents.isDestroyed()) return false
+    return Boolean(
+      await mainWindow.webContents.executeJavaScript(
+        `Boolean(document.querySelector('.quick-add input') && document.querySelector('.task-title'))`
+      )
+    )
+  }, 15000)
 
   try {
     const result = await mainWindow.webContents.executeJavaScript(`(async () => {
@@ -1785,7 +1827,16 @@ async function runSmokeTest(): Promise<void> {
     const measureStrip = async (width: number, withInspector: boolean): Promise<boolean> => {
       if (!mainWindow) return false
       mainWindow.setSize(width, 800)
-      await new Promise((resolve) => setTimeout(resolve, 400))
+      // 等渲染层的视口宽度稳定下来再量布局：连续两次读数相同才算落定。
+      // 直接量会撞上 resize 尚未生效的那一帧，把窄窗断言量成宽窗。
+      let lastWidth = -1
+      await waitForCondition(async () => {
+        const w = await mainWindow!.webContents.executeJavaScript('window.innerWidth')
+        const stable = w === lastWidth
+        lastWidth = w
+        return stable
+      }, 3000, 60)
+      await settledFrames(mainWindow.webContents)
       return mainWindow.webContents.executeJavaScript(`(async () => {
         const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
         const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
@@ -1840,13 +1891,21 @@ async function runSmokeTest(): Promise<void> {
       reminderTaskId = created
       checkRemindersNow()
 
-      const deadline = Date.now() + 8000
-      while (!getReminderWindow() && Date.now() < deadline) {
-        await new Promise((resolve) => setTimeout(resolve, 150))
-      }
+      await waitForCondition(() => Boolean(getReminderWindow()), 8000, 150)
       const reminder = getReminderWindow()
       if (reminder) {
-        await new Promise((resolve) => setTimeout(resolve, 900))
+        // 等提醒窗真的把内容渲染出来，而不是盲等 900ms。这里只等「就绪」，
+        // 绝不等「像素变成期望色」—— 后者会把「首帧颜色就是对的」这条断言
+        // 变成永真式：先画错再改正的窗口也会通过。
+        await waitForCondition(async () => {
+          if (reminder.isDestroyed() || reminder.webContents.isDestroyed()) return false
+          return Boolean(
+            await reminder.webContents.executeJavaScript(
+              `Boolean(document.querySelector('.reminder-shell') && document.querySelector('.reminder-title')?.textContent?.trim())`
+            )
+          )
+        }, 8000)
+        await settledFrames(reminder.webContents)
         const shape = await reminder.webContents.executeJavaScript(`(() => {
           const shell = document.querySelector('.reminder-shell');
           const card = document.querySelector('.reminder-card');
@@ -1958,8 +2017,18 @@ async function runSmokeTest(): Promise<void> {
         await mainWindow?.webContents.executeJavaScript(
           `document.querySelector('.theme-toggle')?.click()`
         )
-        await new Promise((resolve) => setTimeout(resolve, 900))
+        // 跨窗口跟随是收敛性质，等条件才是对的断言方式：先等主窗口应用了新主题，
+        // 再等提醒窗跟上，最后过绘制栅栏截一次图。原来是两处盲等 900ms。
+        await waitForCondition(() => getCurrentTheme() !== themeBefore)
         const flipped = getCurrentTheme()
+        await waitForCondition(async () => {
+          if (reminder.isDestroyed() || reminder.webContents.isDestroyed()) return false
+          return (
+            (await reminder.webContents.executeJavaScript(`document.documentElement.dataset.theme`)) ===
+            flipped
+          )
+        })
+        await settledFrames(reminder.webContents)
         const flippedTheme = await reminder.webContents.executeJavaScript(
           `document.documentElement.dataset.theme`
         )
@@ -2014,7 +2083,14 @@ async function runSmokeTest(): Promise<void> {
         await mainWindow?.webContents.executeJavaScript(
           `document.querySelector('.theme-toggle')?.click()`
         )
-        await new Promise((resolve) => setTimeout(resolve, 600))
+        // 复原也是可观测状态：等提醒窗回到原主题，而不是盲等 600ms 就散场。
+        await waitForCondition(async () => {
+          if (reminder.isDestroyed() || reminder.webContents.isDestroyed()) return true
+          return (
+            (await reminder.webContents.executeJavaScript(`document.documentElement.dataset.theme`)) ===
+            themeBefore
+          )
+        })
       }
     } catch (error) {
       console.error('REMINDER_SURFACE_ERROR', error)
@@ -2025,89 +2101,100 @@ async function runSmokeTest(): Promise<void> {
           `window.polaris.tasks.remove(${JSON.stringify(reminderTaskId)})`
         )
       }
-      await new Promise((resolve) => setTimeout(resolve, 400))
+      // 等提醒窗真的关掉再做后面的窗口缩放测量，否则残留窗口会干扰截图与布局。
+      await waitForCondition(() => !getReminderWindow(), 4000, 100)
     }
 
     const originalSize = mainWindow?.getSize() ?? [1280, 800]
     const parseLayoutNarrow = await measureStrip(980, false)
     const parseLayoutWide = await measureStrip(1280, true)
     mainWindow?.setSize(originalSize[0], originalSize[1])
-    await new Promise((resolve) => setTimeout(resolve, 250))
+    if (mainWindow) await settledFrames(mainWindow.webContents)
 
-    const ok =
-      result.brand === 'Polaris' &&
-      result.viewTitle === '今天' &&
-      result.afterAdd === result.initial + 1 &&
-      result.detailOpened === true &&
-      result.detailEditSaved === true &&
-      result.detailClosed === true &&
-      result.done === true &&
-      result.persisted === true &&
-      result.checkDrawn === true &&
-      result.commandCount === 1 &&
-      result.themeToggled === true &&
-      result.themeMatrix === true &&
-      result.themeMenuWorks === true &&
-      result.themePaletteWorks === true &&
-      result.autoStartTested === true &&
+    // 逐条具名，而不是串成一条 && 链：失败时必须能一眼看出是哪条断言。
+    // 只筛 result 里 value === false 是不够的 —— afterAdd / afterDelete /
+    // commandCount 是数值比较，版本号是字符串比较，它们失败时 JSON 里
+    // 一个 false 都没有，排查会得出「没有失败项」的假结论。
+    const checks: Record<string, boolean> = {
+      brand: result.brand === 'Polaris',
+      viewTitle: result.viewTitle === '今天',
+      afterAdd: result.afterAdd === result.initial + 1,
+      detailOpened: result.detailOpened === true,
+      detailEditSaved: result.detailEditSaved === true,
+      detailClosed: result.detailClosed === true,
+      done: result.done === true,
+      persisted: result.persisted === true,
+      checkDrawn: result.checkDrawn === true,
+      commandCount: result.commandCount === 1,
+      themeToggled: result.themeToggled === true,
+      themeMatrix: result.themeMatrix === true,
+      themeMenuWorks: result.themeMenuWorks === true,
+      themePaletteWorks: result.themePaletteWorks === true,
+      autoStartTested: result.autoStartTested === true,
       // 期望值取自主进程，不经渲染层反算：写死的版本字符串会在这里露馅。
-      result.settingsVersion === app.getVersion() &&
-      result.settingsFastClose === true &&
-      result.footerVersion === app.getVersion() &&
-      result.recurrenceTested === true &&
-      result.recurrenceNoticeTested === true &&
-      result.afterDelete === result.initial &&
-      result.parseChipsShown === true &&
-      result.parseDueCorrect === true &&
-      result.parseShellHeight === true &&
-      result.parseUndoKeepsText === true &&
-      result.parseDismissedSubmit === true &&
-      result.parseProjectMapped === true &&
-      result.parseNoRegression === true &&
-      result.parseCollapsedHeight === true &&
-      result.parseViewDefault === true &&
-      result.parseEmptyTitleBlocked === true &&
-      result.parseEmptyTitleAnnounced === true &&
-      result.parseImeGuarded === true &&
-      result.parseKeyboardUndo === true &&
-      result.parseRestoreWorks === true &&
-      result.parseEscapeInStrip === true &&
-      result.parseCaseInsensitiveUndo === true &&
-      result.parsePriorityPersisted === true &&
-      result.parseEscKeepsInspector === true &&
-      result.parseLastChipFocus === true &&
-      result.parseDraftSurvives === true &&
-      result.parseReceiptNamesProject === true &&
-      result.pickerNoNativeInput === true &&
-      result.pickerGridShape === true &&
-      result.pickerFitsBudget === true &&
-      result.pickerDayCommit === true &&
-      result.pickerValueInvariant === true &&
-      result.pickerArrowWrap === true &&
-      result.pickerTypeFlow === true &&
-      result.pickerStepSemantics === true &&
-      result.pickerTextSync === true &&
-      result.pickerBlurKeepsHour === true &&
-      result.pickerEscRestores === true &&
-      result.pickerTodayFuture === true &&
-      result.pickerClearWorks === true &&
-      result.focusRingGhosted === true &&
-      result.priorityOrdering === true &&
-      result.completedAtTested === true &&
-      result.recurrenceStamps === true &&
-      checkDrawnReduced === true &&
-      parseErrorReceipt === true &&
-      parseAssertions.grammar === true &&
-      parseAssertions.invariants === true &&
-      parseAssertions.format === true &&
-      parseLayoutNarrow === true &&
-      parseLayoutWide === true &&
-      reminderSurfaceTested === true
+      settingsVersion: result.settingsVersion === app.getVersion(),
+      settingsFastClose: result.settingsFastClose === true,
+      footerVersion: result.footerVersion === app.getVersion(),
+      recurrenceTested: result.recurrenceTested === true,
+      recurrenceNoticeTested: result.recurrenceNoticeTested === true,
+      afterDelete: result.afterDelete === result.initial,
+      parseChipsShown: result.parseChipsShown === true,
+      parseDueCorrect: result.parseDueCorrect === true,
+      parseShellHeight: result.parseShellHeight === true,
+      parseUndoKeepsText: result.parseUndoKeepsText === true,
+      parseDismissedSubmit: result.parseDismissedSubmit === true,
+      parseProjectMapped: result.parseProjectMapped === true,
+      parseNoRegression: result.parseNoRegression === true,
+      parseCollapsedHeight: result.parseCollapsedHeight === true,
+      parseViewDefault: result.parseViewDefault === true,
+      parseEmptyTitleBlocked: result.parseEmptyTitleBlocked === true,
+      parseEmptyTitleAnnounced: result.parseEmptyTitleAnnounced === true,
+      parseImeGuarded: result.parseImeGuarded === true,
+      parseKeyboardUndo: result.parseKeyboardUndo === true,
+      parseRestoreWorks: result.parseRestoreWorks === true,
+      parseEscapeInStrip: result.parseEscapeInStrip === true,
+      parseCaseInsensitiveUndo: result.parseCaseInsensitiveUndo === true,
+      parsePriorityPersisted: result.parsePriorityPersisted === true,
+      parseEscKeepsInspector: result.parseEscKeepsInspector === true,
+      parseLastChipFocus: result.parseLastChipFocus === true,
+      parseDraftSurvives: result.parseDraftSurvives === true,
+      parseReceiptNamesProject: result.parseReceiptNamesProject === true,
+      pickerNoNativeInput: result.pickerNoNativeInput === true,
+      pickerGridShape: result.pickerGridShape === true,
+      pickerFitsBudget: result.pickerFitsBudget === true,
+      pickerDayCommit: result.pickerDayCommit === true,
+      pickerValueInvariant: result.pickerValueInvariant === true,
+      pickerArrowWrap: result.pickerArrowWrap === true,
+      pickerTypeFlow: result.pickerTypeFlow === true,
+      pickerStepSemantics: result.pickerStepSemantics === true,
+      pickerTextSync: result.pickerTextSync === true,
+      pickerBlurKeepsHour: result.pickerBlurKeepsHour === true,
+      pickerEscRestores: result.pickerEscRestores === true,
+      pickerTodayFuture: result.pickerTodayFuture === true,
+      pickerClearWorks: result.pickerClearWorks === true,
+      focusRingGhosted: result.focusRingGhosted === true,
+      priorityOrdering: result.priorityOrdering === true,
+      completedAtTested: result.completedAtTested === true,
+      recurrenceStamps: result.recurrenceStamps === true,
+      checkDrawnReduced: checkDrawnReduced === true,
+      parseErrorReceipt: parseErrorReceipt === true,
+      parseGrammarTable: parseAssertions.grammar === true,
+      parseInvariants: parseAssertions.invariants === true,
+      parseFormatNull: parseAssertions.format === true,
+      parseLayoutNarrow: parseLayoutNarrow === true,
+      parseLayoutWide: parseLayoutWide === true,
+      reminderSurfaceTested: reminderSurfaceTested === true
+    }
+    const failed = Object.keys(checks).filter((name) => !checks[name])
+    const ok = failed.length === 0
+    // 单独一行、显眼、可 grep：偶发失败时不必再从六十多个字段里肉眼找。
+    if (!ok) console.error('POLARIS_SMOKE_FAILED ' + JSON.stringify(failed))
 
     console.log(
       'POLARIS_SMOKE_RESULT ' +
         JSON.stringify({
           ok,
+          failed,
           ...result,
           checkDrawnReduced,
           parseErrorReceipt,
