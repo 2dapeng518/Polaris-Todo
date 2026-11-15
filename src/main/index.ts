@@ -3327,6 +3327,22 @@ async function runSmokeTest(): Promise<void> {
       }
     }
 
+    // 关于署名区：设置面板展示字体/图标许可（OFL 可见署名义务）。
+    const aboutCreditsShown =
+      (await mainWindow?.webContents.executeJavaScript(`(async () => {
+        ${pageHelpers}
+        document.querySelector('.settings-item').click();
+        const panel = await waitFor(() => document.querySelector('.settings-panel'));
+        if (!panel) return false;
+        await sleep(300);
+        const credits = document.querySelector('.about-credits');
+        const text = credits ? credits.textContent : '';
+        const ok = text.includes('Lucide') && text.includes('OFL') && text.includes('Inter');
+        document.querySelector('.settings-panel .detail-close')?.click();
+        await sleep(300);
+        return ok;
+      })()`)) === true
+
     // 逐条具名，而不是串成一条 && 链：失败时必须能一眼看出是哪条断言。
     // 只筛 result 里 value === false 是不够的 —— afterAdd / afterDelete /
     // commandCount 是数值比较，版本号是字符串比较，它们失败时 JSON 里
@@ -3433,7 +3449,8 @@ async function runSmokeTest(): Promise<void> {
       customRepeatUiWorks: customRepeatUiWorks === true,
       backupRoundTripWorks: backupRoundTripWorks === true,
       atomicWriteWorks: atomicWriteWorks === true,
-      scalingFrameWorks: scalingFrameWorks === true
+      scalingFrameWorks: scalingFrameWorks === true,
+      aboutCreditsShown: aboutCreditsShown === true
     }
     const failed = Object.keys(checks).filter((name) => !checks[name])
     const ok = failed.length === 0
@@ -3481,6 +3498,7 @@ async function runSmokeTest(): Promise<void> {
           backupRoundTripWorks,
           atomicWriteWorks,
           scalingFrameWorks,
+          aboutCreditsShown,
           parseGrammarTable: parseAssertions.grammar,
           parseInvariants: parseAssertions.invariants,
           parseFormatNull: parseAssertions.format,

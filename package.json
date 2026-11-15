@@ -1,7 +1,7 @@
 {
   "name": "polaris-todo",
   "productName": "Polaris",
-  "version": "0.8.4",
+  "version": "0.9.0",
   "description": "Polaris — a premium local-first to-do app for Windows 11",
   "main": "./out/main/index.js",
   "license": "MIT",

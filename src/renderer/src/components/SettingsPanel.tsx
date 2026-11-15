@@ -258,6 +258,26 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
               )}
             </div>
 
+            <div className="settings-section">
+              <div className="settings-row-title">关于</div>
+              <div className="settings-row-desc">
+                Polaris{version ? ` · 版本 ${version}` : ''} · MIT 许可
+              </div>
+              <div className="about-credits">
+                <div className="about-credit-row">
+                  <span className="about-credit-label">字体</span>
+                  <span className="about-credit-value">Inter · Manrope · Noto Sans SC · Geist Mono（SIL OFL 1.1）</span>
+                </div>
+                <div className="about-credit-row">
+                  <span className="about-credit-label">图标</span>
+                  <span className="about-credit-value">Lucide（ISC / MIT）</span>
+                </div>
+                <div className="about-credit-note">
+                  完整第三方声明见安装目录 resources/NOTICE 与 resources/licenses/
+                </div>
+              </div>
+            </div>
+
             <div className="settings-footer">
               {version && (
                 <>
