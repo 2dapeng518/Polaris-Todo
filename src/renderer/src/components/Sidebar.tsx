@@ -1,10 +1,11 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { CalendarDays, CheckCircle2, HardDrive, ListTodo, Plus, Settings2, Sun, Trash2 } from 'lucide-react'
-import { motion } from 'motion/react'
-import type { AppView } from '@shared/types'
+import { CalendarDays, CheckCircle2, HardDrive, ListTodo, Pencil, Plus, Settings2, Sun, Trash2 } from 'lucide-react'
+import { AnimatePresence, motion } from 'motion/react'
+import type { AppView, Project } from '@shared/types'
 import { useTaskStore } from '../stores/useTaskStore'
 import { isTodayOrOverdue, isUpcoming } from '../lib/dates'
 import { SettingsPanel } from './SettingsPanel'
+import { ConfirmDialog } from './ConfirmDialog'
 
 const NAV_ITEMS: Array<{ view: AppView; label: string; icon: typeof Sun }> = [
   { view: 'today', label: '今天', icon: Sun },
@@ -25,11 +26,17 @@ export function Sidebar() {
   const setView = useTaskStore((state) => state.setView)
   const setProjectFilter = useTaskStore((state) => state.setProjectFilter)
   const createProject = useTaskStore((state) => state.createProject)
+  const updateProject = useTaskStore((state) => state.updateProject)
+  const deleteProject = useTaskStore((state) => state.deleteProject)
 
   const [addingProject, setAddingProject] = useState(false)
   const [projectName, setProjectName] = useState('')
   const [projectColor, setProjectColor] = useState(PROJECT_COLORS[0])
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [editingProject, setEditingProject] = useState<Project | null>(null)
+  const [editName, setEditName] = useState('')
+  const [editColor, setEditColor] = useState(PROJECT_COLORS[0])
+  const [deletingProject, setDeletingProject] = useState<Project | null>(null)
 
   useEffect(() => {
     const openProjectForm = () => setAddingProject(true)
@@ -59,6 +66,42 @@ export function Sidebar() {
       setAddingProject(false)
     } catch (error) {
       console.error('Failed to create project:', error)
+    }
+  }
+
+  const beginEdit = (project: Project) => {
+    setEditingProject(project)
+    setEditName(project.name)
+    setEditColor(project.color)
+  }
+
+  const cancelEdit = () => {
+    setEditingProject(null)
+    setEditName('')
+  }
+
+  const submitEdit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!editingProject) return
+    const name = editName.trim()
+    if (!name) return
+    try {
+      await updateProject(editingProject.id, { name, color: editColor })
+      setEditingProject(null)
+      setEditName('')
+    } catch (error) {
+      console.error('Failed to update project:', error)
+    }
+  }
+
+  const confirmDelete = async () => {
+    if (!deletingProject) return
+    const id = deletingProject.id
+    setDeletingProject(null)
+    try {
+      await deleteProject(id)
+    } catch (error) {
+      console.error('Failed to delete project:', error)
     }
   }
 
@@ -157,13 +200,53 @@ export function Sidebar() {
         {projects.map((project) => {
           const count = activeTasks.filter((task) => task.projectId === project.id).length
           const active = projectFilter === project.id
+
+          if (editingProject?.id === project.id) {
+            return (
+              <form key={project.id} className="project-form" onSubmit={submitEdit}>
+                <input
+                  autoFocus
+                  name="edit-project-name"
+                  autoComplete="off"
+                  spellCheck={false}
+                  value={editName}
+                  onChange={(event) => setEditName(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Escape') {
+                      event.stopPropagation()
+                      cancelEdit()
+                    }
+                  }}
+                  placeholder="项目名称"
+                  maxLength={40}
+                  aria-label="项目名称"
+                />
+                <div className="color-swatches">
+                  {PROJECT_COLORS.map((color) => (
+                    <button
+                      key={color}
+                      type="button"
+                      className={`color-swatch ${editColor === color ? 'active' : ''}`}
+                      style={{ background: color }}
+                      onClick={() => setEditColor(color)}
+                      aria-label={`选择颜色 ${color}`}
+                    />
+                  ))}
+                </div>
+                <div className="project-form-actions">
+                  <button type="button" onClick={cancelEdit}>
+                    取消
+                  </button>
+                  <button type="submit" disabled={!editName.trim()}>
+                    保存
+                  </button>
+                </div>
+              </form>
+            )
+          }
+
           return (
-            <button
-              key={project.id}
-              className={`nav-item project-item ${active ? 'active' : ''}`}
-              onClick={() => setProjectFilter(project.id)}
-              aria-pressed={active}
-            >
+            <div key={project.id} className={`nav-item project-item ${active ? 'active' : ''}`}>
               {active && (
                 <motion.span
                   layoutId="nav-active"
@@ -171,16 +254,34 @@ export function Sidebar() {
                   transition={{ type: 'spring', stiffness: 420, damping: 40 }}
                 />
               )}
-              <span
-                className="project-dot"
-                style={{
-                background: project.color,
-                boxShadow: '0 0 0 1px var(--line-strong)'
-              }}
-              />
-              <span className="nav-text">{project.name}</span>
-              <span className="nav-count">{count}</span>
-            </button>
+              <button
+                className="project-select"
+                onClick={() => setProjectFilter(project.id)}
+                aria-pressed={active}
+              >
+                <span className="project-dot" style={{ background: project.color }} />
+                <span className="nav-text">{project.name}</span>
+                <span className="nav-count">{count}</span>
+              </button>
+              <div className="project-actions">
+                <button
+                  className="project-action"
+                  aria-label={`编辑项目 ${project.name}`}
+                  title="编辑项目"
+                  onClick={() => beginEdit(project)}
+                >
+                  <Pencil size={13} strokeWidth={1.8} aria-hidden="true" />
+                </button>
+                <button
+                  className="project-action project-action-danger"
+                  aria-label={`删除项目 ${project.name}`}
+                  title="删除项目"
+                  onClick={() => setDeletingProject(project)}
+                >
+                  <Trash2 size={13} strokeWidth={1.8} aria-hidden="true" />
+                </button>
+              </div>
+            </div>
           )
         })}
       </nav>
@@ -207,6 +308,17 @@ export function Sidebar() {
       </button>
 
       <SettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+
+      <AnimatePresence>
+        {deletingProject && (
+          <ConfirmDialog
+            message={`删除项目「${deletingProject.name}」？该项目下的任务会移到「无项目」，项目本身无法恢复。`}
+            confirmLabel="删除项目"
+            onConfirm={confirmDelete}
+            onClose={() => setDeletingProject(null)}
+          />
+        )}
+      </AnimatePresence>
     </aside>
   )
 }

@@ -5,6 +5,7 @@ import type {
   CreateProjectInput,
   CreateTaskInput,
   PolarisApi,
+  UpdateProjectInput,
   UpdateTaskInput
 } from '../shared/types'
 
@@ -22,7 +23,9 @@ const api: PolarisApi = {
   },
   projects: {
     list: () => ipcRenderer.invoke('projects:list'),
-    create: (input: CreateProjectInput) => ipcRenderer.invoke('projects:create', input)
+    create: (input: CreateProjectInput) => ipcRenderer.invoke('projects:create', input),
+    update: (input: UpdateProjectInput) => ipcRenderer.invoke('projects:update', input),
+    remove: (id: string) => ipcRenderer.invoke('projects:delete', { id })
   },
   app: {
     platform: process.platform,
