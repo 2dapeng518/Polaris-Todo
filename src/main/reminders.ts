@@ -87,6 +87,17 @@ export function openReminderWindow(taskId: string): void {
     if (next) setTimeout(() => openReminderWindow(next), 350)
   })
 
+  // A failed main-frame load never fires ready-to-show: the reminder stays
+  // unmarked (still pending) but the dead window keeps currentTaskId set, so the
+  // dedup in enqueueReminder blocks re-opening until an app restart. Destroy the
+  // dead window so 'closed' clears the slot and the next scheduler tick re-opens
+  // the still-pending reminder. Ignore -3 (ABORTED), like the main window does.
+  const win = reminderWindow
+  win.webContents.on('did-fail-load', (_event, errorCode, _description, _url, isMainFrame) => {
+    if (!isMainFrame || errorCode === -3) return
+    if (!win.isDestroyed()) win.destroy()
+  })
+
   const hash = `reminder/${encodeURIComponent(taskId)}`
   if (process.env['ELECTRON_RENDERER_URL']) {
     void reminderWindow.loadURL(`${process.env['ELECTRON_RENDERER_URL']}#${hash}`)

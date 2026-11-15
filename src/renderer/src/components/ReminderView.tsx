@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { Bell, Check, Clock3, X } from 'lucide-react'
 import { useTaskStore } from '../stores/useTaskStore'
 import { formatDue } from '../lib/dates'
@@ -10,6 +10,7 @@ export function ReminderView({ taskId }: { taskId: string }) {
   const loading = useTaskStore((state) => state.loading)
   const load = useTaskStore((state) => state.load)
   const updateTask = useTaskStore((state) => state.updateTask)
+  const [snoozeOpen, setSnoozeOpen] = useState(false)
 
   useEffect(() => {
     void load()
@@ -35,11 +36,11 @@ export function ReminderView({ taskId }: { taskId: string }) {
     }
   }
 
-  const snooze = async () => {
+  const snooze = async (minutes: number) => {
     if (!task) return
     try {
       await updateTask(task.id, {
-        remindAt: new Date(Date.now() + 10 * 60 * 1000).toISOString()
+        remindAt: new Date(Date.now() + minutes * 60 * 1000).toISOString()
       })
       dismiss()
     } catch (error) {
@@ -77,14 +78,42 @@ export function ReminderView({ taskId }: { taskId: string }) {
               )}
             </div>
             <div className="reminder-actions">
-              <button className="reminder-primary" onClick={() => void complete()}>
-                <Check size={14} aria-hidden="true" />
-                完成
-              </button>
-              <button className="reminder-secondary" onClick={() => void snooze()}>
-                <Clock3 size={14} strokeWidth={1.8} aria-hidden="true" />
-                稍后 10 分钟
-              </button>
+              {snoozeOpen ? (
+                <>
+                  {[10, 30, 60].map((minutes) => (
+                    <button
+                      key={minutes}
+                      className="reminder-secondary reminder-snooze-tier"
+                      onClick={() => void snooze(minutes)}
+                    >
+                      {minutes} 分钟
+                    </button>
+                  ))}
+                  <button
+                    className="reminder-snooze-cancel"
+                    onClick={() => setSnoozeOpen(false)}
+                    aria-label="取消稍后提醒"
+                  >
+                    <X size={14} strokeWidth={1.8} aria-hidden="true" />
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button className="reminder-primary" onClick={() => void complete()}>
+                    <Check size={14} aria-hidden="true" />
+                    完成
+                  </button>
+                  <button
+                    className="reminder-secondary"
+                    onClick={() => setSnoozeOpen(true)}
+                    aria-haspopup="true"
+                    aria-expanded={snoozeOpen}
+                  >
+                    <Clock3 size={14} strokeWidth={1.8} aria-hidden="true" />
+                    稍后
+                  </button>
+                </>
+              )}
             </div>
           </>
         ) : (
