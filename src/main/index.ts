@@ -1046,7 +1046,9 @@ function resetTaskIpc(): void {
     'tasks:delete-forever',
     'tasks:empty-trash',
     'projects:list',
-    'projects:create'
+    'projects:create',
+    'projects:update',
+    'projects:delete'
   ]) {
     ipcMain.removeHandler(channel)
   }
@@ -1575,7 +1577,7 @@ async function runSmokeTest(): Promise<void> {
       await sleep(250);
 
       // (p) a receipt must name the project when the task lands outside the filter
-      [...document.querySelectorAll('.project-item')].find((el) => el.textContent.includes('个人'))?.click();
+      [...document.querySelectorAll('.project-item')].find((el) => el.textContent.includes('个人'))?.querySelector('.project-select')?.click();
       await sleep(400);
       const quickFiltered = document.querySelector('.quick-add input');
       setInput(quickFiltered, '冒烟解析 跨项目 #冒烟项目');
@@ -2938,6 +2940,39 @@ async function runSmokeTest(): Promise<void> {
         return allEmpty && allCta && completedEmpty && completedCta && navigated;
       })()`)) === true
 
+    // 项目管理闭环：UI 改名 → 任务仍映射；UI 删除（确认弹窗）→ 任务归「无项目」（外键 SET NULL）。
+    const projectManageWorks =
+      (await mainWindow?.webContents.executeJavaScript(`(async () => {
+        ${pageHelpers}
+        const setInput = (el, value) => {
+          const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+          setter.call(el, value);
+          el.dispatchEvent(new Event('input', { bubbles: true }));
+        };
+        const project = await window.polaris.projects.create({ name: '冒烟项目甲', color: '#5EEAD4' });
+        const due = new Date(); due.setHours(23, 59, 0, 0);
+        const task = await window.polaris.tasks.create({ title: '冒烟项目任务', dueAt: due.toISOString(), projectId: project.id });
+        window.dispatchEvent(new Event('focus'));
+        if (!(await waitFor(() => [...document.querySelectorAll('.project-item .nav-text')].some((el) => el.textContent === '冒烟项目甲')))) return false;
+        const row = [...document.querySelectorAll('.project-item')].find((el) => el.textContent.includes('冒烟项目甲'));
+        row.querySelector('.project-action[aria-label^="编辑项目"]').click();
+        const editInput = await waitFor(() => document.querySelector('input[name="edit-project-name"]'));
+        if (!editInput) return false;
+        setInput(editInput, '冒烟项目乙');
+        [...document.querySelectorAll('.project-form-actions button')].find((b) => b.textContent === '保存').click();
+        const renamed = await waitFor(() => [...document.querySelectorAll('.project-item .nav-text')].some((el) => el.textContent === '冒烟项目乙'));
+        const taskStillMapped = (await window.polaris.tasks.list()).find((t) => t.id === task.id)?.projectId === project.id;
+        const row2 = [...document.querySelectorAll('.project-item')].find((el) => el.textContent.includes('冒烟项目乙'));
+        row2.querySelector('.project-action-danger').click();
+        const dialog = await waitFor(() => document.querySelector('.confirm-panel'));
+        [...document.querySelectorAll('.confirm-actions button')].find((b) => b.textContent === '删除项目').click();
+        const removed = await waitFor(() => ![...document.querySelectorAll('.project-item .nav-text')].some((el) => el.textContent === '冒烟项目乙'));
+        const taskOrphaned = (await window.polaris.tasks.list()).find((t) => t.id === task.id)?.projectId === null;
+        await window.polaris.tasks.remove(task.id);
+        await window.polaris.tasks.deleteForever(task.id);
+        return renamed && taskStillMapped && Boolean(dialog) && removed && taskOrphaned;
+      })()`)) === true
+
     // 逐条具名，而不是串成一条 && 链：失败时必须能一眼看出是哪条断言。
     // 只筛 result 里 value === false 是不够的 —— afterAdd / afterDelete /
     // commandCount 是数值比较，版本号是字符串比较，它们失败时 JSON 里
@@ -3036,7 +3071,8 @@ async function runSmokeTest(): Promise<void> {
       parseLayoutWide: parseLayoutWide === true,
       reminderSurfaceTested: reminderSurfaceTested === true,
       paletteEscWorks: paletteEscWorks === true,
-      emptyStateWorks: emptyStateWorks === true
+      emptyStateWorks: emptyStateWorks === true,
+      projectManageWorks: projectManageWorks === true
     }
     const failed = Object.keys(checks).filter((name) => !checks[name])
     const ok = failed.length === 0
@@ -3076,6 +3112,7 @@ async function runSmokeTest(): Promise<void> {
           recurrenceClampTable: recurrenceOk,
           paletteEscWorks,
           emptyStateWorks,
+          projectManageWorks,
           parseGrammarTable: parseAssertions.grammar,
           parseInvariants: parseAssertions.invariants,
           parseFormatNull: parseAssertions.format,

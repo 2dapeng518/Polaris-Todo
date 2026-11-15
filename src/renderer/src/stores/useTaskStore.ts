@@ -80,6 +80,8 @@ type TaskState = {
   clearNotice: () => void
   clearStorageError: () => void
   createProject: (name: string, color: string) => Promise<Project>
+  updateProject: (id: string, patch: { name?: string; color?: string }) => Promise<void>
+  deleteProject: (id: string) => Promise<void>
 }
 
 export const useTaskStore = create<TaskState>((set, get) => ({
@@ -356,6 +358,58 @@ export const useTaskStore = create<TaskState>((set, get) => ({
       return project
     } catch (error) {
       set(writeFailed())
+      throw error
+    }
+  },
+
+  updateProject: async (id, patch) => {
+    const current = get().projects.find((project) => project.id === id)
+    if (!current) return
+    const optimistic: Project = {
+      ...current,
+      name: patch.name ?? current.name,
+      color: patch.color ?? current.color,
+      updatedAt: new Date().toISOString()
+    }
+    set((state) => ({ projects: state.projects.map((p) => (p.id === id ? optimistic : p)) }))
+    try {
+      const project = await window.polaris.projects.update({ id, ...patch })
+      set((state) => ({
+        projects: state.projects.map((p) => (p.id === id ? project : p)),
+        ...clearError()
+      }))
+    } catch (error) {
+      set((state) => ({
+        projects: state.projects.map((p) => (p.id === id ? current : p)),
+        ...writeFailed()
+      }))
+      throw error
+    }
+  },
+
+  deleteProject: async (id) => {
+    const current = get().projects.find((project) => project.id === id)
+    if (!current) return
+    const prevFilter = get().projectFilter
+    const affectedTaskIds = get().tasks.filter((t) => t.projectId === id).map((t) => t.id)
+    // 乐观：移除项目、若正在筛选它则退出筛选、任务归「无项目」（与 DB 外键 SET NULL 一致）。
+    set((state) => ({
+      projects: state.projects.filter((p) => p.id !== id),
+      projectFilter: state.projectFilter === id ? null : state.projectFilter,
+      tasks: state.tasks.map((t) => (t.projectId === id ? { ...t, projectId: null } : t))
+    }))
+    try {
+      await window.polaris.projects.remove(id)
+      set(clearError())
+    } catch (error) {
+      set((state) => ({
+        projects: [...state.projects, current].sort((a, b) => a.sortOrder - b.sortOrder),
+        projectFilter: prevFilter,
+        tasks: state.tasks.map((t) =>
+          affectedTaskIds.includes(t.id) ? { ...t, projectId: id } : t
+        ),
+        ...writeFailed()
+      }))
       throw error
     }
   }

@@ -56,6 +56,12 @@ export type CreateProjectInput = {
   color: string
 }
 
+export type UpdateProjectInput = {
+  id: string
+  name?: string
+  color?: string
+}
+
 export type AppView = 'today' | 'upcoming' | 'all' | 'completed' | 'trash'
 
 import type { AppTheme } from './themes'
@@ -83,6 +89,8 @@ export type PolarisApi = {
   projects: {
     list: () => Promise<Project[]>
     create: (input: CreateProjectInput) => Promise<Project>
+    update: (input: UpdateProjectInput) => Promise<Project>
+    remove: (id: string) => Promise<void>
   }
   app: {
     platform: string

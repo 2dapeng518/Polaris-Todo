@@ -4,6 +4,7 @@ import { isValidRecurrenceRule } from '../shared/recurrence'
 import {
   createProject,
   createTask,
+  deleteProject,
   deleteTask,
   deleteTaskForever,
   emptyTrash,
@@ -13,6 +14,7 @@ import {
   purgeExpiredDeleted,
   restoreTask,
   toggleTask,
+  updateProject,
   updateTask
 } from './db'
 
@@ -58,6 +60,12 @@ const taskIdSchema = z.object({
 const createProjectSchema = z.object({
   name: z.string().min(1).max(80),
   color: z.string().regex(/^#[0-9a-fA-F]{6}$/)
+})
+
+const updateProjectSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1).max(80).optional(),
+  color: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional()
 })
 
 // Split out so the smoke test can drop this one channel to exercise the
@@ -112,5 +120,14 @@ export function registerIpc(): void {
 
   ipcMain.handle('projects:create', (_event, input) => {
     return createProject(createProjectSchema.parse(input))
+  })
+
+  ipcMain.handle('projects:update', (_event, input) => {
+    return updateProject(updateProjectSchema.parse(input))
+  })
+
+  ipcMain.handle('projects:delete', (_event, input) => {
+    const { id } = taskIdSchema.parse(input)
+    deleteProject(id)
   })
 }

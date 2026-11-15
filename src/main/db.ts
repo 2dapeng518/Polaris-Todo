@@ -296,6 +296,33 @@ export function createProject(input: { name: string; color: string }): Project {
   return project
 }
 
+export function updateProject(input: { id: string; name?: string; color?: string }): Project {
+  const current = getProject(input.id)
+  if (!current) throw new Error('项目不存在')
+
+  const name = input.name !== undefined ? input.name.trim() : current.name
+  if (!name) throw new Error('项目名称不能为空')
+  const color = input.color ?? current.color
+  const now = new Date().toISOString()
+
+  db.prepare('UPDATE projects SET name = ?, color = ?, updated_at = ? WHERE id = ?').run(
+    name,
+    color,
+    now,
+    input.id
+  )
+
+  const project = getProject(input.id)
+  if (!project) throw new Error('项目更新失败')
+  return project
+}
+
+export function deleteProject(id: string): void {
+  // tasks.project_id 外键 ON DELETE SET NULL：删项目只把任务归「无项目」，不连带删任务。
+  // 幂等：删不存在的 id 是 no-op。项目本身无回收站，删除不可恢复。
+  db.prepare('DELETE FROM projects WHERE id = ?').run(id)
+}
+
 export function createTask(input: CreateTaskInput): Task {
   const title = input.title.trim()
   if (!title) throw new Error('任务标题不能为空')
