@@ -4175,6 +4175,21 @@ textarea {
   }
 }
 
+/* 主题切换 View Transitions 淡变：一次性 cross-fade（200ms 档），非循环动画。
+   reduced-motion 下 JS 已不触发 startViewTransition，这里再兜底压掉伪元素动画。 */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 0.2s;
+  animation-timing-function: var(--ease-out);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation: none !important;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

@@ -1,12 +1,27 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { isAppTheme, THEME_WINDOW_BG } from '@shared/themes'
 import { useThemeStore } from '../stores/useThemeStore'
 
 export function ThemeSync() {
   const theme = useThemeStore((state) => state.theme)
+  const mounted = useRef(false)
 
   useEffect(() => {
-    document.documentElement.dataset.theme = theme
+    const apply = () => {
+      document.documentElement.dataset.theme = theme
+    }
+    // 主题切换淡变：支持 View Transitions 且非 reduced-motion 时走一次性 cross-fade，
+    // 否则立即应用。首帧不淡变（初始主题已由 index.html 内联脚本落定）。
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    const startViewTransition = (
+      document as Document & { startViewTransition?: (update: () => void) => unknown }
+    ).startViewTransition
+    if (mounted.current && startViewTransition && !reduceMotion) {
+      startViewTransition.call(document, apply)
+    } else {
+      apply()
+    }
+    mounted.current = true
     const themeColor = document.querySelector('meta[name="theme-color"]')
     themeColor?.setAttribute('content', THEME_WINDOW_BG[theme])
     void window.polaris.app.setTheme(theme).catch((error) => {
