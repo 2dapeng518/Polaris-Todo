@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Bell, Check, Clock3, X } from 'lucide-react'
+import { Bell, Check, Clock3, X } from './Icon'
 import { useTaskStore } from '../stores/useTaskStore'
 import { formatDue } from '../lib/dates'
 import { ThemeSync } from './ThemeSync'

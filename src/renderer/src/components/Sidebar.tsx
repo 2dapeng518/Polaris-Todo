@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { CalendarDays, CheckCircle2, HardDrive, ListTodo, Pencil, Plus, Settings2, Sun, Trash2 } from 'lucide-react'
+import { CalendarDays, CheckCircle2, HardDrive, ListTodo, Pencil, Plus, Settings2, Sun, Trash2 } from './Icon'
 import { AnimatePresence, motion } from 'motion/react'
 import type { AppView, Project } from '@shared/types'
 import { useTaskStore } from '../stores/useTaskStore'

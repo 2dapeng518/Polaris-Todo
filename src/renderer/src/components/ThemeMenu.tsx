@@ -7,7 +7,7 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
   type RefObject
 } from 'react'
-import { Check } from 'lucide-react'
+import { Check } from './Icon'
 import { THEME_META, THEME_ORDER, partnerTheme, themeFamily, type AppTheme } from '@shared/themes'
 import { useThemeStore } from '../stores/useThemeStore'
 import { useTaskStore } from '../stores/useTaskStore'

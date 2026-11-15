@@ -1,6 +1,6 @@
 import { useRef } from 'react'
 import { motion } from 'motion/react'
-import { Bell, Check, Flag, Repeat2, Trash2 } from 'lucide-react'
+import { Bell, Check, Flag, Repeat2, Trash2 } from './Icon'
 import type { Task } from '@shared/types'
 import { recurrenceLabel } from '@shared/recurrence'
 import { useTaskStore } from '../stores/useTaskStore'

@@ -17,7 +17,7 @@ import {
   RotateCcw,
   Trash2,
   X
-} from 'lucide-react'
+} from './Icon'
 import { formatDistanceToNowStrict } from 'date-fns'
 import { zhCN } from 'date-fns/locale'
 import type { Task } from '@shared/types'

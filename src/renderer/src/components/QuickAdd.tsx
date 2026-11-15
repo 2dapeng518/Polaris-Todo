@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent, type RefObject } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
-import { CalendarDays, CornerDownLeft, Plus, X } from 'lucide-react'
+import { CalendarDays, CornerDownLeft, Plus, X } from './Icon'
 import {
   QUICK_ADD_TITLE_MAX,
   dismissKeys,

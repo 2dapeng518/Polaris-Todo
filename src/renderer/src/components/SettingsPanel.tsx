@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
-import { Check, X } from 'lucide-react'
+import { Check, X } from './Icon'
 import type { AutoStartState } from '@shared/types'
 import { THEME_META, THEME_ORDER } from '@shared/themes'
 import { useTaskStore } from '../stores/useTaskStore'
