@@ -1,6 +1,6 @@
 Polaris — 第三方组件与素材声明
 
-本文件由 scripts/make-notice.mjs 生成（Polaris v0.2.1）。
+本文件由 scripts/make-notice.mjs 生成（Polaris v0.3.1）。
 采集范围：生产依赖闭包（npm ls --omit=dev --all），共 21 个组件。
 Polaris 以 NSIS 安装包分发，下列组件与字体随包再分发，
 按其许可要求在此保留版权声明与许可指引。许可原文见同目录 licenses/。
