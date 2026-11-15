@@ -14,3 +14,4 @@ docs/asset-atlas/fonts/
 # 打包引用的成品是 build/icon.ico 与 build/icon.icns，两者仍然入库。
 build/Polaris.iconset/
 build/icon-canva-preview-*.png
+.alma-snapshots
