@@ -3149,6 +3149,223 @@ textarea {
   }
 }
 
+/* ---------- splash ---------- */
+
+/* 启动动画（splash.html 第二渲染入口）：光点汇聚 → 星点亮 → 轨道环行进
+   → 字标落定，约 2s 播完；主进程 MIN_VISIBLE_MS 补足到 2s 后淡出交接主窗口。
+   初始化更慢时轨道环持续旋转等待（加载指示允许循环，其余动画均一次性）。
+   颜色全部复用本文件令牌，六主题对比度由 verify:themes 统一保证；
+   reduced motion 由文件末尾的全局兜底直接渲染终态。 */
+.splash {
+  position: relative;
+  display: flex;
+  height: 100%;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: var(--bg);
+}
+
+.splash-body {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.splash-stage {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 128px;
+  height: 128px;
+}
+
+/* 轨道环：空状态 orbit 的同族语言——细线圆环 + 行进的信号点。
+   旋转复用现成的 spin keyframe；这是动画里唯一的循环。 */
+.splash-orbit {
+  position: absolute;
+  inset: 0;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  animation: splash-orbit-in 600ms var(--ease-out) 150ms both;
+}
+
+.splash-orbit-spin {
+  position: absolute;
+  inset: 0;
+  animation: spin 2.4s linear 900ms infinite;
+}
+
+.splash-orbit-dot {
+  position: absolute;
+  top: -2px;
+  left: 50%;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--accent);
+  transform: translateX(-50%);
+}
+
+/* 星点亮时的一次性涟漪，播完即消失，不循环。 */
+.splash-pulse {
+  position: absolute;
+  inset: 0;
+  border: 1px solid rgba(var(--accent-rgb), 0.35);
+  border-radius: 50%;
+  animation: splash-pulse-out 700ms var(--ease-out) 620ms both;
+}
+
+/* 汇聚光点：从各自起点（--tx/--ty）收拢到星心并熄灭，--pd 错峰。
+   只借星标记自己的两个色相（accent / accent-2），不引入第三色。 */
+.splash-particle {
+  /* 起点（--tx/--ty）与错峰（--pd）由 splash.html 的内联 style 逐颗注入；
+     这里给默认值：内联优先级更高会覆盖，同时让 verify:themes 的 var()
+     覆盖检查认得这三个组件自定义属性（它静态扫描本文件，看不到内联）。 */
+  --tx: 0px;
+  --ty: 0px;
+  --pd: 0ms;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 4px;
+  height: 4px;
+  margin: -2px 0 0 -2px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: splash-converge 620ms var(--ease-out) var(--pd) both;
+}
+
+.splash-particle.is-alt {
+  background: var(--accent-2);
+}
+
+/* teal→violet 渐变只属于星标记；点亮是一次性的缩放 + 旋转落定。 */
+.splash-mark {
+  position: relative;
+  display: grid;
+  place-items: center;
+  animation: splash-ignite 650ms var(--ease-out) 450ms both;
+}
+
+.splash-name {
+  margin: 22px 0 0;
+  color: var(--text);
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 700;
+  animation: splash-word 550ms var(--ease-out) 950ms both;
+}
+
+.splash-tagline {
+  margin: 6px 0 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+  animation: splash-fade-up 450ms var(--ease-out) 1200ms both;
+}
+
+.splash-status {
+  margin-top: 26px;
+  color: var(--text-tertiary);
+  font-size: 12px;
+  animation: splash-fade-up 450ms var(--ease-out) 1400ms both;
+}
+
+/* 版本号用 left/right + text-align 居中，把 transform 让给入场动画。 */
+.splash-version {
+  position: absolute;
+  z-index: 2;
+  right: 0;
+  bottom: 18px;
+  left: 0;
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-align: center;
+  animation: splash-fade-up 450ms var(--ease-out) 1500ms both;
+}
+
+@keyframes splash-orbit-in {
+  from {
+    opacity: 0;
+    transform: scale(0.82);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes splash-pulse-out {
+  from {
+    opacity: 0.7;
+    transform: scale(0.55);
+  }
+
+  to {
+    opacity: 0;
+    transform: scale(1.5);
+  }
+}
+
+@keyframes splash-converge {
+  0% {
+    opacity: 0;
+    transform: translate(var(--tx), var(--ty)) scale(1);
+  }
+
+  18% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate(0, 0) scale(0.3);
+  }
+}
+
+@keyframes splash-ignite {
+  from {
+    opacity: 0;
+    transform: scale(0.4) rotate(-120deg);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1) rotate(0deg);
+  }
+}
+
+@keyframes splash-word {
+  from {
+    opacity: 0;
+    letter-spacing: 0.3em;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    letter-spacing: 0.04em;
+    transform: translateY(0);
+  }
+}
+
+@keyframes splash-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 /* ---------- undo toast ---------- */
 
 .toast-region {

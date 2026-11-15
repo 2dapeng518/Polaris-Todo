@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script>
+      // 首帧主题：主进程把持久化主题（meta 表）经 query 注入，这里在绘制前
+      // 落到 data-theme，与 index.html 的 localStorage 引导同一套六主题白名单。
+      // 窗口 backgroundColor 已按同一主题兜底，两层保证无白闪、无主题色跳变。
+      ;(function () {
+        try {
+          var themes = ['dark', 'light', 'dusk', 'sand', 'sky', 'green']
+          var theme = new URLSearchParams(window.location.search).get('theme')
+          document.documentElement.dataset.theme = themes.indexOf(theme) !== -1 ? theme : 'dark'
+        } catch (error) {
+          document.documentElement.dataset.theme = 'dark'
+        }
+      })()
+    </script>
+    <title>Polaris</title>
+  </head>
+  <body>
+    <main class="splash">
+      <div class="aurora" aria-hidden="true"></div>
+      <div class="noise" aria-hidden="true"></div>
+      <div class="splash-body">
+        <div class="splash-stage" aria-hidden="true">
+          <div class="splash-orbit">
+            <div class="splash-orbit-spin">
+              <span class="splash-orbit-dot"></span>
+            </div>
+          </div>
+          <span class="splash-pulse"></span>
+          <span class="splash-particle" style="--tx: -70px; --ty: -44px; --pd: 0ms"></span>
+          <span class="splash-particle is-alt" style="--tx: 66px; --ty: -52px; --pd: 90ms"></span>
+          <span class="splash-particle" style="--tx: -84px; --ty: 18px; --pd: 180ms"></span>
+          <span class="splash-particle is-alt" style="--tx: 78px; --ty: 30px; --pd: 270ms"></span>
+          <span class="splash-particle" style="--tx: -30px; --ty: 72px; --pd: 360ms"></span>
+          <span class="splash-particle is-alt" style="--tx: 36px; --ty: -78px; --pd: 450ms"></span>
+          <div class="splash-mark">
+            <svg width="46" height="46" viewBox="0 0 24 24" fill="none">
+              <defs>
+                <linearGradient id="splash-mark-gradient" x1="4" y1="2" x2="20" y2="22" gradientUnits="userSpaceOnUse">
+                  <stop style="stop-color: var(--mark-a)" />
+                  <stop offset="1" style="stop-color: var(--mark-b)" />
+                </linearGradient>
+              </defs>
+              <path
+                d="M12 2.4c.43 5.22 4.38 9.17 9.6 9.6-5.22.43-9.17 4.38-9.6 9.6-.43-5.22-4.38-9.17-9.6-9.6 5.22-.43 9.17-4.38 9.6-9.6Z"
+                fill="url(#splash-mark-gradient)"
+              />
+              <circle cx="12" cy="12" r="1.35" style="fill: var(--bg)" fill-opacity=".72" />
+            </svg>
+          </div>
+        </div>
+        <h1 class="splash-name" translate="no">Polaris</h1>
+        <p class="splash-tagline">数据仅保存在本机</p>
+        <div class="splash-status" role="status">
+          <span>正在启动…</span>
+        </div>
+      </div>
+      <span class="splash-version" id="splash-version"></span>
+    </main>
+    <script>
+      // 版本号由主进程 app.getVersion() 经 query 注入；缺席时留空，
+      // 与设置面板 useAppVersion 的失败态一致，渲染层不硬编码版本。
+      ;(function () {
+        try {
+          var version = new URLSearchParams(window.location.search).get('v')
+          if (version) document.getElementById('splash-version').textContent = 'v' + version
+        } catch (error) {
+          /* 版本号缺席不影响启动动画其余部分。 */
+        }
+      })()
+    </script>
+    <script type="module" src="/src/splash.ts"></script>
+  </body>
+</html>
