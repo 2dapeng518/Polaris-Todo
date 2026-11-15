@@ -121,14 +121,25 @@ export function shiftMinutes(draft: Draft, delta: number): Draft {
   return { day: draft.day, hour: Math.floor(total / 60), minute: total % 60 }
 }
 
-// "今天" must never land in the past: round up to the next 5-minute mark, or
-// clamp to 23:59 when that would cross midnight.
+// 「今天」向上取整到下一个 5 分钟刻度。跨过午夜时，今天通常还剩最后一个整分钟，
+// 就夹到 23:59；但在一天的最后一分钟里 23:59 本身已经过去，夹回去等于交出一个
+// 保存即逾期的时刻，所以只有那一分钟顺延到明天 00:00 —— 下一个可表示的瞬间。
+// 调用方会把日历重新聚焦到返回的那天，跨日是可见的，不是悄悄改。
+//
+// 已知未覆盖：夏令时回拨的时区里，sameDay 分支把取整后的瞬间拆成墙钟时分回填，
+// 而重复小时里同一时分对应两个瞬间，withTime 只会解析到较早的那个，结果仍可能
+// 落过去（实测 America/New_York 回拨日最多早 55 分钟）。本函数目前只保证在
+// 无 DST 的时区（本应用目标 Asia/Shanghai）不落过去，不要把它当普适不变量引用。
 export function laterToday(now: Date): Draft {
   const bumped = new Date(Math.ceil((now.getTime() + 1) / 300000) * 300000)
   const sameDay = bumped.getFullYear() === now.getFullYear() &&
     bumped.getMonth() === now.getMonth() &&
     bumped.getDate() === now.getDate()
-  return sameDay
-    ? { day: startOfDay(now), hour: bumped.getHours(), minute: bumped.getMinutes() }
-    : { day: startOfDay(now), hour: 23, minute: 59 }
+  if (sameDay) {
+    return { day: startOfDay(now), hour: bumped.getHours(), minute: bumped.getMinutes() }
+  }
+  const lastMinute = setMinutes(setHours(startOfDay(now), 23), 59)
+  return lastMinute.getTime() > now.getTime()
+    ? { day: startOfDay(now), hour: 23, minute: 59 }
+    : { day: startOfDay(bumped), hour: bumped.getHours(), minute: bumped.getMinutes() }
 }

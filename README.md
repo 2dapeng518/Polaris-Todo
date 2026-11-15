@@ -75,6 +75,7 @@ node node_modules/electron/install.js
 | `npm run build` | 构建到 `out/` |
 | `npm run smoke` | 启动真实应用跑冒烟测试（需先 `npm run build`） |
 | `npm run verify:themes` | 主题对比度与注册表不变量校验 |
+| `npm run verify:datetime` | 日期时间纯函数不变量校验（「今天」不落过去等） |
 | `npm run preview` | 预览生产构建 |
 | `npm run build:win` | 构建并生成 NSIS 安装包 |
 
@@ -242,13 +243,18 @@ build/         应用图标与安装包资源
 
 ## 测试
 
-仓库没有单元测试框架，也没有 lint 脚本。自动化检查是冒烟测试与主题校验：
+仓库没有单元测试框架，也没有 lint 脚本。自动化检查是冒烟测试、主题校验与日期时间校验：
 
 ```bash
 npm run build
 npm run smoke
 npm run verify:themes
+npm run verify:datetime
 ```
+
+`scripts/verify-datetime.mjs` 直接 import `lib/dateTime.ts` 的纯函数并注入时钟，用字面量期望表加全天 5760 个**真实时刻**（按 epoch 步进，不是拼墙钟）的扫描，覆盖「今天」按钮的边界：向上取整到 5 分钟、跨午夜前仍用今天 23:59、**一天最后一分钟顺延到明天 00:00**（23:59 本身已过去，回退到它就是保存即逾期）。这类边界靠跑真实 UI 撞概率是 60/86400，只能这样测。
+
+范围说明：脚本跑在本机时区、固定取非夏令时跳变日，因此证明的是 **Asia/Shanghai 这类无 DST 时区**下的不变量。有夏令时回拨的时区里 `laterToday` 仍可能返回过去时刻（重复小时的墙钟歧义），那条路径尚未修复，也不在这份校验的覆盖范围内。
 
 `scripts/smoke.mjs` 启动真实 Electron，`runSmokeTest()`（在 `src/main/index.ts`）通过 `webContents.executeJavaScript` 驱动界面，覆盖快速添加、详情编辑、完成、删除与撤销、命令面板、主题切换、主题菜单、开机自启、重复任务和「已创建下一次」提示。测试使用临时 userData 配置目录，不会碰本机数据，结束后自动清理；失败时进程以非零退出码结束，并单独打印一行 `POLARIS_SMOKE_FAILED ["断言名", …]`，结果 JSON 里也带 `failed` 数组，不必从六十多个字段里肉眼找。
 

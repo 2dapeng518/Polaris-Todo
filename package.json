@@ -22,6 +22,7 @@
     "make:icon": "node scripts/make-app-icon.mjs",
     "smoke": "node scripts/smoke.mjs",
     "verify:themes": "node scripts/verify-theme-contrast.mjs && node scripts/verify-theme-registry.mjs",
+    "verify:datetime": "node scripts/verify-datetime.mjs",
     "build:win": "npm run build && electron-builder --win nsis",
     "build:mac": "npm run build && electron-builder --mac"
   },
