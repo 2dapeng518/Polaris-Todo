@@ -17,7 +17,7 @@ import { createTray } from './tray'
 import { TRAY_ICON_DATA_URL } from './tray-icon'
 import { dismissKeys, formatParsedDue, parseQuickAdd, pruneDismissed } from '../shared/quickAddParse'
 import { isPurgeable } from '../shared/retention'
-import { nextMonthlyClamped } from '../shared/recurrence'
+import { buildCustomRecurrence, nextMonthlyClamped, parseCustomRecurrence, type CustomRecurrence } from '../shared/recurrence'
 
 let mainWindow: BrowserWindow | null = null
 let isQuitting = false
@@ -991,6 +991,59 @@ function runRecurrenceAssertions(): boolean {
     if (got !== want) {
       ok = false
       console.error('RECURRENCE_CASE_FAIL', JSON.stringify({ due: key(due), now: key(now), got, want }))
+    }
+  }
+  return ok
+}
+
+// 自定义重复 parse/build 往返：字面量期望，含星期规范化排序与复杂子句拒绝。
+function runCustomRecurrenceAssertions(): boolean {
+  let ok = true
+  const parseCases: Array<[string | null, string, number, string[]]> = [
+    ['FREQ=DAILY', 'DAILY', 1, []],
+    ['FREQ=DAILY;INTERVAL=3', 'DAILY', 3, []],
+    ['FREQ=WEEKLY;INTERVAL=2;BYDAY=MO,WE,FR', 'WEEKLY', 2, ['MO', 'WE', 'FR']],
+    ['FREQ=MONTHLY;INTERVAL=2', 'MONTHLY', 2, []],
+    ['FREQ=YEARLY', 'YEARLY', 1, []],
+    [null, '', 0, []]
+  ]
+  for (const [rule, freq, interval, weekdays] of parseCases) {
+    const parsed = parseCustomRecurrence(rule)
+    if (rule === null) {
+      if (parsed !== null) {
+        ok = false
+        console.error('CUSTOM_RECURRENCE_FAIL', JSON.stringify({ rule, parsed }))
+      }
+      continue
+    }
+    if (
+      !parsed ||
+      parsed.freq !== freq ||
+      parsed.interval !== interval ||
+      JSON.stringify(parsed.weekdays) !== JSON.stringify(weekdays)
+    ) {
+      ok = false
+      console.error('CUSTOM_RECURRENCE_FAIL', JSON.stringify({ rule, parsed, want: { freq, interval, weekdays } }))
+    }
+  }
+  const buildCases: Array<[CustomRecurrence, string]> = [
+    [{ freq: 'DAILY', interval: 1, weekdays: [] }, 'FREQ=DAILY'],
+    [{ freq: 'DAILY', interval: 3, weekdays: [] }, 'FREQ=DAILY;INTERVAL=3'],
+    [{ freq: 'WEEKLY', interval: 2, weekdays: ['FR', 'MO', 'WE'] }, 'FREQ=WEEKLY;INTERVAL=2;BYDAY=MO,WE,FR'],
+    [{ freq: 'WEEKLY', interval: 1, weekdays: [] }, 'FREQ=WEEKLY'],
+    [{ freq: 'MONTHLY', interval: 2, weekdays: ['MO'] }, 'FREQ=MONTHLY;INTERVAL=2']
+  ]
+  for (const [input, want] of buildCases) {
+    const got = buildCustomRecurrence(input)
+    if (got !== want) {
+      ok = false
+      console.error('CUSTOM_RECURRENCE_BUILD_FAIL', JSON.stringify({ input, got, want }))
+    }
+  }
+  for (const complex of ['FREQ=MONTHLY;BYMONTHDAY=15', 'FREQ=DAILY;COUNT=5', 'FREQ=WEEKLY;BYSETPOS=1']) {
+    if (parseCustomRecurrence(complex) !== null) {
+      ok = false
+      console.error('CUSTOM_RECURRENCE_COMPLEX_FAIL', complex)
     }
   }
   return ok
@@ -2048,6 +2101,7 @@ async function runSmokeTest(): Promise<void> {
     const parseAssertions = runParseAssertions()
     const retentionOk = runRetentionAssertions()
     const recurrenceOk = runRecurrenceAssertions()
+    const customRecurrenceOk = runCustomRecurrenceAssertions()
 
     // A real failed submit: drop the IPC channel so invoke() genuinely rejects.
     // contextBridge freezes window.polaris, so it cannot be stubbed in the page.
@@ -3044,6 +3098,70 @@ async function runSmokeTest(): Promise<void> {
         return Boolean(detailShown) && hiddenAfterUncomplete;
       })()`)) === true
 
+    // 自定义重复 UI：开弹层 → 自定义 → 周 → 间隔步进(+ 后 −) → 一三五 → 规则落库且弹层不超 420px。
+    // 交互套用选择器冒烟的成熟模式：点 .task-title → 等 .detail-title → sleep 稳定 → 点行开弹层。
+    // 诊断必须随结果返回主进程再打印：渲染层 console.error 不回传到冒烟 stdout。
+    const customRepeatResult = await mainWindow?.webContents.executeJavaScript(`(async () => {
+      ${pageHelpers}
+      let step = 'create';
+      const due = new Date(); due.setHours(23, 59, 0, 0);
+      const task = await window.polaris.tasks.create({ title: '冒烟自定义重复', dueAt: due.toISOString(), projectId: null });
+      try {
+        [...document.querySelectorAll('.nav-item')].find((el) => el.textContent.includes('全部任务')).click();
+        window.dispatchEvent(new Event('focus'));
+        step = 'row';
+        if (!(await waitFor(() => findRow('冒烟自定义重复')))) throw new Error('row not found');
+        step = 'detail';
+        findRow('冒烟自定义重复').querySelector('.task-title').click();
+        await waitFor(() => document.querySelector('.detail-title'));
+        await sleep(300);
+        step = 'repeat-row';
+        const repeatRow = [...document.querySelectorAll('.detail-row')].find((r) => r.textContent.includes('重复'));
+        if (!repeatRow) throw new Error('repeat row not found');
+        repeatRow.click();
+        step = 'custom-chip';
+        const customChip = await waitFor(() => [...document.querySelectorAll('.detail-chip')].find((c) => c.textContent === '自定义'));
+        if (!customChip) throw new Error('custom chip not found');
+        await sleep(200);
+        customChip.click();
+        await sleep(300);
+        step = 'week-freq';
+        const weekChip = await waitFor(() => [...document.querySelectorAll('.repeat-field .detail-chip')].find((c) => c.textContent === '周'));
+        if (!weekChip) throw new Error('week chip not found');
+        await sleep(150);
+        weekChip.click();
+        await sleep(300);
+        step = 'stepper';
+        const plus = await waitFor(() => document.querySelector('.repeat-step[aria-label="增加间隔"]'));
+        if (!plus) throw new Error('plus not found');
+        plus.click();
+        await sleep(300);
+        document.querySelector('.repeat-step[aria-label="减少间隔"]').click();
+        await sleep(300);
+        step = 'weekdays';
+        for (const label of ['一', '三', '五']) {
+          const day = [...document.querySelectorAll('.repeat-field .detail-chip')].find((c) => c.textContent === label);
+          if (!day) throw new Error('weekday ' + label + ' not found');
+          day.click();
+          await sleep(300);
+        }
+        await sleep(300);
+        step = 'verify';
+        const stored = (await window.polaris.tasks.list()).find((t) => t.id === task.id)?.recurrenceRule;
+        const ruleOk = stored === 'FREQ=WEEKLY;INTERVAL=2;BYDAY=MO,WE,FR';
+        const popover = document.querySelector('.detail-popover');
+        const heightOk = Boolean(popover) && popover.getBoundingClientRect().height <= 420 && popover.scrollHeight <= popover.clientHeight + 1;
+        return { ok: ruleOk && heightOk, step, stored, ruleOk, heightOk, h: popover ? popover.getBoundingClientRect().height : null };
+      } catch (error) {
+        return { ok: false, step, error: String(error) };
+      } finally {
+        await window.polaris.tasks.remove(task.id);
+        await window.polaris.tasks.deleteForever(task.id);
+      }
+    })()`)
+    const customRepeatUiWorks = customRepeatResult?.ok === true
+    if (!customRepeatUiWorks) console.error('CUSTOM_REPEAT_UI_FAIL', JSON.stringify(customRepeatResult))
+
     // 逐条具名，而不是串成一条 && 链：失败时必须能一眼看出是哪条断言。
     // 只筛 result 里 value === false 是不够的 —— afterAdd / afterDelete /
     // commandCount 是数值比较，版本号是字符串比较，它们失败时 JSON 里
@@ -3145,7 +3263,9 @@ async function runSmokeTest(): Promise<void> {
       emptyStateWorks: emptyStateWorks === true,
       projectManageWorks: projectManageWorks === true,
       completedAtShown: completedAtShown === true,
-      reminderSnoozeWorks: reminderSnoozeWorks === true
+      reminderSnoozeWorks: reminderSnoozeWorks === true,
+      customRecurrenceTable: customRecurrenceOk === true,
+      customRepeatUiWorks: customRepeatUiWorks === true
     }
     const failed = Object.keys(checks).filter((name) => !checks[name])
     const ok = failed.length === 0
@@ -3188,6 +3308,8 @@ async function runSmokeTest(): Promise<void> {
           projectManageWorks,
           completedAtShown,
           reminderSnoozeWorks,
+          customRecurrenceTable: customRecurrenceOk,
+          customRepeatUiWorks,
           parseGrammarTable: parseAssertions.grammar,
           parseInvariants: parseAssertions.invariants,
           parseFormatNull: parseAssertions.format,

@@ -2122,6 +2122,76 @@ textarea {
   letter-spacing: 0.04em;
 }
 
+/* 自定义重复编辑器：频率/间隔/星期三段，复用 detail-chip 语言，紧凑布局守住弹层 420px 上限。 */
+.repeat-custom {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+
+.repeat-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.repeat-field-label {
+  flex: none;
+  width: 28px;
+  color: var(--text-tertiary);
+  font-size: 11px;
+}
+
+.repeat-field .detail-chips {
+  flex: 1;
+}
+
+.repeat-interval {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.repeat-interval .repeat-field-label {
+  width: auto;
+}
+
+.repeat-step {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface-1);
+  color: var(--text-secondary);
+  font-size: 14px;
+  line-height: 1;
+  cursor: default;
+}
+
+.repeat-step:hover:not(:disabled) {
+  border-color: var(--line-strong);
+  color: var(--text);
+}
+
+.repeat-step:disabled {
+  opacity: 0.4;
+}
+
+.repeat-interval-value {
+  min-width: 24px;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+
 .detail-chips {
   display: flex;
   flex-wrap: wrap;
