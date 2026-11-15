@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react'
-import { ArrowLeftRight, ChevronDown, Moon, Sun } from 'lucide-react'
+import { ChevronDown, Moon, Sun } from 'lucide-react'
 import { THEME_META, partnerTheme, themeFamily } from '@shared/themes'
 import { useThemeStore } from '../stores/useThemeStore'
 import { ThemeMenu } from './ThemeMenu'
@@ -8,6 +8,8 @@ import { ThemeMenu } from './ThemeMenu'
 // 右段箭头展开六选一。左段必须是文档序第一个 .theme-toggle —— 冒烟有六处
 // querySelector('.theme-toggle') 依赖它；右段用别的类名，也不得嵌进左段
 // （button 嵌 button 是非法 HTML）。
+// 左段图标只表达当前家族（深=Moon/浅=Sun），不表达目标、无 ⇄；目标由
+// title/aria-label 与播报承载。sky↔green 同浅，图标恒 Sun。
 export function ThemeToggle() {
   const theme = useThemeStore((state) => state.theme)
   const toggleTheme = useThemeStore((state) => state.toggleTheme)
@@ -17,8 +19,7 @@ export function ThemeToggle() {
   const lastAnnounced = useRef(theme)
 
   const next = partnerTheme(theme)
-  const sameFamily = themeFamily(next) === themeFamily(theme)
-  const nextIsDark = themeFamily(next) === 'dark'
+  const isDark = themeFamily(theme) === 'dark'
 
   const closeMenu = useCallback((restoreFocus: boolean) => {
     setMenuOpen(false)
@@ -43,11 +44,9 @@ export function ThemeToggle() {
         className="theme-toggle"
         onClick={toggleTheme}
         title={`切换到 ${THEME_META[next].label}`}
-        aria-label={`切换主题（当前：${THEME_META[theme].label}）`}
+        aria-label={`切换到 ${THEME_META[next].label}（当前：${THEME_META[theme].label}）`}
       >
-        {sameFamily ? (
-          <ArrowLeftRight size={14} strokeWidth={1.8} aria-hidden="true" />
-        ) : nextIsDark ? (
+        {isDark ? (
           <Moon size={14} strokeWidth={1.8} aria-hidden="true" />
         ) : (
           <Sun size={14} strokeWidth={1.8} aria-hidden="true" />

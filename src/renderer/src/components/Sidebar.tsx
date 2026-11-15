@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { CalendarDays, CheckCircle2, ListTodo, Plus, Settings2, Sun } from 'lucide-react'
+import { CalendarDays, CheckCircle2, HardDrive, ListTodo, Plus, Settings2, Sun } from 'lucide-react'
 import { motion } from 'motion/react'
 import type { AppView } from '@shared/types'
 import { useTaskStore } from '../stores/useTaskStore'
@@ -184,11 +184,11 @@ export function Sidebar() {
 
       <div className="sidebar-spacer" />
 
-      <div className="sidebar-status">
-        <span className="status-dot" />
+      <div className="sidebar-storage">
+        <HardDrive size={16} strokeWidth={1.8} className="storage-icon" aria-hidden="true" />
         <div>
-          <div className="status-title">数据保存在本机</div>
-          <div className="status-subtitle">SQLite · 自动保存</div>
+          <div className="storage-title">数据仅保存在本机</div>
+          <div className="storage-subtitle">自动保存</div>
         </div>
       </div>
 

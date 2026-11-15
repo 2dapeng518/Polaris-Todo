@@ -8,7 +8,7 @@ import {
   type RefObject
 } from 'react'
 import { Check } from 'lucide-react'
-import { THEME_META, THEME_ORDER, partnerTheme, type AppTheme } from '@shared/themes'
+import { THEME_META, THEME_ORDER, partnerTheme, themeFamily, type AppTheme } from '@shared/themes'
 import { useThemeStore } from '../stores/useThemeStore'
 import { useTaskStore } from '../stores/useTaskStore'
 
@@ -146,6 +146,7 @@ export function ThemeMenu({ anchorRef, onClose }: ThemeMenuProps) {
   }
 
   const partner = partnerTheme(theme)
+  const sameFamily = themeFamily(theme) === themeFamily(partner)
 
   return (
     <div
@@ -201,7 +202,7 @@ export function ThemeMenu({ anchorRef, onClose }: ThemeMenuProps) {
         })}
       </div>
       <div className="theme-menu-foot">
-        左段按钮在 {THEME_META[theme].label} ↔ {THEME_META[partner].label} 之间往返
+        左段按钮在 {THEME_META[theme].label} ↔ {THEME_META[partner].label} 之间往返{sameFamily ? '（同为浅色护眼）' : ''}
       </div>
     </div>
   )
