@@ -1507,12 +1507,22 @@ async function runSmokeTest(): Promise<void> {
         !document.querySelector('.detail-popover') && Boolean(document.querySelector('.detail-title'));
 
       await openPicker();
+      // 时钟必须在点击**之前**取：点击与读数之间隔着 sleep 和一次 IPC，用点击之后
+      // 的 now 去比会在午夜前后留出约半秒的假失败窗口（23:58:59.7 点击、23:59:00.2
+      // 读数，结果 23:59:00 就"落过去"了）。laterToday 自己的 now 一定 ≥ beforeClick，
+      // 所以「严格晚于 beforeClick」既是真不变量，又不受这段间隔影响。
+      const beforeClick = new Date();
       document.querySelector('.dp-today').click();
       await sleep(500);
       const todayDue = new Date(await storedDue());
-      const nowReal = new Date();
+      const afterClick = new Date();
+      // 「今天」不落过去。只有一天最后一分钟（23:59 本身已过去）才顺延到明天 00:00；
+      // 点击窗口两端只要有一端落在那一分钟，就允许跨日。
+      const inLastMinute = (d) => d.getHours() === 23 && d.getMinutes() === 59;
       const pickerTodayFuture =
-        todayDue.getTime() > nowReal.getTime() && todayDue.getDate() === nowReal.getDate();
+        todayDue.getTime() > beforeClick.getTime() &&
+        (todayDue.getDate() === beforeClick.getDate() ||
+          inLastMinute(beforeClick) || inLastMinute(afterClick));
 
       document.querySelector('.detail-popover-clear').click();
       await sleep(500);
