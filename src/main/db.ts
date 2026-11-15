@@ -323,6 +323,78 @@ export function deleteProject(id: string): void {
   db.prepare('DELETE FROM projects WHERE id = ?').run(id)
 }
 
+// 导出全量项目与任务（含回收站软删行），供备份。时间戳原样保留，恢复时不失真。
+export function exportBackup(): { projects: Project[]; tasks: Task[] } {
+  const projects = listProjects()
+  const rows = db.prepare('SELECT * FROM tasks ORDER BY created_at ASC').all() as TaskRow[]
+  return { projects, tasks: rows.map(mapTask) }
+}
+
+export type ImportCounts = {
+  projectsImported: number
+  projectsSkipped: number
+  tasksImported: number
+  tasksSkipped: number
+}
+
+// 非破坏性按 ID 合并：已存在的行跳过（绝不覆盖/删除本地数据），新行插入。
+// 先插项目再插任务；任务的 projectId 仅在该项目存在时保留，否则归「无项目」，
+// 避免外键违约。整体在一个事务里，要么全成要么全不成。
+export function importBackup(data: { projects: Project[]; tasks: Task[] }): ImportCounts {
+  const counts: ImportCounts = {
+    projectsImported: 0,
+    projectsSkipped: 0,
+    tasksImported: 0,
+    tasksSkipped: 0
+  }
+  const projectExists = db.prepare('SELECT 1 FROM projects WHERE id = ?')
+  const taskExists = db.prepare('SELECT 1 FROM tasks WHERE id = ?')
+  const insertProject = db.prepare(
+    'INSERT INTO projects (id, name, color, sort_order, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)'
+  )
+  const insertTask = db.prepare(`
+    INSERT INTO tasks (id, title, notes, completed, completed_at, due_at, remind_at, reminded_at, recurrence_rule, project_id, priority, created_at, updated_at, deleted_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `)
+
+  const run = db.transaction(() => {
+    for (const project of data.projects) {
+      if (projectExists.get(project.id)) {
+        counts.projectsSkipped += 1
+        continue
+      }
+      insertProject.run(project.id, project.name, project.color, project.sortOrder, project.createdAt, project.updatedAt)
+      counts.projectsImported += 1
+    }
+    for (const task of data.tasks) {
+      if (taskExists.get(task.id)) {
+        counts.tasksSkipped += 1
+        continue
+      }
+      const projectId = task.projectId && projectExists.get(task.projectId) ? task.projectId : null
+      insertTask.run(
+        task.id,
+        task.title,
+        task.notes,
+        task.completed ? 1 : 0,
+        task.completedAt,
+        task.dueAt,
+        task.remindAt,
+        task.remindedAt,
+        task.recurrenceRule,
+        projectId,
+        task.priority,
+        task.createdAt,
+        task.updatedAt,
+        task.deletedAt
+      )
+      counts.tasksImported += 1
+    }
+  })
+  run()
+  return counts
+}
+
 export function createTask(input: CreateTaskInput): Task {
   const title = input.title.trim()
   if (!title) throw new Error('任务标题不能为空')

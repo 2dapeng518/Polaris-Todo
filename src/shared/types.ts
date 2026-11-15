@@ -62,6 +62,26 @@ export type UpdateProjectInput = {
   color?: string
 }
 
+export type BackupData = {
+  schemaVersion: 1
+  app: 'polaris'
+  exportedAt: string
+  projects: Project[]
+  tasks: Task[]
+}
+
+export type ExportResult = { saved: boolean; path?: string; error?: string }
+
+export type ImportResult = {
+  ok: boolean
+  canceled?: boolean
+  projectsImported?: number
+  projectsSkipped?: number
+  tasksImported?: number
+  tasksSkipped?: number
+  error?: string
+}
+
 export type AppView = 'today' | 'upcoming' | 'all' | 'completed' | 'trash'
 
 import type { AppTheme } from './themes'
@@ -91,6 +111,10 @@ export type PolarisApi = {
     create: (input: CreateProjectInput) => Promise<Project>
     update: (input: UpdateProjectInput) => Promise<Project>
     remove: (id: string) => Promise<void>
+  }
+  data: {
+    export: () => Promise<ExportResult>
+    import: () => Promise<ImportResult>
   }
   app: {
     platform: string

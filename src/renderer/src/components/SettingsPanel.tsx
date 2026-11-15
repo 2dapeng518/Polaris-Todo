@@ -25,6 +25,9 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
   const setTheme = useThemeStore((state) => state.setTheme)
   // 打开时才取；与主界面页脚共用同一份版本号，取到就不再请求，失败下次打开重试。
   const version = useAppVersion(open)
+  const [backupBusy, setBackupBusy] = useState(false)
+  const [backupStatus, setBackupStatus] = useState<string | null>(null)
+  const [backupError, setBackupError] = useState<string | null>(null)
 
   useFocusTrap(panelRef, open && !paletteOpen, panelRef)
 
@@ -76,6 +79,44 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
       setAutoStart((current) => ({ ...current, error: String(error) }))
     } finally {
       setBusy(false)
+    }
+  }
+
+  const handleExport = async () => {
+    setBackupBusy(true)
+    setBackupError(null)
+    setBackupStatus(null)
+    try {
+      const result = await window.polaris.data.export()
+      if (result.saved) setBackupStatus('已导出备份文件')
+      else if (result.error) setBackupError(`导出失败：${result.error}`)
+    } catch (error) {
+      setBackupError(`导出失败：${String(error)}`)
+    } finally {
+      setBackupBusy(false)
+    }
+  }
+
+  const handleImport = async () => {
+    setBackupBusy(true)
+    setBackupError(null)
+    setBackupStatus(null)
+    try {
+      const result = await window.polaris.data.import()
+      if (result.ok) {
+        setBackupStatus(
+          `导入完成：任务 +${result.tasksImported ?? 0}（跳过 ${result.tasksSkipped ?? 0}），项目 +${result.projectsImported ?? 0}（跳过 ${result.projectsSkipped ?? 0}）`
+        )
+        // 导入的数据要立刻反映到主界面：刷新活任务与回收站两个独立存储。
+        await useTaskStore.getState().load()
+        await useTaskStore.getState().loadTrash()
+      } else if (!result.canceled && result.error) {
+        setBackupError(`导入失败：${result.error}`)
+      }
+    } catch (error) {
+      setBackupError(`导入失败：${String(error)}`)
+    } finally {
+      setBackupBusy(false)
     }
   }
 
@@ -194,6 +235,27 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
                 </div>
                 <span className="settings-static">已开启</span>
               </div>
+            </div>
+
+            <div className="settings-section">
+              <div className="settings-row-title">数据备份</div>
+              <div className="settings-row-desc">
+                导出全部项目与任务（含回收站）为 JSON；导入按 ID 合并，不覆盖现有数据
+              </div>
+              <div className="backup-actions">
+                <button className="backup-btn" onClick={() => void handleExport()} disabled={backupBusy}>
+                  导出备份
+                </button>
+                <button className="backup-btn" onClick={() => void handleImport()} disabled={backupBusy}>
+                  导入备份
+                </button>
+              </div>
+              {backupStatus && (
+                <div className="settings-hint" role="status">{backupStatus}</div>
+              )}
+              {backupError && (
+                <div className="settings-error" role="alert">{backupError}</div>
+              )}
             </div>
 
             <div className="settings-footer">

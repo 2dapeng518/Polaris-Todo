@@ -4,6 +4,8 @@ import type {
   AutoStartState,
   CreateProjectInput,
   CreateTaskInput,
+  ExportResult,
+  ImportResult,
   PolarisApi,
   UpdateProjectInput,
   UpdateTaskInput
@@ -26,6 +28,10 @@ const api: PolarisApi = {
     create: (input: CreateProjectInput) => ipcRenderer.invoke('projects:create', input),
     update: (input: UpdateProjectInput) => ipcRenderer.invoke('projects:update', input),
     remove: (id: string) => ipcRenderer.invoke('projects:delete', { id })
+  },
+  data: {
+    export: (): Promise<ExportResult> => ipcRenderer.invoke('data:export'),
+    import: (): Promise<ImportResult> => ipcRenderer.invoke('data:import')
   },
   app: {
     platform: process.platform,
