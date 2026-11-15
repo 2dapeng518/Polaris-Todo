@@ -2,7 +2,7 @@
 
 Windows 11 上的本地优先待办应用。深色墨黑界面、青绿信号色、原生窗口控件，数据默认只保存在本机。
 
-[![版本](https://img.shields.io/badge/version-0.2.1-0F766E?style=flat-square)](package.json)
+[![版本](https://img.shields.io/badge/version-0.3.0-0F766E?style=flat-square)](package.json)
 [![平台](https://img.shields.io/badge/platform-Windows%2011-334155?style=flat-square)](package.json)
 [![许可证](https://img.shields.io/badge/license-MIT-0F766E?style=flat-square)](package.json)
 
@@ -42,6 +42,7 @@ Polaris 面向 Windows 11 桌面，用 Electron 构建，数据落在本机 SQLi
 - `src/shared/` 放主进程与渲染层共用的类型和重复规则计算，避免两端各写一套。
 - 数据库位于 Electron `userData/polaris.db`，WAL 模式；任务采用软删除，撤销与回收站恢复时还原，保留期规则在 `src/shared/retention.ts`。
 - 提醒窗复用同一个渲染入口，通过 `#/reminder/<taskId>` 加载 `ReminderView`。
+- 启动页是第二个渲染入口 `splash.html`：无边框居中小窗，复用全局主题令牌，主题与版本号由主进程注入，主窗口就绪后淡出。
 - 渲染层没有路由，视图、项目筛选、选中任务和命令面板状态都由 Zustand 管理。
 
 更细的模块边界和修改注意事项见 [CLAUDE.md](CLAUDE.md)。
@@ -90,6 +91,7 @@ src/
   shared/      共享类型、重复规则计算、快速添加自然语言解析
   renderer/
     index.html
+    splash.html    启动页（独立小窗入口）
     src/
       components/  视图、详情、命令面板、提醒窗、设置、提示条
       lib/         日期格式化、焦点陷阱
@@ -110,6 +112,7 @@ build/         应用图标与安装包资源
 - 写失败提示：保存、勾选、删除、撤销或读取失败时，底部会出现错误提示并回滚未落库的改动，不会静默丢失；下一次成功读写后自动消失，也可手动关闭。
 - 任务提醒：到点弹出右下角提醒窗，可完成或稍后 10 分钟；退出期间错过的提醒会在下次启动补弹。
 - 重复任务：每天、工作日、每周、每月、每年；完成时保留当前实例并生成下一次，提醒按相对截止时间的偏移继承。
+- 启动时播放一段约 2 秒的品牌启动动画：光点汇聚成四角星、星点亮、轨道环行进、字标落定，主题跟随上次选择、首帧即正确配色；初始化未完成时轨道环循环等待，主窗口就绪后平滑淡出到主界面，不会白屏闪烁。开机自启的后台启动（`--hidden`）不显示。
 - 关闭主窗口后驻留系统托盘，提醒继续运行；托盘菜单可重新打开或退出。
 - 设置里可开启开机自启：登录 Windows 后以 `--hidden` 后台启动到托盘；单实例保护，再次启动会唤起已有窗口。
 - 侧栏新建项目，内置六种配色。
