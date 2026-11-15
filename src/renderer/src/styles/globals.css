@@ -4037,6 +4037,37 @@ textarea {
   opacity: 0.4;
 }
 
+.about-credits {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.about-credit-row {
+  display: flex;
+  gap: 8px;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.about-credit-label {
+  flex: none;
+  width: 28px;
+  color: var(--text-tertiary);
+}
+
+.about-credit-value {
+  color: var(--text-secondary);
+}
+
+.about-credit-note {
+  margin-top: 2px;
+  color: var(--text-tertiary);
+  font-size: 10px;
+  line-height: 1.5;
+}
+
 .settings-footer {
   padding-top: 12px;
   border-top: 1px solid var(--line);

@@ -25,8 +25,17 @@ files:
   # 字体是运行时资产，故列在 dependencies；但 Vite 已把用到的 woff2 打进
   # out/renderer/assets，整包 node_modules 再带一份会让字体体积翻倍。
   - "!node_modules/@fontsource-variable/**/*"
+  # NOTICE 与 licenses 经 extraResources 放到 asar 外（resources/），用户可直接查看，
+  # 满足 OFL「easily viewed」要求；故从 asar 内排除避免重复。
+  - "!NOTICE"
+  - "!licenses/**/*"
 asarUnpack:
   - "**/*.node"
+extraResources:
+  - from: NOTICE
+    to: NOTICE
+  - from: licenses
+    to: licenses
 electronLanguages:
   - zh-CN
   - en-US
