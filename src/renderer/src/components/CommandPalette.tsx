@@ -15,7 +15,8 @@ import {
   Moon,
   Plus,
   Search,
-  Sun
+  Sun,
+  Trash2
 } from 'lucide-react'
 import type { AppView } from '@shared/types'
 import { useTaskStore } from '../stores/useTaskStore'
@@ -148,7 +149,8 @@ export function CommandPalette() {
         label: '已完成',
         icon: CheckCircle2,
         run: go('completed')
-      }
+      },
+      { kind: 'command', id: 'view-trash', label: '回收站', icon: Trash2, run: go('trash') }
     ]
   }, [setOpen, setView, theme, toggleTheme, setTheme])
 

@@ -15,6 +15,10 @@ export type Task = {
   priority: number
   createdAt: string
   updatedAt: string
+  /** When the task was soft-deleted into the trash. Null while the task is
+   *  live. Set by the DB on delete and cleared on restore, never supplied by
+   *  the renderer. */
+  deletedAt: string | null
 }
 
 export type Project = {
@@ -52,7 +56,7 @@ export type CreateProjectInput = {
   color: string
 }
 
-export type AppView = 'today' | 'upcoming' | 'all' | 'completed'
+export type AppView = 'today' | 'upcoming' | 'all' | 'completed' | 'trash'
 
 import type { AppTheme } from './themes'
 
@@ -72,6 +76,9 @@ export type PolarisApi = {
     toggle: (id: string, completed: boolean) => Promise<Task>
     remove: (id: string) => Promise<void>
     restore: (id: string) => Promise<Task>
+    listDeleted: () => Promise<Task[]>
+    deleteForever: (id: string) => Promise<void>
+    emptyTrash: () => Promise<void>
   }
   projects: {
     list: () => Promise<Project[]>

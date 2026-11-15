@@ -2,7 +2,7 @@ import { app, BrowserWindow, ipcMain, nativeImage, shell, type WebContents } fro
 import { join } from 'node:path'
 import { writeFile } from 'node:fs/promises'
 import { getAutoStartState, setAutoStartState } from './autostart'
-import { initDatabase } from './db'
+import { initDatabase, purgeExpiredDeleted } from './db'
 import { registerIpc, registerTaskCreate } from './ipc'
 import { getCurrentTheme, initAppTheme, setCurrentTheme, themeBackgroundColor } from './theme'
 import { isAppTheme, THEME_SYMBOL_COLOR, themeFamily } from '../shared/themes'
@@ -15,6 +15,7 @@ import {
 import { createTray } from './tray'
 import { TRAY_ICON_DATA_URL } from './tray-icon'
 import { dismissKeys, formatParsedDue, parseQuickAdd, pruneDismissed } from '../shared/quickAddParse'
+import { isPurgeable } from '../shared/retention'
 
 let mainWindow: BrowserWindow | null = null
 let isQuitting = false
@@ -245,6 +246,56 @@ async function captureReminderScreenshot(filename: string): Promise<void> {
   dismissReminder()
 }
 
+// 回收站截图：种两条已删任务 → 进回收站 → （可选）打开彻底删除确认 → 截图 →
+// 硬删自清场并路由回今天。confirm 变体截确认弹窗。
+async function captureTrashScreenshot(filename: string, confirm: boolean): Promise<void> {
+  if (!mainWindow) return
+  const wc = mainWindow.webContents
+
+  const ids = await wc.executeJavaScript(`(async () => {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const projects = await window.polaris.projects.list();
+    const polaris = projects.find((p) => p.name === 'Polaris');
+    const personal = projects.find((p) => p.name === '个人');
+    const due = new Date();
+    due.setHours(23, 59, 0, 0);
+    const seeds = [
+      { title: '归档旧版设计稿', projectId: polaris ? polaris.id : null },
+      { title: '取消周末的聚餐', projectId: personal ? personal.id : null }
+    ];
+    const created = [];
+    for (const seed of seeds) {
+      const task = await window.polaris.tasks.create({ title: seed.title, dueAt: due.toISOString(), projectId: seed.projectId });
+      await window.polaris.tasks.remove(task.id);
+      created.push(task.id);
+    }
+    window.dispatchEvent(new Event('focus'));
+    await sleep(400);
+    [...document.querySelectorAll('.nav-item')].find((el) => el.textContent.includes('回收站'))?.click();
+    for (let i = 0; i < 40 && document.querySelectorAll('.trash-item').length < 2; i++) await sleep(50);
+    await sleep(450);
+    return created;
+  })()`)
+
+  if (confirm) {
+    await wc.executeJavaScript(`document.querySelector('.trash-item .trash-purge')?.click()`)
+    await new Promise((resolve) => setTimeout(resolve, 500))
+  }
+  await captureTo(filename)
+
+  // 自清场：关掉可能开着的确认弹窗，硬删种子行，路由回今天。
+  await wc.executeJavaScript(`(async () => {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    document.querySelector('.confirm-actions button')?.click();
+    await sleep(250);
+    for (const id of ${JSON.stringify(ids)}) await window.polaris.tasks.deleteForever(id);
+    window.dispatchEvent(new Event('focus'));
+    await sleep(300);
+    [...document.querySelectorAll('.nav-item')].find((el) => el.textContent.includes('今天'))?.click();
+    await sleep(300);
+  })()`)
+}
+
 // One shot per parse-strip state, so the quiet states get reviewed too.
 const PARSE_SHOTS: Record<string, string> = {
   parse: '下周三下午3点交季度报告 #Polaris !高',
@@ -374,6 +425,8 @@ async function captureDemo(mode: string): Promise<void> {
         await captureDuePickerScreenshot('screenshot-light-due-picker.png', false)
       } else if (mode === 'light-due-clear') {
         await captureDuePickerScreenshot('screenshot-light-due-clear.png', true)
+      } else if (mode === 'light-trash') {
+        await captureTrashScreenshot('screenshot-light-trash.png', false)
       } else if (PARSE_SHOTS[mode.slice(6)]) {
         const key = mode.slice(6)
         await captureParseScreenshot(`screenshot-light-${key}.png`, PARSE_SHOTS[key])
@@ -424,6 +477,10 @@ async function captureDemo(mode: string): Promise<void> {
       await captureDuePickerScreenshot('screenshot-due-picker.png', false)
     } else if (mode === 'due-clear') {
       await captureDuePickerScreenshot('screenshot-due-clear.png', true)
+    } else if (mode === 'trash') {
+      await captureTrashScreenshot('screenshot-trash.png', false)
+    } else if (mode === 'trash-confirm') {
+      await captureTrashScreenshot('screenshot-trash-confirm.png', true)
     } else if (PARSE_SHOTS[mode]) {
       await captureParseScreenshot(`screenshot-${mode}.png`, PARSE_SHOTS[mode])
     } else if (mode === 'narrow') {
@@ -819,6 +876,45 @@ function runParseAssertions(): { grammar: boolean; invariants: boolean; format: 
   return { grammar, invariants, format: formatOk }
 }
 
+// 保留期边界用字面量期望钉死：isPurgeable 是自动清理的唯一权威，db 层逐行
+// 调用它决定 DELETE。全部用 ISO UTC 瞬间 + epoch 差，不依赖机器时区；边界是
+// 「满 30 天即清」（>=）。期望绝不经被测函数自算。
+function runRetentionAssertions(): boolean {
+  // [deletedAtIso, nowIso, 期望]
+  const table: Array<[string | null, string, boolean]> = [
+    [null, '2026-11-12T00:00:00.000Z', false],
+    // 刚删除（0 天）
+    ['2026-11-12T00:00:00.000Z', '2026-11-12T00:00:00.000Z', false],
+    // 29 天：还差一天
+    ['2026-10-14T00:00:00.000Z', '2026-11-12T00:00:00.000Z', false],
+    // 30 天差 1ms：不清
+    ['2026-10-13T00:00:00.001Z', '2026-11-12T00:00:00.000Z', false],
+    // 恰好满 30 天：即清（>= 边界）
+    ['2026-10-13T00:00:00.000Z', '2026-11-12T00:00:00.000Z', true],
+    // 30 天多 1ms：清
+    ['2026-10-12T23:59:59.999Z', '2026-11-12T00:00:00.000Z', true],
+    // 早已过期
+    ['2025-01-01T00:00:00.000Z', '2026-11-12T00:00:00.000Z', true],
+    // 未来时间戳：宁可留着，不误删
+    ['2026-11-13T00:00:00.000Z', '2026-11-12T00:00:00.000Z', false],
+    // 无法解析：一律 false
+    ['not-a-date', '2026-11-12T00:00:00.000Z', false],
+    ['', '2026-11-12T00:00:00.000Z', false],
+    // 第二组时钟：证明 now 是注入的，跨年边界同样按 epoch 差算
+    ['2026-12-03T00:00:00.000Z', '2027-01-01T00:00:00.000Z', false],
+    ['2026-12-02T00:00:00.000Z', '2027-01-01T00:00:00.000Z', true]
+  ]
+  let ok = true
+  for (const [deletedAt, now, want] of table) {
+    const got = isPurgeable(deletedAt, new Date(now))
+    if (got !== want) {
+      ok = false
+      console.error('RETENTION_CASE_FAIL', JSON.stringify({ deletedAt, now, got, want }))
+    }
+  }
+  return ok
+}
+
 // 等一个可观测条件，而不是赌固定延时。超时返回 false 让调用方计入断言，
 // 不抛错 —— 冒烟要跑完并报出全部失败项，而不是在第一个超时处中断。
 // 探测本身可能打在正在导航或已销毁的窗口上，那种失败按「还没就绪」处理。
@@ -865,6 +961,9 @@ function resetTaskIpc(): void {
     'tasks:toggle',
     'tasks:delete',
     'tasks:restore',
+    'tasks:list-deleted',
+    'tasks:delete-forever',
+    'tasks:empty-trash',
     'projects:list',
     'projects:create'
   ]) {
@@ -909,7 +1008,7 @@ async function runSmokeTest(): Promise<void> {
 
       await waitFor(() => document.querySelector('.quick-add input'));
       const leftovers = (await window.polaris.tasks.list()).filter((task) =>
-        /^(冒烟测试|重复提示|重复冒烟|冒烟写失败) /.test(task.title)
+        /^(冒烟|重复)/.test(task.title)
       );
       if (leftovers.length) {
         const leftoverTitles = new Set(leftovers.map((task) => task.title));
@@ -923,6 +1022,16 @@ async function runSmokeTest(): Promise<void> {
           4000
         );
         await sleep(100);
+      }
+      // 残留清扫升级：tasks.remove 只把行软删进回收站，跨段/跨运行堆积会污染
+      // 回收站计数与清空断言，所以冒烟前缀的软删行需要彻底删除。
+      const trashedLeftovers = (await window.polaris.tasks.listDeleted()).filter((task) =>
+        /^(冒烟|重复)/.test(task.title)
+      );
+      for (const task of trashedLeftovers) await window.polaris.tasks.deleteForever(task.id);
+      if (trashedLeftovers.length) {
+        window.dispatchEvent(new Event('focus'));
+        await sleep(200);
       }
       const initial = document.querySelectorAll('.task-title').length;
       const title = '冒烟测试 ' + Date.now();
@@ -1619,6 +1728,29 @@ async function runSmokeTest(): Promise<void> {
         spawnedList[0].completed === false;
       if (!recurrenceStamps) console.error('RECURRENCE_STAMP_FAIL', JSON.stringify(spawnedList.length));
 
+      // ---------- deletedAt field chain ----------
+      // 照 completedAt 链：新建为空 → 软删后 listDeleted 读到 ISO 盖章 →
+      // 恢复清空。deletedAt 由 DB 写入，渲染层只读。
+      const trashSeed = await mk('冒烟数据 回收站', sameInstant, 0);
+      const deletedAtNullAtCreate = trashSeed.deletedAt === null;
+      await window.polaris.tasks.remove(trashSeed.id);
+      const trashedRow = (await window.polaris.tasks.listDeleted()).find((t) => t.id === trashSeed.id);
+      const deletedAtStamped =
+        Boolean(trashedRow) &&
+        typeof trashedRow.deletedAt === 'string' &&
+        !Number.isNaN(Date.parse(trashedRow.deletedAt));
+      const absentFromLive = !(await window.polaris.tasks.list()).some((t) => t.id === trashSeed.id);
+      const restoredRow = await window.polaris.tasks.restore(trashSeed.id);
+      const deletedAtCleared = restoredRow.deletedAt === null;
+      const backInLive = (await window.polaris.tasks.list()).some((t) => t.id === trashSeed.id);
+      const deletedAtTested =
+        deletedAtNullAtCreate && deletedAtStamped && absentFromLive && deletedAtCleared && backInLive;
+      if (!deletedAtTested) {
+        console.error('DELETED_AT_FAIL', JSON.stringify({
+          deletedAtNullAtCreate, deletedAtStamped, absentFromLive, deletedAtCleared, backInLive
+        }));
+      }
+
       for (const id of dataIds) await window.polaris.tasks.remove(id);
       window.dispatchEvent(new Event('focus'));
       await sleep(300);
@@ -1628,7 +1760,10 @@ async function runSmokeTest(): Promise<void> {
       // duplicate of that control. Check every focusable, not a fixed list, so
       // a newly added accent button cannot reintroduce it.
       const rgbOf = (s) => {
-        const m = /rgba?\(([^)]+)\)/.exec(s || '');
+        // 模板字符串里括号前的反斜杠必须写两个：单个会被模板 cook 掉，页面端
+        // 正则丢失字面括号，m[1] 带上前括号 → Number 出 NaN → sameColor 恒
+        // false，整段颜色比对静默失效（曾经就是这样假绿的）。
+        const m = /rgba?\\(([^)]+)\\)/.exec(s || '');
         if (!m) return null;
         const p = m[1].split(',').map(Number);
         return { r: p[0], g: p[1], b: p[2], a: p.length > 3 ? p[3] : 1 };
@@ -1690,7 +1825,8 @@ async function runSmokeTest(): Promise<void> {
       document.querySelector('.theme-menu-trigger').click();
       await sleep(250);
       const focusRingGhosted = ghosts.length === 0;
-      if (!focusRingGhosted) console.error('FOCUS_RING_GHOST', JSON.stringify([...new Set(ghosts)]));
+      const ghostDetails = [...new Set(ghosts)];
+      if (!focusRingGhosted) console.error('FOCUS_RING_GHOST', JSON.stringify(ghostDetails));
 
       setInput(document.querySelector('.quick-add input'), '');
       await sleep(200);
@@ -1740,9 +1876,11 @@ async function runSmokeTest(): Promise<void> {
         pickerTodayFuture,
         pickerClearWorks,
         focusRingGhosted,
+        ghostDetails,
         priorityOrdering,
         completedAtTested,
         recurrenceStamps,
+        deletedAtTested,
         brand: document.querySelector('.brand-name')?.textContent?.trim(),
         viewTitle: document.querySelector('.view-title')?.textContent?.trim(),
         initial,
@@ -1825,6 +1963,7 @@ async function runSmokeTest(): Promise<void> {
     }
 
     const parseAssertions = runParseAssertions()
+    const retentionOk = runRetentionAssertions()
 
     // A real failed submit: drop the IPC channel so invoke() genuinely rejects.
     // contextBridge freezes window.polaris, so it cannot be stubbed in the page.
@@ -1862,6 +2001,21 @@ async function runSmokeTest(): Promise<void> {
     let storageLoadError = false
     let storageErrorDismiss = false
     let storageErrorClears = false
+    let trashDeleteVisible = false
+    let trashRestoreWorks = false
+    let trashPurgeWorks = false
+    let confirmGhostFree = false
+    let trashEmptyWorks = false
+    let storagePurgeError = false
+    let storagePurgeClears = false
+    let storageDualReadError = false
+    let storageDualReadCleared = false
+    let confirmBlocksN = false
+    let confirmBlocksUndo = false
+    let confirmDescribedBy = false
+    let trashFocusLands = false
+    let storageEmptyError = false
+    let storageEmptyClears = false
     if (mainWindow) {
       const wc = mainWindow.webContents
       const pageHelpers = `
@@ -1997,6 +2151,381 @@ async function runSmokeTest(): Promise<void> {
         await sleep(300);
         return Boolean(gone);
       })()`)
+
+      // ---------- 回收站 UI 链 ----------
+      // 先硬删回收站里的冒烟残留：前面各段的 tasks.remove 只软删，不清场的话
+      // 计数与清空断言会被残留污染。等计数归零再种任务，避免在途的 loadTrash
+      // 响应晚于乐观插入落地、把计数冲掉。
+      await wc.executeJavaScript(`(async () => {
+        ${pageHelpers}
+        for (const t of await window.polaris.tasks.listDeleted()) {
+          if (/^(冒烟|重复)/.test(t.title)) await window.polaris.tasks.deleteForever(t.id);
+        }
+        window.dispatchEvent(new Event('focus'));
+        const trashNav = () => [...document.querySelectorAll('.nav-item')].find((el) => el.textContent.includes('回收站'));
+        await waitFor(() => trashNav()?.querySelector('.nav-count')?.textContent === '0');
+      })()`)
+
+      // 删除 → 回收站可见。种子任务带今天 23:59 截止，跨午夜后按逾期仍可见。
+      await seedWriteTask('冒烟回收站 主链')
+      trashDeleteVisible = await wc.executeJavaScript(`(async () => {
+        ${pageHelpers}
+        const TITLE = '冒烟回收站 主链';
+        const trashNav = () => [...document.querySelectorAll('.nav-item')].find((el) => el.textContent.includes('回收站'));
+        const trashCount = () => trashNav()?.querySelector('.nav-count')?.textContent;
+        await waitFor(() => trashCount() === '0');
+        findRow(TITLE).querySelector('.task-delete').click();
+        const gone = await waitFor(() => !findRow(TITLE));
+        // D7：乐观软删同步插入回收站，侧栏计数立刻涨——此刻还没跑 loadTrash，
+        // 计数为 0 即双向同步断了。
+        const countAfterDelete = trashCount();
+        trashNav().click();
+        window.dispatchEvent(new Event('focus'));
+        const shown = await waitFor(() => [...document.querySelectorAll('.trash-item')].some((el) => el.textContent.includes(TITLE)));
+        await sleep(350);
+        const row = [...document.querySelectorAll('.trash-item')].find((el) => el.textContent.includes(TITLE));
+        const stored = (await window.polaris.tasks.listDeleted()).find((t) => t.title === TITLE);
+        const liveAbsent = !(await window.polaris.tasks.list()).some((t) => t.title === TITLE);
+        return Boolean(gone) && countAfterDelete === '1' && Boolean(shown) && liveAbsent &&
+          document.querySelector('.view-title')?.textContent === '回收站' &&
+          document.querySelector('.view-eyebrow')?.textContent === '删除的任务保留 30 天' &&
+          Boolean(row) && !row.querySelector('.task-check') && !row.querySelector('.task-open') &&
+          row.textContent.includes('删除于') && row.textContent.includes('30 天后清除') &&
+          [...document.querySelectorAll('.section-label')].some((el) => el.textContent.includes('已删除')) &&
+          !document.querySelector('.quick-add input') &&
+          Boolean(document.querySelector('.trash-empty-trigger')) &&
+          !document.querySelector('.search-trigger') && !document.querySelector('.progress-ring') &&
+          Boolean(stored) && typeof stored.deletedAt === 'string';
+      })()`)
+
+      // 恢复 → 回收站缺席、主列表可见；成功静默无 toast，撤销槽同步清掉。
+      trashRestoreWorks = await wc.executeJavaScript(`(async () => {
+        ${pageHelpers}
+        const TITLE = '冒烟回收站 主链';
+        const trashNav = () => [...document.querySelectorAll('.nav-item')].find((el) => el.textContent.includes('回收站'));
+        const row = [...document.querySelectorAll('.trash-item')].find((el) => el.textContent.includes(TITLE));
+        if (!row) return false;
+        row.querySelector('.trash-restore').click();
+        const gone = await waitFor(() => ![...document.querySelectorAll('.trash-item')].some((el) => el.textContent.includes(TITLE)));
+        // D15 成功静默 + D8 清撤销槽：撤销 toast 退场后不再有任何 toast 动作。
+        const noUndo = await waitFor(() => !document.querySelector('.toast-action'));
+        const noError = !errorToast();
+        const countZero = trashNav()?.querySelector('.nav-count')?.textContent === '0';
+        const stored = (await window.polaris.tasks.list()).find((t) => t.title === TITLE);
+        [...document.querySelectorAll('.nav-item')].find((el) => el.textContent.includes('全部任务')).click();
+        window.dispatchEvent(new Event('focus'));
+        const back = await waitFor(() => findRow(TITLE));
+        return Boolean(gone) && Boolean(noUndo) && noError && countZero &&
+          Boolean(stored) && stored.deletedAt === null && Boolean(back);
+      })()`)
+
+      // 再删 → 彻底删除（确认弹窗文案字面量、默认焦点取消、Esc 只关弹窗不删、
+      // 确认后缺席）。顺带第五态 ghost 扫描：确认弹窗内两个按钮。
+      const purgeResult = await wc.executeJavaScript(`(async () => {
+        ${pageHelpers}
+        const TITLE = '冒烟回收站 主链';
+        findRow(TITLE).querySelector('.task-delete').click();
+        const gone = await waitFor(() => !findRow(TITLE));
+        [...document.querySelectorAll('.nav-item')].find((el) => el.textContent.includes('回收站')).click();
+        window.dispatchEvent(new Event('focus'));
+        const shown = await waitFor(() => [...document.querySelectorAll('.trash-item')].some((el) => el.textContent.includes(TITLE)));
+        if (!gone || !shown) return { purge: false, ghosts: ['chain-broken'] };
+        const row = [...document.querySelectorAll('.trash-item')].find((el) => el.textContent.includes(TITLE));
+        row.querySelector('.trash-purge').click();
+        const dialog = await waitFor(() => document.querySelector('.confirm-panel'));
+        await sleep(350);
+        const copyOk = document.querySelector('.confirm-message')?.textContent === '彻底删除「' + TITLE + '」？此操作无法撤销。';
+        const labelsOk = JSON.stringify([...document.querySelectorAll('.confirm-actions button')].map((b) => b.textContent)) === JSON.stringify(['取消', '彻底删除']);
+        const focusCancel = document.activeElement === document.querySelector('.confirm-actions button');
+        // 第五态 ghost 扫描，判据与主扫描一致。模板字符串里反斜杠写两个，
+        // 否则页面端正则丢字面括号（见 rgbOf 注释）。
+        const rgbOf = (s) => {
+          const m = /rgba?\\(([^)]+)\\)/.exec(s || '');
+          if (!m) return null;
+          const p = m[1].split(',').map(Number);
+          return { r: p[0], g: p[1], b: p[2], a: p.length > 3 ? p[3] : 1 };
+        };
+        const sameColor = (a, b) =>
+          Boolean(a && b) && Math.abs(a.r - b.r) <= 6 && Math.abs(a.g - b.g) <= 6 && Math.abs(a.b - b.b) <= 6;
+        const ghosts = [];
+        for (const el of document.querySelectorAll('.confirm-panel button')) {
+          if (el.disabled) continue;
+          const prev = document.activeElement;
+          el.focus();
+          if (document.activeElement !== el) continue;
+          const cs = getComputedStyle(el);
+          const fill = rgbOf(cs.backgroundColor);
+          if (cs.outlineStyle !== 'none' && el.matches(':focus-visible')) {
+            const ring = rgbOf(cs.outlineColor);
+            const border = rgbOf(cs.borderTopColor);
+            const offset = parseFloat(cs.outlineOffset) || 0;
+            if (fill && fill.a > 0.85 && sameColor(ring, fill)) ghosts.push(el.className + ' [fill]');
+            if (offset > 0 && parseFloat(cs.borderTopWidth) > 0 && border && border.a > 0.5 && sameColor(ring, border)) {
+              ghosts.push(el.className + ' [border]');
+            }
+          }
+          if (prev && prev.focus) prev.focus();
+        }
+        // Esc 派发到真实焦点节点（取消按钮），走 React root 分发那条路径。
+        document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+        const closed = await waitFor(() => !document.querySelector('.confirm-panel'));
+        const stillThere = [...document.querySelectorAll('.trash-item')].some((el) => el.textContent.includes(TITLE));
+        // 重新打开并确认彻底删除。
+        row.querySelector('.trash-purge').click();
+        const reopened = await waitFor(() => document.querySelector('.confirm-panel'));
+        await sleep(350);
+        [...document.querySelectorAll('.confirm-actions button')].find((b) => b.textContent === '彻底删除').click();
+        const purged = await waitFor(() => ![...document.querySelectorAll('.trash-item')].some((el) => el.textContent.includes(TITLE)));
+        const dialogGone = await waitFor(() => !document.querySelector('.confirm-panel'));
+        const emptyShown = await waitFor(() => document.querySelector('.empty-title')?.textContent === '回收站是空的');
+        const storedGone = !(await window.polaris.tasks.listDeleted()).some((t) => t.title === TITLE);
+        const liveGone = !(await window.polaris.tasks.list()).some((t) => t.title === TITLE);
+        return {
+          purge: Boolean(dialog) && copyOk && labelsOk && focusCancel && Boolean(closed) && stillThere &&
+            Boolean(reopened) && Boolean(purged) && Boolean(dialogGone) && Boolean(emptyShown) && storedGone && liveGone,
+          ghosts
+        };
+      })()`)
+      trashPurgeWorks = purgeResult?.purge === true
+      confirmGhostFree = Array.isArray(purgeResult?.ghosts) && purgeResult.ghosts.length === 0
+      if (!confirmGhostFree) console.error('CONFIRM_RING_GHOST', JSON.stringify(purgeResult?.ghosts))
+
+      // 清空链：种两条 → UI 软删（留下撤销槽）→ 清空确认（计数文案字面量）→
+      // 空状态文案 → D8 撤销槽无条件清空。结束后路由回今天，供后续布局测量。
+      trashEmptyWorks = await wc.executeJavaScript(`(async () => {
+        ${pageHelpers}
+        const due = new Date();
+        due.setHours(23, 59, 0, 0);
+        for (const name of ['冒烟回收站 清空甲', '冒烟回收站 清空乙']) {
+          await window.polaris.tasks.create({ title: name, dueAt: due.toISOString(), projectId: null });
+        }
+        [...document.querySelectorAll('.nav-item')].find((el) => el.textContent.includes('今天')).click();
+        window.dispatchEvent(new Event('focus'));
+        const seeded = await waitFor(() => findRow('冒烟回收站 清空甲') && findRow('冒烟回收站 清空乙'));
+        if (!seeded) return false;
+        findRow('冒烟回收站 清空甲').querySelector('.task-delete').click();
+        await waitFor(() => !findRow('冒烟回收站 清空甲'));
+        findRow('冒烟回收站 清空乙').querySelector('.task-delete').click();
+        await waitFor(() => !findRow('冒烟回收站 清空乙'));
+        [...document.querySelectorAll('.nav-item')].find((el) => el.textContent.includes('回收站')).click();
+        window.dispatchEvent(new Event('focus'));
+        const both = await waitFor(() => document.querySelectorAll('.trash-item').length === 2);
+        if (!both) return false;
+        document.querySelector('.trash-empty-trigger').click();
+        const dialog = await waitFor(() => document.querySelector('.confirm-panel'));
+        await sleep(350);
+        const copyOk = document.querySelector('.confirm-message')?.textContent === '清空回收站？将彻底删除 2 个任务，此操作无法撤销。';
+        const labelsOk = JSON.stringify([...document.querySelectorAll('.confirm-actions button')].map((b) => b.textContent)) === JSON.stringify(['取消', '确认清空']);
+        [...document.querySelectorAll('.confirm-actions button')].find((b) => b.textContent === '确认清空').click();
+        const emptied = await waitFor(() => document.querySelector('.empty-title')?.textContent === '回收站是空的');
+        const descOk = document.querySelector('.empty-desc')?.textContent === '删除的任务会在这里保留 30 天';
+        const noCta = !document.querySelector('.empty-cta');
+        // D8：清空无条件清撤销槽，不留永远失败的 Ctrl Z。
+        const noUndo = await waitFor(() => !document.querySelector('.toast-action'));
+        const storedEmpty = (await window.polaris.tasks.listDeleted()).length === 0;
+        const countZero = [...document.querySelectorAll('.nav-item')].find((el) => el.textContent.includes('回收站'))?.querySelector('.nav-count')?.textContent === '0';
+        const disabled = document.querySelector('.trash-empty-trigger')?.disabled === true;
+        [...document.querySelectorAll('.nav-item')].find((el) => el.textContent.includes('今天')).click();
+        window.dispatchEvent(new Event('focus'));
+        await waitFor(() => document.querySelector('.quick-add input'));
+        return Boolean(dialog) && copyOk && labelsOk && Boolean(emptied) && descOk && noCta &&
+          Boolean(noUndo) && storedEmpty && countZero && disabled;
+      })()`)
+
+      // 硬删失败注入：摘 tasks:delete-forever → 错误 toast 字面量 + 行回滚到
+      // 回收站 + 库里仍在；恢复后重试成功并清场。与写失败块同一手法。
+      await seedWriteTask('冒烟回收站 硬删失败')
+      await wc.executeJavaScript(`(async () => {
+        ${pageHelpers}
+        const TITLE = '冒烟回收站 硬删失败';
+        findRow(TITLE).querySelector('.task-delete').click();
+        await waitFor(() => !findRow(TITLE));
+        [...document.querySelectorAll('.nav-item')].find((el) => el.textContent.includes('回收站')).click();
+        window.dispatchEvent(new Event('focus'));
+        await waitFor(() => [...document.querySelectorAll('.trash-item')].some((el) => el.textContent.includes(TITLE)));
+      })()`)
+      ipcMain.removeHandler('tasks:delete-forever')
+      try {
+        storagePurgeError = await wc.executeJavaScript(`(async () => {
+          ${pageHelpers}
+          const TITLE = '冒烟回收站 硬删失败';
+          const row = [...document.querySelectorAll('.trash-item')].find((el) => el.textContent.includes(TITLE));
+          if (!row) return false;
+          row.querySelector('.trash-purge').click();
+          await waitFor(() => document.querySelector('.confirm-panel'));
+          await sleep(350);
+          [...document.querySelectorAll('.confirm-actions button')].find((b) => b.textContent === '彻底删除').click();
+          const toasted = await waitFor(() => errorToast()?.textContent.includes('保存失败，改动未写入本地数据库'));
+          // 错误 toast 只能由 catch 产生，出现即回滚已提交；再等行回到回收站。
+          const rolledBack = await waitFor(() => [...document.querySelectorAll('.trash-item')].some((el) => el.textContent.includes(TITLE)));
+          const stillStored = (await window.polaris.tasks.listDeleted()).some((t) => t.title === TITLE);
+          return Boolean(toasted) && Boolean(rolledBack) && stillStored;
+        })()`)
+      } finally {
+        resetTaskIpc()
+      }
+      storagePurgeClears = await wc.executeJavaScript(`(async () => {
+        ${pageHelpers}
+        const TITLE = '冒烟回收站 硬删失败';
+        const row = [...document.querySelectorAll('.trash-item')].find((el) => el.textContent.includes(TITLE));
+        if (!row) return false;
+        row.querySelector('.trash-purge').click();
+        await waitFor(() => document.querySelector('.confirm-panel'));
+        await sleep(350);
+        [...document.querySelectorAll('.confirm-actions button')].find((b) => b.textContent === '彻底删除').click();
+        const gone = await waitFor(() => ![...document.querySelectorAll('.trash-item')].some((el) => el.textContent.includes(TITLE)));
+        const cleared = await waitFor(() => !errorToast());
+        const storedGone = !(await window.polaris.tasks.listDeleted()).some((t) => t.title === TITLE);
+        [...document.querySelectorAll('.nav-item')].find((el) => el.textContent.includes('今天')).click();
+        window.dispatchEvent(new Event('focus'));
+        await waitFor(() => document.querySelector('.quick-add input'));
+        return Boolean(gone) && Boolean(cleared) && storedGone;
+      })()`)
+
+      // 清空失败注入（修复 5）：摘 tasks:empty-trash → 软删留下撤销槽 → 清空确认
+      // 失败 → 错误 toast + 行回滚 + 撤销槽还原（撤销 toast 退场落定后仍在）。
+      // 未还原撤销槽的话，乐观清空卸载的撤销 toast 不会再出现。
+      await seedWriteTask('冒烟回收站 清空失败')
+      ipcMain.removeHandler('tasks:empty-trash')
+      try {
+        storageEmptyError = await wc.executeJavaScript(`(async () => {
+          ${pageHelpers}
+          const TITLE = '冒烟回收站 清空失败';
+          findRow(TITLE).querySelector('.task-delete').click();
+          await waitFor(() => !findRow(TITLE));
+          [...document.querySelectorAll('.nav-item')].find((el) => el.textContent.includes('回收站')).click();
+          window.dispatchEvent(new Event('focus'));
+          await waitFor(() => [...document.querySelectorAll('.trash-item')].some((el) => el.textContent.includes(TITLE)));
+          document.querySelector('.trash-empty-trigger').click();
+          await waitFor(() => document.querySelector('.confirm-panel'));
+          await sleep(350);
+          [...document.querySelectorAll('.confirm-actions button')].find((b) => b.textContent === '确认清空').click();
+          const toasted = await waitFor(() => errorToast()?.textContent.includes('保存失败，改动未写入本地数据库'));
+          const rolledBack = await waitFor(() => [...document.querySelectorAll('.trash-item')].some((el) => el.textContent.includes(TITLE)));
+          // 等乐观清空的撤销 toast 退场落定：修复 5 还原撤销槽则它重新在场。
+          await sleep(350);
+          const undoKept = Boolean(document.querySelector('.toast-action'));
+          const stillStored = (await window.polaris.tasks.listDeleted()).some((t) => t.title === TITLE);
+          return Boolean(toasted) && Boolean(rolledBack) && undoKept && stillStored;
+        })()`)
+      } finally {
+        resetTaskIpc()
+      }
+      storageEmptyClears = await wc.executeJavaScript(`(async () => {
+        ${pageHelpers}
+        document.querySelector('.trash-empty-trigger').click();
+        await waitFor(() => document.querySelector('.confirm-panel'));
+        await sleep(350);
+        [...document.querySelectorAll('.confirm-actions button')].find((b) => b.textContent === '确认清空').click();
+        const emptied = await waitFor(() => document.querySelector('.empty-title')?.textContent === '回收站是空的');
+        const noUndo = await waitFor(() => !document.querySelector('.toast-action'));
+        const cleared = await waitFor(() => !errorToast());
+        const storedEmpty = (await window.polaris.tasks.listDeleted()).length === 0;
+        [...document.querySelectorAll('.nav-item')].find((el) => el.textContent.includes('今天')).click();
+        window.dispatchEvent(new Event('focus'));
+        await waitFor(() => document.querySelector('.quick-add input'));
+        return Boolean(emptied) && Boolean(noUndo) && Boolean(cleared) && storedEmpty;
+      })()`)
+
+      // 双读失败归属（readFailures 集合）：load 与 loadTrash 同时失败后，只让
+      // trash 读成功不能清掉 load 的失败证据——错误 toast 必须等两个读都成功
+      // 才消失。单槽归属会被后失败者覆盖，先失败的证据就丢了。
+      ipcMain.removeHandler('tasks:list')
+      ipcMain.removeHandler('tasks:list-deleted')
+      try {
+        await wc.executeJavaScript(`(async () => {
+          ${pageHelpers}
+          window.dispatchEvent(new Event('focus'));
+          await waitFor(() => errorToast()?.textContent.includes('读取本地数据失败'));
+          // toast 由先失败的读挂出；等后一个读的 catch 也落地再进入下一阶段。
+          await sleep(350);
+        })()`)
+      } finally {
+        resetTaskIpc()
+      }
+      // 恢复后不 dispatch focus：load 尚未重试。只重摘主读，让 trash 读单独成功。
+      ipcMain.removeHandler('tasks:list')
+      try {
+        storageDualReadError = await wc.executeJavaScript(`(async () => {
+          ${pageHelpers}
+          [...document.querySelectorAll('.nav-item')].find((el) => el.textContent.includes('回收站')).click();
+          const shown = await waitFor(() => document.querySelector('.view-title')?.textContent === '回收站');
+          // setView 触发的 loadTrash 此刻已成功；load 的失败标记必须仍在。
+          await sleep(350);
+          return Boolean(shown) && errorToast()?.textContent === '读取本地数据失败';
+        })()`)
+      } finally {
+        resetTaskIpc()
+      }
+      // 两个读都成功，错误 toast 才允许消失；随后路由回今天。
+      storageDualReadCleared = await wc.executeJavaScript(`(async () => {
+        ${pageHelpers}
+        window.dispatchEvent(new Event('focus'));
+        const cleared = await waitFor(() => !errorToast());
+        [...document.querySelectorAll('.nav-item')].find((el) => el.textContent.includes('今天')).click();
+        window.dispatchEvent(new Event('focus'));
+        await waitFor(() => document.querySelector('.quick-add input'));
+        return Boolean(cleared);
+      })()`)
+
+      // 确认弹窗协调：弹窗开着时 N 不切视图、Ctrl Z 不恢复被确认的行；
+      // aria-describedby 指向完整警告；确认硬删退场落定后焦点不丢到 body。
+      // 撤销 toast 只有 6 秒窗口，删除→确认→断言在同一个页面块里快速完成。
+      await seedWriteTask('冒烟回收站 确认')
+      const confirmResult = await wc.executeJavaScript(`(async () => {
+        ${pageHelpers}
+        const TITLE = '冒烟回收站 确认';
+        findRow(TITLE).querySelector('.task-delete').click();
+        await waitFor(() => !findRow(TITLE));
+        [...document.querySelectorAll('.nav-item')].find((el) => el.textContent.includes('回收站')).click();
+        const shown = await waitFor(() => [...document.querySelectorAll('.trash-item')].some((el) => el.textContent.includes(TITLE)));
+        if (!shown) return { blocksN: false, blocksUndo: false, describedBy: false, focusLands: false };
+        const row = [...document.querySelectorAll('.trash-item')].find((el) => el.textContent.includes(TITLE));
+        row.querySelector('.trash-purge').click();
+        await waitFor(() => document.querySelector('.confirm-panel'));
+        await sleep(350);
+        // 读屏打开即播报完整警告：aria-describedby 必须指向确认文案本身。
+        const descId = document.querySelector('.confirm-panel')?.getAttribute('aria-describedby');
+        const describedBy = Boolean(descId) &&
+          document.getElementById(descId)?.textContent === '彻底删除「' + TITLE + '」？此操作无法撤销。';
+        // N 让位：不切视图、不抢焦点（默认焦点在取消按钮上）。
+        document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { key: 'n', bubbles: true }));
+        await sleep(150);
+        const blocksN = document.querySelector('.view-title')?.textContent === '回收站' &&
+          Boolean(document.querySelector('.confirm-panel')) &&
+          Boolean(document.activeElement?.closest('.confirm-panel'));
+        // Ctrl Z 让位：被确认的行不恢复，撤销 toast 原样保留。
+        const countBefore = document.querySelectorAll('.trash-item').length;
+        document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { key: 'z', ctrlKey: true, bubbles: true }));
+        await sleep(150);
+        const blocksUndo = document.querySelectorAll('.trash-item').length === countBefore &&
+          [...document.querySelectorAll('.trash-item')].some((el) => el.textContent.includes(TITLE)) &&
+          Boolean(document.querySelector('.confirm-panel')) &&
+          Boolean(document.querySelector('.toast-action'));
+        // Esc 只关弹窗不删，焦点还给触发者。
+        document.querySelector('.confirm-panel')?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+        const closed = await waitFor(() => !document.querySelector('.confirm-panel'));
+        // 重新打开并确认硬删：退场落定后焦点必须落在 .main 或邻行恢复按钮，
+        // 不能随失效的落点丢到 body。
+        row.querySelector('.trash-purge').click();
+        const reopened = await waitFor(() => document.querySelector('.confirm-panel'));
+        await sleep(350);
+        [...document.querySelectorAll('.confirm-actions button')].find((b) => b.textContent === '彻底删除').click();
+        const purged = await waitFor(() => ![...document.querySelectorAll('.trash-item')].some((el) => el.textContent.includes(TITLE)));
+        const dialogGone = await waitFor(() => !document.querySelector('.confirm-panel'));
+        await sleep(350);
+        const focusLands = Boolean(closed) && Boolean(reopened) && Boolean(purged) && Boolean(dialogGone) &&
+          document.activeElement !== document.body &&
+          (document.activeElement?.classList.contains('main') || document.activeElement?.classList.contains('trash-restore'));
+        [...document.querySelectorAll('.nav-item')].find((el) => el.textContent.includes('今天')).click();
+        window.dispatchEvent(new Event('focus'));
+        await waitFor(() => document.querySelector('.quick-add input'));
+        return { blocksN, blocksUndo, describedBy, focusLands };
+      })()`)
+      confirmBlocksN = confirmResult?.blocksN === true
+      confirmBlocksUndo = confirmResult?.blocksUndo === true
+      confirmDescribedBy = confirmResult?.describedBy === true
+      trashFocusLands = confirmResult?.focusLands === true
     }
 
     // The strip must stay one row at both the narrow window and the wide window
@@ -2274,8 +2803,9 @@ async function runSmokeTest(): Promise<void> {
     } finally {
       dismissReminder()
       if (reminderTaskId) {
+        // 软删后再硬删：冒烟夹具不留回收站残留。
         await mainWindow?.webContents.executeJavaScript(
-          `window.polaris.tasks.remove(${JSON.stringify(reminderTaskId)})`
+          `window.polaris.tasks.remove(${JSON.stringify(reminderTaskId)}).then(() => window.polaris.tasks.deleteForever(${JSON.stringify(reminderTaskId)}))`
         )
       }
       // 等提醒窗真的关掉再做后面的窗口缩放测量，否则残留窗口会干扰截图与布局。
@@ -2353,6 +2883,7 @@ async function runSmokeTest(): Promise<void> {
       priorityOrdering: result.priorityOrdering === true,
       completedAtTested: result.completedAtTested === true,
       recurrenceStamps: result.recurrenceStamps === true,
+      deletedAtTested: result.deletedAtTested === true,
       checkDrawnReduced: checkDrawnReduced === true,
       parseErrorReceipt: parseErrorReceipt === true,
       storageToggleError: storageToggleError === true,
@@ -2361,6 +2892,22 @@ async function runSmokeTest(): Promise<void> {
       storageLoadError: storageLoadError === true,
       storageErrorDismiss: storageErrorDismiss === true,
       storageErrorClears: storageErrorClears === true,
+      trashDeleteVisible: trashDeleteVisible === true,
+      trashRestoreWorks: trashRestoreWorks === true,
+      trashPurgeWorks: trashPurgeWorks === true,
+      confirmGhostFree: confirmGhostFree === true,
+      trashEmptyWorks: trashEmptyWorks === true,
+      storagePurgeError: storagePurgeError === true,
+      storagePurgeClears: storagePurgeClears === true,
+      storageEmptyError: storageEmptyError === true,
+      storageEmptyClears: storageEmptyClears === true,
+      storageDualReadError: storageDualReadError === true,
+      storageDualReadCleared: storageDualReadCleared === true,
+      confirmBlocksN: confirmBlocksN === true,
+      confirmBlocksUndo: confirmBlocksUndo === true,
+      confirmDescribedBy: confirmDescribedBy === true,
+      trashFocusLands: trashFocusLands === true,
+      retentionTable: retentionOk === true,
       parseGrammarTable: parseAssertions.grammar === true,
       parseInvariants: parseAssertions.invariants === true,
       parseFormatNull: parseAssertions.format === true,
@@ -2387,6 +2934,22 @@ async function runSmokeTest(): Promise<void> {
           storageLoadError,
           storageErrorDismiss,
           storageErrorClears,
+          trashDeleteVisible,
+          trashRestoreWorks,
+          trashPurgeWorks,
+          confirmGhostFree,
+          trashEmptyWorks,
+          storagePurgeError,
+          storagePurgeClears,
+          storageEmptyError,
+          storageEmptyClears,
+          storageDualReadError,
+          storageDualReadCleared,
+          confirmBlocksN,
+          confirmBlocksUndo,
+          confirmDescribedBy,
+          trashFocusLands,
+          retentionTable: retentionOk,
           parseGrammarTable: parseAssertions.grammar,
           parseInvariants: parseAssertions.invariants,
           parseFormatNull: parseAssertions.format,
@@ -2441,6 +3004,8 @@ app.whenReady().then(() => {
   if (!gotSingleInstanceLock) return
 
   initDatabase()
+  // Missed retention windows are caught up on launch, same as missed reminders.
+  purgeExpiredDeleted(new Date().toISOString())
   initAppTheme()
   registerIpc()
 

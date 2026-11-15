@@ -36,6 +36,9 @@ export function UndoToast() {
     if (!pending) return
     const onKeyDown = (event: KeyboardEvent) => {
       if (!(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== 'z') return
+      // 破坏性确认弹窗开着时不响应撤销：否则被确认的行会被悄悄恢复，
+      // 确认按钮变成静默空操作。
+      if (useTaskStore.getState().trashConfirm) return
       const target = event.target as HTMLElement | null
       if (target?.closest('input, textarea, [contenteditable="true"]')) return
       event.preventDefault()
