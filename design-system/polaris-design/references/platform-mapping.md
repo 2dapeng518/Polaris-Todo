@@ -1,10 +1,10 @@
 # Polaris: Platform Mapping
 
-Polaris is an Electron app on Windows 11. The renderer is Chromium/WebView2, so this system maps to CSS and React/Motion only. SwiftUI and native mobile mappings are out of scope.
+Polaris is an Electron app on Windows 11. The renderer is Chromium (Electron ships Chromium only, not WebView2), so this system maps to CSS and React/Motion only. SwiftUI and native mobile mappings are out of scope.
 
 ## 1. FONT LOADING
 
-The app uses the Fontsource variable packages. They are devDependencies because Vite bundles the font files into the renderer.
+The app uses the Fontsource variable packages. They are `dependencies` (runtime assets): Vite bundles the used woff2 files into the renderer, and electron-builder excludes the full `node_modules/@fontsource-variable` packages to avoid shipping the fonts twice.
 
 ```ts
 import '@fontsource-variable/manrope'

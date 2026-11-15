@@ -58,7 +58,7 @@ function fromWallTime(date: Date): Date {
   )
 }
 
-function nextMonthlyClamped(due: Date, now: Date): Date | null {
+export function nextMonthlyClamped(due: Date, now: Date): Date | null {
   const day = due.getDate()
   const hours = due.getHours()
   const minutes = due.getMinutes()

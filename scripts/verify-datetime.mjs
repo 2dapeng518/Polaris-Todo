@@ -3,11 +3,10 @@
 // 撞 23:59 那一分钟的概率是 60/86400，实际上永远撞不到。
 // 用法：node scripts/verify-datetime.mjs
 //
-// 覆盖范围的诚实说明：DAY 固定在非夏令时跳变日，且脚本跑在**本机时区**。
-// 在 Asia/Shanghai（本应用的目标时区，无 DST）这足以证明「不落过去」。
-// 但在有夏令时回拨的时区，laterToday 的 sameDay 分支仍可能返回过去时刻 ——
-// 墙钟时分在重复小时里是歧义的，回填后解析到较早的那个瞬间。那条路径**尚未修复**，
-// 本脚本也不声称覆盖它：把 DAY 换成跳变日并设 process.env.TZ 就能复现。
+// 覆盖范围：固定日的全天扫描跑在本机时区；此外对 7 个时区（含无 DST 的上海对照）
+// 按小时扫 getTimezoneOffset() 自动定位 2026 年每一次夏令时跳变，对跳变窗口按 epoch
+// 步进扫描，并钉死纽约重复小时与圣地亚哥午夜回拨两个反例。laterToday 以「读回真实瞬间
+// 严格晚于 now」为判据沿真实时间轴推进，已修复墙钟回填在重复小时里解析到较早瞬间的问题。
 import { laterToday, shiftMinutes, isComplete, draftToIso } from '../src/renderer/src/lib/dateTime.ts'
 
 let fail = 0

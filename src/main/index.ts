@@ -17,6 +17,7 @@ import { createTray } from './tray'
 import { TRAY_ICON_DATA_URL } from './tray-icon'
 import { dismissKeys, formatParsedDue, parseQuickAdd, pruneDismissed } from '../shared/quickAddParse'
 import { isPurgeable } from '../shared/retention'
+import { nextMonthlyClamped } from '../shared/recurrence'
 
 let mainWindow: BrowserWindow | null = null
 let isQuitting = false
@@ -947,6 +948,49 @@ function runRetentionAssertions(): boolean {
     if (got !== want) {
       ok = false
       console.error('RETENTION_CASE_FAIL', JSON.stringify({ deletedAt, now, got, want }))
+    }
+  }
+  return ok
+}
+
+// 月度钳制用字面量期望钉死：nextMonthlyClamped 把 29–31 日钳到短月最后一天而非跳月，
+// 保留时分秒毫秒，候选必须严格晚于 due 与 now。注入 due/now（本地墙钟），期望不经被测函数自算。
+function runRecurrenceAssertions(): boolean {
+  const at = (y: number, mo: number, d: number, h = 9, mi = 0, s = 0, ms = 0) =>
+    new Date(y, mo, d, h, mi, s, ms)
+  const key = (d: Date | null) =>
+    d
+      ? `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()} ${d.getHours()}:${d.getMinutes()}:${d.getSeconds()}.${d.getMilliseconds()}`
+      : 'null'
+  // [due, now, 期望]
+  const table: Array<[Date, Date, string]> = [
+    // 31 日 → 平年 2 月钳到 28
+    [at(2026, 0, 31), at(2026, 0, 31), '2026-2-28 9:0:0.0'],
+    // 30 日 → 2 月同样钳到 28
+    [at(2026, 0, 30, 8), at(2026, 0, 30, 8), '2026-2-28 8:0:0.0'],
+    // 29 日 → 平年 2 月钳到 28
+    [at(2026, 0, 29), at(2026, 0, 29), '2026-2-28 9:0:0.0'],
+    // 闰年 2 月：31 日钳到 29
+    [at(2028, 0, 31, 10), at(2028, 0, 31, 10), '2028-2-29 10:0:0.0'],
+    // 31 日 → 4 月（30 天）钳到 30
+    [at(2026, 2, 31), at(2026, 2, 31), '2026-4-30 9:0:0.0'],
+    // 31 日 → 8 月（31 天）不钳
+    [at(2026, 6, 31), at(2026, 6, 31), '2026-8-31 9:0:0.0'],
+    // 跨年：12 月 31 → 次年 1 月 31
+    [at(2026, 11, 31, 23, 59), at(2026, 11, 31, 23, 59), '2027-1-31 23:59:0.0'],
+    // now 已过 due 落在月中：从 now 所在月取钳制日
+    [at(2026, 0, 31), at(2026, 2, 15, 12), '2026-3-31 9:0:0.0'],
+    // now 在 2 月且 due 是 31：2 月 28 仍晚于 now → 取 2 月 28
+    [at(2026, 0, 31), at(2026, 1, 10, 12), '2026-2-28 9:0:0.0'],
+    // 保留时分秒毫秒
+    [at(2026, 0, 31, 18, 30, 45, 500), at(2026, 0, 31, 18, 30, 45, 500), '2026-2-28 18:30:45.500']
+  ]
+  let ok = true
+  for (const [due, now, want] of table) {
+    const got = key(nextMonthlyClamped(due, now))
+    if (got !== want) {
+      ok = false
+      console.error('RECURRENCE_CASE_FAIL', JSON.stringify({ due: key(due), now: key(now), got, want }))
     }
   }
   return ok
@@ -2001,6 +2045,7 @@ async function runSmokeTest(): Promise<void> {
 
     const parseAssertions = runParseAssertions()
     const retentionOk = runRetentionAssertions()
+    const recurrenceOk = runRecurrenceAssertions()
 
     // A real failed submit: drop the IPC channel so invoke() genuinely rejects.
     // contextBridge freezes window.polaris, so it cannot be stubbed in the page.
@@ -2945,6 +2990,7 @@ async function runSmokeTest(): Promise<void> {
       confirmDescribedBy: confirmDescribedBy === true,
       trashFocusLands: trashFocusLands === true,
       retentionTable: retentionOk === true,
+      recurrenceClampTable: recurrenceOk === true,
       parseGrammarTable: parseAssertions.grammar === true,
       parseInvariants: parseAssertions.invariants === true,
       parseFormatNull: parseAssertions.format === true,
@@ -2954,7 +3000,7 @@ async function runSmokeTest(): Promise<void> {
     }
     const failed = Object.keys(checks).filter((name) => !checks[name])
     const ok = failed.length === 0
-    // 单独一行、显眼、可 grep：偶发失败时不必再从六十多个字段里肉眼找。
+    // 单独一行、显眼、可 grep：偶发失败时不必再从九十多个字段里肉眼找。
     if (!ok) console.error('POLARIS_SMOKE_FAILED ' + JSON.stringify(failed))
 
     console.log(
@@ -2987,6 +3033,7 @@ async function runSmokeTest(): Promise<void> {
           confirmDescribedBy,
           trashFocusLands,
           retentionTable: retentionOk,
+          recurrenceClampTable: recurrenceOk,
           parseGrammarTable: parseAssertions.grammar,
           parseInvariants: parseAssertions.invariants,
           parseFormatNull: parseAssertions.format,

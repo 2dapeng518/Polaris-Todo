@@ -15,7 +15,7 @@ Specs:
 |----------|-------|
 | Padding | 0 14px (primary/secondary), 0 10px (ghost/destructive) |
 | Font | Inter, 13px, weight 600 |
-| Focus | 2px `--accent` ring, 2px offset |
+| Focus | 2px `--accent` ring; accent-filled controls take `--on-accent` at a negative offset (ring inside the fill), accent-bordered controls drop the border while focused — the ring never matches its own surface |
 | Hover | Primary brightness 1.06; secondary `--surface2`; ghost `--surface2`; destructive stronger error tint |
 | Active | No layout shift; reduce brightness or add a 1px inner shadow |
 | Disabled | Opacity 0.4, no hover, no focus |

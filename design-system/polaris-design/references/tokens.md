@@ -60,7 +60,7 @@ The light accent is `brand.600`, the dark accent is `brand.300`.
 
 ### Star: violet secondary
 
-Used only in the four-point mark, the progress ring, and the empty-state composition. Not a UI accent.
+Used only in the four-point mark and the empty-state composition. Not a UI accent. The progress ring uses the teal `--accent`, not violet.
 
 `star.300 #C4B5FD`, `star.400 #A78BFA`, `star.500 #8B5CF6`, `star.600 #7C3AED`, `star.700 #6D28D9`.
 

@@ -1,0 +1,23 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  checks:
+    # 纯 Node 关口：typecheck 与两个 verify 脚本都不需要 Electron/显示器。
+    # 冒烟测试（需 Windows + Electron + 真实 UI）仍在本地跑，见 README「测试」。
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '26'
+          cache: npm
+      # 跳过生命周期脚本：这些关口不加载 better-sqlite3 原生模块，也不需要 Electron 二进制。
+      - run: npm ci --ignore-scripts
+      - run: npm run typecheck
+      - run: npm run verify:themes
+      - run: npm run verify:datetime

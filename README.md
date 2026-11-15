@@ -2,7 +2,7 @@
 
 Windows 11 上的本地优先待办应用。深色墨黑界面、青绿信号色、原生窗口控件，数据默认只保存在本机。
 
-[![版本](https://img.shields.io/badge/version-0.3.0-0F766E?style=flat-square)](package.json)
+[![版本](https://img.shields.io/badge/version-0.3.1-0F766E?style=flat-square)](package.json)
 [![平台](https://img.shields.io/badge/platform-Windows%2011-334155?style=flat-square)](package.json)
 [![许可证](https://img.shields.io/badge/license-MIT-0F766E?style=flat-square)](package.json)
 
@@ -221,17 +221,17 @@ build/         应用图标与安装包资源
 
 ## 开发流程
 
-当前仓库只有 `main` 分支，没有配置分支保护、PR 模板或 CI。推荐的本地流程：
+当前仓库以 `main` 为主分支（另有若干功能分支），已配置基础 CI（typecheck + 主题/日期校验，见 `.github/workflows/ci.yml`），尚无分支保护与 PR 模板。推荐的本地流程：
 
 1. 改代码，用 `npm run dev` 验证交互。
 2. 运行 `npm run typecheck`。
 3. 运行 `npm run build && npm run smoke`。
-4. 需要看视觉结果时，构建后用 `POLARIS_SHOT=<mode> npx electron .` 截图到仓库根目录；模式包括 `detail`、`palette`、`projects`、`reminder`、`reminder-detail`、`settings`、`theme-menu`、`palette-theme`、`toast`、`recurrence`、`parse`、`parse-past`、`parse-notice`、`parse-blocked`、`due-picker`、`due-clear`、`trash` 及各自的 `light-` 变体，另有仅深色的 `trash-confirm`（回收站的彻底删除确认弹窗）、`narrow`（先把窗口缩到 1100×800 再截详情栏），以及 `themes`（逐套截取六主题主视图、展开的主题菜单与主题选择器）。回收站截图会自种两条已删任务、截完硬删清场；验证时请加 `--user-data-dir` 隔离，避免改写真实配置目录的主题。
+4. 需要看视觉结果时，构建后用 `POLARIS_SHOT=<mode> npx electron .` 截图到仓库根目录；模式包括 `detail`、`palette`、`projects`、`reminder`、`reminder-detail`、`settings`、`theme-menu`、`palette-theme`、`toast`、`recurrence`、`parse`、`parse-past`、`parse-notice`、`parse-blocked`、`due-picker`、`due-clear`、`trash` 及各自的 `light-` 变体，另有仅深色的 `trash-confirm`（回收站的彻底删除确认弹窗）、`narrow`（先把窗口缩到 1100×800 再截详情栏），以及 `themes`（逐套截取六主题主视图、展开的主题菜单与主题选择器）、`splash`（逐六主题截取启动页，不触碰主窗口主题）。回收站截图会自种两条已删任务、截完硬删清场；验证时请加 `--user-data-dir` 隔离，避免改写真实配置目录的主题。
 5. 发布前运行 `npm run build:win`。
 
 打包产物：
 
-- `dist/Polaris-Setup-0.2.1.exe`：NSIS 安装包，按用户安装，无需管理员权限，安装界面为简体中文。
+- `dist/Polaris-Setup-0.3.1.exe`：NSIS 安装包，按用户安装，无需管理员权限，安装界面为简体中文。
 - `dist/win-unpacked/Polaris.exe`：免安装目录版。
 
 安装包未做代码签名，首次运行可能触发 SmartScreen 或杀毒软件扫描提示。应用图标来自 `build/icon.ico`，可用 `node scripts/make-app-icon.mjs` 重新生成。
@@ -263,7 +263,7 @@ npm run verify:datetime
 
 校验除固定日的全天扫描外，还覆盖 **7 个时区 2026 年的每一次夏令时跳变**（纽约、圣地亚哥、哈瓦那、豪勋爵岛、查塔姆、伦敦，以及无 DST 的上海作对照），共 17280 个真实时刻。跳变日不写死，按小时扫 `getTimezoneOffset()` 自动定位；扫描按 epoch 步进，因为拼墙钟结构上撞不到重复小时的第二次出现。
 
-`scripts/smoke.mjs` 启动真实 Electron，`runSmokeTest()`（在 `src/main/index.ts`）通过 `webContents.executeJavaScript` 驱动界面，覆盖快速添加、详情编辑、完成、删除与撤销、命令面板、主题切换、主题菜单、开机自启、重复任务、「已创建下一次」提示、写失败提示和回收站全链路（删除进回收站、恢复回主列表、彻底删除的确认弹窗与 Esc 取消、清空回收站、空状态文案）。写失败可见性通过临时摘掉 `tasks:update` / `tasks:delete` / `tasks:restore` / `tasks:list` / `tasks:delete-forever` 通道制造真实落库失败，验证错误提示文案、乐观回滚、撤销失败后撤销按钮仍在、重试成功或手动关闭后提示清除；恢复时装回生产同一组 IPC handler。回收站的保留期边界（null / 29 天 / 恰好 30 天 / ±1 毫秒 / 非法 / 未来）由 `runRetentionAssertions()` 用字面量期望表钉死，`deletedAt` 字段链验证新建为空、软删盖章、恢复清空。测试使用临时 userData 配置目录，不会碰本机数据，冒烟残留的软删行会硬删清场，结束后自动清理；失败时进程以非零退出码结束，并单独打印一行 `POLARIS_SMOKE_FAILED ["断言名", …]`，结果 JSON 里也带 `failed` 数组，不必从八十多个字段里肉眼找。
+`scripts/smoke.mjs` 启动真实 Electron，`runSmokeTest()`（在 `src/main/index.ts`）通过 `webContents.executeJavaScript` 驱动界面，覆盖快速添加、详情编辑、完成、删除与撤销、命令面板、主题切换、主题菜单、开机自启、重复任务、「已创建下一次」提示、写失败提示和回收站全链路（删除进回收站、恢复回主列表、彻底删除的确认弹窗与 Esc 取消、清空回收站、空状态文案）。写失败可见性通过临时摘掉 `tasks:update` / `tasks:delete` / `tasks:restore` / `tasks:list` / `tasks:delete-forever` 通道制造真实落库失败，验证错误提示文案、乐观回滚、撤销失败后撤销按钮仍在、重试成功或手动关闭后提示清除；恢复时装回生产同一组 IPC handler。回收站的保留期边界（null / 29 天 / 恰好 30 天 / ±1 毫秒 / 非法 / 未来）由 `runRetentionAssertions()` 用字面量期望表钉死，`deletedAt` 字段链验证新建为空、软删盖章、恢复清空。测试使用临时 userData 配置目录，不会碰本机数据，冒烟残留的软删行会硬删清场，结束后自动清理；失败时进程以非零退出码结束，并单独打印一行 `POLARIS_SMOKE_FAILED ["断言名", …]`，结果 JSON 里也带 `failed` 数组，不必从九十多个字段里肉眼找。
 
 主题相关断言分四层：配对快切连点两次回到原主题（三对逐一校验）、六套主题矩阵的 `data-theme` / 持久化 / 令牌生效、标题栏主题菜单（六行齐全且顺序固定、打开即聚焦当前行、点选落库、菜单卸载后 `aria-expanded` 归位、焦点回到箭头、Esc 只收菜单），以及命令面板输入「主题」命中六条直达并选中生效。焦点环扫描覆盖五种界面状态：主视图、详情栏、日期弹层、主题菜单展开、回收站确认弹窗。
 
@@ -273,12 +273,12 @@ npm run verify:datetime
 
 快速添加解析另有两层断言：
 
-- `runParseAssertions()` 在主进程用固定时钟跑一张 130 条的语法真值表、2000 条随机拼接的不变量校验（标题必须等于原串挖掉 token 区间、区间升序不重叠、token 数不超过 4）、300 组随机编辑序列的撤销状态机校验、优先级取值、重名项目、全角项目名、长输入性能和格式真值表。
+- `runParseAssertions()` 在主进程用固定时钟跑一张 115 条的语法真值表、2000 条随机拼接的不变量校验（标题必须等于原串挖掉 token 区间、区间升序不重叠、token 数不超过 4）、300 组随机编辑序列的撤销状态机校验、优先级取值、重名项目、全角项目名、长输入性能和格式真值表。
 - 界面侧验识别标签、撤销不吃字、`#项目` 映射、视图默认值零回归、空标题拦截与播报、输入法守卫、键盘撤销的焦点归属（含撤销最后一个标签）、检查器打开时识别条内 `Esc`、大小写撤销、优先级落库、草稿跨视图存活、跨项目回执，以及 980px 与 1280px（含详情栏）两种宽度下识别条不换行。失败回执通过主进程临时摘掉 `tasks:create` 通道制造真实 IPC 失败来验证。
 
-期望值全部写成字面量，不经过被测函数自算。高度断言用亚像素矩形，曾在 100% / 125% / 150% / 200% 显示缩放和 reduced-motion 下**手动**验证过；smoke 本身不仿真这两种条件，它们目前没有自动化覆盖。动效终态方面，`checkDrawn` 会自动断言对勾的 `stroke-dashoffset` 终值为 `0px`。
+期望值全部写成字面量，不经过被测函数自算。高度断言用亚像素矩形，曾在 100% / 125% / 150% / 200% 显示缩放下**手动**验证过；smoke 不仿真显示缩放，该条件目前没有自动化覆盖。reduced-motion 已有自动化单点：`checkDrawnReduced` 经 CDP 设 `prefers-reduced-motion: reduce` 并让对勾**重挂载**后断言终态（`checkDrawn` 断言 `stroke-dashoffset` 为 `0px`）；reduce 下的段宽、分隔线、小字号中文等细节仍靠手动。
 
-视觉检查通过上面的 `POLARIS_SHOT` 截图完成；目前没有 CI，截图和冒烟测试都需要在本地运行。
+视觉检查通过上面的 `POLARIS_SHOT` 截图完成；基础 CI（typecheck + verify:themes + verify:datetime）已配置，截图和冒烟测试仍需在本地运行。
 
 ## 已知限制
 
