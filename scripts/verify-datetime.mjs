@@ -78,5 +78,75 @@ assert(isComplete('minute', '6') && !isComplete('minute', '5'), '分钟首位 6 
 assert(isComplete('hour', '09') && isComplete('minute', '05'), '两位数一律完成')
 assert(!isComplete('hour', ''), '空串未完成')
 
+console.log('=== 夏令时跳变：多时区真实时刻扫描 ===')
+// 墙钟拼不出重复小时的第二次出现，所以这一段一律按 epoch 步进真实时刻。
+// 跳变日不写死：按小时扫一年，找 getTimezoneOffset() 变化的位置，自动定位。
+// Node 支持运行时改 process.env.TZ 并立即生效（已实测），所以一个进程能跑完全部时区。
+const originalTZ = process.env.TZ
+const ZONES = [
+  'Asia/Shanghai',        // 无 DST，对照组
+  'America/New_York',     // 02:00 回拨 1 小时
+  'America/Santiago',   // 午夜回拨，墙钟在同一天内倒退
+  'America/Havana',       // 午夜回拨 1 小时
+  'Australia/Lord_Howe',  // 半小时 DST
+  'Pacific/Chatham',      // 45 分钟偏移
+  'Europe/London'
+]
+const YEAR_START = Date.UTC(2026, 0, 1)
+const HOUR = 3600000
+
+for (const zone of ZONES) {
+  process.env.TZ = zone
+  const transitions = []
+  let prevOffset = new Date(YEAR_START).getTimezoneOffset()
+  for (let t = YEAR_START + HOUR; t < YEAR_START + 366 * 24 * HOUR; t += HOUR) {
+    const offset = new Date(t).getTimezoneOffset()
+    if (offset !== prevOffset) transitions.push(t)
+    prevOffset = offset
+  }
+
+  let samples = 0
+  let past = 0
+  let badDay = 0
+  let worst = 0
+  for (const edge of transitions) {
+    for (let t = edge - 3 * HOUR; t < edge + 3 * HOUR; t += 15000) {
+      const now = new Date(t)
+      const got = laterToday(now)
+      const back = new Date(draftToIso(got)).getTime()
+      samples++
+      if (back <= now.getTime()) { past++; worst = Math.min(worst, back - now.getTime()) }
+      const localDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
+      const dayDiff = Math.round((got.day.getTime() - localDay) / 86400000)
+      if (dayDiff !== 0 && dayDiff !== 1) badDay++
+    }
+  }
+  const label = `${zone}（2026 年 ${transitions.length} 次跳变，${samples} 个时刻）`
+  assert(past === 0, `${label} 无一落到过去或当下` + (past ? `（越界 ${past}，最差 ${Math.round(worst / 60000)} 分钟）` : ''))
+  assert(badDay === 0, `${label} 结果只落在今天或明天` + (badDay ? `（越界 ${badDay}）` : ''))
+}
+
+console.log('=== 审查给出的两个具体反例 ===')
+process.env.TZ = 'America/New_York'
+{
+  // 2026-11-01 01:30 EST —— 重复小时的第二次出现。Draft 表达不了它，
+  // 只能跳到歧义结束后的第一个刻度 02:00 EST。
+  const now = new Date(Date.UTC(2026, 10, 1, 6, 30))
+  const got = laterToday(now)
+  assert(shape(got) === '2026-11-1 02:00', `纽约重复小时 01:30 EST → 今天 02:00（实得 ${shape(got)}）`)
+  assert(new Date(draftToIso(got)).getTime() > now.getTime(), '纽约反例结果在未来')
+}
+process.env.TZ = 'America/Santiago'
+{
+  // 2026-04-04 23:59:30 -03，午夜回拨前最后一分钟。墙钟随后倒退到 23:00，
+  // 修复前会返回「今天 23:00」，比 now 早 59.5 分钟。
+  const now = new Date(Date.UTC(2026, 3, 5, 2, 59, 30))
+  const got = laterToday(now)
+  assert(shape(got) === '2026-4-5 00:00', `圣地亚哥午夜回拨 23:59:30 → 次日 00:00（实得 ${shape(got)}）`)
+  assert(new Date(draftToIso(got)).getTime() > now.getTime(), '圣地亚哥反例结果在未来')
+}
+if (originalTZ === undefined) delete process.env.TZ
+else process.env.TZ = originalTZ
+
 console.log('\n' + (fail === 0 ? '日期时间不变量全部成立 ✓' : fail + ' 项失败 ✗'))
 process.exit(fail === 0 ? 0 : 1)
