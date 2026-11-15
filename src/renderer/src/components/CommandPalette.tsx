@@ -17,7 +17,7 @@ import {
   Search,
   Sun,
   Trash2
-} from 'lucide-react'
+} from './Icon'
 import type { AppView } from '@shared/types'
 import { useTaskStore } from '../stores/useTaskStore'
 import { useThemeStore } from '../stores/useThemeStore'

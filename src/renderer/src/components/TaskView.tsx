@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { AnimatePresence } from 'motion/react'
-import { Search, Trash2 } from 'lucide-react'
+import { Search, Trash2 } from './Icon'
 import type { AppView, Task } from '@shared/types'
 import { TRASH_RETENTION_DAYS } from '@shared/retention'
 import { useTaskStore } from '../stores/useTaskStore'

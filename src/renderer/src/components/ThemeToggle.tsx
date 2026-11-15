@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react'
-import { ChevronDown, Moon, Sun } from 'lucide-react'
+import { ChevronDown, Moon, Sun } from './Icon'
 import { THEME_META, partnerTheme, themeFamily } from '@shared/themes'
 import { useThemeStore } from '../stores/useThemeStore'
 import { ThemeMenu } from './ThemeMenu'

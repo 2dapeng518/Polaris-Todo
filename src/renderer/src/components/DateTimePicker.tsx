@@ -8,7 +8,7 @@ import {
   type KeyboardEvent,
   type RefObject
 } from 'react'
-import { ChevronLeft, ChevronRight, Minus, Plus } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Minus, Plus } from './Icon'
 import { addDays, addMonths, isSameDay, isSameMonth, startOfMonth, startOfWeek } from 'date-fns'
 import {
   WEEKDAY_LABELS,

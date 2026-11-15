@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
-import { Repeat2, Trash2, TriangleAlert, X } from 'lucide-react'
+import { Repeat2, Trash2, TriangleAlert, X } from './Icon'
 import { useTaskStore } from '../stores/useTaskStore'
 import { formatDue } from '../lib/dates'
 
