@@ -2098,22 +2098,22 @@ async function runSmokeTest(): Promise<void> {
     let trashFocusLands = false
     let storageEmptyError = false
     let storageEmptyClears = false
+    const pageHelpers = `
+      const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+      const waitFor = async (fn, timeout = 6000) => {
+        const start = Date.now();
+        while (Date.now() - start < timeout) {
+          const value = fn();
+          if (value) return value;
+          await sleep(50);
+        }
+        return false;
+      };
+      const findRow = (title) => [...document.querySelectorAll('.task-item')].find((el) => el.textContent.includes(title));
+      const errorToast = () => document.querySelector('.toast-error .toast-message');
+    `
     if (mainWindow) {
       const wc = mainWindow.webContents
-      const pageHelpers = `
-        const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-        const waitFor = async (fn, timeout = 6000) => {
-          const start = Date.now();
-          while (Date.now() - start < timeout) {
-            const value = fn();
-            if (value) return value;
-            await sleep(50);
-          }
-          return false;
-        };
-        const findRow = (title) => [...document.querySelectorAll('.task-item')].find((el) => el.textContent.includes(title));
-        const errorToast = () => document.querySelector('.toast-error .toast-message');
-      `
       // 种子任务带今天 23:59 的截止时间：「今天」视图按 isTodayOrOverdue 过滤，
       // 无截止的任务不渲染；跨午夜后它变成逾期，同样可见。
       const seedWriteTask = (title: string) =>
@@ -2900,6 +2900,44 @@ async function runSmokeTest(): Promise<void> {
     mainWindow?.setSize(originalSize[0], originalSize[1])
     if (mainWindow) await settledFrames(mainWindow.webContents)
 
+    // 面板 Esc 上移到容器：焦点 Tab 到命令按钮后 Esc 仍应关闭面板（旧实现只挂搜索框）。
+    const paletteEscWorks =
+      (await mainWindow?.webContents.executeJavaScript(`(async () => {
+        ${pageHelpers}
+        document.querySelector('.search-trigger').click();
+        if (!(await waitFor(() => document.querySelector('.command-input')))) return false;
+        await sleep(200);
+        const firstButton = document.querySelector('.command-item');
+        if (!firstButton) return false;
+        firstButton.focus();
+        await sleep(50);
+        const focusOnButton = document.activeElement === firstButton;
+        firstButton.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+        const closed = await waitFor(() => !document.querySelector('.command-input'));
+        return focusOnButton && closed;
+      })()`)) === true
+
+    // 空态文案与 CTA：此处在全部数据相关断言之后，清空任务制造空态是安全的。
+    const emptyStateWorks =
+      (await mainWindow?.webContents.executeJavaScript(`(async () => {
+        ${pageHelpers}
+        for (const t of await window.polaris.tasks.list()) await window.polaris.tasks.remove(t.id);
+        for (const t of await window.polaris.tasks.listDeleted()) await window.polaris.tasks.deleteForever(t.id);
+        window.dispatchEvent(new Event('focus'));
+        [...document.querySelectorAll('.nav-item')].find((el) => el.textContent.includes('全部任务')).click();
+        window.dispatchEvent(new Event('focus'));
+        const allEmpty = await waitFor(() => document.querySelector('.empty-title')?.textContent === '还没有任务');
+        const allCta = document.querySelector('.empty-cta')?.textContent === '添加任务';
+        [...document.querySelectorAll('.nav-item')].find((el) => el.textContent.includes('已完成')).click();
+        window.dispatchEvent(new Event('focus'));
+        const completedEmpty = await waitFor(() => document.querySelector('.empty-title')?.textContent === '还没有完成的任务');
+        const completedCta = document.querySelector('.empty-cta')?.textContent === '查看今天';
+        if (!completedCta) return false;
+        document.querySelector('.empty-cta').click();
+        const navigated = await waitFor(() => document.querySelector('.view-title')?.textContent?.trim() === '今天');
+        return allEmpty && allCta && completedEmpty && completedCta && navigated;
+      })()`)) === true
+
     // 逐条具名，而不是串成一条 && 链：失败时必须能一眼看出是哪条断言。
     // 只筛 result 里 value === false 是不够的 —— afterAdd / afterDelete /
     // commandCount 是数值比较，版本号是字符串比较，它们失败时 JSON 里
@@ -2996,7 +3034,9 @@ async function runSmokeTest(): Promise<void> {
       parseFormatNull: parseAssertions.format === true,
       parseLayoutNarrow: parseLayoutNarrow === true,
       parseLayoutWide: parseLayoutWide === true,
-      reminderSurfaceTested: reminderSurfaceTested === true
+      reminderSurfaceTested: reminderSurfaceTested === true,
+      paletteEscWorks: paletteEscWorks === true,
+      emptyStateWorks: emptyStateWorks === true
     }
     const failed = Object.keys(checks).filter((name) => !checks[name])
     const ok = failed.length === 0
@@ -3034,6 +3074,8 @@ async function runSmokeTest(): Promise<void> {
           trashFocusLands,
           retentionTable: retentionOk,
           recurrenceClampTable: recurrenceOk,
+          paletteEscWorks,
+          emptyStateWorks,
           parseGrammarTable: parseAssertions.grammar,
           parseInvariants: parseAssertions.invariants,
           parseFormatNull: parseAssertions.format,

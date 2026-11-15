@@ -1,8 +1,10 @@
 import type { AppView } from '@shared/types'
 import { TRASH_RETENTION_DAYS } from '@shared/retention'
+import { useTaskStore } from '../stores/useTaskStore'
 import { PolarisMark } from './PolarisMark'
 
 export function EmptyState({ view }: { view: AppView }) {
+  const setView = useTaskStore((state) => state.setView)
   const message =
     view === 'trash'
       ? {
@@ -19,10 +21,15 @@ export function EmptyState({ view }: { view: AppView }) {
               title: '未来几天很清爽',
               desc: '按 N 添加一项带日期的任务'
             }
-          : {
-              title: '今天还没有任务',
-              desc: '按 N 或点击上方输入框，添加第一件事'
-            }
+          : view === 'all'
+            ? {
+                title: '还没有任务',
+                desc: '按 N 或点击上方输入框，添加第一件事'
+              }
+            : {
+                title: '今天还没有任务',
+                desc: '按 N 或点击上方输入框，添加第一件事'
+              }
 
   return (
     <div className="empty-state">
@@ -32,14 +39,18 @@ export function EmptyState({ view }: { view: AppView }) {
       </div>
       <div className="empty-title">{message.title}</div>
       <div className="empty-desc">{message.desc}</div>
-      {view !== 'completed' && view !== 'trash' && (
+      {view === 'completed' ? (
+        <button className="empty-cta" onClick={() => setView('today')}>
+          查看今天
+        </button>
+      ) : view !== 'trash' ? (
         <button
           className="empty-cta"
           onClick={() => window.dispatchEvent(new CustomEvent('polaris:quick-add'))}
         >
           添加任务
         </button>
-      )}
+      ) : null}
     </div>
   )
 }
