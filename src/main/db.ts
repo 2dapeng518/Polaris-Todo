@@ -4,6 +4,7 @@ import { randomUUID } from 'node:crypto'
 import { mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { nextOccurrence } from '../shared/recurrence'
+import { isPurgeable } from '../shared/retention'
 import type { CreateTaskInput, Project, Task, UpdateTaskInput } from '../shared/types'
 
 let db: Database.Database
@@ -188,6 +189,7 @@ type TaskRow = {
   priority: number
   created_at: string
   updated_at: string
+  deleted_at: string | null
 }
 
 type ProjectRow = {
@@ -213,7 +215,8 @@ function mapTask(row: TaskRow): Task {
     projectId: row.project_id,
     priority: row.priority,
     createdAt: row.created_at,
-    updatedAt: row.updated_at
+    updatedAt: row.updated_at,
+    deletedAt: row.deleted_at
   }
 }
 
@@ -245,6 +248,17 @@ export function listTasks(): Task[] {
         due_at ASC,
         priority DESC,
         created_at DESC
+    `)
+    .all() as TaskRow[]
+  return rows.map(mapTask)
+}
+
+export function listDeletedTasks(): Task[] {
+  const rows = db
+    .prepare(`
+      SELECT * FROM tasks
+      WHERE deleted_at IS NOT NULL
+      ORDER BY deleted_at DESC, created_at DESC
     `)
     .all() as TaskRow[]
   return rows.map(mapTask)
@@ -423,6 +437,37 @@ export function restoreTask(id: string): Task {
   const task = getTask(id)
   if (!task) throw new Error('任务恢复失败')
   return task
+}
+
+// Idempotent hard delete, scoped to soft-deleted rows so a live task can never
+// be destroyed through this path. No existence check: getTask filters deleted
+// rows out, so it cannot answer "is this row in the trash".
+export function deleteTaskForever(id: string): void {
+  db.prepare('DELETE FROM tasks WHERE id = ? AND deleted_at IS NOT NULL').run(id)
+}
+
+export function emptyTrash(): void {
+  db.prepare('DELETE FROM tasks WHERE deleted_at IS NOT NULL').run()
+}
+
+// Retention cleanup. isPurgeable in shared/retention.ts is the single authority
+// on what expires, so every candidate row is asked in JS — no SQL cutoff that
+// could drift from it. The clock is injected like listDueReminders.
+export function purgeExpiredDeleted(now: string): void {
+  const rows = db
+    .prepare('SELECT id, deleted_at FROM tasks WHERE deleted_at IS NOT NULL')
+    .all() as Array<{ id: string; deleted_at: string | null }>
+  const instant = new Date(now)
+  const expiredIds = rows
+    .filter((row) => isPurgeable(row.deleted_at, instant))
+    .map((row) => row.id)
+  if (expiredIds.length === 0) return
+
+  const purge = db.transaction((ids: string[]) => {
+    const remove = db.prepare('DELETE FROM tasks WHERE id = ?')
+    for (const id of ids) remove.run(id)
+  })
+  purge(expiredIds)
 }
 
 export function listDueReminders(now: string): Task[] {
