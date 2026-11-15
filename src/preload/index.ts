@@ -15,7 +15,10 @@ const api: PolarisApi = {
     update: (input: UpdateTaskInput) => ipcRenderer.invoke('tasks:update', input),
     toggle: (id: string, completed: boolean) => ipcRenderer.invoke('tasks:toggle', { id, completed }),
     remove: (id: string) => ipcRenderer.invoke('tasks:delete', { id }),
-    restore: (id: string) => ipcRenderer.invoke('tasks:restore', { id })
+    restore: (id: string) => ipcRenderer.invoke('tasks:restore', { id }),
+    listDeleted: () => ipcRenderer.invoke('tasks:list-deleted'),
+    deleteForever: (id: string) => ipcRenderer.invoke('tasks:delete-forever', { id }),
+    emptyTrash: () => ipcRenderer.invoke('tasks:empty-trash')
   },
   projects: {
     list: () => ipcRenderer.invoke('projects:list'),

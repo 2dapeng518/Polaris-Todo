@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { CalendarDays, CheckCircle2, HardDrive, ListTodo, Plus, Settings2, Sun } from 'lucide-react'
+import { CalendarDays, CheckCircle2, HardDrive, ListTodo, Plus, Settings2, Sun, Trash2 } from 'lucide-react'
 import { motion } from 'motion/react'
 import type { AppView } from '@shared/types'
 import { useTaskStore } from '../stores/useTaskStore'
@@ -10,13 +10,15 @@ const NAV_ITEMS: Array<{ view: AppView; label: string; icon: typeof Sun }> = [
   { view: 'today', label: '今天', icon: Sun },
   { view: 'upcoming', label: '即将到来', icon: CalendarDays },
   { view: 'all', label: '全部任务', icon: ListTodo },
-  { view: 'completed', label: '已完成', icon: CheckCircle2 }
+  { view: 'completed', label: '已完成', icon: CheckCircle2 },
+  { view: 'trash', label: '回收站', icon: Trash2 }
 ]
 
 const PROJECT_COLORS = ['#5EEAD4', '#A78BFA', '#F0ABFC', '#FBBF24', '#FB7185', '#60A5FA']
 
 export function Sidebar() {
   const tasks = useTaskStore((state) => state.tasks)
+  const trashedTasks = useTaskStore((state) => state.trashedTasks)
   const projects = useTaskStore((state) => state.projects)
   const view = useTaskStore((state) => state.view)
   const projectFilter = useTaskStore((state) => state.projectFilter)
@@ -40,7 +42,8 @@ export function Sidebar() {
     today: activeTasks.filter((task) => isTodayOrOverdue(task.dueAt)).length,
     upcoming: activeTasks.filter((task) => isUpcoming(task.dueAt)).length,
     all: activeTasks.length,
-    completed: tasks.filter((task) => task.completed).length
+    completed: tasks.filter((task) => task.completed).length,
+    trash: trashedTasks.length
   }
 
   const submitProject = async (event: FormEvent<HTMLFormElement>) => {

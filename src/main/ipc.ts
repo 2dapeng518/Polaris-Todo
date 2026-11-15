@@ -5,8 +5,12 @@ import {
   createProject,
   createTask,
   deleteTask,
+  deleteTaskForever,
+  emptyTrash,
+  listDeletedTasks,
   listProjects,
   listTasks,
+  purgeExpiredDeleted,
   restoreTask,
   toggleTask,
   updateTask
@@ -86,6 +90,22 @@ export function registerIpc(): void {
   ipcMain.handle('tasks:restore', (_event, input) => {
     const { id } = taskIdSchema.parse(input)
     return restoreTask(id)
+  })
+
+  // Expired rows are purged before listing so the trash the user sees never
+  // contains a task past its retention window.
+  ipcMain.handle('tasks:list-deleted', () => {
+    purgeExpiredDeleted(new Date().toISOString())
+    return listDeletedTasks()
+  })
+
+  ipcMain.handle('tasks:delete-forever', (_event, input) => {
+    const { id } = taskIdSchema.parse(input)
+    deleteTaskForever(id)
+  })
+
+  ipcMain.handle('tasks:empty-trash', () => {
+    emptyTrash()
   })
 
   ipcMain.handle('projects:list', () => listProjects())
