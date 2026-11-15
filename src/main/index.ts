@@ -853,6 +853,26 @@ async function settledFrames(contents: WebContents): Promise<void> {
   ])
 }
 
+// 冒烟专用：整组摘掉 registerIpc 拥有的通道再原样装回。恢复走的是生产同一个
+// registerIpc()，校验与行为和正常启动完全一致，不必在测试里复制 zod schema，
+// ipc.ts 也不用为测试多导出注册器。removeHandler 对不存在的通道是 no-op；
+// 摘与装在同一个主进程 tick 内完成，渲染层的 invoke 插不进中间。
+function resetTaskIpc(): void {
+  for (const channel of [
+    'tasks:list',
+    'tasks:create',
+    'tasks:update',
+    'tasks:toggle',
+    'tasks:delete',
+    'tasks:restore',
+    'projects:list',
+    'projects:create'
+  ]) {
+    ipcMain.removeHandler(channel)
+  }
+  registerIpc()
+}
+
 async function runSmokeTest(): Promise<void> {
   if (!mainWindow) {
     app.exit(1)
@@ -889,7 +909,7 @@ async function runSmokeTest(): Promise<void> {
 
       await waitFor(() => document.querySelector('.quick-add input'));
       const leftovers = (await window.polaris.tasks.list()).filter((task) =>
-        /^(冒烟测试|重复提示|重复冒烟) /.test(task.title)
+        /^(冒烟测试|重复提示|重复冒烟|冒烟写失败) /.test(task.title)
       );
       if (leftovers.length) {
         const leftoverTitles = new Set(leftovers.map((task) => task.title));
@@ -1832,6 +1852,153 @@ async function runSmokeTest(): Promise<void> {
       }
     }
 
+    // 写失败可见性：摘掉真实 IPC 通道制造落库失败，验证错误提示出现、乐观更新
+    // 回滚、恢复后重试成功并清除提示。与 parseErrorReceipt 同一手法，期望文案写
+    // 字面量。断言只断终态：乐观删除的「任务消失」是瞬态，IPC 拒绝可能在一个
+    // 轮询间隔内就完成回滚，等中间态会偶发超时；错误 toast 只能由 catch 产生。
+    let storageToggleError = false
+    let storageDeleteError = false
+    let storageUndoError = false
+    let storageLoadError = false
+    let storageErrorDismiss = false
+    let storageErrorClears = false
+    if (mainWindow) {
+      const wc = mainWindow.webContents
+      const pageHelpers = `
+        const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+        const waitFor = async (fn, timeout = 6000) => {
+          const start = Date.now();
+          while (Date.now() - start < timeout) {
+            const value = fn();
+            if (value) return value;
+            await sleep(50);
+          }
+          return false;
+        };
+        const findRow = (title) => [...document.querySelectorAll('.task-item')].find((el) => el.textContent.includes(title));
+        const errorToast = () => document.querySelector('.toast-error .toast-message');
+      `
+      // 种子任务带今天 23:59 的截止时间：「今天」视图按 isTodayOrOverdue 过滤，
+      // 无截止的任务不渲染；跨午夜后它变成逾期，同样可见。
+      const seedWriteTask = (title: string) =>
+        wc.executeJavaScript(`(async () => {
+          ${pageHelpers}
+          const due = new Date();
+          due.setHours(23, 59, 0, 0);
+          await window.polaris.tasks.create({ title: ${JSON.stringify(title)}, dueAt: due.toISOString(), projectId: null });
+          window.dispatchEvent(new Event('focus'));
+          await waitFor(() => findRow(${JSON.stringify(title)}));
+          await waitFor(() => !errorToast());
+        })()`)
+
+      // 勾选失败：tasks:update 被摘 → 乐观完成回滚 + 错误提示，库里仍未完成。
+      await seedWriteTask('冒烟写失败 勾选')
+      ipcMain.removeHandler('tasks:update')
+      try {
+        storageToggleError = await wc.executeJavaScript(`(async () => {
+          ${pageHelpers}
+          const TITLE = '冒烟写失败 勾选';
+          findRow(TITLE).querySelector('.task-check').click();
+          const toasted = await waitFor(() => errorToast()?.textContent.includes('保存失败，改动未写入本地数据库'));
+          await sleep(250);
+          const rolledBack = !findRow(TITLE).classList.contains('done');
+          const stored = (await window.polaris.tasks.list()).find((t) => t.title === TITLE);
+          return Boolean(toasted) && rolledBack && stored?.completed === false;
+        })()`)
+      } finally {
+        resetTaskIpc()
+      }
+      // 恢复后重试勾选：成功 → 完成落库、错误提示清除，随后清场。
+      storageErrorClears = await wc.executeJavaScript(`(async () => {
+        ${pageHelpers}
+        const TITLE = '冒烟写失败 勾选';
+        findRow(TITLE).querySelector('.task-check').click();
+        const done = await waitFor(() => findRow(TITLE)?.classList.contains('done'));
+        const cleared = await waitFor(() => !errorToast());
+        const stored = (await window.polaris.tasks.list()).find((t) => t.title === TITLE);
+        if (stored) await window.polaris.tasks.remove(stored.id);
+        window.dispatchEvent(new Event('focus'));
+        await sleep(300);
+        return Boolean(done) && Boolean(cleared);
+      })()`)
+
+      // 删除失败：tasks:delete 被摘 → 任务回到列表、撤销 toast 不出现、库里未删。
+      await seedWriteTask('冒烟写失败 删除')
+      ipcMain.removeHandler('tasks:delete')
+      try {
+        storageDeleteError = await wc.executeJavaScript(`(async () => {
+          ${pageHelpers}
+          const TITLE = '冒烟写失败 删除';
+          findRow(TITLE).querySelector('.task-delete').click();
+          const toasted = await waitFor(() => errorToast()?.textContent.includes('保存失败，改动未写入本地数据库'));
+          const restored = await waitFor(() => findRow(TITLE));
+          const stillStored = (await window.polaris.tasks.list()).some((t) => t.title === TITLE);
+          // 乐观阶段挂上的撤销 toast 要走完退出动画才离开 DOM，立即断言缺席会和动画赛跑。
+          const noUndo = await waitFor(() => !document.querySelector('.toast-action'));
+          return Boolean(toasted) && Boolean(restored) && stillStored && Boolean(noUndo);
+        })()`)
+      } finally {
+        resetTaskIpc()
+      }
+
+      // 撤销失败：先正常删除让撤销 toast 出现，再摘 tasks:restore。
+      await seedWriteTask('冒烟写失败 撤销')
+      await wc.executeJavaScript(`(async () => {
+        ${pageHelpers}
+        findRow('冒烟写失败 撤销').querySelector('.task-delete').click();
+        await waitFor(() => document.querySelector('.toast-action'));
+      })()`)
+      ipcMain.removeHandler('tasks:restore')
+      try {
+        storageUndoError = await wc.executeJavaScript(`(async () => {
+          ${pageHelpers}
+          const TITLE = '冒烟写失败 撤销';
+          document.querySelector('.toast-action').click();
+          const toasted = await waitFor(() => errorToast()?.textContent.includes('保存失败，改动未写入本地数据库'));
+          // 等退出/重入场动画落定：撤销失败后 pendingDeletion 被放回，撤销 toast 应仍在。
+          await sleep(350);
+          const undoBack = Boolean(document.querySelector('.toast-action'));
+          const stillDeleted = !(await window.polaris.tasks.list()).some((t) => t.title === TITLE);
+          return Boolean(toasted) && undoBack && stillDeleted;
+        })()`)
+      } finally {
+        resetTaskIpc()
+      }
+      // 恢复后重试撤销：成功 → 任务回来、错误清除；再删掉清场。
+      await wc.executeJavaScript(`(async () => {
+        ${pageHelpers}
+        const TITLE = '冒烟写失败 撤销';
+        document.querySelector('.toast-action')?.click();
+        await waitFor(() => findRow(TITLE));
+        const stored = (await window.polaris.tasks.list()).find((t) => t.title === TITLE);
+        if (stored) await window.polaris.tasks.remove(stored.id);
+        window.dispatchEvent(new Event('focus'));
+        await sleep(300);
+      })()`)
+
+      // 读取失败：tasks:list 被摘，focus 触发 load() → 专属文案；关闭按钮可清除。
+      ipcMain.removeHandler('tasks:list')
+      try {
+        storageLoadError = await wc.executeJavaScript(`(async () => {
+          ${pageHelpers}
+          window.dispatchEvent(new Event('focus'));
+          return Boolean(await waitFor(() => errorToast()?.textContent.includes('读取本地数据失败')));
+        })()`)
+      } finally {
+        resetTaskIpc()
+      }
+      storageErrorDismiss = await wc.executeJavaScript(`(async () => {
+        ${pageHelpers}
+        const button = document.querySelector('.toast-error .toast-dismiss');
+        if (!button) return false;
+        button.click();
+        const gone = await waitFor(() => !document.querySelector('.toast-error'));
+        window.dispatchEvent(new Event('focus'));
+        await sleep(300);
+        return Boolean(gone);
+      })()`)
+    }
+
     // The strip must stay one row at both the narrow window and the wide window
     // with the inspector open, and the toggle must never be orphaned inside it.
     const measureStrip = async (width: number, withInspector: boolean): Promise<boolean> => {
@@ -2188,6 +2355,12 @@ async function runSmokeTest(): Promise<void> {
       recurrenceStamps: result.recurrenceStamps === true,
       checkDrawnReduced: checkDrawnReduced === true,
       parseErrorReceipt: parseErrorReceipt === true,
+      storageToggleError: storageToggleError === true,
+      storageDeleteError: storageDeleteError === true,
+      storageUndoError: storageUndoError === true,
+      storageLoadError: storageLoadError === true,
+      storageErrorDismiss: storageErrorDismiss === true,
+      storageErrorClears: storageErrorClears === true,
       parseGrammarTable: parseAssertions.grammar === true,
       parseInvariants: parseAssertions.invariants === true,
       parseFormatNull: parseAssertions.format === true,
@@ -2208,6 +2381,12 @@ async function runSmokeTest(): Promise<void> {
           ...result,
           checkDrawnReduced,
           parseErrorReceipt,
+          storageToggleError,
+          storageDeleteError,
+          storageUndoError,
+          storageLoadError,
+          storageErrorDismiss,
+          storageErrorClears,
           parseGrammarTable: parseAssertions.grammar,
           parseInvariants: parseAssertions.invariants,
           parseFormatNull: parseAssertions.format,
