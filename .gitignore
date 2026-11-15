@@ -9,3 +9,8 @@ Thumbs.db
 # 素材图鉴的预览字体缓存（约 4 MB，可用 tools/fetch-*.mjs 重新抓取）。
 # 应用运行时的字体走 npm 的 @fontsource-variable 包，不走这里。
 docs/asset-atlas/fonts/
+
+# 图标生成器的中间产物与手工预览图，可用 npm run make:icon 重新产出。
+# 打包引用的成品是 build/icon.ico 与 build/icon.icns，两者仍然入库。
+build/Polaris.iconset/
+build/icon-canva-preview-*.png
