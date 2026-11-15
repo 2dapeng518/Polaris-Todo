@@ -203,7 +203,7 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
                   {' · '}
                 </>
               )}
-              数据保存在本机
+              数据仅保存在本机
             </div>
           </motion.div>
         </motion.div>

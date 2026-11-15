@@ -675,23 +675,6 @@ textarea {
   outline-offset: -2px;
 }
 
-.titlebar-hint {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  margin-left: auto;
-  padding-right: 8px;
-  color: var(--text-tertiary);
-  font-size: 11px;
-}
-
-.hint-dot {
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: var(--accent);
-}
-
 /* ---------- layout ---------- */
 
 .app-body {
@@ -956,7 +939,8 @@ textarea {
   flex: 1;
 }
 
-.sidebar-status {
+/* 事实卡，不是状态灯：本地存储是恒真属性。不要加健康点、role="status" 或 aria-live。 */
+.sidebar-storage {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -967,20 +951,17 @@ textarea {
   background: var(--surface-1);
 }
 
-.status-dot {
+.storage-icon {
   flex: none;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--accent);
+  color: var(--text-tertiary);
 }
 
-.status-title {
+.storage-title {
   color: var(--text-secondary);
   font-size: 11px;
 }
 
-.status-subtitle {
+.storage-subtitle {
   margin-top: 1px;
   color: var(--text-tertiary);
   font-size: 11px;

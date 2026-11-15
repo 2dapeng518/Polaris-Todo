@@ -7,7 +7,6 @@ import {
 } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import {
-  ArrowLeftRight,
   CalendarDays,
   CheckCircle2,
   Circle,
@@ -89,8 +88,6 @@ export function CommandPalette() {
       close()
     }
     const nextTheme = partnerTheme(theme)
-    const nextIsDark = themeFamily(nextTheme) === 'dark'
-    const sameFamily = themeFamily(nextTheme) === themeFamily(theme)
 
     return [
       {
@@ -118,7 +115,7 @@ export function CommandPalette() {
         kind: 'command',
         id: 'toggle-theme',
         label: `切换到 ${THEME_META[nextTheme].label}`,
-        icon: sameFamily ? ArrowLeftRight : nextIsDark ? Moon : Sun,
+        icon: themeFamily(theme) === 'dark' ? Moon : Sun,
         run: () => {
           toggleTheme()
           close()

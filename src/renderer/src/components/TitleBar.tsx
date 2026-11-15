@@ -10,10 +10,6 @@ export function TitleBar() {
           <span className="brand-name" translate="no">Polaris</span>
         </div>
         <ThemeToggle />
-        <div className="titlebar-hint">
-          <span className="hint-dot" />
-          <span>本地数据库已连接</span>
-        </div>
       </div>
     </header>
   )
