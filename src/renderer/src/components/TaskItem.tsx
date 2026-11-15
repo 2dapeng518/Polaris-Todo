@@ -4,7 +4,7 @@ import { Bell, Check, Flag, Repeat2, Trash2 } from 'lucide-react'
 import type { Task } from '@shared/types'
 import { recurrenceLabel } from '@shared/recurrence'
 import { useTaskStore } from '../stores/useTaskStore'
-import { formatDue, isOverdue } from '../lib/dates'
+import { formatCompletedAt, formatDue, isOverdue } from '../lib/dates'
 
 export function TaskItem({ task }: { task: Task }) {
   const toggleTask = useTaskStore((state) => state.toggleTask)
@@ -67,6 +67,12 @@ export function TaskItem({ task }: { task: Task }) {
       >
         <span className="task-title">{task.title}</span>
         <span className="task-meta">
+          {task.completed && task.completedAt && (
+            <span className="meta-completed meta-time" title="完成时间">
+              <Check size={10} strokeWidth={1.8} className="meta-completed-icon" aria-hidden="true" />
+              完成于 {formatCompletedAt(task.completedAt)}
+            </span>
+          )}
           {task.dueAt && (
             <span className={`meta-time ${overdue ? 'meta-overdue' : ''}`}>
               {formatDue(task.dueAt)}

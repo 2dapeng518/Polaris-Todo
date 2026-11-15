@@ -2973,6 +2973,31 @@ async function runSmokeTest(): Promise<void> {
         return renamed && taskStillMapped && Boolean(dialog) && removed && taskOrphaned;
       })()`)) === true
 
+    // 完成时刻展示：已完成视图行 + 详情信息行显示「完成于」，取消完成后信息行消失。
+    const completedAtShown =
+      (await mainWindow?.webContents.executeJavaScript(`(async () => {
+        ${pageHelpers}
+        const due = new Date(); due.setHours(23, 59, 0, 0);
+        const task = await window.polaris.tasks.create({ title: '冒烟完成时刻', dueAt: due.toISOString(), projectId: null });
+        await window.polaris.tasks.toggle(task.id, true);
+        window.dispatchEvent(new Event('focus'));
+        [...document.querySelectorAll('.nav-item')].find((el) => el.textContent.includes('已完成')).click();
+        window.dispatchEvent(new Event('focus'));
+        const rowShown = await waitFor(() => {
+          const row = findRow('冒烟完成时刻');
+          return row && row.querySelector('.meta-completed')?.textContent.includes('完成于');
+        });
+        if (!rowShown) return false;
+        findRow('冒烟完成时刻').querySelector('.task-open').click();
+        const detailShown = await waitFor(() => document.querySelector('.detail-completed-at')?.textContent.includes('完成于'));
+        await window.polaris.tasks.toggle(task.id, false);
+        window.dispatchEvent(new Event('focus'));
+        const hiddenAfterUncomplete = await waitFor(() => !document.querySelector('.detail-completed-at'));
+        await window.polaris.tasks.remove(task.id);
+        await window.polaris.tasks.deleteForever(task.id);
+        return Boolean(detailShown) && hiddenAfterUncomplete;
+      })()`)) === true
+
     // 逐条具名，而不是串成一条 && 链：失败时必须能一眼看出是哪条断言。
     // 只筛 result 里 value === false 是不够的 —— afterAdd / afterDelete /
     // commandCount 是数值比较，版本号是字符串比较，它们失败时 JSON 里
@@ -3072,7 +3097,8 @@ async function runSmokeTest(): Promise<void> {
       reminderSurfaceTested: reminderSurfaceTested === true,
       paletteEscWorks: paletteEscWorks === true,
       emptyStateWorks: emptyStateWorks === true,
-      projectManageWorks: projectManageWorks === true
+      projectManageWorks: projectManageWorks === true,
+      completedAtShown: completedAtShown === true
     }
     const failed = Object.keys(checks).filter((name) => !checks[name])
     const ok = failed.length === 0
@@ -3113,6 +3139,7 @@ async function runSmokeTest(): Promise<void> {
           paletteEscWorks,
           emptyStateWorks,
           projectManageWorks,
+          completedAtShown,
           parseGrammarTable: parseAssertions.grammar,
           parseInvariants: parseAssertions.invariants,
           parseFormatNull: parseAssertions.format,

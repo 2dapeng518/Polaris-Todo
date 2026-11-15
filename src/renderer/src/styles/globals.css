@@ -1598,6 +1598,17 @@ textarea {
   color: var(--priority-high);
 }
 
+.meta-completed {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--accent);
+}
+
+.meta-completed-icon {
+  flex: none;
+}
+
 .task-delete {
   display: grid;
   flex: none;
@@ -1957,6 +1968,22 @@ textarea {
   background: rgba(var(--accent-rgb), 0.12);
   color: var(--accent);
   filter: none;
+}
+
+.detail-completed-at {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 8px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  background: rgba(var(--accent-rgb), 0.07);
+  color: var(--accent);
+  font-size: 12px;
+}
+
+.detail-completed-at .lucide {
+  flex: none;
 }
 
 .detail-notes-wrap {
