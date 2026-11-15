@@ -23,7 +23,7 @@ import { zhCN } from 'date-fns/locale'
 import type { Task } from '@shared/types'
 import { RECURRENCE_PRESETS, nextOccurrence, recurrenceLabel } from '@shared/recurrence'
 import { useTaskStore } from '../stores/useTaskStore'
-import { formatDue, todayAt, tomorrowAt } from '../lib/dates'
+import { formatCompletedAt, formatDue, todayAt, tomorrowAt } from '../lib/dates'
 import { useFocusTrap } from '../lib/useFocusTrap'
 import { useMediaQuery } from '../lib/useMediaQuery'
 import { DateTimePicker } from './DateTimePicker'
@@ -613,6 +613,13 @@ function TaskDetailBody({ task, titleRef, closeRef }: BodyProps) {
             {task.remindAt ? '已提醒' : '提醒'}
           </button>
         </div>
+
+        {task.completed && (
+          <div className="detail-completed-at">
+            <Check size={12} strokeWidth={2} aria-hidden="true" />
+            {task.completedAt ? `完成于 ${formatCompletedAt(task.completedAt)}` : '完成时间未记录'}
+          </div>
+        )}
 
         <div className="detail-notes-wrap">
           <textarea

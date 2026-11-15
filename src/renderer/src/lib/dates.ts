@@ -37,6 +37,15 @@ export function formatDeletedAt(value: string): string {
   return format(date, `${year}M月d日 HH:mm`, { locale: zhCN })
 }
 
+// 完成时刻：与删除时间同风格——只陈述日期事实（今天精确到分钟，跨年补年份），
+// 不加「已逾期」前缀。迁移 4 前完成的任务 completedAt 为 null，由调用方如实显示「未记录」，绝不猜补。
+export function formatCompletedAt(value: string): string {
+  const date = new Date(value)
+  if (isToday(date)) return `今天 ${format(date, 'HH:mm')}`
+  const year = date.getFullYear() !== new Date().getFullYear() ? 'yyyy年' : ''
+  return format(date, `${year}M月d日 HH:mm`, { locale: zhCN })
+}
+
 export function todayAt(hour: number, minute: number): string {
   const date = new Date()
   date.setHours(hour, minute, 0, 0)
