@@ -1,8 +1,20 @@
-import { app, BrowserWindow, ipcMain, nativeImage, shell, type WebContents } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, nativeImage, shell, type WebContents } from 'electron'
 import { join } from 'node:path'
-import { writeFile } from 'node:fs/promises'
+import { readFile, writeFile } from 'node:fs/promises'
+import { z } from 'zod'
 import { getAutoStartState, setAutoStartState } from './autostart'
-import { initDatabase, purgeExpiredDeleted } from './db'
+import {
+  createProject,
+  createTask,
+  deleteProject,
+  deleteTask,
+  deleteTaskForever,
+  exportBackup,
+  importBackup,
+  initDatabase,
+  listTasks,
+  purgeExpiredDeleted
+} from './db'
 import { registerIpc, registerTaskCreate } from './ipc'
 import { getCurrentTheme, initAppTheme, setCurrentTheme, themeBackgroundColor } from './theme'
 import { createSplashWindow, hasSplashWindow, openSplashWindow, revealMainWindow } from './splash'
@@ -18,6 +30,44 @@ import { TRAY_ICON_DATA_URL } from './tray-icon'
 import { dismissKeys, formatParsedDue, parseQuickAdd, pruneDismissed } from '../shared/quickAddParse'
 import { isPurgeable } from '../shared/retention'
 import { buildCustomRecurrence, nextMonthlyClamped, parseCustomRecurrence, type CustomRecurrence } from '../shared/recurrence'
+
+// 备份文件整体校验：版本号/来源标识 + 项目/任务字段，重复任务必须带截止。
+// 校验通过才落库，非法文件整体拒绝，绝不部分写入。
+const backupTaskSchema = z
+  .object({
+    id: z.string().min(1),
+    title: z.string().min(1).max(500),
+    notes: z.string().max(20000),
+    completed: z.boolean(),
+    completedAt: z.string().nullable(),
+    dueAt: z.string().nullable(),
+    remindAt: z.string().nullable(),
+    remindedAt: z.string().nullable(),
+    recurrenceRule: z.string().nullable(),
+    projectId: z.string().nullable(),
+    priority: z.number().int().min(0).max(3),
+    createdAt: z.string(),
+    updatedAt: z.string(),
+    deletedAt: z.string().nullable()
+  })
+  .refine((task) => !task.recurrenceRule || task.dueAt, '重复任务需要截止时间')
+
+const backupSchema = z.object({
+  schemaVersion: z.literal(1),
+  app: z.literal('polaris'),
+  exportedAt: z.string(),
+  projects: z.array(
+    z.object({
+      id: z.string().min(1),
+      name: z.string().min(1).max(80),
+      color: z.string().regex(/^#[0-9a-fA-F]{6}$/),
+      sortOrder: z.number().int(),
+      createdAt: z.string(),
+      updatedAt: z.string()
+    })
+  ),
+  tasks: z.array(backupTaskSchema)
+})
 
 let mainWindow: BrowserWindow | null = null
 let isQuitting = false
@@ -3162,6 +3212,50 @@ async function runSmokeTest(): Promise<void> {
     const customRepeatUiWorks = customRepeatResult?.ok === true
     if (!customRepeatUiWorks) console.error('CUSTOM_REPEAT_UI_FAIL', JSON.stringify(customRepeatResult))
 
+    // 备份往返（主进程直调 db）：原样导入全跳过（幂等）；新 ID 插入；孤儿 projectId 归「无项目」。
+    let backupRoundTripWorks = false
+    const backupFixtureIds: string[] = []
+    let backupProjectId: string | null = null
+    try {
+      const project = createProject({ name: '冒烟备份项目', color: '#5EEAD4' })
+      backupProjectId = project.id
+      const due = new Date()
+      due.setHours(23, 59, 0, 0)
+      const task = createTask({ title: '冒烟备份任务', dueAt: due.toISOString(), projectId: project.id })
+      backupFixtureIds.push(task.id)
+      const backup = exportBackup()
+      const reimport = importBackup(backup)
+      const idempotent =
+        reimport.tasksImported === 0 &&
+        reimport.projectsImported === 0 &&
+        reimport.tasksSkipped === backup.tasks.length &&
+        reimport.projectsSkipped === backup.projects.length
+      const copyId = 'smoke-backup-copy'
+      const copy = {
+        projects: backup.projects,
+        tasks: backup.tasks.map((t) => (t.id === task.id ? { ...t, id: copyId, title: '冒烟备份副本' } : t))
+      }
+      const imported = importBackup(copy)
+      backupFixtureIds.push(copyId)
+      const insertOk = imported.tasksImported === 1
+      const orphanId = 'smoke-backup-orphan'
+      const original = backup.tasks.find((t) => t.id === task.id)!
+      const orphanResult = importBackup({ projects: [], tasks: [{ ...original, id: orphanId, projectId: 'no-such-project' }] })
+      backupFixtureIds.push(orphanId)
+      const orphanTask = listTasks().find((t) => t.id === orphanId)
+      const orphanOk = orphanResult.tasksImported === 1 && orphanTask?.projectId === null
+      backupRoundTripWorks = idempotent && insertOk && orphanOk
+      if (!backupRoundTripWorks) console.error('BACKUP_ROUNDTRIP_FAIL', JSON.stringify({ idempotent, insertOk, orphanOk, reimport, imported }))
+    } catch (error) {
+      console.error('BACKUP_ROUNDTRIP_ERROR', error)
+    } finally {
+      for (const id of backupFixtureIds) {
+        deleteTask(id)
+        deleteTaskForever(id)
+      }
+      if (backupProjectId) deleteProject(backupProjectId)
+    }
+
     // 逐条具名，而不是串成一条 && 链：失败时必须能一眼看出是哪条断言。
     // 只筛 result 里 value === false 是不够的 —— afterAdd / afterDelete /
     // commandCount 是数值比较，版本号是字符串比较，它们失败时 JSON 里
@@ -3265,7 +3359,8 @@ async function runSmokeTest(): Promise<void> {
       completedAtShown: completedAtShown === true,
       reminderSnoozeWorks: reminderSnoozeWorks === true,
       customRecurrenceTable: customRecurrenceOk === true,
-      customRepeatUiWorks: customRepeatUiWorks === true
+      customRepeatUiWorks: customRepeatUiWorks === true,
+      backupRoundTripWorks: backupRoundTripWorks === true
     }
     const failed = Object.keys(checks).filter((name) => !checks[name])
     const ok = failed.length === 0
@@ -3310,6 +3405,7 @@ async function runSmokeTest(): Promise<void> {
           reminderSnoozeWorks,
           customRecurrenceTable: customRecurrenceOk,
           customRepeatUiWorks,
+          backupRoundTripWorks,
           parseGrammarTable: parseAssertions.grammar,
           parseInvariants: parseAssertions.invariants,
           parseFormatNull: parseAssertions.format,
@@ -3407,6 +3503,49 @@ app.whenReady().then(() => {
   // string: app.getVersion() reads the packaged package.json, so a release bump
   // reaches the settings panel without a code edit.
   ipcMain.handle('app:get-version', () => app.getVersion())
+
+  // 数据备份：导出全量 JSON；导入按 ID 非破坏性合并。文件对话框与读写都在主进程，
+  // 渲染层只发起 invoke；文件内容经 zod 整体校验后才落库。
+  ipcMain.handle('data:export', async () => {
+    try {
+      const { projects, tasks } = exportBackup()
+      const backup = {
+        schemaVersion: 1,
+        app: 'polaris',
+        exportedAt: new Date().toISOString(),
+        projects,
+        tasks
+      }
+      const stamp = new Date().toISOString().slice(0, 10).replace(/-/g, '')
+      const target = await dialog.showSaveDialog(mainWindow!, {
+        title: '导出备份',
+        defaultPath: `polaris-backup-${stamp}.json`,
+        filters: [{ name: 'JSON', extensions: ['json'] }]
+      })
+      if (target.canceled || !target.filePath) return { saved: false }
+      await writeFile(target.filePath, JSON.stringify(backup, null, 2), 'utf8')
+      return { saved: true, path: target.filePath }
+    } catch (error) {
+      return { saved: false, error: String(error) }
+    }
+  })
+
+  ipcMain.handle('data:import', async () => {
+    try {
+      const source = await dialog.showOpenDialog(mainWindow!, {
+        title: '导入备份',
+        properties: ['openFile'],
+        filters: [{ name: 'JSON', extensions: ['json'] }]
+      })
+      if (source.canceled || !source.filePaths[0]) return { ok: false, canceled: true }
+      const raw = await readFile(source.filePaths[0], 'utf8')
+      const parsed = backupSchema.parse(JSON.parse(raw))
+      const counts = importBackup(parsed)
+      return { ok: true, ...counts }
+    } catch (error) {
+      return { ok: false, error: String(error) }
+    }
+  })
 
   // 启动页先于主窗口创建：页面极小，先画出来；主窗口加载并行进行，互不阻塞。
   // 自启（--hidden）要静默进托盘，三个测试模式要保持确定性，均跳过。

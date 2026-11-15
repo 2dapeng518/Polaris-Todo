@@ -4007,6 +4007,36 @@ textarea {
   font-size: 11px;
 }
 
+.backup-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.backup-btn {
+  flex: 1;
+  height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-1);
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: default;
+  transition:
+    border-color 0.16s,
+    color 0.16s;
+}
+
+.backup-btn:hover:not(:disabled) {
+  border-color: rgba(var(--accent-rgb), 0.3);
+  color: var(--accent);
+}
+
+.backup-btn:disabled {
+  opacity: 0.4;
+}
+
 .settings-footer {
   padding-top: 12px;
   border-top: 1px solid var(--line);
