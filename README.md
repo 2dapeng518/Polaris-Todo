@@ -276,7 +276,7 @@ npm run verify:datetime
 - `runParseAssertions()` 在主进程用固定时钟跑一张 115 条的语法真值表、2000 条随机拼接的不变量校验（标题必须等于原串挖掉 token 区间、区间升序不重叠、token 数不超过 4）、300 组随机编辑序列的撤销状态机校验、优先级取值、重名项目、全角项目名、长输入性能和格式真值表。
 - 界面侧验识别标签、撤销不吃字、`#项目` 映射、视图默认值零回归、空标题拦截与播报、输入法守卫、键盘撤销的焦点归属（含撤销最后一个标签）、检查器打开时识别条内 `Esc`、大小写撤销、优先级落库、草稿跨视图存活、跨项目回执，以及 980px 与 1280px（含详情栏）两种宽度下识别条不换行。失败回执通过主进程临时摘掉 `tasks:create` 通道制造真实 IPC 失败来验证。
 
-期望值全部写成字面量，不经过被测函数自算。高度断言用亚像素矩形，曾在 100% / 125% / 150% / 200% 显示缩放下**手动**验证过；smoke 不仿真显示缩放，该条件目前没有自动化覆盖。reduced-motion 已有自动化单点：`checkDrawnReduced` 经 CDP 设 `prefers-reduced-motion: reduce` 并让对勾**重挂载**后断言终态（`checkDrawn` 断言 `stroke-dashoffset` 为 `0px`）；reduce 下的段宽、分隔线、小字号中文等细节仍靠手动。
+期望值全部写成字面量，不经过被测函数自算。高度断言用亚像素矩形，曾在 100% / 125% / 150% / 200% 显示缩放下**手动**验证过；smoke 现以 CDP `deviceScaleFactor` 仿真 125/150/200% 并守收起态外框 56px（`scalingFrameWorks`，并校验仿真 DPR 生效），段宽、分隔线、小字号中文等细节仍靠手动。reduced-motion 已有自动化单点：`checkDrawnReduced` 经 CDP 设 `prefers-reduced-motion: reduce` 并让对勾**重挂载**后断言终态（`checkDrawn` 断言 `stroke-dashoffset` 为 `0px`）；reduce 下的段宽、分隔线、小字号中文等细节仍靠手动。
 
 视觉检查通过上面的 `POLARIS_SHOT` 截图完成；基础 CI（typecheck + verify:themes + verify:datetime）已配置，截图和冒烟测试仍需在本地运行。
 

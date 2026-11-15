@@ -3290,6 +3290,43 @@ async function runSmokeTest(): Promise<void> {
       if (atomicDir) await rm(atomicDir, { recursive: true, force: true }).catch(() => {})
     }
 
+    // 分数显示缩放：CDP 仿真 deviceScaleFactor 1.25/1.5/2，收起态外框仍守住 56px。
+    // 同时校验 devicePixelRatio 确实等于设定值——证明仿真生效，断言非空转。
+    let scalingFrameWorks = false
+    if (mainWindow) {
+      const dbg = mainWindow.webContents.debugger
+      const attachedHere = !dbg.isAttached()
+      if (attachedHere) dbg.attach('1.3')
+      try {
+        await mainWindow.webContents.executeJavaScript(`(async () => {
+          const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+          [...document.querySelectorAll('.nav-item')].find((el) => el.textContent.includes('今天'))?.click();
+          const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+          const input = document.querySelector('.quick-add input');
+          if (input) { setter.call(input, ''); input.dispatchEvent(new Event('input', { bubbles: true })); }
+          await sleep(300);
+        })()`)
+        let allOk = true
+        for (const scale of [1.25, 1.5, 2]) {
+          await dbg.sendCommand('Emulation.setDeviceMetricsOverride', { width: 0, height: 0, deviceScaleFactor: scale, mobile: false })
+          await settledFrames(mainWindow.webContents)
+          const metrics = await mainWindow.webContents.executeJavaScript(`(() => {
+            const shell = document.querySelector('.quick-add-shell');
+            return { height: shell ? shell.getBoundingClientRect().height : -1, dpr: window.devicePixelRatio };
+          })()`)
+          const ok = Math.abs(metrics.height - 56) <= 1 && Math.abs(metrics.dpr - scale) < 0.01
+          if (!ok) {
+            allOk = false
+            console.error('SCALING_FRAME_FAIL', JSON.stringify({ scale, height: metrics.height, dpr: metrics.dpr }))
+          }
+        }
+        scalingFrameWorks = allOk
+      } finally {
+        await dbg.sendCommand('Emulation.clearDeviceMetricsOverride', {})
+        if (attachedHere) dbg.detach()
+      }
+    }
+
     // 逐条具名，而不是串成一条 && 链：失败时必须能一眼看出是哪条断言。
     // 只筛 result 里 value === false 是不够的 —— afterAdd / afterDelete /
     // commandCount 是数值比较，版本号是字符串比较，它们失败时 JSON 里
@@ -3395,7 +3432,8 @@ async function runSmokeTest(): Promise<void> {
       customRecurrenceTable: customRecurrenceOk === true,
       customRepeatUiWorks: customRepeatUiWorks === true,
       backupRoundTripWorks: backupRoundTripWorks === true,
-      atomicWriteWorks: atomicWriteWorks === true
+      atomicWriteWorks: atomicWriteWorks === true,
+      scalingFrameWorks: scalingFrameWorks === true
     }
     const failed = Object.keys(checks).filter((name) => !checks[name])
     const ok = failed.length === 0
@@ -3442,6 +3480,7 @@ async function runSmokeTest(): Promise<void> {
           customRepeatUiWorks,
           backupRoundTripWorks,
           atomicWriteWorks,
+          scalingFrameWorks,
           parseGrammarTable: parseAssertions.grammar,
           parseInvariants: parseAssertions.invariants,
           parseFormatNull: parseAssertions.format,
