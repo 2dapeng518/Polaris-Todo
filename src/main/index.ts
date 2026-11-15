@@ -1,6 +1,7 @@
 import { app, BrowserWindow, dialog, ipcMain, nativeImage, shell, type WebContents } from 'electron'
 import { join } from 'node:path'
-import { readFile, writeFile } from 'node:fs/promises'
+import { mkdtemp, readFile, readdir, rename, rm, unlink, writeFile } from 'node:fs/promises'
+import { randomUUID } from 'node:crypto'
 import { z } from 'zod'
 import { getAutoStartState, setAutoStartState } from './autostart'
 import {
@@ -68,6 +69,19 @@ const backupSchema = z.object({
   ),
   tasks: z.array(backupTaskSchema)
 })
+
+// 原子写：先写同目录临时文件再 rename（同文件系统内 rename 是原子操作），
+// 避免导出写到一半崩溃留下半截备份。失败时清理临时文件，不留垃圾。
+async function writeFileAtomic(filePath: string, content: string): Promise<void> {
+  const tempPath = `${filePath}.${randomUUID().slice(0, 8)}.tmp`
+  try {
+    await writeFile(tempPath, content, 'utf8')
+    await rename(tempPath, filePath)
+  } catch (error) {
+    await unlink(tempPath).catch(() => {})
+    throw error
+  }
+}
 
 let mainWindow: BrowserWindow | null = null
 let isQuitting = false
@@ -3256,6 +3270,26 @@ async function runSmokeTest(): Promise<void> {
       if (backupProjectId) deleteProject(backupProjectId)
     }
 
+    // 原子写：写入与覆盖内容正确，且目录里不留临时文件（只剩目标文件）。
+    let atomicWriteWorks = false
+    let atomicDir: string | null = null
+    try {
+      atomicDir = await mkdtemp(join(app.getPath('temp'), 'polaris-atomic-'))
+      const file = join(atomicDir, 'backup.json')
+      await writeFileAtomic(file, '{"v":1}')
+      const first = await readFile(file, 'utf8')
+      await writeFileAtomic(file, '{"v":2}')
+      const second = await readFile(file, 'utf8')
+      const entries = await readdir(atomicDir)
+      const noTempLeftover = entries.every((name) => !name.endsWith('.tmp'))
+      atomicWriteWorks = first === '{"v":1}' && second === '{"v":2}' && noTempLeftover && entries.length === 1
+      if (!atomicWriteWorks) console.error('ATOMIC_WRITE_FAIL', JSON.stringify({ first, second, entries }))
+    } catch (error) {
+      console.error('ATOMIC_WRITE_ERROR', error)
+    } finally {
+      if (atomicDir) await rm(atomicDir, { recursive: true, force: true }).catch(() => {})
+    }
+
     // 逐条具名，而不是串成一条 && 链：失败时必须能一眼看出是哪条断言。
     // 只筛 result 里 value === false 是不够的 —— afterAdd / afterDelete /
     // commandCount 是数值比较，版本号是字符串比较，它们失败时 JSON 里
@@ -3360,7 +3394,8 @@ async function runSmokeTest(): Promise<void> {
       reminderSnoozeWorks: reminderSnoozeWorks === true,
       customRecurrenceTable: customRecurrenceOk === true,
       customRepeatUiWorks: customRepeatUiWorks === true,
-      backupRoundTripWorks: backupRoundTripWorks === true
+      backupRoundTripWorks: backupRoundTripWorks === true,
+      atomicWriteWorks: atomicWriteWorks === true
     }
     const failed = Object.keys(checks).filter((name) => !checks[name])
     const ok = failed.length === 0
@@ -3406,6 +3441,7 @@ async function runSmokeTest(): Promise<void> {
           customRecurrenceTable: customRecurrenceOk,
           customRepeatUiWorks,
           backupRoundTripWorks,
+          atomicWriteWorks,
           parseGrammarTable: parseAssertions.grammar,
           parseInvariants: parseAssertions.invariants,
           parseFormatNull: parseAssertions.format,
@@ -3523,7 +3559,7 @@ app.whenReady().then(() => {
         filters: [{ name: 'JSON', extensions: ['json'] }]
       })
       if (target.canceled || !target.filePath) return { saved: false }
-      await writeFile(target.filePath, JSON.stringify(backup, null, 2), 'utf8')
+      await writeFileAtomic(target.filePath, JSON.stringify(backup, null, 2))
       return { saved: true, path: target.filePath }
     } catch (error) {
       return { saved: false, error: String(error) }
