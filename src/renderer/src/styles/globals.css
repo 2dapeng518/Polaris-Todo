@@ -765,6 +765,16 @@ textarea {
   color: var(--text);
 }
 
+/* 焦点环收进填充内：默认 +2px 外环会悬在 nav-active-bg 外面一圈，
+   读成「选中框和填充错位」；聚焦时去掉填充自身的 accent 描边，只留一圈环。 */
+.nav-item:focus-visible {
+  outline-offset: -2px;
+}
+
+.nav-item:focus-visible .nav-active-bg {
+  border-color: transparent;
+}
+
 .nav-active-bg {
   position: absolute;
   z-index: 0;
@@ -772,7 +782,8 @@ textarea {
   border: 1px solid rgba(var(--accent-rgb), 0.16);
   border-radius: 8px;
   background: rgba(var(--accent-rgb), 0.08);
-  box-shadow: inset 0 1px 0 var(--inner-highlight-soft);
+  /* 不加内斜角：昼系主题里 --inner-highlight-soft 是 80% 白，夹在描边和
+     填充之间会读成一条没填满的缝（「选中框和填充错位」）。选中丸保持平的。 */
 }
 
 .nav-icon,
