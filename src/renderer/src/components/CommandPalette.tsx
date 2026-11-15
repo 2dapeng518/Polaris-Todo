@@ -214,6 +214,10 @@ export function CommandPalette() {
       event.preventDefault()
       items[active]?.run()
     }
+  }
+
+  // Esc 挂在面板容器而非仅搜索框：Tab 把焦点移到命令按钮后仍能关闭面板。
+  const onPanelKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
     if (event.key === 'Escape') {
       event.preventDefault()
       setOpen(false)
@@ -243,6 +247,7 @@ export function CommandPalette() {
             exit={{ opacity: 0, y: -10, scale: 0.98 }}
             transition={{ type: 'spring', stiffness: 420, damping: 40 }}
             onMouseDown={(event) => event.stopPropagation()}
+            onKeyDown={onPanelKeyDown}
           >
             <div className="command-input-row">
               <Search size={17} strokeWidth={1.8} aria-hidden="true" />
