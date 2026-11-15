@@ -28,6 +28,15 @@ export function formatHeaderDate(): string {
   return format(new Date(), 'M月d日 · EEEE', { locale: zhCN })
 }
 
+// 回收站的删除时间：formatDue 会给过去的瞬间加「已逾期」前缀，语义不合，
+// 所以按同样的风格只保留日期事实（今天精确到分钟，跨年补年份）。
+export function formatDeletedAt(value: string): string {
+  const date = new Date(value)
+  if (isToday(date)) return `今天 ${format(date, 'HH:mm')}`
+  const year = date.getFullYear() !== new Date().getFullYear() ? 'yyyy年' : ''
+  return format(date, `${year}M月d日 HH:mm`, { locale: zhCN })
+}
+
 export function todayAt(hour: number, minute: number): string {
   const date = new Date()
   date.setHours(hour, minute, 0, 0)

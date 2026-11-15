@@ -1534,6 +1534,89 @@ textarea {
   color: var(--danger);
 }
 
+/* ---------- trash ---------- */
+/* 回收站行复用 .task-item 的骨架与动效，只补布局差异：没有 checkbox，
+   内容不是按钮（软删行没有详情入口），动作常显。危险一律 tint，不造实心红。 */
+
+.trash-item .task-title {
+  color: var(--text-secondary);
+}
+
+.trash-actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  margin-top: -2px;
+}
+
+/* 恢复：照 .toast-action 的 accent tint 描边语言。 */
+.trash-restore {
+  height: 28px;
+  padding: 0 var(--space-2);
+  border: 1px solid rgba(var(--accent-rgb), 0.3);
+  border-radius: 8px;
+  background: rgba(var(--accent-rgb), 0.08);
+  color: var(--accent);
+  font-size: 11px;
+  cursor: default;
+  transition: background 0.16s;
+}
+
+.trash-restore:hover {
+  background: rgba(var(--accent-rgb), 0.14);
+}
+
+/* 彻底删除：照 .task-delete 的配色，但常显（管理视图不藏动作），
+   透明描边占位保证和恢复按钮同高。 */
+.trash-purge {
+  height: 28px;
+  padding: 0 var(--space-2);
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-tertiary);
+  font-size: 11px;
+  cursor: default;
+  transition:
+    color 0.16s,
+    background 0.16s;
+}
+
+.trash-purge:hover {
+  background: rgba(var(--danger-rgb), 0.08);
+  color: var(--danger);
+}
+
+/* 头部清空按钮：ghost 底，hover 才上 danger tint；空回收站时禁用。 */
+.trash-empty-trigger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 13px;
+  cursor: default;
+  transition:
+    border-color 0.2s,
+    background 0.2s,
+    color 0.2s;
+}
+
+.trash-empty-trigger:hover:not(:disabled) {
+  border-color: rgba(var(--danger-rgb), 0.3);
+  background: rgba(var(--danger-rgb), 0.08);
+  color: var(--danger);
+}
+
+.trash-empty-trigger:disabled {
+  opacity: 0.4;
+}
+
 /* ---------- task detail ---------- */
 
 .sr-only {
@@ -2373,6 +2456,13 @@ textarea {
 .dp-day.is-selected:hover {
   background: var(--accent);
   filter: brightness(1.06);
+}
+
+/* 选中态是 accent 实心填充，必须保持平坦：今日描边（inset accent ring）叠在
+   同色填充上虽不可见，但违反「accent 实心无内阴影」规则，ghost 扫描会拦。
+   与 .is-preview.is-today 抑制描边同一思路；圆点仍由 ::after 保留并反色。 */
+.dp-day.is-selected.is-today {
+  box-shadow: none;
 }
 
 .dp-day.is-selected.is-today::after {
@@ -3533,6 +3623,59 @@ textarea {
 
 .switch.on .switch-thumb {
   transform: translateX(16px);
+}
+
+/* ---------- confirm dialog ---------- */
+/* 彻底删除 / 清空回收站的二次确认。浮层词汇照 settings-overlay / settings-panel
+   （command-bg 玻璃 + 同一层阴影），层级压在设置面板（70）之上；命令面板（60）
+   在 app-body  stacking context 之外，但 paletteOpen 时对话框会自动关闭，
+   两者不会同场。 */
+
+.confirm-overlay {
+  position: fixed;
+  z-index: 80;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--command-overlay);
+  backdrop-filter: blur(7px);
+}
+
+.confirm-panel {
+  width: min(400px, calc(100vw - 48px));
+  padding: 20px 24px;
+  border: 1px solid var(--line-strong);
+  border-radius: 16px;
+  background: var(--command-bg);
+  box-shadow:
+    0 36px 90px rgba(var(--shadow-rgb), 0.65),
+    inset 0 1px 0 var(--inner-highlight);
+}
+
+.confirm-message {
+  margin: 0;
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+  text-wrap: pretty;
+}
+
+.confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-top: 16px;
+}
+
+/* 按钮复用 detail-popover-action + detail-popover-danger 双类；但
+   .detail-popover-action:hover 会盖掉 danger 的文字与描边色，这里在
+   对话框作用域内把 tint 保住（不影响日期弹层里的既有行为）。 */
+.confirm-actions .detail-popover-danger:hover {
+  border-color: rgba(var(--danger-rgb), 0.4);
+  background: rgba(var(--danger-rgb), 0.14);
+  color: var(--danger);
 }
 
 /* ---------- responsive ---------- */
