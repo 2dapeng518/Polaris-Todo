@@ -4446,6 +4446,7 @@ async function runSmokeTest(): Promise<void> {
     let updateSettingsCheck = false
     let updateDialogFlow = false
     let updateSkipPersists = false
+    let updateNotesRendered = false
     let updateInstallGuard = false
     try {
       const wc = mainWindow!.webContents
@@ -4581,6 +4582,36 @@ async function runSmokeTest(): Promise<void> {
         readyAndLater?.closed === true &&
         staysDismissed === true &&
         skipStaysSilent === true
+      // HTML 说明（GitHub atom feed 的真实形态）：富文本渲染、标签不露出、
+      // script 被 DOMPurify 消毒——纯文本分支已由前面的 dialogShown 覆盖。
+      pushUpdate({
+        status: 'downloaded',
+        percent: 100,
+        latestVersion: '99.0.2',
+        releaseNotes: '<h2>更新标题</h2><ul><li>条目一</li><li>条目二</li></ul><script>window.__pwned=1</script>'
+      })
+      const notesRendered = await wc.executeJavaScript(`(async () => {
+        ${pageHelpers}
+        const body = await waitFor(() => document.querySelector('.update-notes-body.rich'));
+        if (!body) return { found: false };
+        const text = body.textContent;
+        const result = {
+          found: true,
+          rendered: text.includes('更新标题') && text.includes('条目一') && text.includes('条目二'),
+          noRawTags: !text.includes('<h2>') && !text.includes('<li>'),
+          sanitized: !body.querySelector('script') && window.__pwned === undefined
+        };
+        const later = [...document.querySelectorAll('.update-panel button')].find((b) => b.textContent === '稍后');
+        later?.click();
+        await waitFor(() => !document.querySelector('.update-panel'));
+        return result;
+      })()`)
+      updateNotesRendered =
+        notesRendered?.found === true &&
+        notesRendered?.rendered === true &&
+        notesRendered?.noRawTags === true &&
+        notesRendered?.sanitized === true
+      if (!updateNotesRendered) console.error('UPDATE_NOTES_FAIL', JSON.stringify(notesRendered))
       // 安装守卫：未打包环境点「立即重启」必须报错且进程活着。
       pushUpdate({ status: 'downloaded', percent: 100, latestVersion: '99.0.1' })
       const installAttempt = await wc.executeJavaScript(`(async () => {
@@ -4739,6 +4770,7 @@ async function runSmokeTest(): Promise<void> {
       updateSettingsCheck: updateSettingsCheck === true,
       updateDialogFlow: updateDialogFlow === true,
       updateSkipPersists: updateSkipPersists === true,
+      updateNotesRendered: updateNotesRendered === true,
       updateInstallGuard: updateInstallGuard === true
     }
     const failed = Object.keys(checks).filter((name) => !checks[name])
@@ -4811,6 +4843,7 @@ async function runSmokeTest(): Promise<void> {
           updateSettingsCheck,
           updateDialogFlow,
           updateSkipPersists,
+          updateNotesRendered,
           updateInstallGuard,
           tagUiWorks,
           tagRecurrenceWorks,

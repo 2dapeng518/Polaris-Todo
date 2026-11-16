@@ -4754,8 +4754,81 @@ textarea {
   color: var(--text-secondary);
   font-size: 12px;
   line-height: 1.7;
-  white-space: pre-wrap;
   overflow-wrap: anywhere;
+}
+
+.update-notes-body.plain {
+  white-space: pre-wrap;
+}
+
+/* 富文本说明（GitHub atom feed 的 HTML，经 DOMPurify 消毒）：
+   标题压成小节 eyebrow，列表收紧，链接用信号色，不引入新字号层级。 */
+.update-notes-body.rich > :first-child {
+  margin-top: 0;
+}
+
+.update-notes-body.rich > :last-child {
+  margin-bottom: 0;
+}
+
+.update-notes-body.rich h1,
+.update-notes-body.rich h2,
+.update-notes-body.rich h3,
+.update-notes-body.rich h4,
+.update-notes-body.rich h5,
+.update-notes-body.rich h6 {
+  margin: 10px 0 4px;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.update-notes-body.rich p {
+  margin: 4px 0;
+}
+
+.update-notes-body.rich ul,
+.update-notes-body.rich ol {
+  margin: 4px 0;
+  padding-left: 18px;
+}
+
+.update-notes-body.rich li {
+  margin: 2px 0;
+}
+
+.update-notes-body.rich li::marker {
+  color: var(--text-tertiary);
+}
+
+.update-notes-body.rich a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.update-notes-body.rich a:hover {
+  text-decoration: underline;
+}
+
+.update-notes-body.rich code {
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: rgba(var(--accent-rgb), 0.08);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.update-notes-body.rich blockquote {
+  margin: 4px 0;
+  padding-left: 10px;
+  border-left: 2px solid var(--line-strong);
+  color: var(--text-tertiary);
+}
+
+.update-notes-body.rich hr {
+  margin: 8px 0;
+  border: none;
+  border-top: 1px solid var(--line);
 }
 
 .update-progress {
