@@ -11,6 +11,7 @@ import { ProgressRing } from './ProgressRing'
 import { QuickAdd } from './QuickAdd'
 import { StatsView } from './StatsView'
 import { MatrixView } from './MatrixView'
+import { CalendarView } from './CalendarView'
 import { TaskItem } from './TaskItem'
 import { TrashItem } from './TrashItem'
 import { formatHeaderDate, isTodayOrOverdue, isUpcoming } from '../lib/dates'
@@ -18,6 +19,7 @@ import { formatHeaderDate, isTodayOrOverdue, isUpcoming } from '../lib/dates'
 const VIEW_TITLES: Record<AppView, string> = {
   today: '今天',
   upcoming: '即将到来',
+  calendar: '日历',
   all: '全部任务',
   completed: '已完成',
   stats: '统计',
@@ -28,6 +30,7 @@ const VIEW_TITLES: Record<AppView, string> = {
 function viewEyebrow(view: AppView): string {
   if (view === 'today') return formatHeaderDate()
   if (view === 'upcoming') return '接下来几天的安排'
+  if (view === 'calendar') return '按日子看安排'
   if (view === 'completed') return '已经完成的事项'
   if (view === 'stats') return '完成趋势与节奏'
   if (view === 'matrix') return '按重要与紧急安排'
@@ -77,7 +80,7 @@ export function TaskView() {
       }
       // 回收站与统计页不挂输入框：路由回「今天」再聚焦。N、面板「新建任务」
       // 和 footer 提示都走这一条事件路径，提示不是假 affordance。
-      if (view === 'trash' || view === 'stats' || view === 'matrix') {
+      if (view === 'trash' || view === 'stats' || view === 'matrix' || view === 'calendar') {
         setView('today')
         requestAnimationFrame(() => quickAddRef.current?.focus())
       }
@@ -213,7 +216,7 @@ export function TaskView() {
                 <Trash2 size={14} strokeWidth={1.8} aria-hidden="true" />
                 <span>清空回收站</span>
               </button>
-            ) : view === 'stats' || view === 'matrix' ? (
+            ) : view === 'stats' || view === 'matrix' || view === 'calendar' ? (
               <button className="search-trigger" onClick={() => setPaletteOpen(true)}>
                 <Search size={16} strokeWidth={1.8} aria-hidden="true" />
                 <span>搜索</span>
@@ -232,7 +235,7 @@ export function TaskView() {
           </div>
         </header>
 
-        {view !== 'completed' && view !== 'trash' && view !== 'stats' && view !== 'matrix' && (
+        {view !== 'completed' && view !== 'trash' && view !== 'stats' && view !== 'matrix' && view !== 'calendar' && (
           <QuickAdd inputRef={quickAddRef} />
         )}
 
@@ -240,6 +243,8 @@ export function TaskView() {
           <StatsView />
         ) : view === 'matrix' ? (
           <MatrixView />
+        ) : view === 'calendar' ? (
+          <CalendarView />
         ) : visible.length === 0 && completed.length === 0 ? (
           <EmptyState view={view} />
         ) : (

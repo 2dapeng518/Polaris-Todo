@@ -10,6 +10,7 @@ import { ConfirmDialog } from './ConfirmDialog'
 const NAV_ITEMS: Array<{ view: AppView; label: string; icon: typeof Sun }> = [
   { view: 'today', label: '今天', icon: Sun },
   { view: 'upcoming', label: '即将到来', icon: CalendarDays },
+  { view: 'calendar', label: '日历', icon: CalendarDays },
   { view: 'all', label: '全部任务', icon: ListTodo },
   { view: 'completed', label: '已完成', icon: CheckCircle2 },
   { view: 'stats', label: '统计', icon: BarChart3 },
@@ -54,6 +55,7 @@ export function Sidebar() {
   const counts: Record<AppView, number> = {
     today: activeTasks.filter((task) => isTodayOrOverdue(task.dueAt)).length,
     upcoming: activeTasks.filter((task) => isUpcoming(task.dueAt)).length,
+    calendar: activeTasks.filter((task) => task.dueAt).length,
     all: activeTasks.length,
     completed: tasks.filter((task) => task.completed).length,
     stats: tasks.filter((task) => task.completed).length,

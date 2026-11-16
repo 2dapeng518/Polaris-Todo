@@ -2517,6 +2517,183 @@ textarea {
   }
 }
 
+/* 日历视图：42 格月矩阵（周一起始），翻月高度恒定；chip 溢出收敛 +N。 */
+.calendar-view {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.calendar-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.calendar-nav {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-1);
+  color: var(--text-secondary);
+  cursor: default;
+  transition:
+    border-color 0.16s,
+    color 0.16s;
+}
+
+.calendar-nav:hover {
+  border-color: rgba(var(--accent-rgb), 0.3);
+  color: var(--accent);
+}
+
+.calendar-month {
+  min-width: 96px;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.calendar-today {
+  height: 26px;
+  margin-left: auto;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-1);
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: default;
+  transition:
+    border-color 0.16s,
+    color 0.16s;
+}
+
+.calendar-today:hover {
+  border-color: rgba(var(--accent-rgb), 0.3);
+  color: var(--accent);
+}
+
+.calendar-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+
+.calendar-weekdays span {
+  text-align: center;
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  grid-auto-rows: minmax(84px, auto);
+  gap: 4px;
+}
+
+.calendar-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-1);
+}
+
+.calendar-cell.is-out {
+  opacity: 0.45;
+}
+
+.calendar-cell.is-today {
+  border-color: var(--accent);
+}
+
+.calendar-daynum {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.calendar-cell.is-today .calendar-daynum {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.calendar-chips {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.calendar-chip {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  min-width: 0;
+  padding: 2px 5px;
+  border: none;
+  border-radius: 6px;
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 11px;
+  text-align: left;
+  cursor: default;
+}
+
+.calendar-chip:hover {
+  background: rgba(var(--accent-rgb), 0.1);
+}
+
+.calendar-chip.is-done {
+  opacity: 0.55;
+}
+
+.calendar-chip.is-done .calendar-chip-title {
+  text-decoration: line-through;
+}
+
+.calendar-chip.is-overdue .calendar-chip-title {
+  color: var(--warning);
+}
+
+.calendar-chip-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--accent);
+  flex-shrink: 0;
+}
+
+.calendar-chip-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.calendar-more {
+  padding-left: 5px;
+  font-size: 10px;
+  color: var(--text-tertiary);
+}
+
+@media (max-width: 960px) {
+  .calendar-grid {
+    grid-auto-rows: minmax(64px, auto);
+  }
+}
+
 /* 标签编辑区：已贴 chip + 新建输入框 + 建议 chip。与项目 chips 同一套
    28px/8px 圆角语言，输入框压到 30px 以免详情列过高。 */
 .detail-tags {

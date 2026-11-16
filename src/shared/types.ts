@@ -162,7 +162,7 @@ export type CsvImportResult = {
   error?: string
 }
 
-export type AppView = 'today' | 'upcoming' | 'all' | 'completed' | 'stats' | 'matrix' | 'trash'
+export type AppView = 'today' | 'upcoming' | 'calendar' | 'all' | 'completed' | 'stats' | 'matrix' | 'trash'
 
 import type { AppTheme } from './themes'
 
