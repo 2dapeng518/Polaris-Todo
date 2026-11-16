@@ -28,6 +28,7 @@ export {
   Search,
   Settings2,
   Sun,
+  Tag,
   Trash2,
   TriangleAlert,
   X

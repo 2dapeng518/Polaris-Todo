@@ -95,6 +95,23 @@ export function TaskItem({ task }: { task: Task }) {
               {project.name}
             </span>
           )}
+          {task.tags.length > 0 && (
+            <span className="meta-tags" aria-label={`标签：${task.tags.map((tag) => tag.name).join('、')}`}>
+              {task.tags.slice(0, 3).map((tag) => (
+                <span key={tag.id} className="meta-tag" data-tag-name={tag.name}>
+                  #{tag.name}
+                </span>
+              ))}
+              {task.tags.length > 3 && (
+                <span
+                  className="meta-tag meta-tag-more"
+                  title={task.tags.slice(3).map((tag) => `#${tag.name}`).join(' ')}
+                >
+                  +{task.tags.length - 3}
+                </span>
+              )}
+            </span>
+          )}
           {task.recurrenceRule && (
             <span className="meta-recurrence" title={`重复：${recurrenceLabel(task.recurrenceRule)}`}>
               <Repeat2 size={10} strokeWidth={1.8} aria-hidden="true" />

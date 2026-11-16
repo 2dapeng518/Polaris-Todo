@@ -4,6 +4,7 @@ import type {
   AutoStartState,
   CreateProjectInput,
   CreateSubtaskInput,
+  CreateTagInput,
   CreateTaskInput,
   ExportResult,
   GlobalHotkeyState,
@@ -37,6 +38,11 @@ const api: PolarisApi = {
     create: (input: CreateSubtaskInput) => ipcRenderer.invoke('subtasks:create', input),
     update: (input: UpdateSubtaskInput) => ipcRenderer.invoke('subtasks:update', input),
     remove: (id: string) => ipcRenderer.invoke('subtasks:remove', { id })
+  },
+  tags: {
+    list: () => ipcRenderer.invoke('tags:list'),
+    create: (input: CreateTagInput) => ipcRenderer.invoke('tags:create', input),
+    remove: (id: string) => ipcRenderer.invoke('tags:remove', { id })
   },
   data: {
     export: (): Promise<ExportResult> => ipcRenderer.invoke('data:export'),

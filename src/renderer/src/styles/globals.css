@@ -2429,6 +2429,92 @@ textarea {
   height: 6px;
 }
 
+.meta-tags {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.meta-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 6px;
+  border-radius: 8px;
+  background: var(--surface-2);
+  color: var(--text-secondary);
+  font-size: 11px;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+
+.meta-tag-more {
+  color: var(--text-tertiary);
+}
+
+.tag-nav-icon {
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+}
+
+/* 标签编辑区：已贴 chip + 新建输入框 + 建议 chip。与项目 chips 同一套
+   28px/8px 圆角语言，输入框压到 30px 以免详情列过高。 */
+.detail-tags {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.detail-tag-chip {
+  color: var(--text);
+  cursor: pointer;
+}
+
+.detail-tag-chip:hover {
+  border-color: rgba(var(--accent-rgb), 0.5);
+  color: var(--accent);
+}
+
+.detail-tags .detail-tag-input {
+  width: 100%;
+  height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-1);
+  color: var(--text);
+  font-size: 12px;
+  transition:
+    border-color 0.16s,
+    background 0.16s;
+}
+
+.detail-tags .detail-tag-input::placeholder {
+  color: var(--text-tertiary);
+}
+
+.detail-tags .detail-tag-input:focus {
+  border-color: var(--accent);
+}
+
+.detail-tag-suggestions {
+  gap: 4px;
+}
+
+.detail-tag-suggestions .detail-chip {
+  height: 24px;
+  padding: 0 8px;
+  border-style: dashed;
+  color: var(--text-tertiary);
+  cursor: pointer;
+}
+
+.detail-tag-suggestions .detail-chip:hover {
+  border-style: solid;
+  border-color: var(--accent);
+  background: rgba(var(--accent-rgb), 0.06);
+  color: var(--text);
+}
+
 .detail-priority {
   display: flex;
   gap: 6px;

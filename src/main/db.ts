@@ -11,7 +11,9 @@ import type {
   CreateTaskInput,
   Project,
   Subtask,
+  Tag,
   Task,
+  TaskTag,
   UpdateSubtaskInput,
   UpdateTaskInput
 } from '../shared/types'
@@ -134,6 +136,29 @@ function migrate(): void {
       PRAGMA user_version = 5;
     `)
   }
+
+  if (version < 6) {
+    // 标签是项目之外的第二个组织维度：一条任务可以贴多个标签。
+    // 名称大小写不敏感去重（COLLATE NOCASE）；两侧外键都级联删除——
+    // 彻底删任务清关联，删标签清关联，软删/恢复不碰这张表。
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS tags (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL COLLATE NOCASE UNIQUE,
+        created_at TEXT NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS task_tags (
+        task_id TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+        tag_id TEXT NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
+        PRIMARY KEY (task_id, tag_id)
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_task_tags_tag_id ON task_tags(tag_id);
+
+      PRAGMA user_version = 6;
+    `)
+  }
 }
 
 function seedIfNeeded(): void {
@@ -250,6 +275,12 @@ type ProjectRow = {
   updated_at: string
 }
 
+type TagRow = {
+  id: string
+  name: string
+  created_at: string
+}
+
 function mapTask(row: TaskRow): Task {
   return {
     id: row.id,
@@ -267,8 +298,41 @@ function mapTask(row: TaskRow): Task {
     updatedAt: row.updated_at,
     deletedAt: row.deleted_at,
     subtaskTotal: row.subtask_total ?? 0,
-    subtaskDone: row.subtask_done ?? 0
+    subtaskDone: row.subtask_done ?? 0,
+    tags: []
   }
+}
+
+function mapTag(row: TagRow): Tag {
+  return {
+    id: row.id,
+    name: row.name,
+    createdAt: row.created_at
+  }
+}
+
+/** Attach the derived tags in one extra query, ordered by name. The join table
+ *  is tiny, so reading the whole map is cheaper than a per-task query — and it
+ *  keeps TASK_SELECT (and therefore every existing read) unchanged. */
+function attachTags(tasks: Task[]): Task[] {
+  if (tasks.length === 0) return tasks
+  const rows = db
+    .prepare(`
+      SELECT tt.task_id, tg.id, tg.name, tg.created_at
+      FROM task_tags tt
+      JOIN tags tg ON tg.id = tt.tag_id
+      ORDER BY tg.name COLLATE NOCASE ASC, tg.created_at ASC
+    `)
+    .all() as Array<TagRow & { task_id: string }>
+  const byTask = new Map<string, Tag[]>()
+  for (const row of rows) {
+    const tag = mapTag(row)
+    const list = byTask.get(row.task_id)
+    if (list) list.push(tag)
+    else byTask.set(row.task_id, [tag])
+  }
+  for (const task of tasks) task.tags = byTask.get(task.id) ?? []
+  return tasks
 }
 
 function mapSubtask(row: SubtaskRow): Subtask {
@@ -297,7 +361,7 @@ function getTask(id: string): Task | undefined {
   const row = db
     .prepare(`${TASK_SELECT} WHERE t.id = ? AND t.deleted_at IS NULL`)
     .get(id) as TaskRow | undefined
-  return row ? mapTask(row) : undefined
+  return row ? attachTags([mapTask(row)])[0] : undefined
 }
 
 export function listTasks(): Task[] {
@@ -312,7 +376,7 @@ export function listTasks(): Task[] {
         t.created_at DESC
     `)
     .all() as TaskRow[]
-  return rows.map(mapTask)
+  return attachTags(rows.map(mapTask))
 }
 
 export function listDeletedTasks(): Task[] {
@@ -323,7 +387,7 @@ export function listDeletedTasks(): Task[] {
       ORDER BY t.deleted_at DESC, t.created_at DESC
     `)
     .all() as TaskRow[]
-  return rows.map(mapTask)
+  return attachTags(rows.map(mapTask))
 }
 
 export function listProjects(): Project[] {
@@ -442,17 +506,65 @@ export function deleteSubtask(id: string): void {
   db.prepare('DELETE FROM subtasks WHERE id = ?').run(id)
 }
 
-// 导出全量项目、任务（含回收站软删行）与子任务，供备份。时间戳原样保留，恢复时不失真。
-// 子任务按 task_id 平铺导出；导入时再按父任务是否落地决定去留。
-export function exportBackup(): { projects: Project[]; tasks: Task[]; subtasks: Subtask[] } {
+export function listTags(): Tag[] {
+  const rows = db
+    .prepare('SELECT * FROM tags ORDER BY name COLLATE NOCASE ASC, created_at ASC')
+    .all() as TagRow[]
+  return rows.map(mapTag)
+}
+
+// 重名复用而不是报错：详情里的标签输入框是「输入即新建」的，
+// 已存在的名字直接复用为同一个标签，不抛错——输入框按 Enter 即保存。
+// 比较用 COLLATE NOCASE，英文标签 `Work` 与 `work` 视为同一个。
+export function createTag(input: { name: string }): Tag {
+  const name = input.name.trim()
+  if (!name) throw new Error('标签名称不能为空')
+
+  const existing = db
+    .prepare('SELECT * FROM tags WHERE name = ? COLLATE NOCASE')
+    .get(name) as TagRow | undefined
+  if (existing) return mapTag(existing)
+
+  const id = randomUUID()
+  const now = new Date().toISOString()
+  db.prepare('INSERT INTO tags (id, name, created_at) VALUES (?, ?, ?)').run(id, name, now)
+  const row = db.prepare('SELECT * FROM tags WHERE id = ?').get(id) as TagRow
+  return mapTag(row)
+}
+
+// 全局删除：task_tags 的 tag_id 外键 ON DELETE CASCADE 会清掉所有关联。
+// 幂等，删不存在的 id 是 no-op；标签没有回收站，删除不可恢复。
+export function deleteTag(id: string): void {
+  db.prepare('DELETE FROM tags WHERE id = ?').run(id)
+}
+
+// 导出全量项目、任务（含回收站软删行）、标签、标签关联与子任务，供备份。
+// 时间戳原样保留，恢复时不失真。子任务与标签关联按平铺数组导出；
+// 导入时再按父行是否存在决定去留。
+export function exportBackup(): {
+  projects: Project[]
+  tasks: Task[]
+  tags: Tag[]
+  taskTags: TaskTag[]
+  subtasks: Subtask[]
+} {
   const projects = listProjects()
   const rows = db
     .prepare(`${TASK_SELECT} ORDER BY t.created_at ASC`)
     .all() as TaskRow[]
+  const taskTags = db
+    .prepare('SELECT task_id, tag_id FROM task_tags ORDER BY task_id ASC, tag_id ASC')
+    .all() as Array<{ task_id: string; tag_id: string }>
   const subtasks = db
     .prepare('SELECT * FROM subtasks ORDER BY task_id ASC, sort_order ASC, created_at ASC')
     .all() as SubtaskRow[]
-  return { projects, tasks: rows.map(mapTask), subtasks: subtasks.map(mapSubtask) }
+  return {
+    projects,
+    tasks: attachTags(rows.map(mapTask)),
+    tags: listTags(),
+    taskTags: taskTags.map((row) => ({ taskId: row.task_id, tagId: row.tag_id })),
+    subtasks: subtasks.map(mapSubtask)
+  }
 }
 
 export type ImportCounts = {
@@ -462,15 +574,22 @@ export type ImportCounts = {
   tasksSkipped: number
   subtasksImported: number
   subtasksSkipped: number
+  tagsImported: number
+  tagsSkipped: number
+  taskTagsImported: number
+  taskTagsSkipped: number
 }
 
 // 非破坏性按 ID 合并：已存在的行跳过（绝不覆盖/删除本地数据），新行插入。
-// 先插项目再插任务；任务的 projectId 仅在该项目存在时保留，否则归「无项目」，
-// 避免外键违约。整体在一个事务里，要么全成要么全不成。
-// 旧备份（schemaVersion 1）没有 subtasks 字段，按「没有检查清单数据」处理。
+// 先插项目、任务，再插标签，最后才插依赖两侧的 task_tags 与依赖父任务的子任务。
+// 任务的 projectId 仅在该项目存在时保留，否则归「无项目」；同理，标签关联只在
+// 任务与标签都存在时恢复，绝不制造外键违约。整体在一个事务里。
+// 旧备份（schemaVersion 1/2）没有 tags / taskTags 字段，按「没有标签数据」处理。
 export function importBackup(data: {
   projects: Project[]
   tasks: BackupTask[]
+  tags?: Tag[]
+  taskTags?: TaskTag[]
   subtasks?: Subtask[]
 }): ImportCounts {
   const counts: ImportCounts = {
@@ -479,11 +598,18 @@ export function importBackup(data: {
     tasksImported: 0,
     tasksSkipped: 0,
     subtasksImported: 0,
-    subtasksSkipped: 0
+    subtasksSkipped: 0,
+    tagsImported: 0,
+    tagsSkipped: 0,
+    taskTagsImported: 0,
+    taskTagsSkipped: 0
   }
   const projectExists = db.prepare('SELECT 1 FROM projects WHERE id = ?')
   const taskExists = db.prepare('SELECT 1 FROM tasks WHERE id = ?')
   const subtaskExists = db.prepare('SELECT 1 FROM subtasks WHERE id = ?')
+  const tagExists = db.prepare('SELECT 1 FROM tags WHERE id = ?')
+  const tagNameExists = db.prepare('SELECT 1 FROM tags WHERE name = ? COLLATE NOCASE')
+  const taskTagExists = db.prepare('SELECT 1 FROM task_tags WHERE task_id = ? AND tag_id = ?')
   const insertProject = db.prepare(
     'INSERT INTO projects (id, name, color, sort_order, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)'
   )
@@ -491,6 +617,8 @@ export function importBackup(data: {
     INSERT INTO tasks (id, title, notes, completed, completed_at, due_at, remind_at, reminded_at, recurrence_rule, project_id, priority, created_at, updated_at, deleted_at)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `)
+  const insertTag = db.prepare('INSERT INTO tags (id, name, created_at) VALUES (?, ?, ?)')
+  const insertTaskTag = db.prepare('INSERT INTO task_tags (task_id, tag_id) VALUES (?, ?)')
   const insertSubtask = db.prepare(`
     INSERT INTO subtasks (id, task_id, title, completed, sort_order, created_at)
     VALUES (?, ?, ?, ?, ?, ?)
@@ -528,6 +656,28 @@ export function importBackup(data: {
         task.deletedAt
       )
       counts.tasksImported += 1
+    }
+    // 标签按 id 去重；id 新的行如果撞上本地同名标签也跳过，避免 UNIQUE 违约。
+    for (const tag of data.tags ?? []) {
+      if (tagExists.get(tag.id) || tagNameExists.get(tag.name)) {
+        counts.tagsSkipped += 1
+        continue
+      }
+      insertTag.run(tag.id, tag.name, tag.createdAt)
+      counts.tagsImported += 1
+    }
+    // 标签关联依赖任务与标签两侧：任一侧缺失（含刚被上面跳过的同名标签）就跳过。
+    for (const link of data.taskTags ?? []) {
+      if (
+        taskTagExists.get(link.taskId, link.tagId) ||
+        !taskExists.get(link.taskId) ||
+        !tagExists.get(link.tagId)
+      ) {
+        counts.taskTagsSkipped += 1
+        continue
+      }
+      insertTaskTag.run(link.taskId, link.tagId)
+      counts.taskTagsImported += 1
     }
     // 子任务依赖父任务：父任务已存在（本地原有或本轮刚插入）才恢复；
     // 孤儿子任务（父任务缺失）直接跳过，绝不制造外键违约。
@@ -622,6 +772,14 @@ export function updateTask(input: UpdateTaskInput): Task {
       : null
   const storedRule = completingRecurrence ? null : next.recurrenceRule
   const now = new Date().toISOString()
+  // 替换式语义：tagIds 是「保存后应有的完整集合」，省略则完全不动关联。
+  // 未知 id（标签已在别处被删）静默丢弃，而不是让整次保存失败。
+  const tagIds =
+    input.tagIds !== undefined
+      ? Array.from(new Set(input.tagIds)).filter(
+          (tagId) => db.prepare('SELECT 1 FROM tags WHERE id = ?').get(tagId) !== undefined
+        )
+      : null
   // Stamp the transition, not the row: re-completing keeps the first instant,
   // un-completing clears it, and unrelated edits never touch it.
   const completedAt = !next.completed
@@ -649,6 +807,13 @@ export function updateTask(input: UpdateTaskInput): Task {
       now,
       input.id
     )
+
+    // 标签关联与任务字段在同一个事务里替换：先清空再插入，避免出现半套标签。
+    if (tagIds) {
+      db.prepare('DELETE FROM task_tags WHERE task_id = ?').run(input.id)
+      const insertTaskTag = db.prepare('INSERT INTO task_tags (task_id, tag_id) VALUES (?, ?)')
+      for (const tagId of tagIds) insertTaskTag.run(input.id, tagId)
+    }
 
     if (nextDate) {
       const spawnedId = randomUUID()
@@ -683,6 +848,17 @@ export function updateTask(input: UpdateTaskInput): Task {
         for (const subtask of template) {
           insertSubtask.run(randomUUID(), spawnedId, subtask.title, subtask.sort_order, now)
         }
+      }
+
+      // 标签同样随下一次实例继承；新实例拿到新的关联行，之后各改各的互不影响。
+      const tagTemplate = db
+        .prepare('SELECT tag_id FROM task_tags WHERE task_id = ?')
+        .all(input.id) as Array<{ tag_id: string }>
+      if (tagTemplate.length > 0) {
+        const insertTaskTag = db.prepare(
+          'INSERT INTO task_tags (task_id, tag_id) VALUES (?, ?)'
+        )
+        for (const tag of tagTemplate) insertTaskTag.run(spawnedId, tag.tag_id)
       }
     }
   })
@@ -755,7 +931,7 @@ export function listDueReminders(now: string): Task[] {
       ORDER BY t.remind_at ASC
     `)
     .all(now) as TaskRow[]
-  return rows.map(mapTask)
+  return attachTags(rows.map(mapTask))
 }
 
 export function markTaskReminded(id: string, at: string): void {

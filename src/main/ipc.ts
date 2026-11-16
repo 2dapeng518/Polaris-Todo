@@ -4,15 +4,18 @@ import { isValidRecurrenceRule } from '../shared/recurrence'
 import {
   createProject,
   createSubtask,
+  createTag,
   createTask,
   deleteProject,
   deleteSubtask,
+  deleteTag,
   deleteTask,
   deleteTaskForever,
   emptyTrash,
   listDeletedTasks,
   listProjects,
   listSubtasks,
+  listTags,
   listTasks,
   purgeExpiredDeleted,
   restoreTask,
@@ -49,7 +52,8 @@ const updateTaskSchema = z.object({
   remindAt: dateTimeSchema.nullable().optional(),
   recurrenceRule: recurrenceRuleSchema.nullable().optional(),
   projectId: z.string().nullable().optional(),
-  priority: z.number().int().min(0).max(3).optional()
+  priority: z.number().int().min(0).max(3).optional(),
+  tagIds: z.array(z.string().min(1)).max(50).optional()
 })
 
 const toggleTaskSchema = z.object({
@@ -87,6 +91,10 @@ const updateSubtaskSchema = z
 
 const subtaskTaskIdSchema = z.object({
   taskId: z.string().min(1)
+})
+
+const createTagSchema = z.object({
+  name: z.string().min(1).max(40)
 })
 
 // Split out so the smoke test can drop this one channel to exercise the
@@ -168,5 +176,17 @@ export function registerIpc(): void {
   ipcMain.handle('projects:delete', (_event, input) => {
     const { id } = taskIdSchema.parse(input)
     deleteProject(id)
+  })
+
+  ipcMain.handle('tags:list', () => listTags())
+
+  ipcMain.handle('tags:create', (_event, input) => {
+    return createTag(createTagSchema.parse(input))
+  })
+
+  // 全局删除：外键 ON DELETE CASCADE 清掉所有 task_tags 关联，任务本身不动。
+  ipcMain.handle('tags:remove', (_event, input) => {
+    const { id } = taskIdSchema.parse(input)
+    deleteTag(id)
   })
 }

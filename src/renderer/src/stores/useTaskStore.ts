@@ -3,6 +3,7 @@ import type {
   AppView,
   Project,
   Subtask,
+  Tag,
   Task,
   UpdateSubtaskInput,
   UpdateTaskInput
@@ -78,8 +79,14 @@ type TaskState = {
   // 不依赖这份缓存，所以未打开过的任务不需要预取。
   subtasksByTask: Record<string, Subtask[]>
   projects: Project[]
+  // 标签是全局字典，侧栏、详情建议、任务行 chip 共用这一份；顺序由 DB 按
+  // 名称排序给出，新建/删除时本地同步维护。
+  tags: Tag[]
   view: AppView
   projectFilter: string | null
+  // 标签与项目筛选互斥：两者都是「某个维度下的一组任务」，叠加会让标题、
+  // 空态和计数都无法用一句话说清。选中任一筛选即切到「全部任务」。
+  tagFilter: string | null
   selectedTaskId: string | null
   paletteOpen: boolean
   loading: boolean
@@ -95,6 +102,9 @@ type TaskState = {
   removeSubtask: (id: string) => Promise<void>
   setView: (view: AppView) => void
   setProjectFilter: (projectId: string | null) => void
+  setTagFilter: (tagId: string | null) => void
+  createTag: (name: string) => Promise<Tag>
+  removeTag: (id: string) => Promise<void>
   selectTask: (id: string | null) => void
   setPaletteOpen: (open: boolean) => void
   setTrashConfirm: (confirm: TrashConfirm | null) => void
@@ -124,8 +134,10 @@ export const useTaskStore = create<TaskState>((set, get) => ({
   trashedTasks: [],
   subtasksByTask: {},
   projects: [],
+  tags: [],
   view: 'today',
   projectFilter: null,
+  tagFilter: null,
   selectedTaskId: null,
   paletteOpen: false,
   loading: true,
@@ -136,13 +148,15 @@ export const useTaskStore = create<TaskState>((set, get) => ({
 
   load: async () => {
     try {
-      const [tasks, projects] = await Promise.all([
+      const [tasks, projects, tags] = await Promise.all([
         window.polaris.tasks.list(),
-        window.polaris.projects.list()
+        window.polaris.projects.list(),
+        window.polaris.tags.list()
       ])
       set((state) => ({
         tasks,
         projects,
+        tags,
         loading: false,
         storageError: readSucceeded('load', state.storageError),
         selectedTaskId: tasks.some((task) => task.id === state.selectedTaskId)
@@ -332,6 +346,7 @@ export const useTaskStore = create<TaskState>((set, get) => ({
     set((state) => ({
       view,
       projectFilter: null,
+      tagFilter: null,
       // 进回收站关闭检查器：软删行没有详情，留着选中只会让第三列空转。
       // 统计页是整幅图表，检查器没有并排的空间。
       selectedTaskId: view === 'trash' || view === 'stats' ? null : state.selectedTaskId,
@@ -341,7 +356,81 @@ export const useTaskStore = create<TaskState>((set, get) => ({
     if (view === 'trash') void get().loadTrash()
   },
 
-  setProjectFilter: (projectFilter) => set({ projectFilter, view: 'all' }),
+  setProjectFilter: (projectFilter) =>
+    set({ projectFilter, tagFilter: null, view: 'all' }),
+
+  setTagFilter: (tagFilter) => set({ tagFilter, projectFilter: null, view: 'all' }),
+
+  createTag: async (name) => {
+    try {
+      const tag = await window.polaris.tags.create({ name })
+      set((state) => {
+        // 重名时 DB 复用已有标签，返回的 id 已在列表里，不能重复插入。
+        if (state.tags.some((item) => item.id === tag.id)) return clearError()
+        return {
+          tags: [...state.tags, tag].sort((a, b) => a.name.localeCompare(b.name, 'zh-CN')),
+          ...clearError()
+        }
+      })
+      return tag
+    } catch (error) {
+      set(writeFailed())
+      throw error
+    }
+  },
+
+  removeTag: async (id) => {
+    const index = get().tags.findIndex((tag) => tag.id === id)
+    if (index < 0) return
+    const current = get().tags[index]
+    const prevFilter = get().tagFilter
+    // 级联在渲染层的镜像：删标签后所有任务行上的 chip 立刻消失。回滚需要
+    // 知道哪些任务原本带着它，按任务 id 记录即可（tag 对象本身保留着）。
+    const affected = new Set(
+      [...get().tasks, ...get().trashedTasks]
+        .filter((task) => task.tags.some((tag) => tag.id === id))
+        .map((task) => task.id)
+    )
+
+    set((state) => ({
+      tags: state.tags.filter((tag) => tag.id !== id),
+      tagFilter: state.tagFilter === id ? null : state.tagFilter,
+      tasks: state.tasks.map((task) => ({
+        ...task,
+        tags: task.tags.filter((tag) => tag.id !== id)
+      })),
+      trashedTasks: state.trashedTasks.map((task) => ({
+        ...task,
+        tags: task.tags.filter((tag) => tag.id !== id)
+      }))
+    }))
+
+    try {
+      await window.polaris.tags.remove(id)
+      set(clearError())
+    } catch (error) {
+      set((state) => {
+        const tags = [...state.tags]
+        tags.splice(Math.min(index, tags.length), 0, current)
+        const restore = (task: Task): Task =>
+          affected.has(task.id) && !task.tags.some((tag) => tag.id === id)
+            ? {
+                ...task,
+                tags: [...task.tags, current].sort((a, b) =>
+                  a.name.localeCompare(b.name, 'zh-CN')
+                )
+              }
+            : task
+        return {
+          tags,
+          tagFilter: prevFilter,
+          tasks: state.tasks.map(restore),
+          trashedTasks: state.trashedTasks.map(restore),
+          ...writeFailed()
+        }
+      })
+    }
+  },
 
   selectTask: (selectedTaskId) => {
     // 选中活任务总是离开回收站（面板任务搜索是唯一入口）。
@@ -364,9 +453,15 @@ export const useTaskStore = create<TaskState>((set, get) => ({
     const current = get().tasks.find((task) => task.id === id)
     if (!current) return
 
+    // tagIds 是替换式写入，不是 Task 字段：乐观行上的 tags 要从全局字典
+    // 映射出来，否则 chip 要等 IPC 回来才变。省略时保持原关联不动。
+    const { tagIds, ...rest } = patch
     const optimistic: Task = {
       ...current,
-      ...patch,
+      ...rest,
+      ...(tagIds !== undefined
+        ? { tags: tagIds.flatMap((tagId) => get().tags.find((tag) => tag.id === tagId) ?? []) }
+        : {}),
       updatedAt: new Date().toISOString()
     }
 
