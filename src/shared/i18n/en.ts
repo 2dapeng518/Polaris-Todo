@@ -197,7 +197,7 @@ export const en: Messages = {
   'detail.subtaskLabel': 'Subtask “{title}”',
   'detail.subtaskRemove': 'Delete subtask “{title}”',
 
-  'quickAdd.placeholder': 'Add a task…',
+  'quickAdd.placeholder': 'Add a task… try “tomorrow 3pm”',
   'quickAdd.label': 'Add a task',
   'quickAdd.needTitle': 'A task name is required',
   'quickAdd.tooLong': 'Task name is too long',

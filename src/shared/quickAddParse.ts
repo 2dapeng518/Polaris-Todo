@@ -1,4 +1,4 @@
-import { format, isBefore, isToday, isTomorrow, startOfDay } from 'date-fns'
+import { format, isBefore, isSameDay, startOfDay } from 'date-fns'
 import { enUS, zhCN } from 'date-fns/locale'
 import { DEFAULT_LOCALE, translate, type Locale, type MessageKey } from './i18n'
 
@@ -13,6 +13,9 @@ import { DEFAULT_LOCALE, translate, type Locale, type MessageKey } from './i18n'
 // comes from three places instead: explicit character guards, a mask table for
 // known false positives, and head/tail anchoring (a date in the middle of a
 // sentence is never consumed).
+//
+// 英文层（Step 2b）有词边界，所以它用 lookbehind 和自己的一套守卫；候选仍进
+// 同一个列表、走同一套下游步骤，且与界面语言无关。
 
 export type Span = { start: number; end: number }
 
@@ -25,6 +28,7 @@ export type TokenKind =
   | 'clockCn'
   | 'clock24'
   | 'period'
+  | 'offsetEn'
   | 'project'
   | 'priority'
 
@@ -123,7 +127,10 @@ const ZH_DIGIT: Record<string, number> = {
 const PERIODS = '凌晨|早上|早晨|上午|中午|下午|傍晚|晚上|夜里|半夜|夜晚'
 const BARE_PERIODS = ['凌晨', '早上', '早晨', '上午', '中午', '下午', '傍晚', '晚上']
 const PERIOD_DEFAULT: Record<string, number> = {
-  凌晨: 5, 早上: 7, 早晨: 7, 上午: 9, 中午: 12, 下午: 15, 傍晚: 18, 晚上: 20
+  凌晨: 5, 早上: 7, 早晨: 7, 上午: 9, 中午: 12, 下午: 15, 傍晚: 18, 晚上: 20,
+  // 英文时段词的默认时刻与中文对应时段对齐：morning 取「上午」9 点，
+  // afternoon 取「下午」15 点，evening 取「晚上」20 点。
+  morning: 9, afternoon: 15, evening: 20
 }
 const WEAK_DEFAULT: Record<string, number> = { 晚上: 20, 早上: 7 }
 
@@ -171,12 +178,72 @@ const RE = {
   clock24: new RegExp(`((?:${PERIODS})[ \\t]*)?([0-9]{1,2}):([0-9]{2})(?![0-9:])`, 'g'),
   period: new RegExp(`(${BARE_PERIODS.join('|')})`, 'g'),
   project: /(^|[^!-~])#([^\s#]{1,80})/g,
-  priority: /(^|[^!-~])!([高中低]|[123])(?![\p{L}\p{N}])/gu
+  priority: /(^|[^!-~])!([高中低]|[123]|high|medium|med|low)(?![\p{L}\p{N}])/giu
 }
 
 const LOOSE_CLOCK = new RegExp(`((?:${PERIODS})[ \\t]*)?${NUM3}\\s*[点时]`, 'g')
 const SUFFIX_HEAD = new RegExp(`^(?:半|钟|一刻|三刻|${NUM3}\\s*分)`)
-/** 优先级的显示短名：解析语法仍只认中文与数字，这里只负责怎么说。 */
+
+// ---------- English layer ----------
+// 英文语法与界面语言无关：输入里出现英文日期词就识别，界面语言只决定 chip
+// 文案。坐标系仍沿用 UTF-16 半开区间，emoji 占两个单位。
+//
+// 英文有词边界，所以这里用 lookbehind 限定 ASCII 字母数字，而不是中文那套
+// 字符守卫：'join 2 hours' 里的 in、'tomorrowland' 里的 tomorrow 都不能命中。
+const EN_MONTHS: Record<string, number> = {
+  january: 1, jan: 1, february: 2, feb: 2, march: 3, mar: 3, april: 4, apr: 4,
+  may: 5, june: 6, jun: 6, july: 7, jul: 7, august: 8, aug: 8,
+  september: 9, sept: 9, sep: 9, october: 10, oct: 10,
+  november: 11, nov: 11, december: 12, dec: 12
+}
+// JS getDay()：周日 0。换算成周一 0 后即可复用中文 weekday 的 delta 公式。
+const EN_WEEKDAYS: Record<string, number> = {
+  sunday: 0, sun: 0, monday: 1, mon: 1, tuesday: 2, tue: 2, tues: 2,
+  wednesday: 3, wed: 3, thursday: 4, thu: 4, thur: 4, thurs: 4,
+  friday: 5, fri: 5, saturday: 6, sat: 6
+}
+const EN_WEEKDAY_FULL = new Set([
+  'sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'
+])
+const EN_MONTH_ALT =
+  'january|jan|february|feb|march|mar|april|apr|may|june|jun|july|jul|august|aug|september|sept|sep|october|oct|november|nov|december|dec'
+const EN_WEEKDAY_ALT =
+  'monday|mon|tuesday|tues|tue|wednesday|wed|thursday|thurs|thur|thu|friday|fri|saturday|sat|sunday|sun'
+
+const EN_RELATIVE =
+  /(?<![A-Za-z])(?:the[ \t]+)?(day after tomorrow|tonight|tomorrow|today|tmr|tmw)(?![A-Za-z'])/gi
+const EN_WEEKDAY = new RegExp(
+  `(?<![A-Za-z])(?:(next|this|on)[ \\t]+)?(${EN_WEEKDAY_ALT})(?![A-Za-z'])`,
+  'gi'
+)
+const EN_CLOCK_AMPM =
+  /(?<![A-Za-z0-9])(?:at[ \t]+)?(\d{1,2})(?::(\d{2}))?[ \t]*(am|pm)(?![A-Za-z])/gi
+// 没有 am/pm 的 'at 3' / 'at 3:30'，语义与中文裸数字小时一致（applyPeriod(null, h)）。
+const EN_CLOCK_AT =
+  /(?<![A-Za-z0-9])at[ \t]+(\d{1,2})(?::(\d{2}))?(?![A-Za-z0-9:])(?![ \t]*(?:am|pm))/gi
+const EN_NOON = /(?<![A-Za-z])(noon|midnight)(?![A-Za-z'])/gi
+const EN_PERIOD = /(?<![A-Za-z])(morning|afternoon|evening)(?![A-Za-z'])/gi
+const EN_OFFSET =
+  /(?<![A-Za-z])in[ \t]+(\d{1,3})[ \t]+(hours?|minutes?|mins?|days?|weeks?)(?![A-Za-z])/gi
+const EN_MONTH_FIRST = new RegExp(
+  `(?<![A-Za-z0-9])(${EN_MONTH_ALT})\\.?[ \\t]+(\\d{1,2})(?:st|nd|rd|th)?(?:,?[ \\t]+(\\d{4}))?(?![A-Za-z0-9])`,
+  'gi'
+)
+const EN_DAY_FIRST = new RegExp(
+  `(?<![A-Za-z0-9])(\\d{1,2})(?:st|nd|rd|th)?[ \\t]+(?:of[ \\t]+)?(${EN_MONTH_ALT})(?:,?[ \\t]+(\\d{4}))?(?![A-Za-z0-9])`,
+  'gi'
+)
+// 美式 月/日。前后都不许再挨着数字或斜杠，避免把 2026/12/25 这类串吃掉一截。
+const EN_NUMERIC_MD = /(?<![A-Za-z0-9/])(\d{1,2})\/(\d{1,2})(?![0-9A-Za-z/])/g
+// 问候语整体掩掉，否则 'Good morning' 会被当成 9 点，标题只剩 Good。
+const EN_COMPOUNDS = /(?<![A-Za-z])good[ \t]+(?:morning|afternoon|evening|night)(?![A-Za-z])/gi
+
+// 缩写既是星期词也是常见词/名字。裸缩写（没有 next/this/on 引导）只在
+// 「像日期」时消费：小写且后面不跟小写单词（'sat down'、'mon dieu'），
+// 句首大写但后面不跟专有名词（'Sun Microsystems'），且前面不是代词
+// （'I sat'、'we sat'）。
+const EN_ABBREV_PRONOUN = /^(?:i|we|you|he|she|it|they|me|us|them|a|an|the)$/i
+/** 优先级的显示短名：解析语法认中文、数字与 !high/!med/!low，这里只负责怎么说。 */
 function priorityText(locale: Locale, priority: number): string {
   const value = priority >= 1 && priority <= 3 ? priority : 0
   return translate(locale, `detail.priorityOption.${value}` as MessageKey)
@@ -205,6 +272,7 @@ type Cand = {
   name?: string
   dup?: boolean
   priority?: number
+  ms?: number
   coreStart?: number
   coreEnd?: number
 }
@@ -379,8 +447,14 @@ export function formatParsedDue(
   const dateLocale = locale === 'en' ? enUS : zhCN
   const today = translate(locale, 'dates.today')
   const tomorrow = translate(locale, 'dates.tomorrow')
-  if (isToday(date)) return timeExplicit ? `${today} ${format(date, 'HH:mm')}` : today
-  if (isTomorrow(date)) return timeExplicit ? `${tomorrow} ${format(date, 'HH:mm')}` : tomorrow
+  // 「今天 / 明天」必须对着传进来的 now 判，不能用 date-fns 的 isToday /
+  // isTomorrow：那两个读的是真实时钟，冒烟注入的时钟一换就和 chip 说的日子
+  // 打架（解析说「明天」，显示却给「11月13日」）。
+  const dayStart = startOfDay(now)
+  if (isSameDay(date, dayStart)) return timeExplicit ? `${today} ${format(date, 'HH:mm')}` : today
+  if (isSameDay(date, addDays(dayStart, 1))) {
+    return timeExplicit ? `${tomorrow} ${format(date, 'HH:mm')}` : tomorrow
+  }
   const sameYear = date.getFullYear() === now.getFullYear()
   const stem =
     locale === 'en'
@@ -458,8 +532,20 @@ export function parseQuickAdd(raw: string, ctx: ParseContext): QuickAddParse {
 
   for (const match of normalized.matchAll(RE.priority)) {
     const at0 = match.index + match[1].length
-    const value: Record<string, number> = { 高: 3, 中: 2, 低: 1, '1': 1, '2': 2, '3': 3 }
-    markers.push({ kind: 'priority', start: at0, end: at0 + 2, priority: value[match[2]] })
+    const rawWord = match[2]
+    // 中文与数字按原文查表；英文词（可能大小写混写）统一转小写。
+    const word = /^[0-9]$/.test(rawWord) || /^[高中低]$/.test(rawWord) ? rawWord : rawWord.toLowerCase()
+    const value: Record<string, number> = {
+      高: 3, 中: 2, 低: 1, '1': 1, '2': 2, '3': 3,
+      high: 3, medium: 2, med: 2, low: 1
+    }
+    markers.push({
+      kind: 'priority',
+      start: at0,
+      // 标记长度不再写死为 2：'!high' 是 5 个字符。
+      end: at0 + 1 + rawWord.length,
+      priority: value[word]
+    })
   }
 
   const liveMarkers = markers.filter((marker) => !marker.dup)
@@ -488,6 +574,10 @@ export function parseQuickAdd(raw: string, ctx: ParseContext): QuickAddParse {
       compounds.push({ start: index, end: index + word.length })
       index = masked.indexOf(word, index + 1)
     }
+  }
+  // 英文问候语同样整体掩掉：'Good morning' 是问候，不是 9 点的时段词。
+  for (const match of masked.matchAll(EN_COMPOUNDS)) {
+    compounds.push({ start: match.index, end: match.index + match[0].length })
   }
 
   const compoundsHit = overlapIndex(compounds)
@@ -695,6 +785,187 @@ export function parseQuickAdd(raw: string, ctx: ParseContext): QuickAddParse {
     push('period', match.index, match.index + match[0].length, { period: match[1] })
   }
 
+  // Step 2b — 英文候选。与中文共用同一个候选列表和下游步骤（重叠消解、头尾
+  // 锚定、标题挖除、取消识别），只有正则和守卫是英文专用的。kind 尽量复用，
+  // 于是 Step 6 的时刻分层不需要分叉：英文星期就是 'weekday' 候选，英文
+  // 12 小时制时刻就是 'clockCn' 候选。
+  const enWordBefore = (index: number): string => {
+    let i = index - 1
+    while (i >= 0 && !/[A-Za-z]/.test(masked[i])) i -= 1
+    const end = i + 1
+    while (i >= 0 && /[A-Za-z]/.test(masked[i])) i -= 1
+    return masked.slice(i + 1, end)
+  }
+  const enWordAfter = (index: number): string => {
+    let i = index
+    // 中间隔着数字就说明后面是 '10am' 这类时刻，不是普通单词。
+    while (i < masked.length && !/[A-Za-z0-9]/.test(masked[i])) i += 1
+    if (i >= masked.length || /[0-9]/.test(masked[i])) return ''
+    const start = i
+    while (i < masked.length && /[A-Za-z]/.test(masked[i])) i += 1
+    return masked.slice(start, i)
+  }
+  const pushEn = (kind: TokenKind, start: number, end: number, data: Partial<Cand>): void => {
+    if (guard(kind, start, end)) cands.push({ kind, start, end, ...data })
+  }
+  const enMonthDay = (month: number, day: number, year: number | null, start: number, end: number): void => {
+    if (!(month >= 1 && month <= 12) || !(day >= 1 && day <= 31)) return
+    let picked: Date | null = null
+    let assumed = false
+    if (year !== null) {
+      const candidate = new Date(year, month - 1, day)
+      if (
+        candidate.getFullYear() === year &&
+        candidate.getMonth() === month - 1 &&
+        candidate.getDate() === day
+      ) {
+        picked = candidate
+      }
+    } else {
+      // 与中文 monthday 同规则：今年已过就顺延到下一次，找不到就放弃。
+      for (let k = 0; k < 5; k += 1) {
+        const y = now.getFullYear() + k
+        const candidate = new Date(y, month - 1, day)
+        if (
+          candidate.getFullYear() === y &&
+          candidate.getMonth() === month - 1 &&
+          candidate.getDate() === day &&
+          candidate >= startOfDay(now)
+        ) {
+          picked = candidate
+          assumed = k > 0
+          break
+        }
+      }
+    }
+    if (!picked) return
+    pushEn('monthday', start, end, { date: picked, assumed })
+  }
+
+  for (const match of masked.matchAll(EN_RELATIVE)) {
+    const word = match[1].toLowerCase()
+    const start = match.index
+    const end = start + match[0].length
+    if (word === 'tonight') {
+      // 与中文「今晚」同构：今天 + 弱时段「晚上」，显式时钟会覆盖它。
+      pushEn('relcomp', start, end, { off: 0, weak: '晚上' })
+    } else {
+      const off = word === 'day after tomorrow' ? 2 : word === 'today' ? 0 : 1
+      pushEn('relative', start, end, { off })
+    }
+  }
+
+  for (const match of masked.matchAll(EN_WEEKDAY)) {
+    const cue = match[1]?.toLowerCase()
+    const word = match[2].toLowerCase()
+    const start = match.index
+    const end = start + match[0].length
+    const wordStart = end - match[2].length
+    if (!EN_WEEKDAY_FULL.has(word)) {
+      const shown = match[2]
+      // 全大写缩写（SUN、SAT）多半是人名/机构名，裸词一律不认。
+      if (!cue && /^[A-Z]+$/.test(shown) && shown.length > 1) continue
+      if (!cue) {
+        const prev = enWordBefore(wordStart)
+        const next = enWordAfter(end)
+        // 'sat down' / 'mon dieu'：小写缩写后面还跟着普通小写单词，当动词/法语词。
+        if (next && /^[a-z]{2,}$/.test(next)) continue
+        // 'Sun Microsystems'：句首大写缩写后面紧跟专有名词。
+        if (/^[A-Z][a-z]+$/.test(shown) && /^[A-Z]/.test(next)) continue
+        // 'I sat' / 'we sat'：代词后面的缩写当动词。
+        if (EN_ABBREV_PRONOUN.test(prev)) continue
+      }
+    }
+    const dow = (startOfDay(now).getDay() + 6) % 7
+    const target = (EN_WEEKDAYS[word] + 6) % 7
+    let delta: number
+    if (cue === 'next') delta = 7 - dow + target
+    else if (cue === 'this') delta = target - dow
+    else delta = (target - dow + 7) % 7
+    // 'this friday' 已经过去时与中文「本周五」一致：整段拒绝，不顺延。
+    if (delta < 0) {
+      blocked.push({ start, end })
+      continue
+    }
+    pushEn('weekday', start, end, { off: delta })
+  }
+
+  for (const match of masked.matchAll(EN_CLOCK_AMPM)) {
+    const hour12 = Number(match[1])
+    const minute = match[2] ? Number(match[2]) : 0
+    if (!(hour12 >= 1 && hour12 <= 12) || minute > 59) continue
+    const hour = match[3].toLowerCase() === 'am' ? hour12 % 12 : (hour12 % 12) + 12
+    pushEn('clockCn', match.index, match.index + match[0].length, {
+      h: hour, dayOff: 0, min: minute, period: null, bare: false, assumed: false
+    })
+  }
+
+  for (const match of masked.matchAll(EN_CLOCK_AT)) {
+    const hour = Number(match[1])
+    const minute = match[2] ? Number(match[2]) : 0
+    const applied = applyPeriod(null, hour)
+    if (!applied || minute > 59) continue
+    pushEn('clockCn', match.index, match.index + match[0].length, {
+      h: applied[0], dayOff: applied[1], min: minute, period: null,
+      bare: hour >= 1 && hour <= 6, assumed: true
+    })
+  }
+
+  for (const match of masked.matchAll(EN_NOON)) {
+    const hour = match[1].toLowerCase() === 'noon' ? 12 : 0
+    pushEn('clockCn', match.index, match.index + match[0].length, {
+      h: hour, dayOff: 0, min: 0, period: null, bare: false, assumed: false
+    })
+  }
+
+  for (const match of masked.matchAll(EN_PERIOD)) {
+    pushEn('period', match.index, match.index + match[0].length, {
+      period: match[1].toLowerCase()
+    })
+  }
+
+  for (const match of masked.matchAll(EN_OFFSET)) {
+    const value = Number(match[1])
+    const unit = match[2].toLowerCase()
+    if (!(value >= 1 && value <= 999)) continue
+    const ms = unit.startsWith('hour')
+      ? value * 3_600_000
+      : unit.startsWith('min')
+        ? value * 60_000
+        : unit.startsWith('day')
+          ? value * 86_400_000
+          : value * 604_800_000
+    pushEn('offsetEn', match.index, match.index + match[0].length, { ms })
+  }
+
+  for (const match of masked.matchAll(EN_MONTH_FIRST)) {
+    enMonthDay(
+      EN_MONTHS[match[1].toLowerCase()],
+      Number(match[2]),
+      match[3] ? Number(match[3]) : null,
+      match.index,
+      match.index + match[0].length
+    )
+  }
+  for (const match of masked.matchAll(EN_DAY_FIRST)) {
+    enMonthDay(
+      EN_MONTHS[match[2].toLowerCase()],
+      Number(match[1]),
+      match[3] ? Number(match[3]) : null,
+      match.index,
+      match.index + match[0].length
+    )
+  }
+  for (const match of masked.matchAll(EN_NUMERIC_MD)) {
+    enMonthDay(
+      Number(match[1]),
+      Number(match[2]),
+      null,
+      match.index,
+      match.index + match[0].length
+    )
+  }
+
   // Step 2.5 — a clock rejected at the regex level leaves no trace, which would
   // let a bare '上午' slip through unopposed. Re-scan loosely and poison every
   // near-miss that no surviving clock covers.
@@ -818,8 +1089,14 @@ export function parseQuickAdd(raw: string, ctx: ParseContext): QuickAddParse {
   const periodTok = anchored.find((t) => t.kind === 'period')
   const projTok = anchored.find((t) => t.kind === 'project')
   const prioTok = anchored.find((t) => t.kind === 'priority')
-  const usedTime = clockTok ?? (periodTok && !poisoned.length ? periodTok : null)
-  const chosen = [dateTok, usedTime, projTok, prioTok]
+  // 'in 2 hours' 自带精确瞬间，与日期/时段互斥：只有它是唯一的时刻候选时才
+  // 独占 due 槽。混合输入里让更明确的日期/时钟胜出，偏移词原样留在标题。
+  const offsetTok =
+    dateTok || clockTok || periodTok ? undefined : anchored.find((t) => t.kind === 'offsetEn')
+  const usedDate = offsetTok ? undefined : dateTok
+  const usedClock = offsetTok ? undefined : clockTok
+  const usedTime = offsetTok ? undefined : clockTok ?? (periodTok && !poisoned.length ? periodTok : null)
+  const chosen = [usedDate, usedTime, offsetTok, projTok, prioTok]
     .filter((t): t is Cand => Boolean(t))
     .sort((a, b) => a.start - b.start)
 
@@ -850,50 +1127,57 @@ export function parseQuickAdd(raw: string, ctx: ParseContext): QuickAddParse {
   let assumed = false
   let past = false
 
-  if (dateTok || clockTok || periodTok) {
-    const base = dateTok
-      ? dateTok.date
-        ? new Date(dateTok.date)
-        : addDays(startOfDay(now), dateTok.off ?? 0)
+  if (offsetTok) {
+    // 英文 'in N units' 是相对当前瞬间的精确偏移，直接产出瞬间，不进入
+    // 日期/时段的分层逻辑，也不做「已过就顺延一天」的补正。
+    const result = new Date(now.getTime() + (offsetTok.ms ?? 0))
+    dueAt = result.toISOString()
+    timeExplicit = true
+    past = result < now
+  } else if (usedDate || usedClock || usedTime) {
+    const base = usedDate
+      ? usedDate.date
+        ? new Date(usedDate.date)
+        : addDays(startOfDay(now), usedDate.off ?? 0)
       : startOfDay(now)
     let result: Date
 
-    if (clockTok) {
-      const weak = !clockTok.period && dateTok?.kind === 'relcomp' ? dateTok.weak : null
-      let hour = clockTok.h ?? 0
-      let offset = clockTok.dayOff ?? 0
+    if (usedClock) {
+      const weak = !usedClock.period && usedDate?.kind === 'relcomp' ? usedDate.weak : null
+      let hour = usedClock.h ?? 0
+      let offset = usedClock.dayOff ?? 0
       if (weak) {
-        const applied = applyPeriod(weak, clockTok.bare ? hour - 12 : hour)
+        const applied = applyPeriod(weak, usedClock.bare ? hour - 12 : hour)
         if (applied) {
           hour = applied[0]
           offset = applied[1]
         }
       }
-      result = at(addDays(base, offset), hour, clockTok.min ?? 0)
+      result = at(addDays(base, offset), hour, usedClock.min ?? 0)
       if (
-        clockTok.bare &&
+        usedClock.bare &&
         !weak &&
         result.getFullYear() === now.getFullYear() &&
         result.getMonth() === now.getMonth() &&
         result.getDate() === now.getDate()
       ) {
-        const morning = at(base, hour - 12, clockTok.min ?? 0)
+        const morning = at(base, hour - 12, usedClock.min ?? 0)
         if (morning > now) result = morning
       }
       timeExplicit = true
-      assumed = Boolean(clockTok.assumed) && !weak
+      assumed = Boolean(usedClock.assumed) && !weak
       // With an explicit date we never roll forward: '今天下午3点' said at 16:00
       // really is overdue, and the chip says so.
-      if (!dateTok && result <= now) result = addDays(result, 1)
+      if (!usedDate && result <= now) result = addDays(result, 1)
     } else {
-      const periodName = periodTok?.period ?? (dateTok?.kind === 'relcomp' ? dateTok.weak : null)
+      const periodName = usedTime?.period ?? (usedDate?.kind === 'relcomp' ? usedDate.weak : null)
       if (periodName && !anyClockPoison) {
-        const hour = periodTok ? PERIOD_DEFAULT[periodName] : WEAK_DEFAULT[periodName]
+        const hour = usedTime ? PERIOD_DEFAULT[periodName] : WEAK_DEFAULT[periodName]
         result = at(base, hour, 0)
         timeExplicit = true
         assumed = true
         if (result <= now) {
-          if (dateTok) {
+          if (usedDate) {
             // The hour was invented, so discard it rather than push the task to
             // another day the user never asked for.
             result = at(base, 23, 59, 59)
@@ -914,7 +1198,7 @@ export function parseQuickAdd(raw: string, ctx: ParseContext): QuickAddParse {
 
     dueAt = result.toISOString()
     past = result < now
-    if (dateTok?.assumed) assumed = true
+    if (usedDate?.assumed) assumed = true
   }
 
   const emptyTitle = tokens.length > 0 && /^[\s，,。.;；、：:！!？?]*$/.test(title)
@@ -935,7 +1219,14 @@ export function parseQuickAdd(raw: string, ctx: ParseContext): QuickAddParse {
   }
 
   const chips: ParseChip[] = []
-  const dueTokens = tokens.filter((t) => DATE_KINDS.includes(t.kind) || t.kind === 'clockCn' || t.kind === 'clock24' || t.kind === 'period')
+  const dueTokens = tokens.filter(
+    (t) =>
+      DATE_KINDS.includes(t.kind) ||
+      t.kind === 'clockCn' ||
+      t.kind === 'clock24' ||
+      t.kind === 'period' ||
+      t.kind === 'offsetEn'
+  )
   if (dueAt && dueTokens.length) {
     const label = formatParsedDue(dueAt, timeExplicit, now, locale)
     const source = sourceOf(raw, dueTokens)
