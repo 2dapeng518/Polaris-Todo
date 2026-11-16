@@ -2,7 +2,7 @@
 
 Windows 11 上的本地优先待办应用。深色墨黑界面、青绿信号色、原生窗口控件，数据默认只保存在本机。
 
-[![版本](https://img.shields.io/badge/version-0.3.1-0F766E?style=flat-square)](package.json)
+[![版本](https://img.shields.io/badge/version-0.9.1-0F766E?style=flat-square)](package.json)
 [![平台](https://img.shields.io/badge/platform-Windows%2011-334155?style=flat-square)](package.json)
 [![许可证](https://img.shields.io/badge/license-MIT-0F766E?style=flat-square)](package.json)
 
@@ -79,6 +79,8 @@ node node_modules/electron/install.js
 | `npm run verify:datetime` | 日期时间纯函数不变量校验（「今天」不落过去等） |
 | `npm run preview` | 预览生产构建 |
 | `npm run build:win` | 构建并生成 NSIS 安装包 |
+| `npm run build:mac` | 构建并生成 macOS 安装包 |
+| `npm run make:icon` | 重新生成应用图标（png/ico/icns）与托盘图标 |
 
 开发时关闭主窗口只会隐藏到托盘；结束 `npm run dev` 请用托盘菜单「退出」或 `Ctrl+C`。首次启动会创建数据库并写入示例任务。
 
@@ -117,9 +119,10 @@ build/         应用图标与安装包资源
 - 设置里可开启开机自启：登录 Windows 后以 `--hidden` 后台启动到托盘；单实例保护，再次启动会唤起已有窗口。
 - 侧栏新建项目，内置六种配色。
 - 命令面板（`Ctrl K`）：搜索任务、切换视图、新建任务或项目、配对快切主题，另有「主题：夜阑」等六条直达命令可任选一套。
-- 六套颜色主题（夜阑 / 昼白 / 暮蓝 / 暖砂 / 天蓝 / 护眼绿）：标题栏是一枚分体式开关——左段一击在配对间往返（夜阑↔昼白、暮蓝↔暖砂、天蓝↔护眼绿），右段箭头展开六选一菜单，六套一次看全、一次选中；设置面板的主题卡片同样任选。切换即时生效并记住，首次启动跟随系统；青绿信号色统一，画布各有气质，文字对比度均达 WCAG AA。
+- 六套颜色主题（夜阑 / 昼白 / 暮蓝 / 暖砂 / 天蓝 / 护眼绿）：标题栏是一枚分体式开关——左段一击在配对间往返（夜阑↔昼白、暮蓝↔暖砂、天蓝↔护眼绿），右段箭头展开六选一菜单，六套一次看全、一次选中；设置面板的主题卡片同样任选。切换立即生效并记住（支持 View Transitions 时做一次约 200ms 的柔和淡变，reduced-motion 下直接切换），首次启动跟随系统；青绿信号色统一，画布各有气质，文字对比度均达 WCAG AA。
 - 键盘优先：命令面板、设置和窄屏详情有焦点陷阱；宽屏详情保持列表可操作，支持 skip link、reduced motion 和可见焦点环。
 - SQLite 本地持久化，自定义标题栏保留 Windows 原生最小化 / 最大化 / 关闭按钮。
+- 关于与署名：设置面板「关于」区显示当前版本与 MIT 许可；完整第三方组件与字体声明随安装包放在 `resources/NOTICE` 与 `resources/licenses/`，安装后可直接查看。
 
 ## 快速添加的识别规则
 
@@ -231,10 +234,11 @@ build/         应用图标与安装包资源
 
 打包产物：
 
-- `dist/Polaris-Setup-0.3.1.exe`：NSIS 安装包，按用户安装，无需管理员权限，安装界面为简体中文。
+- `dist/Polaris-Setup-0.9.1.exe`：NSIS 安装包，按用户安装，无需管理员权限，安装界面为简体中文。
 - `dist/win-unpacked/Polaris.exe`：免安装目录版。
+- 另提供 `npm run build:mac`（macOS 打包配置，图标 `build/icon.icns`）；主要目标平台仍是 Windows 11。
 
-安装包未做代码签名，首次运行可能触发 SmartScreen 或杀毒软件扫描提示。应用图标来自 `build/icon.ico`，可用 `node scripts/make-app-icon.mjs` 重新生成。
+安装包未做代码签名，首次运行可能触发 SmartScreen 或杀毒软件扫描提示。应用图标来自 `build/icon.ico`，可用 `npm run make:icon` 重新生成。
 
 ## 编码约定
 
@@ -308,4 +312,4 @@ npm run verify:datetime
 
 ## 许可证
 
-MIT，见 [`package.json`](package.json)。仓库目前还没有独立的 `LICENSE` 文件，正式发布前建议补一份。
+MIT，Copyright (c) 2026 daboluo20，原文见 [`LICENSE`](LICENSE)（`package.json` 亦声明 MIT）。第三方组件与字体声明见 [`NOTICE`](NOTICE) 与 `licenses/`。
