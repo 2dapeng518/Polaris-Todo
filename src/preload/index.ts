@@ -17,6 +17,7 @@ import type {
   UpdateSubtaskInput,
   UpdateTaskInput
 } from '../shared/types'
+import type { Locale } from '../shared/i18n'
 
 const api: PolarisApi = {
   tasks: {
@@ -55,6 +56,8 @@ const api: PolarisApi = {
   app: {
     getVersion: (): Promise<string> => ipcRenderer.invoke('app:get-version'),
     setTheme: (theme: AppTheme) => ipcRenderer.invoke('app:set-theme', theme),
+    getLocale: (): Promise<Locale> => ipcRenderer.invoke('app:get-locale'),
+    setLocale: (locale: Locale): Promise<Locale> => ipcRenderer.invoke('app:set-locale', locale),
     getAutoStart: (): Promise<AutoStartState> => ipcRenderer.invoke('app:get-autostart'),
     setAutoStart: (enabled: boolean): Promise<AutoStartState> =>
       ipcRenderer.invoke('app:set-autostart', enabled),

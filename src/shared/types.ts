@@ -165,6 +165,7 @@ export type CsvImportResult = {
 export type AppView = 'today' | 'upcoming' | 'calendar' | 'all' | 'completed' | 'stats' | 'matrix' | 'trash'
 
 import type { AppTheme } from './themes'
+import type { Locale } from './i18n'
 
 export type { AppTheme }
 
@@ -254,6 +255,9 @@ export type PolarisApi = {
   app: {
     getVersion: () => Promise<string>
     setTheme: (theme: AppTheme) => Promise<void>
+    getLocale: () => Promise<Locale>
+    /** 只有主窗口的调用会生效；返回主进程最终采用的语言。 */
+    setLocale: (locale: Locale) => Promise<Locale>
     getAutoStart: () => Promise<AutoStartState>
     setAutoStart: (enabled: boolean) => Promise<AutoStartState>
     getCloseToTray: () => Promise<boolean>

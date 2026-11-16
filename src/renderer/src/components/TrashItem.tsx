@@ -4,6 +4,7 @@ import type { Task } from '@shared/types'
 import { TRASH_RETENTION_DAYS } from '@shared/retention'
 import { useTaskStore } from '../stores/useTaskStore'
 import { formatDeletedAt } from '../lib/dates'
+import { useLocale, useT } from '../stores/useLocaleStore'
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
@@ -15,6 +16,8 @@ type TrashItemProps = {
 // 回收站行：软删任务对 update/toggle 会抛「任务不存在」，所以这里没有
 // checkbox、也没有打开详情的入口——内容只是文本，动作只有恢复与彻底删除。
 export function TrashItem({ task, onAskPurge }: TrashItemProps) {
+  const t = useT()
+  const locale = useLocale()
   const restoreFromTrash = useTaskStore((state) => state.restoreFromTrash)
   const projects = useTaskStore((state) => state.projects)
   const rowRef = useRef<HTMLDivElement | null>(null)
@@ -58,11 +61,11 @@ export function TrashItem({ task, onAskPurge }: TrashItemProps) {
         <span className="task-title">{task.title}</span>
         <span className="task-meta">
           {task.deletedAt && (
-            <span className="meta-time">删除于 {formatDeletedAt(task.deletedAt)}</span>
+            <span className="meta-time">{t('views.trash.deletedAt', { time: formatDeletedAt(task.deletedAt, locale) })}</span>
           )}
           {remainingDays !== null && (
             <span className="meta-time">
-              {remainingDays > 0 ? `${remainingDays} 天后清除` : '即将清除'}
+              {remainingDays > 0 ? t('views.trash.remaining', { days: remainingDays }) : t('views.trash.soon')}
             </span>
           )}
           {project && (
@@ -77,10 +80,10 @@ export function TrashItem({ task, onAskPurge }: TrashItemProps) {
       {/* 动作常显：回收站是管理视图，不像主列表那样把删除藏在 hover 里。 */}
       <div className="trash-actions">
         <button className="trash-restore" onClick={() => void handleRestore()}>
-          恢复
+          {t('views.trash.restore')}
         </button>
         <button className="trash-purge" onClick={() => onAskPurge(task)}>
-          彻底删除
+          {t('views.trash.purge')}
         </button>
       </div>
     </motion.div>

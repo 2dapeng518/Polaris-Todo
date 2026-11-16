@@ -1,5 +1,6 @@
 import { BrowserWindow, powerMonitor, screen } from 'electron'
 import { join } from 'node:path'
+import { getCurrentLocale } from './locale'
 import { listDueReminders, markTaskReminded } from './db'
 import { themeBackgroundColor } from './theme'
 
@@ -99,10 +100,13 @@ export function openReminderWindow(taskId: string): void {
   })
 
   const hash = `reminder/${encodeURIComponent(taskId)}`
+  const locale = getCurrentLocale()
   if (process.env['ELECTRON_RENDERER_URL']) {
-    void reminderWindow.loadURL(`${process.env['ELECTRON_RENDERER_URL']}#${hash}`)
+    const base = process.env['ELECTRON_RENDERER_URL']
+    const url = `${base}${base.includes('?') ? '&' : '?'}locale=${locale}#${hash}`
+    void reminderWindow.loadURL(url)
   } else {
-    void reminderWindow.loadFile(join(__dirname, '../renderer/index.html'), { hash })
+    void reminderWindow.loadFile(join(__dirname, '../renderer/index.html'), { hash, query: { locale } })
   }
 }
 

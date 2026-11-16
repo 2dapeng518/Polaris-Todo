@@ -5,13 +5,16 @@ import { Sidebar } from './components/Sidebar'
 import { TaskDetail } from './components/TaskDetail'
 import { TaskView } from './components/TaskView'
 import { ThemeSync } from './components/ThemeSync'
+import { LocaleSync } from './components/LocaleSync'
 import { TitleBar } from './components/TitleBar'
 import { UndoToast } from './components/UndoToast'
 import { UpdateDialog } from './components/UpdateDialog'
 import { useTaskStore } from './stores/useTaskStore'
+import { useT } from './stores/useLocaleStore'
 import { subscribeUpdateStore } from './stores/useUpdateStore'
 
 export default function App() {
+  const t = useT()
   const load = useTaskStore((state) => state.load)
   const loadTrash = useTaskStore((state) => state.loadTrash)
   const loading = useTaskStore((state) => state.loading)
@@ -42,14 +45,15 @@ export default function App() {
     <MotionConfig reducedMotion="user">
       <div className="app-shell">
         <ThemeSync />
+        <LocaleSync />
         <a className="skip-link" href="#main-content">
-          跳到主内容
+          {t('app.skip')}
         </a>
         <TitleBar />
         {loading ? (
           <div className="app-loading">
             <div className="loading-star" />
-            <span>正在载入 Polaris…</span>
+            <span>{t('app.loading')}</span>
           </div>
         ) : (
           <div className={`app-body${inspectorOpen ? ' has-inspector' : ''}`}>

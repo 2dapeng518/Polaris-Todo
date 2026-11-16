@@ -8,6 +8,7 @@ import type {
   UpdateSubtaskInput,
   UpdateTaskInput
 } from '@shared/types'
+import type { MessageKey } from '@shared/i18n'
 
 type TaskPatch = Omit<UpdateTaskInput, 'id'>
 type SubtaskPatch = Pick<UpdateSubtaskInput, 'title' | 'completed'>
@@ -18,8 +19,9 @@ export type TrashConfirm = { kind: 'purge'; task: Task } | { kind: 'empty' }
 
 // 侧栏向用户承诺「自动保存」，所以任何一次落库失败都不能只进 console：
 // catch 写入 storageError，下一次成功读写时清除，由 UndoToast 渲染成错误提示。
-const WRITE_FAILED = '保存失败，改动未写入本地数据库'
-const LOAD_FAILED = '读取本地数据失败'
+// 这里存的是词典键，不是成品文案——渲染层才有当前语言。
+const WRITE_FAILED: MessageKey = 'errors.save'
+const LOAD_FAILED: MessageKey = 'errors.load'
 
 // 错误槽是共享的，但 load 与 loadTrash 在 focus 时并发触发：一个读的成功
 // 不能抹掉另一个读的失败证据，否则「读取失败可见」成了空话。所以 LOAD_FAILED
@@ -35,7 +37,7 @@ const readFailed = (owner: ReadOwner) => {
   return { storageError: LOAD_FAILED }
 }
 
-const readSucceeded = (owner: ReadOwner, current: string | null) => {
+const readSucceeded = (owner: ReadOwner, current: MessageKey | null) => {
   readFailures.delete(owner)
   if (readFailures.size > 0) return current
   return null
@@ -93,7 +95,7 @@ type TaskState = {
   pendingDeletion: Task | null
   trashConfirm: TrashConfirm | null
   notice: { dueAt: string } | null
-  storageError: string | null
+  storageError: MessageKey | null
   load: () => Promise<void>
   loadTrash: () => Promise<void>
   loadSubtasks: (taskId: string) => Promise<void>

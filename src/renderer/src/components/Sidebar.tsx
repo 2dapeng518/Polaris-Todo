@@ -2,27 +2,30 @@ import { Fragment, useEffect, useState, type FormEvent } from 'react'
 import { BarChart3, CalendarClock, CalendarDays, CheckCircle2, Grid2x2, HardDrive, ListTodo, Pencil, Plus, Settings2, Sun, Tag, Trash2 } from './Icon'
 import { AnimatePresence, motion } from 'motion/react'
 import type { AppView, Project } from '@shared/types'
+import type { MessageKey } from '@shared/i18n'
 import { useTaskStore } from '../stores/useTaskStore'
+import { useT } from '../stores/useLocaleStore'
 import { isTodayOrOverdue, isUpcoming } from '../lib/dates'
 import { SettingsPanel } from './SettingsPanel'
 import { ConfirmDialog } from './ConfirmDialog'
 
 /* 排序即工作流：时间轴（现在→接下来→俯瞰）→ 任务轴（分轻重→全集→归档）
    → 回顾（统计）→ 系统（回收站）。divider 把干活的与回顾的视觉分组。 */
-const NAV_ITEMS: Array<{ view: AppView; label: string; icon: typeof Sun; divider?: boolean }> = [
-  { view: 'today', label: '今天', icon: Sun },
-  { view: 'upcoming', label: '即将到来', icon: CalendarClock },
-  { view: 'calendar', label: '日历', icon: CalendarDays },
-  { view: 'matrix', label: '四象限', icon: Grid2x2 },
-  { view: 'all', label: '全部任务', icon: ListTodo },
-  { view: 'completed', label: '已完成', icon: CheckCircle2 },
-  { view: 'stats', label: '统计', icon: BarChart3, divider: true },
-  { view: 'trash', label: '回收站', icon: Trash2 }
+const NAV_ITEMS: Array<{ view: AppView; label: MessageKey; icon: typeof Sun; divider?: boolean }> = [
+  { view: 'today', label: 'nav.view.today', icon: Sun },
+  { view: 'upcoming', label: 'nav.view.upcoming', icon: CalendarClock },
+  { view: 'calendar', label: 'nav.view.calendar', icon: CalendarDays },
+  { view: 'matrix', label: 'nav.view.matrix', icon: Grid2x2 },
+  { view: 'all', label: 'nav.view.all', icon: ListTodo },
+  { view: 'completed', label: 'nav.view.completed', icon: CheckCircle2 },
+  { view: 'stats', label: 'nav.view.stats', icon: BarChart3, divider: true },
+  { view: 'trash', label: 'nav.view.trash', icon: Trash2 }
 ]
 
 const PROJECT_COLORS = ['#5EEAD4', '#A78BFA', '#F0ABFC', '#FBBF24', '#FB7185', '#60A5FA']
 
 export function Sidebar() {
+  const t = useT()
   const tasks = useTaskStore((state) => state.tasks)
   const trashedTasks = useTaskStore((state) => state.trashedTasks)
   const projects = useTaskStore((state) => state.projects)
@@ -132,8 +135,8 @@ export function Sidebar() {
   return (
     <aside className="sidebar">
       <div className="sidebar-scroll">
-      <nav className="nav-section" aria-label="视图">
-        <div className="nav-label">视图</div>
+      <nav className="nav-section" aria-label={t('nav.views')}>
+        <div className="nav-label">{t('nav.views')}</div>
         {NAV_ITEMS.map((item) => {
           const Icon = item.icon
           const active = view === item.view && !projectFilter && !tagFilter
@@ -153,7 +156,7 @@ export function Sidebar() {
                 />
               )}
               <Icon size={16} strokeWidth={1.8} className="nav-icon" aria-hidden="true" />
-              <span className="nav-text">{item.label}</span>
+              <span className="nav-text">{t(item.label)}</span>
               {/* 统计与四象限不是任务列表：数字分别与「已完成」「全部任务」相同，并排显示一样的角标只会让人以为重复了。 */}
               {item.view !== 'stats' && item.view !== 'matrix' && <span className="nav-count">{counts[item.view]}</span>}
             </button>
@@ -162,15 +165,15 @@ export function Sidebar() {
         })}
       </nav>
 
-      <nav className="nav-section projects-section" aria-label="项目">
+      <nav className="nav-section projects-section" aria-label={t('nav.projects')}>
         <div className="nav-label">
-          <span>项目</span>
+          <span>{t('nav.projects')}</span>
           <span className="nav-label-count">{projects.length}</span>
           <button
             className="project-add"
             onClick={() => setAddingProject((value) => !value)}
-            aria-label="新建项目"
-            title="新建项目"
+            aria-label={t('nav.newProject')}
+            title={t('nav.newProject')}
           >
             <Plus size={12} strokeWidth={2} aria-hidden="true" />
           </button>
@@ -192,9 +195,9 @@ export function Sidebar() {
                   setProjectName('')
                 }
               }}
-              placeholder="项目名称"
+              placeholder={t('nav.projectName')}
               maxLength={40}
-              aria-label="项目名称"
+              aria-label={t('nav.projectName')}
             />
             <div className="color-swatches">
               {PROJECT_COLORS.map((color) => (
@@ -204,7 +207,7 @@ export function Sidebar() {
                   className={`color-swatch ${projectColor === color ? 'active' : ''}`}
                   style={{ background: color }}
                   onClick={() => setProjectColor(color)}
-                  aria-label={`选择颜色 ${color}`}
+                  aria-label={t('nav.selectColor', { color })}
                 />
               ))}
             </div>
@@ -216,10 +219,10 @@ export function Sidebar() {
                   setProjectName('')
                 }}
               >
-                取消
+                {t('common.cancel')}
               </button>
               <button type="submit" disabled={!projectName.trim()}>
-                添加
+                {t('common.add')}
               </button>
             </div>
           </form>
@@ -245,9 +248,9 @@ export function Sidebar() {
                       cancelEdit()
                     }
                   }}
-                  placeholder="项目名称"
+                  placeholder={t('nav.projectName')}
                   maxLength={40}
-                  aria-label="项目名称"
+                  aria-label={t('nav.projectName')}
                 />
                 <div className="color-swatches">
                   {PROJECT_COLORS.map((color) => (
@@ -257,16 +260,16 @@ export function Sidebar() {
                       className={`color-swatch ${editColor === color ? 'active' : ''}`}
                       style={{ background: color }}
                       onClick={() => setEditColor(color)}
-                      aria-label={`选择颜色 ${color}`}
+                      aria-label={t('nav.selectColor', { color })}
                     />
                   ))}
                 </div>
                 <div className="project-form-actions">
                   <button type="button" onClick={cancelEdit}>
-                    取消
+                    {t('common.cancel')}
                   </button>
                   <button type="submit" disabled={!editName.trim()}>
-                    保存
+                    {t('common.save')}
                   </button>
                 </div>
               </form>
@@ -294,16 +297,16 @@ export function Sidebar() {
               <div className="project-actions">
                 <button
                   className="project-action"
-                  aria-label={`编辑项目 ${project.name}`}
-                  title="编辑项目"
+                  aria-label={t('nav.editProjectNamed', { name: project.name })}
+                  title={t('nav.editProject')}
                   onClick={() => beginEdit(project)}
                 >
                   <Pencil size={13} strokeWidth={1.8} aria-hidden="true" />
                 </button>
                 <button
                   className="project-action project-action-danger"
-                  aria-label={`删除项目 ${project.name}`}
-                  title="删除项目"
+                  aria-label={t('nav.deleteProjectNamed', { name: project.name })}
+                  title={t('nav.deleteProject')}
                   onClick={() => setDeletingProject(project)}
                 >
                   <Trash2 size={13} strokeWidth={1.8} aria-hidden="true" />
@@ -315,9 +318,9 @@ export function Sidebar() {
       </nav>
 
       {tags.length > 0 && (
-        <nav className="nav-section tags-section" aria-label="标签">
+        <nav className="nav-section tags-section" aria-label={t('nav.tags')}>
           <div className="nav-label">
-            <span>标签</span>
+            <span>{t('nav.tags')}</span>
             <span className="nav-label-count">{tags.length}</span>
           </div>
           {tags.map((tag) => {
@@ -344,8 +347,8 @@ export function Sidebar() {
                 <div className="project-actions">
                   <button
                     className="project-action project-action-danger"
-                    aria-label={`删除标签 ${tag.name}`}
-                    title="删除标签"
+                    aria-label={t('nav.deleteTagNamed', { name: tag.name })}
+                    title={t('nav.deleteTagNamed', { name: tag.name })}
                     onClick={() => void removeTag(tag.id)}
                   >
                     <Trash2 size={13} strokeWidth={1.8} aria-hidden="true" />
@@ -364,7 +367,7 @@ export function Sidebar() {
           主语是「任务数据」不是「应用」——更新检查会联网，措辞必须精确。 */}
       <button
         className="sidebar-storage"
-        title="打开数据备份"
+        title={t('nav.storage.titleAttr')}
         aria-haspopup="dialog"
         onClick={() => {
           setSettingsScrollTarget('backup')
@@ -373,20 +376,20 @@ export function Sidebar() {
       >
         <HardDrive size={16} strokeWidth={1.8} className="storage-icon" aria-hidden="true" />
         <div>
-          <div className="storage-title">任务数据仅存本机</div>
-          <div className="storage-subtitle">自动保存 · 点击备份</div>
+          <div className="storage-title">{t('nav.storage.title')}</div>
+          <div className="storage-subtitle">{t('nav.storage.subtitle')}</div>
         </div>
       </button>
 
       <button
         className="nav-item settings-item"
-        title="设置"
+        title={t('common.settings')}
         aria-haspopup="dialog"
         aria-expanded={settingsOpen}
         onClick={() => setSettingsOpen(true)}
       >
         <Settings2 size={16} strokeWidth={1.8} className="nav-icon" aria-hidden="true" />
-        <span className="nav-text">设置</span>
+        <span className="nav-text">{t('common.settings')}</span>
       </button>
 
       <SettingsPanel
@@ -401,8 +404,8 @@ export function Sidebar() {
       <AnimatePresence>
         {deletingProject && (
           <ConfirmDialog
-            message={`删除项目「${deletingProject.name}」？该项目下的任务会移到「无项目」，项目本身无法恢复。`}
-            confirmLabel="删除项目"
+            message={t('nav.deleteProjectConfirm', { name: deletingProject.name })}
+            confirmLabel={t('nav.deleteProject')}
             onConfirm={confirmDelete}
             onClose={() => setDeletingProject(null)}
           />

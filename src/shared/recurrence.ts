@@ -1,4 +1,5 @@
 import { RRule } from 'rrule'
+import { DEFAULT_LOCALE, translate, type Locale, type MessageKey } from './i18n'
 
 export type RecurrencePreset = {
   label: string
@@ -14,9 +15,27 @@ export const RECURRENCE_PRESETS: RecurrencePreset[] = [
   { label: '每年', rule: 'FREQ=YEARLY' }
 ]
 
-export function recurrenceLabel(rule: string | null): string {
-  if (!rule) return '不重复'
-  return RECURRENCE_PRESETS.find((preset) => preset.rule === rule)?.label ?? '自定义'
+const PRESET_LABEL_KEYS: Record<string, MessageKey> = {
+  '': 'recurrence.none',
+  'FREQ=DAILY': 'recurrence.daily',
+  'FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR': 'recurrence.weekdays',
+  'FREQ=WEEKLY': 'recurrence.weekly',
+  'FREQ=MONTHLY': 'recurrence.monthly',
+  'FREQ=YEARLY': 'recurrence.yearly'
+}
+
+/** 显示标签按当前语言取；规则字符串本身永远是唯一真源。 */
+export function recurrenceLabel(
+  rule: string | null,
+  locale: Locale = DEFAULT_LOCALE
+): string {
+  const key = PRESET_LABEL_KEYS[rule ?? '']
+  return translate(locale, key ?? 'recurrence.custom')
+}
+
+/** 预设之外的规则一律算自定义；不要拿翻译后的文案反推。 */
+export function isCustomRecurrence(rule: string | null): boolean {
+  return rule !== null && !RECURRENCE_PRESETS.some((preset) => preset.rule === rule)
 }
 
 export function isValidRecurrenceRule(rule: string): boolean {

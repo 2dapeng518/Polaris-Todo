@@ -9,8 +9,10 @@ import {
 } from 'react'
 import { Check } from './Icon'
 import { THEME_META, THEME_ORDER, partnerTheme, themeFamily, type AppTheme } from '@shared/themes'
+import { themeLabel } from '@shared/i18n'
 import { useThemeStore } from '../stores/useThemeStore'
 import { useTaskStore } from '../stores/useTaskStore'
+import { useT, useLocale } from '../stores/useLocaleStore'
 
 type ThemeMenuProps = {
   anchorRef: RefObject<HTMLButtonElement | null>
@@ -23,6 +25,8 @@ const MENU_WIDTH = 240
 // 与日期弹层同档。行是 div[role=menuitemradio] 而不是 button —— 陷阱的 FOCUSABLE
 // 选择器数 button 不看 tabindex，六个 button 会污染窄屏详情的 Tab 环。
 export function ThemeMenu({ anchorRef, onClose }: ThemeMenuProps) {
+  const t = useT()
+  const locale = useLocale()
   const theme = useThemeStore((state) => state.theme)
   const setTheme = useThemeStore((state) => state.setTheme)
   const paletteOpen = useTaskStore((state) => state.paletteOpen)
@@ -154,7 +158,7 @@ export function ThemeMenu({ anchorRef, onClose }: ThemeMenuProps) {
       id="theme-menu"
       className="theme-menu"
       role="menu"
-      aria-label="颜色主题"
+      aria-label={t('themes.aria')}
       style={{ top: place.top, left: place.left }}
       onKeyDown={onKeyDown}
       // 焦点被别处抢走时也收起。窄屏详情是模态陷阱，它的 Tab 处理会把焦点
@@ -166,8 +170,8 @@ export function ThemeMenu({ anchorRef, onClose }: ThemeMenuProps) {
       }}
     >
       <div className="theme-menu-head">
-        <span>颜色主题</span>
-        <span className="theme-menu-count">共 6 套</span>
+        <span>{t('themes.menuTitle')}</span>
+        <span className="theme-menu-count">{t('themes.menuCount')}</span>
       </div>
       <div className="theme-menu-list">
         {THEME_ORDER.map((id, index) => {
@@ -189,8 +193,10 @@ export function ThemeMenu({ anchorRef, onClose }: ThemeMenuProps) {
                 <span className="theme-swatch-dot" style={{ background: meta.swatch[2] }} />
               </span>
               <span className="theme-menu-label">
-                {meta.label}
-                <span className="theme-menu-family">{meta.family === 'dark' ? '深色' : '浅色'}</span>
+                {themeLabel(locale, id)}
+                <span className="theme-menu-family">
+                  {meta.family === 'dark' ? t('themes.darkFamily') : t('themes.lightFamily')}
+                </span>
               </span>
               {selected && (
                 <span className="theme-option-check" aria-hidden="true">
@@ -202,7 +208,11 @@ export function ThemeMenu({ anchorRef, onClose }: ThemeMenuProps) {
         })}
       </div>
       <div className="theme-menu-foot">
-        左段按钮在 {THEME_META[theme].label} ↔ {THEME_META[partner].label} 之间往返{sameFamily ? '（同为浅色护眼）' : ''}
+        {t('themes.menuFoot', {
+          first: themeLabel(locale, theme),
+          second: themeLabel(locale, partner)
+        })}
+        {sameFamily ? t('themes.sameFamily') : ''}
       </div>
     </div>
   )

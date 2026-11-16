@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { Subtask } from '@shared/types'
 import { Check, Plus, X } from './Icon'
 import { useTaskStore } from '../stores/useTaskStore'
+import { useT } from '../stores/useLocaleStore'
 
 type SubtaskListProps = {
   taskId: string
@@ -12,6 +13,7 @@ type SubtaskListProps = {
 // 轻量检查清单：只有标题与完成态，没有日期/提醒/重复/项目/优先级。
 // 父任务的完成与子任务互不联动（方案第 5 条），所以这里不读 task.completed。
 export function SubtaskList({ taskId, total, done }: SubtaskListProps) {
+  const t = useT()
   const subtasks = useTaskStore((state) => state.subtasksByTask[taskId])
   const loadSubtasks = useTaskStore((state) => state.loadSubtasks)
   const addSubtask = useTaskStore((state) => state.addSubtask)
@@ -38,7 +40,7 @@ export function SubtaskList({ taskId, total, done }: SubtaskListProps) {
   return (
     <div className="detail-checklist" data-subtask-list>
       <div className="detail-checklist-head">
-        <span className="detail-group-label">检查清单</span>
+        <span className="detail-group-label">{t('detail.checklist')}</span>
         {total > 0 && (
           <span className="checklist-progress" data-subtask-progress>
             {done}/{total}
@@ -47,7 +49,7 @@ export function SubtaskList({ taskId, total, done }: SubtaskListProps) {
       </div>
 
       {subtasks && subtasks.length > 0 && (
-        <ul className="checklist" aria-label="检查清单">
+        <ul className="checklist" aria-label={t('detail.checklist')}>
           {subtasks.map((item) => (
             <SubtaskRow
               key={item.id}
@@ -72,8 +74,8 @@ export function SubtaskList({ taskId, total, done }: SubtaskListProps) {
           className="checklist-add"
           data-subtask-add
           value={draft}
-          placeholder="添加子任务…"
-          aria-label="添加子任务"
+          placeholder={t('detail.subtaskPlaceholder')}
+          aria-label={t('detail.subtaskAdd')}
           onChange={(event) => setDraft(event.target.value)}
           onKeyDown={(event) => {
             if (event.nativeEvent.isComposing) return
@@ -88,7 +90,7 @@ export function SubtaskList({ taskId, total, done }: SubtaskListProps) {
           className="checklist-add-submit"
           onClick={submit}
           disabled={!draft.trim()}
-          aria-label="添加子任务"
+          aria-label={t('detail.subtaskAdd')}
         >
           <Plus size={13} strokeWidth={2} aria-hidden="true" />
         </button>
@@ -105,6 +107,7 @@ type SubtaskRowProps = {
 }
 
 function SubtaskRow({ item, onToggle, onRename, onRemove }: SubtaskRowProps) {
+  const t = useT()
   const [draft, setDraft] = useState(item.title)
   const composing = useRef(false)
 
@@ -128,7 +131,9 @@ function SubtaskRow({ item, onToggle, onRename, onRemove }: SubtaskRowProps) {
         className={`checklist-check ${item.completed ? 'is-done' : ''}`}
         aria-pressed={item.completed}
         aria-label={
-          item.completed ? `取消完成「${item.title}」` : `完成「${item.title}」`
+          item.completed
+            ? t('detail.subtaskUncomplete', { title: item.title })
+            : t('detail.subtaskComplete', { title: item.title })
         }
         onClick={() => onToggle(item.id, !item.completed)}
       >
@@ -138,7 +143,7 @@ function SubtaskRow({ item, onToggle, onRename, onRemove }: SubtaskRowProps) {
       <input
         className="checklist-title"
         value={draft}
-        aria-label={`子任务「${item.title}」`}
+        aria-label={t('detail.subtaskLabel', { title: item.title })}
         onChange={(event) => setDraft(event.target.value)}
         onBlur={commit}
         onCompositionStart={() => {
@@ -167,7 +172,7 @@ function SubtaskRow({ item, onToggle, onRename, onRemove }: SubtaskRowProps) {
         type="button"
         className="checklist-remove"
         onClick={() => onRemove(item.id)}
-        aria-label={`删除子任务「${item.title}」`}
+        aria-label={t('detail.subtaskRemove', { title: item.title })}
       >
         <X size={12} strokeWidth={1.8} aria-hidden="true" />
       </button>

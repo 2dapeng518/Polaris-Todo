@@ -2,9 +2,11 @@ import { useEffect, useMemo, useRef } from 'react'
 import { AnimatePresence } from 'motion/react'
 import { Search, Trash2 } from './Icon'
 import type { AppView, Task } from '@shared/types'
+import type { MessageKey } from '@shared/i18n'
 import { TRASH_RETENTION_DAYS } from '@shared/retention'
 import { useTaskStore } from '../stores/useTaskStore'
 import { useAppVersion } from '../stores/useAppVersion'
+import { useT, useLocale } from '../stores/useLocaleStore'
 import { ConfirmDialog } from './ConfirmDialog'
 import { EmptyState } from './EmptyState'
 import { ProgressRing } from './ProgressRing'
@@ -16,29 +18,31 @@ import { TaskItem } from './TaskItem'
 import { TrashItem } from './TrashItem'
 import { formatHeaderDate, isTodayOrOverdue, isUpcoming } from '../lib/dates'
 
-const VIEW_TITLES: Record<AppView, string> = {
-  today: '今天',
-  upcoming: '即将到来',
-  calendar: '日历',
-  all: '全部任务',
-  completed: '已完成',
-  stats: '统计',
-  matrix: '四象限',
-  trash: '回收站'
+const VIEW_TITLES: Record<AppView, MessageKey> = {
+  today: 'nav.view.today',
+  upcoming: 'nav.view.upcoming',
+  calendar: 'nav.view.calendar',
+  all: 'nav.view.all',
+  completed: 'nav.view.completed',
+  stats: 'nav.view.stats',
+  matrix: 'nav.view.matrix',
+  trash: 'nav.view.trash'
 }
 
-function viewEyebrow(view: AppView): string {
-  if (view === 'today') return formatHeaderDate()
-  if (view === 'upcoming') return '接下来几天的安排'
-  if (view === 'calendar') return '按日子看安排'
-  if (view === 'completed') return '已经完成的事项'
-  if (view === 'stats') return '完成趋势与节奏'
-  if (view === 'matrix') return '按重要与紧急安排'
-  if (view === 'trash') return `删除的任务保留 ${TRASH_RETENTION_DAYS} 天`
-  return '所有未完成的事项'
+function viewEyebrow(view: AppView, locale: 'zh-CN' | 'en', t: (key: MessageKey, params?: Record<string, string | number>) => string): string {
+  if (view === 'today') return formatHeaderDate(locale)
+  if (view === 'upcoming') return t('views.eyebrow.upcoming')
+  if (view === 'calendar') return t('views.eyebrow.calendar')
+  if (view === 'completed') return t('views.eyebrow.completed')
+  if (view === 'stats') return t('views.eyebrow.stats')
+  if (view === 'matrix') return t('views.eyebrow.matrix')
+  if (view === 'trash') return t('views.eyebrow.trash', { days: TRASH_RETENTION_DAYS })
+  return t('views.eyebrow.all')
 }
 
 export function TaskView() {
+  const t = useT()
+  const locale = useLocale()
   const tasks = useTaskStore((state) => state.tasks)
   const trashedTasks = useTaskStore((state) => state.trashedTasks)
   const projects = useTaskStore((state) => state.projects)
@@ -158,14 +162,17 @@ export function TaskView() {
     ? projects.find((project) => project.id === projectFilter)?.name
     : undefined
   const tagName = tagFilter ? tags.find((tag) => tag.id === tagFilter)?.name : undefined
-  const title = projectName ?? (tagName ? `#${tagName}` : VIEW_TITLES[view])
-  const subtitle = projectFilter || tagFilter ? `${visible.length} 项未完成` : viewEyebrow(view)
+  const title = projectName ?? (tagName ? `#${tagName}` : t(VIEW_TITLES[view]))
+  const subtitle =
+    projectFilter || tagFilter
+      ? t('views.incompleteCount', { count: visible.length })
+      : viewEyebrow(view, locale, t)
   const progress = totalToday === 0 ? 0 : doneToday / totalToday
 
   const confirmMessage = trashConfirm
     ? trashConfirm.kind === 'purge'
-      ? `彻底删除「${trashConfirm.task.title}」？此操作无法撤销。`
-      : `清空回收站？将彻底删除 ${trashedTasks.length} 个任务，此操作无法撤销。`
+      ? t('views.purgeConfirm', { title: trashConfirm.task.title })
+      : t('views.emptyConfirm', { count: trashedTasks.length })
     : ''
 
   const runConfirm = () => {
@@ -214,19 +221,19 @@ export function TaskView() {
                 onClick={() => setTrashConfirm({ kind: 'empty' })}
               >
                 <Trash2 size={14} strokeWidth={1.8} aria-hidden="true" />
-                <span>清空回收站</span>
+                <span>{t('views.emptyTrash')}</span>
               </button>
             ) : view === 'stats' || view === 'matrix' || view === 'calendar' ? (
               <button className="search-trigger" onClick={() => setPaletteOpen(true)}>
                 <Search size={16} strokeWidth={1.8} aria-hidden="true" />
-                <span>搜索</span>
+                <span>{t('common.search')}</span>
                 <kbd>Ctrl K</kbd>
               </button>
             ) : (
               <>
                 <button className="search-trigger" onClick={() => setPaletteOpen(true)}>
                   <Search size={16} strokeWidth={1.8} aria-hidden="true" />
-                  <span>搜索</span>
+                  <span>{t('common.search')}</span>
                   <kbd>Ctrl K</kbd>
                 </button>
                 <ProgressRing value={progress} label={`${doneToday}/${totalToday}`} />
@@ -254,12 +261,12 @@ export function TaskView() {
                 <div className="section-label">
                   <span>
                     {view === 'today'
-                      ? '今天要做'
+                      ? t('views.section.today')
                       : view === 'upcoming'
-                        ? '接下来'
+                        ? t('views.section.upcoming')
                         : view === 'trash'
-                          ? '已删除'
-                          : '待办'}
+                          ? t('views.section.trash')
+                          : t('views.section.todo')}
                   </span>
                   <span className="section-count">{visible.length}</span>
                 </div>
@@ -284,7 +291,7 @@ export function TaskView() {
             {completed.length > 0 && (
               <section className="task-section completed-section">
                 <div className="section-label">
-                  <span>已完成</span>
+                  <span>{t('views.section.completed')}</span>
                   <span className="section-count">{completed.length}</span>
                 </div>
                 <div className="task-list">
@@ -301,10 +308,10 @@ export function TaskView() {
 
         <div className="view-footer">
           <span>
-            <kbd>N</kbd> 新建任务
+            <kbd>N</kbd> {t('views.footer.newTask')}
           </span>
           <span>
-            <kbd>Ctrl K</kbd> 命令面板
+            <kbd>Ctrl K</kbd> {t('views.footer.palette')}
           </span>
           <span className="footer-brand">
             Polaris
@@ -322,7 +329,9 @@ export function TaskView() {
         {trashConfirm && (
           <ConfirmDialog
             message={confirmMessage}
-            confirmLabel={trashConfirm.kind === 'empty' ? '确认清空' : '彻底删除'}
+            confirmLabel={
+              trashConfirm.kind === 'empty' ? t('views.emptyLabel') : t('views.purgeLabel')
+            }
             onConfirm={runConfirm}
             onClose={() => setTrashConfirm(null)}
           />

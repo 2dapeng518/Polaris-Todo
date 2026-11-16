@@ -4438,6 +4438,34 @@ textarea {
   margin-bottom: 5px;
 }
 
+/* 语言选择留在主题 section 内：紧凑两列布局按 nth-child 定位 section，
+   新增 section 会打乱排布。下拉沿用文本字段的柔和聚焦（淡边 + 浅光晕）。 */
+.settings-language-row {
+  margin-top: 7px;
+}
+
+.settings-language-select {
+  flex: none;
+  min-width: 118px;
+  padding: 5px 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: var(--surface-1);
+  color: var(--text);
+  font-size: 12px;
+  cursor: default;
+}
+
+.settings-language-select:focus-visible {
+  outline: 0;
+  border-color: rgba(var(--accent-rgb), 0.34);
+  background-image: linear-gradient(
+    rgba(var(--accent-rgb), 0.035),
+    rgba(var(--accent-rgb), 0.035)
+  );
+  box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.07);
+}
+
 .theme-picker {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

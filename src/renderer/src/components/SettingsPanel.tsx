@@ -3,32 +3,37 @@ import { AnimatePresence, motion } from 'motion/react'
 import { Check, X } from './Icon'
 import type { AutoStartState, GlobalHotkeyState, McpState, UpdateState } from '@shared/types'
 import { THEME_META, THEME_ORDER } from '@shared/themes'
+import { themeDesc, themeLabel } from '@shared/i18n'
 import { useTaskStore } from '../stores/useTaskStore'
 import { useThemeStore } from '../stores/useThemeStore'
 import { useAppVersion } from '../stores/useAppVersion'
 import { useUpdateStore } from '../stores/useUpdateStore'
+import { useLocaleStore, useT, useLocale, type Translate } from '../stores/useLocaleStore'
 import { useFocusTrap } from '../lib/useFocusTrap'
 
 /** 更新状态一行说清；错误细节另有 settings-error，这里不堆长文。 */
-function updateStatusText(state: UpdateState | null): string {
-  if (!state) return '从 GitHub Releases 获取新版本'
+function updateStatusText(state: UpdateState | null, t: Translate): string {
+  if (!state) return t('settings.update.idle')
   switch (state.status) {
     case 'unsupported':
-      return '当前环境不提供在线更新，打包安装后生效'
+      return t('settings.update.unsupported')
     case 'checking':
-      return '正在检查更新…'
+      return t('settings.update.checking')
     case 'available':
-      return `发现新版本 ${state.latestVersion}，准备下载`
+      return t('settings.update.available', { version: state.latestVersion ?? '' })
     case 'downloading':
-      return `正在下载 ${state.latestVersion} · ${state.percent ?? 0}%`
+      return t('settings.update.downloading', {
+        version: state.latestVersion ?? '',
+        percent: state.percent ?? 0
+      })
     case 'downloaded':
-      return `${state.latestVersion} 已就绪，重启后安装`
+      return t('settings.update.downloaded', { version: state.latestVersion ?? '' })
     case 'up-to-date':
-      return '已是最新版本'
+      return t('settings.update.upToDate')
     case 'error':
-      return '检查更新失败'
+      return t('settings.update.error')
     default:
-      return '从 GitHub Releases 获取新版本'
+      return t('settings.update.idle')
   }
 }
 
@@ -40,6 +45,9 @@ type SettingsPanelProps = {
 }
 
 export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelProps) {
+  const t = useT()
+  const locale = useLocale()
+  const setLocale = useLocaleStore((state) => state.setLocale)
   const [autoStart, setAutoStart] = useState<AutoStartState>({
     enabled: false,
     supported: true
@@ -219,10 +227,10 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
     setBackupStatus(null)
     try {
       const result = await window.polaris.data.export()
-      if (result.saved) setBackupStatus('已导出备份文件')
-      else if (result.error) setBackupError(`导出失败：${result.error}`)
+      if (result.saved) setBackupStatus(t('settings.exported'))
+      else if (result.error) setBackupError(t('settings.exportFailed', { error: result.error }))
     } catch (error) {
-      setBackupError(`导出失败：${String(error)}`)
+      setBackupError(t('settings.exportFailed', { error: String(error) }))
     } finally {
       setBackupBusy(false)
     }
@@ -236,16 +244,23 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
       const result = await window.polaris.data.import()
       if (result.ok) {
         setBackupStatus(
-          `导入完成：任务 +${result.tasksImported ?? 0}（跳过 ${result.tasksSkipped ?? 0}），项目 +${result.projectsImported ?? 0}（跳过 ${result.projectsSkipped ?? 0}），子任务 +${result.subtasksImported ?? 0}（跳过 ${result.subtasksSkipped ?? 0}）`
+          t('settings.importDone', {
+            tasks: result.tasksImported ?? 0,
+            tasksSkipped: result.tasksSkipped ?? 0,
+            projects: result.projectsImported ?? 0,
+            projectsSkipped: result.projectsSkipped ?? 0,
+            subtasks: result.subtasksImported ?? 0,
+            subtasksSkipped: result.subtasksSkipped ?? 0
+          })
         )
         // 导入的数据要立刻反映到主界面：刷新活任务与回收站两个独立存储。
         await useTaskStore.getState().load()
         await useTaskStore.getState().loadTrash()
       } else if (!result.canceled && result.error) {
-        setBackupError(`导入失败：${result.error}`)
+        setBackupError(t('settings.importFailed', { error: result.error }))
       }
     } catch (error) {
-      setBackupError(`导入失败：${String(error)}`)
+      setBackupError(t('settings.importFailed', { error: String(error) }))
     } finally {
       setBackupBusy(false)
     }
@@ -258,17 +273,24 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
     try {
       const result = await window.polaris.data.importCsv()
       if (result.ok) {
-        const source = result.format === 'todoist' ? 'Todoist' : '滴答清单'
+        const source = result.format === 'todoist' ? 'Todoist' : t('settings.ticktick')
         setBackupStatus(
-          `${source} 导入完成：任务 +${result.tasksImported ?? 0}（跳过 ${result.tasksSkipped ?? 0}），项目 +${result.projectsImported ?? 0}，子任务 +${result.subtasksImported ?? 0}，标签 +${result.tagsImported ?? 0}`
+          t('settings.csvDone', {
+            source,
+            tasks: result.tasksImported ?? 0,
+            tasksSkipped: result.tasksSkipped ?? 0,
+            projects: result.projectsImported ?? 0,
+            subtasks: result.subtasksImported ?? 0,
+            tags: result.tagsImported ?? 0
+          })
         )
         await useTaskStore.getState().load()
         await useTaskStore.getState().loadTrash()
       } else if (!result.canceled && result.error) {
-        setBackupError(`导入失败：${result.error}`)
+        setBackupError(t('settings.importFailed', { error: result.error }))
       }
     } catch (error) {
-      setBackupError(`导入失败：${String(error)}`)
+      setBackupError(t('settings.importFailed', { error: String(error) }))
     } finally {
       setBackupBusy(false)
     }
@@ -291,7 +313,7 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
             tabIndex={-1}
             role="dialog"
             aria-modal="true"
-            aria-label="设置"
+            aria-label={t('settings.title')}
             initial={{ opacity: 0, y: -14, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -10, scale: 0.98 }}
@@ -301,19 +323,23 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
             <div className="settings-header">
               <div>
                 <div className="settings-eyebrow">Polaris</div>
-                <h2 className="settings-title">设置</h2>
+                <h2 className="settings-title">{t('settings.title')}</h2>
               </div>
-              <button className="detail-close" onClick={onClose} aria-label="关闭设置">
+              <button
+                className="detail-close"
+                onClick={onClose}
+                aria-label={t('settings.close')}
+              >
                 <X size={16} strokeWidth={1.8} aria-hidden="true" />
               </button>
             </div>
 
             <div className="settings-section">
-              <div className="settings-row-title">颜色主题</div>
+              <div className="settings-row-title">{t('settings.theme')}</div>
               <div className="settings-row-desc theme-section-desc">
-                六套克制配色，切换即时生效并自动保存；信号色统一，画布各有气质
+                {t('settings.themeDesc')}
               </div>
-              <div className="theme-picker" role="group" aria-label="颜色主题">
+              <div className="theme-picker" role="group" aria-label={t('settings.theme')}>
                 {THEME_ORDER.map((id) => {
                   const meta = THEME_META[id]
                   const selected = theme === id
@@ -332,10 +358,14 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
                       </span>
                       <span className="theme-option-text">
                         <span className="theme-option-label">
-                          {meta.label}
-                          <span className="theme-family-tag">{meta.family === 'dark' ? '深色' : '浅色'}</span>
+                          {themeLabel(locale, id)}
+                          <span className="theme-family-tag">
+                            {meta.family === 'dark'
+                              ? t('themes.darkFamily')
+                              : t('themes.lightFamily')}
+                          </span>
                         </span>
-                        <span className="theme-option-desc">{meta.desc}</span>
+                        <span className="theme-option-desc">{themeDesc(locale, id)}</span>
                       </span>
                       {selected && (
                         <span className="theme-option-check" aria-hidden="true">
@@ -346,20 +376,38 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
                   )
                 })}
               </div>
+
+              {/* 语言行留在主题 section 内：设置面板的紧凑两列布局按
+                  header + 7 section + footer 的 nth-child 排布，多一个 section 会错位。 */}
+              <div className="settings-row settings-language-row">
+                <div>
+                  <div className="settings-row-title">{t('settings.language')}</div>
+                  <div className="settings-row-desc">{t('settings.languageDesc')}</div>
+                </div>
+                <select
+                  className="settings-language-select"
+                  aria-label={t('settings.language')}
+                  value={locale}
+                  onChange={(event) => setLocale(event.target.value === 'en' ? 'en' : 'zh-CN')}
+                >
+                  <option value="zh-CN">{t('settings.languageZh')}</option>
+                  <option value="en">{t('settings.languageEn')}</option>
+                </select>
+              </div>
             </div>
 
             <div className="settings-section">
               <div className="settings-row">
                 <div>
-                  <div className="settings-row-title">开机自启</div>
+                  <div className="settings-row-title">{t('settings.autoStart')}</div>
                   <div className="settings-row-desc">
-                    登录 Windows 后在后台启动 Polaris，提醒不会错过
+                    {t('settings.autoStartDesc')}
                   </div>
                 </div>
                 <button
                   role="switch"
                   aria-checked={autoStart.enabled}
-                  aria-label="开机自启"
+                  aria-label={t('settings.autoStart')}
                   className={`switch ${autoStart.enabled ? 'on' : ''}`}
                   onClick={() => void toggleAutoStart()}
                   disabled={busy || !autoStart.supported}
@@ -369,12 +417,12 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
               </div>
               {autoStart.error && (
                 <div className="settings-error" role="alert">
-                  设置失败：{autoStart.error}
+                  {t('settings.autoStartError', { error: autoStart.error })}
                 </div>
               )}
               {!autoStart.supported && (
                 <div className="settings-hint">
-                  当前环境不支持开机自启；打包安装到 Windows 后可用
+                  {t('settings.autoStartUnsupported')}
                 </div>
               )}
             </div>
@@ -382,17 +430,15 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
             <div className="settings-section">
               <div className="settings-row">
                 <div>
-                  <div className="settings-row-title">关闭窗口后驻留托盘</div>
+                  <div className="settings-row-title">{t('settings.tray')}</div>
                   <div className="settings-row-desc">
-                    {closeToTray
-                      ? '关闭主窗口不会退出，提醒与托盘常驻继续运行'
-                      : '关闭主窗口将退出应用，提醒随之停止'}
+                    {closeToTray ? t('settings.trayOn') : t('settings.trayOff')}
                   </div>
                 </div>
                 <button
                   role="switch"
                   aria-checked={closeToTray}
-                  aria-label="关闭窗口后驻留托盘"
+                  aria-label={t('settings.tray')}
                   className={`switch ${closeToTray ? 'on' : ''}`}
                   onClick={() => void toggleCloseToTray()}
                 >
@@ -404,17 +450,17 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
             <div className="settings-section">
               <div className="settings-row">
                 <div>
-                  <div className="settings-row-title">全局热键快速添加</div>
+                  <div className="settings-row-title">{t('settings.hotkey')}</div>
                   <div className="settings-row-desc">
                     {hotkey.enabled
-                      ? `${hotkey.accelerator} · 任意窗口唤起并聚焦快速添加`
-                      : '已关闭 · 窗口内仍可按 N 快速添加'}
+                      ? t('settings.hotkeyOn', { accelerator: hotkey.accelerator })
+                      : t('settings.hotkeyOff')}
                   </div>
                 </div>
                 <button
                   role="switch"
                   aria-checked={hotkey.enabled}
-                  aria-label="全局热键快速添加"
+                  aria-label={t('settings.hotkey')}
                   className={`switch ${hotkey.enabled ? 'on' : ''}`}
                   onClick={() => void toggleHotkey()}
                 >
@@ -423,7 +469,7 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
               </div>
               {hotkey.enabled && hotkey.error && (
                 <div className="settings-error" role="alert">
-                  {hotkey.error}，关闭占用程序后可重新打开此开关
+                  {t('settings.hotkeyError', { error: hotkey.error })}
                 </div>
               )}
             </div>
@@ -431,15 +477,15 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
             <div className="settings-section">
               <div className="settings-row">
                 <div>
-                  <div className="settings-row-title">本地 MCP 服务</div>
+                  <div className="settings-row-title">{t('settings.mcp')}</div>
                   <div className="settings-row-desc">
-                    {mcp.enabled ? mcp.endpoint : '已关闭 · 开启后 AI 助手可在本机读写任务'}
+                    {mcp.enabled ? mcp.endpoint : t('settings.mcpOff')}
                   </div>
                 </div>
                 <button
                   role="switch"
                   aria-checked={mcp.enabled}
-                  aria-label="本地 MCP 服务"
+                  aria-label={t('settings.mcp')}
                   className={`switch ${mcp.enabled ? 'on' : ''}`}
                   onClick={() => void toggleMcp()}
                 >
@@ -448,30 +494,30 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
               </div>
               {mcp.enabled && mcp.error && (
                 <div className="settings-error" role="alert">
-                  {mcp.error}，关闭占用程序后可重新打开此开关
+                  {t('settings.mcpError', { error: mcp.error })}
                 </div>
               )}
             </div>
 
             <div className="settings-section">
-              <div className="settings-row-title">数据备份</div>
+              <div className="settings-row-title">{t('settings.backup')}</div>
               <div className="settings-row-desc">
-                导出全部项目与任务（含回收站）为 JSON；导入按 ID 合并，不覆盖现有数据
+                {t('settings.backupDesc')}
               </div>
               <div className="backup-actions">
                 <button className="backup-btn" onClick={() => void handleExport()} disabled={backupBusy}>
-                  导出备份
+                  {t('settings.export')}
                 </button>
                 <button className="backup-btn" onClick={() => void handleImport()} disabled={backupBusy}>
-                  导入备份
+                  {t('settings.import')}
                 </button>
                 <button
                   className="backup-btn"
                   onClick={() => void handleImportCsv()}
                   disabled={backupBusy}
-                  title="支持滴答清单 / Todoist 的 CSV 导出，按表头自动识别"
+                  title={t('settings.importCsvTitle')}
                 >
-                  导入 CSV
+                  {t('settings.importCsv')}
                 </button>
               </div>
               {backupStatus && (
@@ -483,21 +529,23 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
             </div>
 
             <div className="settings-section">
-              <div className="settings-row-title">关于</div>
+              <div className="settings-row-title">{t('settings.about')}</div>
               <div className="settings-row-desc">
-                Polaris{version ? ` · 版本 ${version}` : ''} · MIT 许可
+                {version
+                  ? t('settings.versionLine', { version })
+                  : t('settings.versionOnly')}
               </div>
               <div className="about-credits">
                 <div className="about-credit-row">
-                  <span className="about-credit-label">字体</span>
-                  <span className="about-credit-value">Inter · Manrope · Noto Sans SC · Geist Mono（SIL OFL 1.1）</span>
+                  <span className="about-credit-label">{t('settings.fonts')}</span>
+                  <span className="about-credit-value">Inter · Manrope · Noto Sans SC · Geist Mono (SIL OFL 1.1)</span>
                 </div>
                 <div className="about-credit-row">
-                  <span className="about-credit-label">图标</span>
-                  <span className="about-credit-value">Lucide（ISC / MIT）</span>
+                  <span className="about-credit-label">{t('settings.icons')}</span>
+                  <span className="about-credit-value">Lucide (ISC / MIT)</span>
                 </div>
                 <div className="about-credit-note">
-                  完整第三方声明见安装目录 resources/NOTICE 与 resources/licenses/
+                  {t('settings.creditsNote')}
                 </div>
               </div>
             </div>
@@ -507,13 +555,14 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
             <div className="settings-footer">
               {version && (
                 <>
-                  版本 <span className="settings-version">{version}</span>
+                  {t('settings.footerVersion')}{' '}
+                  <span className="settings-version">{version}</span>
                   {' · '}
                 </>
               )}
               {update?.status === 'downloaded' ? (
                 <button className="update-footer-btn ready" onClick={openUpdateDialog}>
-                  查看更新
+                  {t('settings.viewUpdate')}
                 </button>
               ) : (
                 <button
@@ -525,7 +574,7 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
                     update?.status === 'downloading'
                   }
                 >
-                  检查更新
+                  {t('settings.checkUpdate')}
                 </button>
               )}
             </div>
@@ -535,7 +584,7 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
                   update.status
                 )) && (
                 <div className="settings-hint update-footer-status" role="status">
-                  {updateStatusText(update)}
+                  {updateStatusText(update, t)}
                 </div>
               )}
             {update?.status === 'error' && update.error && (
