@@ -1530,7 +1530,7 @@ async function runSmokeTest(): Promise<void> {
         .map((el) => el.textContent)
         .filter((text) => text.startsWith('主题：'));
       const paletteThemeListed = paletteThemeLabels.length === 6 &&
-        ['夜阑', '昼白', '暮蓝', '暖砂', '天蓝', '护眼绿'].every((name) => paletteThemeLabels.includes('主题：' + name));
+        ['夜阑', '昼白', '暮蓝', '暖砂', '天蓝', '松墨'].every((name) => paletteThemeLabels.includes('主题：' + name));
       [...document.querySelectorAll('.command-item')]
         .find((el) => el.textContent.includes('主题：暖砂')).click();
       await sleep(300);

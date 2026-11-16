@@ -137,6 +137,7 @@ export function CommandPalette() {
           close()
         }
       })),
+      /* 视图命令与侧栏同序：时间轴→任务轴→回顾→系统。 */
       { kind: 'command', id: 'view-today', label: '今天', icon: Sun, run: go('today') },
       {
         kind: 'command',
@@ -145,6 +146,8 @@ export function CommandPalette() {
         icon: CalendarClock,
         run: go('upcoming')
       },
+      { kind: 'command', id: 'view-calendar', label: '日历', icon: CalendarDays, run: go('calendar') },
+      { kind: 'command', id: 'view-matrix', label: '四象限', icon: Grid2x2, run: go('matrix') },
       { kind: 'command', id: 'view-all', label: '全部任务', icon: ListTodo, run: go('all') },
       {
         kind: 'command',
@@ -154,8 +157,6 @@ export function CommandPalette() {
         run: go('completed')
       },
       { kind: 'command', id: 'view-stats', label: '统计', icon: BarChart3, run: go('stats') },
-      { kind: 'command', id: 'view-matrix', label: '四象限', icon: Grid2x2, run: go('matrix') },
-      { kind: 'command', id: 'view-calendar', label: '日历', icon: CalendarDays, run: go('calendar') },
       { kind: 'command', id: 'view-trash', label: '回收站', icon: Trash2, run: go('trash') }
     ]
   }, [setOpen, setView, theme, toggleTheme, setTheme])

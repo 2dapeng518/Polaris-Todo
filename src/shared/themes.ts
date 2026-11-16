@@ -2,7 +2,7 @@
 // 设计原则：品牌信号色（teal）色相在所有主题中保持一致，主题改变的是 ambient 画布
 // （中性色阶的温度与色相）与克制的次要点缀色，以此体现「克制统一的高级感」。
 // 浅色家族的 teal 按画布明度微调深浅（暖砂/天蓝画布更深，信号色随之略深）以保 WCAG AA。
-// 三深三浅按色系成对：夜阑↔昼白（中性）、暮蓝↔天蓝（蓝）、护眼绿↔暖砂（墨绿/燕麦）。
+// 三深三浅按色系成对：夜阑↔昼白（中性）、暮蓝↔天蓝（蓝）、松墨↔暖砂（墨绿/燕麦）。
 // 画布之间必须拉开可感知的色差（ΔE00 ≥ 10）：近黑画布上的微弱色相偏移人眼几乎不可见。
 
 export type AppTheme = 'dark' | 'light' | 'dusk' | 'sand' | 'sky' | 'green'
@@ -25,7 +25,7 @@ export const THEME_META: Record<AppTheme, ThemeMeta> = {
   dusk: { label: '暮蓝', family: 'dark', desc: '深邃蓝调 · 沉静夜色', swatch: ['#132644', '#1e3760', '#5eead4'] },
   sand: { label: '暖砂', family: 'light', desc: '燕麦暖砂 · 柔和白昼', swatch: ['#ece0c6', '#fffaf2', '#0d6e66'] },
   sky: { label: '天蓝', family: 'light', desc: '晴空天蓝 · 清透白昼', swatch: ['#dceaf6', '#ffffff', '#0d6e66'] },
-  green: { label: '护眼绿', family: 'dark', desc: '墨绿护眼 · 沉静夜色', swatch: ['#10241a', '#163022', '#5eead4'] }
+  green: { label: '松墨', family: 'dark', desc: '松墨夜色 · 沉静护眼', swatch: ['#10241a', '#163022', '#5eead4'] }
 }
 
 // 窗口首帧背景色，必须与 globals.css 中各主题的 --bg 完全一致。
