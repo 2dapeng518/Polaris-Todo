@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, nativeImage, shell, type NativeImage, type WebContents } from 'electron'
+import { app, BrowserWindow, dialog, globalShortcut, ipcMain, nativeImage, shell, type NativeImage, type WebContents } from 'electron'
 import { join } from 'node:path'
 import { mkdtemp, readFile, readdir, rename, rm, unlink, writeFile } from 'node:fs/promises'
 import { randomUUID } from 'node:crypto'
@@ -19,6 +19,13 @@ import {
   setMeta
 } from './db'
 import { registerIpc, registerTaskCreate } from './ipc'
+import {
+  disposeGlobalHotkey,
+  getGlobalHotkeyState,
+  GLOBAL_HOTKEY_ACCELERATOR,
+  initGlobalHotkey,
+  setGlobalHotkeyEnabled
+} from './hotkey'
 import { getCurrentTheme, initAppTheme, setCurrentTheme, themeBackgroundColor } from './theme'
 import { createSplashWindow, hasSplashWindow, openSplashWindow, revealMainWindow } from './splash'
 import { isAppTheme, THEME_ORDER, THEME_SYMBOL_COLOR, themeFamily } from '../shared/themes'
@@ -3532,6 +3539,153 @@ async function runSmokeTest(): Promise<void> {
       console.error('TRAY_TOGGLE_ERROR', error)
     }
 
+    // 全局热键：默认开且注册成功、设置开关 IPC 往返 + meta 持久化、
+    // 组合键被占用时降级为「开但未注册」并给出中文提示、隐藏窗口时按热键
+    // 能唤起窗口、切回「今天」并聚焦输入框。真实按键无法从页面合成，
+    // 这里直接调用热键处理器 revealQuickCapture 走同一条路径。
+    let hotkeyDefaultOn = false
+    let hotkeySettingsRoundTrip = false
+    let hotkeyConflictDegrades = false
+    let hotkeyWakesAndFocuses = false
+    try {
+      const initial = getGlobalHotkeyState()
+      hotkeyDefaultOn =
+        initial.enabled === true &&
+        initial.registered === true &&
+        initial.accelerator === 'Ctrl+Alt+P' &&
+        getMeta('global_hotkey') === null
+
+      const roundTrip = await mainWindow?.webContents.executeJavaScript(`(async () => {
+        ${pageHelpers}
+        document.querySelector('.settings-item').click();
+        const panel = await waitFor(() => document.querySelector('.settings-panel'));
+        if (!panel) return { found: false };
+        await sleep(300);
+        const rowOf = () => [...document.querySelectorAll('.settings-panel .settings-row')].find((el) => el.textContent.includes('全局热键快速添加'));
+        const row = rowOf();
+        const sw = row ? row.querySelector('.switch') : null;
+        const described = row ? row.textContent.includes('Ctrl+Alt+P') : false;
+        const initialChecked = sw ? sw.getAttribute('aria-checked') === 'true' : false;
+        if (!sw) {
+          document.querySelector('.settings-panel .detail-close')?.click();
+          await sleep(250);
+          return { found: true, described, initialChecked, off: null, offChecked: false, on: null, onChecked: false };
+        }
+        sw.click();
+        await sleep(250);
+        const off = await window.polaris.app.getGlobalHotkey();
+        const offSwitch = document.querySelector('.settings-panel .switch[aria-label="全局热键快速添加"]');
+        const offChecked = offSwitch ? offSwitch.getAttribute('aria-checked') === 'false' : false;
+        offSwitch?.click();
+        await sleep(250);
+        const on = await window.polaris.app.getGlobalHotkey();
+        const onSwitch = document.querySelector('.settings-panel .switch[aria-label="全局热键快速添加"]');
+        const onChecked = onSwitch ? onSwitch.getAttribute('aria-checked') === 'true' : false;
+        document.querySelector('.settings-panel .detail-close')?.click();
+        await sleep(250);
+        return { found: true, described, initialChecked, off, offChecked, on, onChecked };
+      })()`)
+
+      // meta 持久化单独验证：关掉写 '0' 且立刻注销，再打开写 '1' 并重新注册。
+      setGlobalHotkeyEnabled(false)
+      const offPersisted =
+        getMeta('global_hotkey') === '0' &&
+        globalShortcut.isRegistered(GLOBAL_HOTKEY_ACCELERATOR) === false
+      setGlobalHotkeyEnabled(true)
+      const onPersisted =
+        getMeta('global_hotkey') === '1' &&
+        globalShortcut.isRegistered(GLOBAL_HOTKEY_ACCELERATOR) === true
+
+      hotkeySettingsRoundTrip =
+        roundTrip?.found === true &&
+        roundTrip?.described === true &&
+        roundTrip?.initialChecked === true &&
+        roundTrip?.off?.enabled === false &&
+        roundTrip?.off?.registered === false &&
+        roundTrip?.offChecked === true &&
+        roundTrip?.on?.enabled === true &&
+        roundTrip?.on?.registered === true &&
+        roundTrip?.onChecked === true &&
+        offPersisted &&
+        onPersisted
+
+      // 占用模拟：先关掉我们的注册，再由测试进程占住同一个组合键。此时再打开
+      // 开关，register() 必须失败，但用户的「开」仍要保留，并给出中文原因。
+      setGlobalHotkeyEnabled(false)
+      const occupied = globalShortcut.register(GLOBAL_HOTKEY_ACCELERATOR, () => {})
+      const conflict = setGlobalHotkeyEnabled(true)
+      const conflictUi = await mainWindow?.webContents.executeJavaScript(`(async () => {
+        ${pageHelpers}
+        document.querySelector('.settings-item').click();
+        const panel = await waitFor(() => document.querySelector('.settings-panel'));
+        if (!panel) return false;
+        await sleep(300);
+        const row = [...document.querySelectorAll('.settings-panel .settings-row')].find((el) => el.textContent.includes('全局热键快速添加'));
+        const sw = row ? row.querySelector('.switch') : null;
+        const err = document.querySelector('.settings-panel .settings-error');
+        const ok = Boolean(sw) && sw.getAttribute('aria-checked') === 'true' && Boolean(err) && err.textContent.includes('被其他程序占用');
+        document.querySelector('.settings-panel .detail-close')?.click();
+        await sleep(250);
+        return ok;
+      })()`)
+      globalShortcut.unregister(GLOBAL_HOTKEY_ACCELERATOR)
+      setGlobalHotkeyEnabled(false)
+      const recovered = setGlobalHotkeyEnabled(true)
+
+      hotkeyConflictDegrades =
+        occupied === true &&
+        conflict.enabled === true &&
+        conflict.registered === false &&
+        typeof conflict.error === 'string' &&
+        conflict.error.includes('被其他程序占用') &&
+        conflictUi === true &&
+        recovered.enabled === true &&
+        recovered.registered === true
+
+      // 隐藏窗口 + 先切到「统计」：热键要同时负责唤起、回今天、聚焦输入框。
+      const switchedAway = await mainWindow?.webContents.executeJavaScript(`(async () => {
+        ${pageHelpers}
+        const nav = [...document.querySelectorAll('.nav-item')].find((el) => el.querySelector('.nav-text')?.textContent === '统计');
+        if (!nav) return false;
+        nav.click();
+        return Boolean(await waitFor(() => document.querySelector('.view-title')?.textContent === '统计'));
+      })()`)
+
+      mainWindow?.hide()
+      const hidden = await waitForCondition(
+        () => Boolean(mainWindow) && !mainWindow!.isDestroyed() && !mainWindow!.isVisible(),
+        2000,
+        50
+      )
+      await revealQuickCapture()
+      const woke = await waitForCondition(
+        () => Boolean(mainWindow) && !mainWindow!.isDestroyed() && mainWindow!.isVisible(),
+        2000,
+        50
+      )
+      const focused = await waitForCondition(async () => {
+        if (!mainWindow || mainWindow.webContents.isDestroyed()) return false
+        return (
+          (await mainWindow.webContents.executeJavaScript(`(() => {
+            const input = document.querySelector('.quick-add input');
+            return document.querySelector('.view-title')?.textContent === '今天' && Boolean(input) && document.activeElement === input;
+          })()`)) === true
+        )
+      }, 3000, 50)
+      hotkeyWakesAndFocuses = switchedAway === true && hidden && woke && focused
+      if (!hotkeyWakesAndFocuses) {
+        console.error('HOTKEY_WAKE_FAIL', JSON.stringify({ switchedAway, hidden, woke, focused }))
+      }
+      if (!hotkeySettingsRoundTrip) {
+        console.error('HOTKEY_ROUND_TRIP_FAIL', JSON.stringify({ roundTrip, offPersisted, onPersisted }))
+      }
+      if (!hotkeyConflictDegrades) {
+        console.error('HOTKEY_CONFLICT_FAIL', JSON.stringify({ occupied, conflict, conflictUi, recovered }))
+      }
+    } catch (error) {
+      console.error('HOTKEY_CHECK_ERROR', error)
+    }
+
     // 逐条具名，而不是串成一条 && 链：失败时必须能一眼看出是哪条断言。
     // 只筛 result 里 value === false 是不够的 —— afterAdd / afterDelete /
     // commandCount 是数值比较，版本号是字符串比较，它们失败时 JSON 里
@@ -3644,7 +3798,11 @@ async function runSmokeTest(): Promise<void> {
       scalingFrameWorks: scalingFrameWorks === true,
       aboutCreditsShown: aboutCreditsShown === true,
       settingsFitsDefault: settingsFitsDefault === true,
-      trayToggleWorks: trayToggleWorks === true
+      trayToggleWorks: trayToggleWorks === true,
+      hotkeyDefaultOn: hotkeyDefaultOn === true,
+      hotkeySettingsRoundTrip: hotkeySettingsRoundTrip === true,
+      hotkeyConflictDegrades: hotkeyConflictDegrades === true,
+      hotkeyWakesAndFocuses: hotkeyWakesAndFocuses === true
     }
     const failed = Object.keys(checks).filter((name) => !checks[name])
     const ok = failed.length === 0
@@ -3698,6 +3856,10 @@ async function runSmokeTest(): Promise<void> {
           aboutCreditsShown,
           settingsFitsDefault,
           trayToggleWorks,
+          hotkeyDefaultOn,
+          hotkeySettingsRoundTrip,
+          hotkeyConflictDegrades,
+          hotkeyWakesAndFocuses,
           parseGrammarTable: parseAssertions.grammar,
           parseInvariants: parseAssertions.invariants,
           parseFormatNull: parseAssertions.format,
@@ -3744,6 +3906,40 @@ function showMainWindow(): void {
   if (mainWindow.isMinimized()) mainWindow.restore()
   mainWindow.show()
   mainWindow.focus()
+}
+
+// 全局热键的唯一动作：先按现有路径唤起窗口，再把 N 键那条 polaris:quick-add
+// 事件原样送进渲染层（detail.forceToday 让它切回「今天」）。主进程没有别的
+// 推送通道，这里用 executeJavaScript 派发一个固定字符串，不插值、不加 IPC。
+async function revealQuickCapture(): Promise<void> {
+  showMainWindow()
+  if (!mainWindow || mainWindow.isDestroyed()) return
+
+  const contents = mainWindow.webContents
+  if (contents.isLoading()) {
+    await new Promise<void>((resolve) => {
+      let settled = false
+      let timer: ReturnType<typeof setTimeout> | null = null
+      const finish = () => {
+        if (settled) return
+        settled = true
+        if (timer) clearTimeout(timer)
+        contents.removeListener('did-finish-load', finish)
+        resolve()
+      }
+      timer = setTimeout(finish, 3000)
+      contents.once('did-finish-load', finish)
+    })
+  }
+  if (contents.isDestroyed()) return
+
+  await contents
+    .executeJavaScript(
+      "window.dispatchEvent(new CustomEvent('polaris:quick-add', { detail: { forceToday: true } }))"
+    )
+    .catch(() => {
+      // 页面尚未可执行时这次按键落空，下次再按仍可用；不打断主进程。
+    })
 }
 
 app.on('second-instance', () => {
@@ -3797,6 +3993,12 @@ app.whenReady().then(() => {
     const value = Boolean(enabled)
     setMeta('close_to_tray', value ? '1' : '0')
     return value
+  })
+
+  ipcMain.handle('app:get-global-hotkey', () => getGlobalHotkeyState())
+
+  ipcMain.handle('app:set-global-hotkey', (_event, enabled: boolean) => {
+    return setGlobalHotkeyEnabled(Boolean(enabled))
   })
 
   // Read-only, no payload to validate. The renderer must never hardcode a version
@@ -3861,6 +4063,10 @@ app.whenReady().then(() => {
   createWindow()
   createTray(showMainWindow, () => app.quit())
   startReminderScheduler()
+  // 窗口和托盘就绪后再注册：处理器要靠 showMainWindow 把窗口叫出来。
+  initGlobalHotkey(() => {
+    void revealQuickCapture()
+  })
 
   app.on('activate', () => {
     showMainWindow()
@@ -3869,6 +4075,11 @@ app.whenReady().then(() => {
 
 app.on('before-quit', () => {
   isQuitting = true
+})
+
+app.on('will-quit', () => {
+  // 全局热键是进程级资源，退出时显式注销，别留给下一个实例。
+  disposeGlobalHotkey()
 })
 
 app.on('window-all-closed', () => {

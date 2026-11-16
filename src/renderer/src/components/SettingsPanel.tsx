@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { Check, X } from './Icon'
-import type { AutoStartState } from '@shared/types'
+import type { AutoStartState, GlobalHotkeyState } from '@shared/types'
 import { THEME_META, THEME_ORDER } from '@shared/themes'
 import { useTaskStore } from '../stores/useTaskStore'
 import { useThemeStore } from '../stores/useThemeStore'
@@ -29,6 +29,11 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
   const [backupStatus, setBackupStatus] = useState<string | null>(null)
   const [backupError, setBackupError] = useState<string | null>(null)
   const [closeToTray, setCloseToTray] = useState(true)
+  const [hotkey, setHotkey] = useState<GlobalHotkeyState>({
+    enabled: true,
+    registered: true,
+    accelerator: 'Ctrl+Alt+P'
+  })
 
   useFocusTrap(panelRef, open && !paletteOpen, panelRef)
 
@@ -62,6 +67,17 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
       })
       .catch(() => {
         if (!cancelled) setCloseToTray(true)
+      })
+
+    window.polaris.app
+      .getGlobalHotkey()
+      .then((value) => {
+        if (!cancelled) setHotkey(value)
+      })
+      .catch((error) => {
+        if (!cancelled) {
+          setHotkey((current) => ({ ...current, error: String(error) }))
+        }
       })
 
     return () => {
@@ -99,6 +115,16 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
       await window.polaris.app.setCloseToTray(next)
     } catch {
       setCloseToTray(!next)
+    }
+  }
+
+  const toggleHotkey = async () => {
+    const next = !hotkey.enabled
+    setHotkey((current) => ({ ...current, enabled: next, error: undefined }))
+    try {
+      setHotkey(await window.polaris.app.setGlobalHotkey(next))
+    } catch {
+      setHotkey((current) => ({ ...current, enabled: !next }))
     }
   }
 
@@ -265,6 +291,33 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
                   <span className="switch-thumb" />
                 </button>
               </div>
+            </div>
+
+            <div className="settings-section">
+              <div className="settings-row">
+                <div>
+                  <div className="settings-row-title">全局热键快速添加</div>
+                  <div className="settings-row-desc">
+                    {hotkey.enabled
+                      ? `${hotkey.accelerator} · 任意窗口唤起并聚焦快速添加`
+                      : '已关闭 · 窗口内仍可按 N 快速添加'}
+                  </div>
+                </div>
+                <button
+                  role="switch"
+                  aria-checked={hotkey.enabled}
+                  aria-label="全局热键快速添加"
+                  className={`switch ${hotkey.enabled ? 'on' : ''}`}
+                  onClick={() => void toggleHotkey()}
+                >
+                  <span className="switch-thumb" />
+                </button>
+              </div>
+              {hotkey.enabled && hotkey.error && (
+                <div className="settings-error" role="alert">
+                  {hotkey.error}，关闭占用程序后可重新打开此开关
+                </div>
+              )}
             </div>
 
             <div className="settings-section">
