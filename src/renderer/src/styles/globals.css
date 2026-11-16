@@ -1218,6 +1218,8 @@ textarea {
    height every screenshot mode is measured against — while still letting the
    strip push it taller. */
 .quick-add-shell {
+  position: relative;
+  isolation: isolate;
   min-height: 56px;
   border: 1px solid var(--line);
   border-radius: 12px;
@@ -1227,16 +1229,33 @@ textarea {
     0 12px 30px -18px rgba(var(--shadow-rgb), 0.8);
   transition:
     border-color 0.2s var(--ease-out),
-    background 0.2s var(--ease-out),
     box-shadow 0.2s var(--ease-out);
+}
+
+/* 焦点染色走整面叠层，垫在内容之下、卡片渐变之上。直接把 background 换成
+   rgba(accent, 0.035) 会丢掉近不透明的白卡底，页面背景透出来浓淡不匀；
+   叠层用 opacity 过渡，也避开 gradient↔纯色不可插值导致的半程跳变。 */
+.quick-add-shell::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: rgba(var(--accent-rgb), 0.035);
+  opacity: 0;
+  transition: opacity 0.2s var(--ease-out);
+  pointer-events: none;
 }
 
 .quick-add-shell:focus-within {
   border-color: rgba(var(--accent-rgb), 0.34);
-  background: rgba(var(--accent-rgb), 0.035);
   box-shadow:
     inset 0 1px 0 var(--inner-highlight),
     0 0 0 3px rgba(var(--accent-rgb), 0.07);
+}
+
+.quick-add-shell:focus-within::before {
+  opacity: 1;
 }
 
 .quick-add {
@@ -2741,8 +2760,11 @@ textarea {
   color: var(--text-tertiary);
 }
 
-.detail-tags .detail-tag-input:focus {
-  border-color: var(--accent);
+/* 文本输入聚焦必触发 :focus-visible，全局 2px accent 外圈会叠在 accent 边框上
+   变成双环。按「同一时刻只留一条 accent 边」的约定：边框让位，外圈内贴。 */
+.detail-tags .detail-tag-input:focus-visible {
+  border-color: transparent;
+  outline-offset: -2px;
 }
 
 .detail-tag-suggestions {
