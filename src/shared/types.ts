@@ -183,6 +183,13 @@ export type GlobalHotkeyState = {
   error?: string
 }
 
+export type McpState = {
+  enabled: boolean
+  running: boolean
+  endpoint: string
+  error?: string
+}
+
 export type PolarisApi = {
   tasks: {
     list: () => Promise<Task[]>
@@ -226,6 +233,8 @@ export type PolarisApi = {
     setCloseToTray: (enabled: boolean) => Promise<boolean>
     getGlobalHotkey: () => Promise<GlobalHotkeyState>
     setGlobalHotkey: (enabled: boolean) => Promise<GlobalHotkeyState>
+    getMcp: () => Promise<McpState>
+    setMcp: (enabled: boolean) => Promise<McpState>
   }
   reminder: {
     dismiss: () => Promise<void>

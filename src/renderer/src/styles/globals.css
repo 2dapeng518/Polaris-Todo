@@ -4208,7 +4208,7 @@ textarea {
   width: min(440px, calc(100vw - 48px));
   max-height: calc(100vh - 96px);
   overflow-y: auto;
-  padding: 16px 24px;
+  padding: 14px 24px;
   border: 1px solid var(--line-strong);
   border-radius: 16px;
   background: var(--command-bg);
@@ -4222,7 +4222,7 @@ textarea {
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
 
 .settings-eyebrow {
@@ -4243,7 +4243,7 @@ textarea {
 }
 
 .settings-section {
-  padding: 7px 0;
+  padding: 4px 0;
   border-top: 1px solid var(--line);
 }
 
@@ -4261,7 +4261,7 @@ textarea {
 
 .settings-row-desc {
   max-width: 290px;
-  margin-top: 2px;
+  margin-top: 1px;
   color: var(--text-tertiary);
   font-size: 11px;
   line-height: 1.5;
