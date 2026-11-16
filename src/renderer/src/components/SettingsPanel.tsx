@@ -151,7 +151,7 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
       const result = await window.polaris.data.import()
       if (result.ok) {
         setBackupStatus(
-          `导入完成：任务 +${result.tasksImported ?? 0}（跳过 ${result.tasksSkipped ?? 0}），项目 +${result.projectsImported ?? 0}（跳过 ${result.projectsSkipped ?? 0}）`
+          `导入完成：任务 +${result.tasksImported ?? 0}（跳过 ${result.tasksSkipped ?? 0}），项目 +${result.projectsImported ?? 0}（跳过 ${result.projectsSkipped ?? 0}），子任务 +${result.subtasksImported ?? 0}（跳过 ${result.subtasksSkipped ?? 0}）`
         )
         // 导入的数据要立刻反映到主界面：刷新活任务与回收站两个独立存储。
         await useTaskStore.getState().load()

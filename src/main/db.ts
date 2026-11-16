@@ -5,7 +5,16 @@ import { mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { nextOccurrence } from '../shared/recurrence'
 import { isPurgeable } from '../shared/retention'
-import type { CreateTaskInput, Project, Task, UpdateTaskInput } from '../shared/types'
+import type {
+  BackupTask,
+  CreateSubtaskInput,
+  CreateTaskInput,
+  Project,
+  Subtask,
+  Task,
+  UpdateSubtaskInput,
+  UpdateTaskInput
+} from '../shared/types'
 
 let db: Database.Database
 
@@ -105,6 +114,26 @@ function migrate(): void {
     }
     db.pragma('user_version = 4')
   }
+
+  if (version < 5) {
+    // 轻量检查清单：子任务只属于一个任务，不参与截止/提醒/重复/项目/优先级。
+    // task_id 的级联删除是「彻底删除 / 清空回收站 / 过期清理」清掉子任务的唯一路径；
+    // 软删父任务不动这张表，恢复后勾选状态原样保留。
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS subtasks (
+        id TEXT PRIMARY KEY,
+        task_id TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+        title TEXT NOT NULL,
+        completed INTEGER NOT NULL DEFAULT 0,
+        sort_order INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_subtasks_task_id ON subtasks(task_id);
+
+      PRAGMA user_version = 5;
+    `)
+  }
 }
 
 function seedIfNeeded(): void {
@@ -190,7 +219,27 @@ type TaskRow = {
   created_at: string
   updated_at: string
   deleted_at: string | null
+  subtask_total: number
+  subtask_done: number
 }
+
+type SubtaskRow = {
+  id: string
+  task_id: string
+  title: string
+  completed: number
+  sort_order: number
+  created_at: string
+}
+
+/** Every task read goes through this projection so the derived checklist
+ *  counts are always present. The counts are computed, never stored. */
+const TASK_SELECT = `
+  SELECT t.*,
+    (SELECT COUNT(*) FROM subtasks s WHERE s.task_id = t.id) AS subtask_total,
+    (SELECT COUNT(*) FROM subtasks s WHERE s.task_id = t.id AND s.completed = 1) AS subtask_done
+  FROM tasks t
+`
 
 type ProjectRow = {
   id: string
@@ -216,7 +265,20 @@ function mapTask(row: TaskRow): Task {
     priority: row.priority,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
-    deletedAt: row.deleted_at
+    deletedAt: row.deleted_at,
+    subtaskTotal: row.subtask_total ?? 0,
+    subtaskDone: row.subtask_done ?? 0
+  }
+}
+
+function mapSubtask(row: SubtaskRow): Subtask {
+  return {
+    id: row.id,
+    taskId: row.task_id,
+    title: row.title,
+    completed: row.completed === 1,
+    sortOrder: row.sort_order,
+    createdAt: row.created_at
   }
 }
 
@@ -233,7 +295,7 @@ function mapProject(row: ProjectRow): Project {
 
 function getTask(id: string): Task | undefined {
   const row = db
-    .prepare('SELECT * FROM tasks WHERE id = ? AND deleted_at IS NULL')
+    .prepare(`${TASK_SELECT} WHERE t.id = ? AND t.deleted_at IS NULL`)
     .get(id) as TaskRow | undefined
   return row ? mapTask(row) : undefined
 }
@@ -241,13 +303,13 @@ function getTask(id: string): Task | undefined {
 export function listTasks(): Task[] {
   const rows = db
     .prepare(`
-      SELECT * FROM tasks
-      WHERE deleted_at IS NULL
-      ORDER BY completed ASC,
-        CASE WHEN due_at IS NULL THEN 1 ELSE 0 END ASC,
-        due_at ASC,
-        priority DESC,
-        created_at DESC
+      ${TASK_SELECT}
+      WHERE t.deleted_at IS NULL
+      ORDER BY t.completed ASC,
+        CASE WHEN t.due_at IS NULL THEN 1 ELSE 0 END ASC,
+        t.due_at ASC,
+        t.priority DESC,
+        t.created_at DESC
     `)
     .all() as TaskRow[]
   return rows.map(mapTask)
@@ -256,9 +318,9 @@ export function listTasks(): Task[] {
 export function listDeletedTasks(): Task[] {
   const rows = db
     .prepare(`
-      SELECT * FROM tasks
-      WHERE deleted_at IS NOT NULL
-      ORDER BY deleted_at DESC, created_at DESC
+      ${TASK_SELECT}
+      WHERE t.deleted_at IS NOT NULL
+      ORDER BY t.deleted_at DESC, t.created_at DESC
     `)
     .all() as TaskRow[]
   return rows.map(mapTask)
@@ -323,11 +385,74 @@ export function deleteProject(id: string): void {
   db.prepare('DELETE FROM projects WHERE id = ?').run(id)
 }
 
-// 导出全量项目与任务（含回收站软删行），供备份。时间戳原样保留，恢复时不失真。
-export function exportBackup(): { projects: Project[]; tasks: Task[] } {
+function getSubtask(id: string): Subtask | undefined {
+  const row = db.prepare('SELECT * FROM subtasks WHERE id = ?').get(id) as SubtaskRow | undefined
+  return row ? mapSubtask(row) : undefined
+}
+
+// 只接受活任务：getTask 过滤软删行，所以给回收站里的任务加检查项会得到「任务不存在」。
+export function listSubtasks(taskId: string): Subtask[] {
+  const rows = db
+    .prepare('SELECT * FROM subtasks WHERE task_id = ? ORDER BY sort_order ASC, created_at ASC')
+    .all(taskId) as SubtaskRow[]
+  return rows.map(mapSubtask)
+}
+
+export function createSubtask(input: CreateSubtaskInput): Subtask {
+  const title = input.title.trim()
+  if (!title) throw new Error('子任务标题不能为空')
+  if (!getTask(input.taskId)) throw new Error('任务不存在')
+
+  const id = randomUUID()
+  const now = new Date().toISOString()
+  const next = db
+    .prepare('SELECT COALESCE(MAX(sort_order), -1) + 1 AS next FROM subtasks WHERE task_id = ?')
+    .get(input.taskId) as { next: number }
+
+  db.prepare(`
+    INSERT INTO subtasks (id, task_id, title, completed, sort_order, created_at)
+    VALUES (?, ?, ?, 0, ?, ?)
+  `).run(id, input.taskId, title, next.next, now)
+
+  const subtask = getSubtask(id)
+  if (!subtask) throw new Error('子任务创建失败')
+  return subtask
+}
+
+export function updateSubtask(input: UpdateSubtaskInput): Subtask {
+  const current = getSubtask(input.id)
+  if (!current) throw new Error('子任务不存在')
+
+  const title = input.title !== undefined ? input.title.trim() : current.title
+  if (!title) throw new Error('子任务标题不能为空')
+  const completed = input.completed !== undefined ? input.completed : current.completed
+
+  db.prepare('UPDATE subtasks SET title = ?, completed = ? WHERE id = ?').run(
+    title,
+    completed ? 1 : 0,
+    input.id
+  )
+
+  const subtask = getSubtask(input.id)
+  if (!subtask) throw new Error('子任务更新失败')
+  return subtask
+}
+
+export function deleteSubtask(id: string): void {
+  db.prepare('DELETE FROM subtasks WHERE id = ?').run(id)
+}
+
+// 导出全量项目、任务（含回收站软删行）与子任务，供备份。时间戳原样保留，恢复时不失真。
+// 子任务按 task_id 平铺导出；导入时再按父任务是否落地决定去留。
+export function exportBackup(): { projects: Project[]; tasks: Task[]; subtasks: Subtask[] } {
   const projects = listProjects()
-  const rows = db.prepare('SELECT * FROM tasks ORDER BY created_at ASC').all() as TaskRow[]
-  return { projects, tasks: rows.map(mapTask) }
+  const rows = db
+    .prepare(`${TASK_SELECT} ORDER BY t.created_at ASC`)
+    .all() as TaskRow[]
+  const subtasks = db
+    .prepare('SELECT * FROM subtasks ORDER BY task_id ASC, sort_order ASC, created_at ASC')
+    .all() as SubtaskRow[]
+  return { projects, tasks: rows.map(mapTask), subtasks: subtasks.map(mapSubtask) }
 }
 
 export type ImportCounts = {
@@ -335,26 +460,40 @@ export type ImportCounts = {
   projectsSkipped: number
   tasksImported: number
   tasksSkipped: number
+  subtasksImported: number
+  subtasksSkipped: number
 }
 
 // 非破坏性按 ID 合并：已存在的行跳过（绝不覆盖/删除本地数据），新行插入。
 // 先插项目再插任务；任务的 projectId 仅在该项目存在时保留，否则归「无项目」，
 // 避免外键违约。整体在一个事务里，要么全成要么全不成。
-export function importBackup(data: { projects: Project[]; tasks: Task[] }): ImportCounts {
+// 旧备份（schemaVersion 1）没有 subtasks 字段，按「没有检查清单数据」处理。
+export function importBackup(data: {
+  projects: Project[]
+  tasks: BackupTask[]
+  subtasks?: Subtask[]
+}): ImportCounts {
   const counts: ImportCounts = {
     projectsImported: 0,
     projectsSkipped: 0,
     tasksImported: 0,
-    tasksSkipped: 0
+    tasksSkipped: 0,
+    subtasksImported: 0,
+    subtasksSkipped: 0
   }
   const projectExists = db.prepare('SELECT 1 FROM projects WHERE id = ?')
   const taskExists = db.prepare('SELECT 1 FROM tasks WHERE id = ?')
+  const subtaskExists = db.prepare('SELECT 1 FROM subtasks WHERE id = ?')
   const insertProject = db.prepare(
     'INSERT INTO projects (id, name, color, sort_order, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)'
   )
   const insertTask = db.prepare(`
     INSERT INTO tasks (id, title, notes, completed, completed_at, due_at, remind_at, reminded_at, recurrence_rule, project_id, priority, created_at, updated_at, deleted_at)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `)
+  const insertSubtask = db.prepare(`
+    INSERT INTO subtasks (id, task_id, title, completed, sort_order, created_at)
+    VALUES (?, ?, ?, ?, ?, ?)
   `)
 
   const run = db.transaction(() => {
@@ -389,6 +528,23 @@ export function importBackup(data: { projects: Project[]; tasks: Task[] }): Impo
         task.deletedAt
       )
       counts.tasksImported += 1
+    }
+    // 子任务依赖父任务：父任务已存在（本地原有或本轮刚插入）才恢复；
+    // 孤儿子任务（父任务缺失）直接跳过，绝不制造外键违约。
+    for (const subtask of data.subtasks ?? []) {
+      if (subtaskExists.get(subtask.id) || !taskExists.get(subtask.taskId)) {
+        counts.subtasksSkipped += 1
+        continue
+      }
+      insertSubtask.run(
+        subtask.id,
+        subtask.taskId,
+        subtask.title,
+        subtask.completed ? 1 : 0,
+        subtask.sortOrder,
+        subtask.createdAt
+      )
+      counts.subtasksImported += 1
     }
   })
   run()
@@ -495,11 +651,12 @@ export function updateTask(input: UpdateTaskInput): Task {
     )
 
     if (nextDate) {
+      const spawnedId = randomUUID()
       db.prepare(`
         INSERT INTO tasks (id, title, notes, completed, due_at, remind_at, recurrence_rule, project_id, priority, created_at, updated_at, deleted_at)
         VALUES (?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, NULL)
       `).run(
-        randomUUID(),
+        spawnedId,
         next.title,
         next.notes,
         nextDate.toISOString(),
@@ -510,6 +667,23 @@ export function updateTask(input: UpdateTaskInput): Task {
         now,
         now
       )
+
+      // 检查清单随下一次实例复制，勾选状态全部重置；当前实例保留自己的勾选状态。
+      // 复制发生在上面的同一事务里，任务与子任务不会只成一半。
+      const template = db
+        .prepare(
+          'SELECT title, sort_order FROM subtasks WHERE task_id = ? ORDER BY sort_order ASC, created_at ASC'
+        )
+        .all(input.id) as Array<{ title: string; sort_order: number }>
+      if (template.length > 0) {
+        const insertSubtask = db.prepare(`
+          INSERT INTO subtasks (id, task_id, title, completed, sort_order, created_at)
+          VALUES (?, ?, ?, 0, ?, ?)
+        `)
+        for (const subtask of template) {
+          insertSubtask.run(randomUUID(), spawnedId, subtask.title, subtask.sort_order, now)
+        }
+      }
     }
   })
 
@@ -572,13 +746,13 @@ export function purgeExpiredDeleted(now: string): void {
 export function listDueReminders(now: string): Task[] {
   const rows = db
     .prepare(`
-      SELECT * FROM tasks
-      WHERE deleted_at IS NULL
-        AND completed = 0
-        AND remind_at IS NOT NULL
-        AND remind_at <= ?
-        AND (reminded_at IS NULL OR reminded_at < remind_at)
-      ORDER BY remind_at ASC
+      ${TASK_SELECT}
+      WHERE t.deleted_at IS NULL
+        AND t.completed = 0
+        AND t.remind_at IS NOT NULL
+        AND t.remind_at <= ?
+        AND (t.reminded_at IS NULL OR t.reminded_at < t.remind_at)
+      ORDER BY t.remind_at ASC
     `)
     .all(now) as TaskRow[]
   return rows.map(mapTask)

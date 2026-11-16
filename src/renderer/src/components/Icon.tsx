@@ -17,6 +17,7 @@ export {
   Flag,
   FolderPlus,
   HardDrive,
+  ListChecks,
   ListTodo,
   Minus,
   Moon,

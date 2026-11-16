@@ -1,6 +1,6 @@
 import { useRef } from 'react'
 import { motion } from 'motion/react'
-import { Bell, Check, Flag, Repeat2, Trash2 } from './Icon'
+import { Bell, Check, Flag, ListChecks, Repeat2, Trash2 } from './Icon'
 import type { Task } from '@shared/types'
 import { recurrenceLabel } from '@shared/recurrence'
 import { useTaskStore } from '../stores/useTaskStore'
@@ -99,6 +99,16 @@ export function TaskItem({ task }: { task: Task }) {
             <span className="meta-recurrence" title={`重复：${recurrenceLabel(task.recurrenceRule)}`}>
               <Repeat2 size={10} strokeWidth={1.8} aria-hidden="true" />
               {recurrenceLabel(task.recurrenceRule)}
+            </span>
+          )}
+          {task.subtaskTotal > 0 && (
+            <span
+              className="meta-subtasks"
+              data-subtask-badge
+              title={`检查清单 ${task.subtaskDone}/${task.subtaskTotal}`}
+            >
+              <ListChecks size={10} strokeWidth={1.8} aria-hidden="true" />
+              {task.subtaskDone}/{task.subtaskTotal}
             </span>
           )}
           {task.priority >= 2 && (

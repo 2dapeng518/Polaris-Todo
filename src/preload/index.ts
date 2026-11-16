@@ -3,12 +3,14 @@ import type {
   AppTheme,
   AutoStartState,
   CreateProjectInput,
+  CreateSubtaskInput,
   CreateTaskInput,
   ExportResult,
   GlobalHotkeyState,
   ImportResult,
   PolarisApi,
   UpdateProjectInput,
+  UpdateSubtaskInput,
   UpdateTaskInput
 } from '../shared/types'
 
@@ -29,6 +31,12 @@ const api: PolarisApi = {
     create: (input: CreateProjectInput) => ipcRenderer.invoke('projects:create', input),
     update: (input: UpdateProjectInput) => ipcRenderer.invoke('projects:update', input),
     remove: (id: string) => ipcRenderer.invoke('projects:delete', { id })
+  },
+  subtasks: {
+    list: (taskId: string) => ipcRenderer.invoke('subtasks:list', { taskId }),
+    create: (input: CreateSubtaskInput) => ipcRenderer.invoke('subtasks:create', input),
+    update: (input: UpdateSubtaskInput) => ipcRenderer.invoke('subtasks:update', input),
+    remove: (id: string) => ipcRenderer.invoke('subtasks:remove', { id })
   },
   data: {
     export: (): Promise<ExportResult> => ipcRenderer.invoke('data:export'),

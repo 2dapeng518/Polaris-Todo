@@ -3,18 +3,22 @@ import { z } from 'zod'
 import { isValidRecurrenceRule } from '../shared/recurrence'
 import {
   createProject,
+  createSubtask,
   createTask,
   deleteProject,
+  deleteSubtask,
   deleteTask,
   deleteTaskForever,
   emptyTrash,
   listDeletedTasks,
   listProjects,
+  listSubtasks,
   listTasks,
   purgeExpiredDeleted,
   restoreTask,
   toggleTask,
   updateProject,
+  updateSubtask,
   updateTask
 } from './db'
 
@@ -68,6 +72,23 @@ const updateProjectSchema = z.object({
   color: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional()
 })
 
+const createSubtaskSchema = z.object({
+  taskId: z.string().min(1),
+  title: z.string().min(1).max(500)
+})
+
+const updateSubtaskSchema = z
+  .object({
+    id: z.string().min(1),
+    title: z.string().min(1).max(500).optional(),
+    completed: z.boolean().optional()
+  })
+  .refine((value) => value.title !== undefined || value.completed !== undefined, '没有要更新的字段')
+
+const subtaskTaskIdSchema = z.object({
+  taskId: z.string().min(1)
+})
+
 // Split out so the smoke test can drop this one channel to exercise the
 // renderer's failed-submit path, then put it back.
 export function registerTaskCreate(): void {
@@ -114,6 +135,24 @@ export function registerIpc(): void {
 
   ipcMain.handle('tasks:empty-trash', () => {
     emptyTrash()
+  })
+
+  ipcMain.handle('subtasks:list', (_event, input) => {
+    const { taskId } = subtaskTaskIdSchema.parse(input)
+    return listSubtasks(taskId)
+  })
+
+  ipcMain.handle('subtasks:create', (_event, input) => {
+    return createSubtask(createSubtaskSchema.parse(input))
+  })
+
+  ipcMain.handle('subtasks:update', (_event, input) => {
+    return updateSubtask(updateSubtaskSchema.parse(input))
+  })
+
+  ipcMain.handle('subtasks:remove', (_event, input) => {
+    const { id } = taskIdSchema.parse(input)
+    deleteSubtask(id)
   })
 
   ipcMain.handle('projects:list', () => listProjects())

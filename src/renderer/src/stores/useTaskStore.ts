@@ -1,7 +1,15 @@
 import { create } from 'zustand'
-import type { AppView, Project, Task, UpdateTaskInput } from '@shared/types'
+import type {
+  AppView,
+  Project,
+  Subtask,
+  Task,
+  UpdateSubtaskInput,
+  UpdateTaskInput
+} from '@shared/types'
 
 type TaskPatch = Omit<UpdateTaskInput, 'id'>
+type SubtaskPatch = Pick<UpdateSubtaskInput, 'title' | 'completed'>
 
 // 破坏性确认（彻底删除 / 清空）的状态放 store：TaskView 的 N 监听与
 // UndoToast 的 Ctrl+Z 监听都要在弹窗开着时让位，单一来源避免同步漏。
@@ -17,14 +25,16 @@ const LOAD_FAILED = '读取本地数据失败'
 // 记归属集合：每个读只消掉自己的失败标记，集合清空才清错误——双失败态必须
 // 两个读都成功 toast 才消失（单槽会被后失败者覆盖，先失败的证据就丢了）。
 // 写失败不参与归属：任何成功都清（既有「下一次成功读写清除」语义），手动关闭也清。
-const readFailures = new Set<'load' | 'trash'>()
+// 检查清单是第三类读：它失败时不能被主列表的 load 成功抹掉，成功也只消自己的标记。
+type ReadOwner = 'load' | 'trash' | 'checklist'
+const readFailures = new Set<ReadOwner>()
 
-const readFailed = (owner: 'load' | 'trash') => {
+const readFailed = (owner: ReadOwner) => {
   readFailures.add(owner)
   return { storageError: LOAD_FAILED }
 }
 
-const readSucceeded = (owner: 'load' | 'trash', current: string | null) => {
+const readSucceeded = (owner: ReadOwner, current: string | null) => {
   readFailures.delete(owner)
   if (readFailures.size > 0) return current
   return null
@@ -40,12 +50,33 @@ const clearError = () => {
   return { storageError: null }
 }
 
+// 任务行上的 2/5 是 DB 派生值。子任务增删勾选后本地同步维护它，
+// 这样不必为了一个计数重拉整张任务表；下一次 load() 会以 DB 为准覆盖。
+const withSubtaskCounts = (
+  tasks: Task[],
+  taskId: string,
+  totalDelta: number,
+  doneDelta: number
+): Task[] =>
+  tasks.map((task) =>
+    task.id === taskId
+      ? {
+          ...task,
+          subtaskTotal: Math.max(0, task.subtaskTotal + totalDelta),
+          subtaskDone: Math.max(0, task.subtaskDone + doneDelta)
+        }
+      : task
+  )
+
 type TaskState = {
   tasks: Task[]
   // 回收站独立存放，绝不并入 tasks：否则软删行会泄漏进侧栏计数、进度环、
   // 面板搜索和详情栏。拉取也独立（loadTrash），绝不并入 load()——提醒窗口
   // 挂载共用 load()，而 list-deleted 带 purge 写操作。
   trashedTasks: Task[]
+  // 检查清单按父任务缓存。只由详情面板读写；任务行进度来自 Task 上的派生计数，
+  // 不依赖这份缓存，所以未打开过的任务不需要预取。
+  subtasksByTask: Record<string, Subtask[]>
   projects: Project[]
   view: AppView
   projectFilter: string | null
@@ -58,6 +89,10 @@ type TaskState = {
   storageError: string | null
   load: () => Promise<void>
   loadTrash: () => Promise<void>
+  loadSubtasks: (taskId: string) => Promise<void>
+  addSubtask: (taskId: string, title: string) => Promise<void>
+  updateSubtask: (id: string, patch: SubtaskPatch) => Promise<void>
+  removeSubtask: (id: string) => Promise<void>
   setView: (view: AppView) => void
   setProjectFilter: (projectId: string | null) => void
   selectTask: (id: string | null) => void
@@ -87,6 +122,7 @@ type TaskState = {
 export const useTaskStore = create<TaskState>((set, get) => ({
   tasks: [],
   trashedTasks: [],
+  subtasksByTask: {},
   projects: [],
   view: 'today',
   projectFilter: null,
@@ -129,6 +165,166 @@ export const useTaskStore = create<TaskState>((set, get) => ({
     } catch (error) {
       console.error('Failed to load trash:', error)
       set(readFailed('trash'))
+    }
+  },
+
+  loadSubtasks: async (taskId) => {
+    try {
+      const subtasks = await window.polaris.subtasks.list(taskId)
+      set((state) => ({
+        subtasksByTask: { ...state.subtasksByTask, [taskId]: subtasks },
+        storageError: readSucceeded('checklist', state.storageError)
+      }))
+    } catch (error) {
+      console.error('Failed to load subtasks:', error)
+      set(readFailed('checklist'))
+    }
+  },
+
+  addSubtask: async (taskId, title) => {
+    const cleanTitle = title.trim()
+    if (!cleanTitle) return
+
+    const list = get().subtasksByTask[taskId] ?? []
+    const draft: Subtask = {
+      id: `pending-${crypto.randomUUID()}`,
+      taskId,
+      title: cleanTitle,
+      completed: false,
+      sortOrder: list.length > 0 ? list[list.length - 1].sortOrder + 1 : 0,
+      createdAt: new Date().toISOString()
+    }
+
+    set((state) => ({
+      subtasksByTask: {
+        ...state.subtasksByTask,
+        [taskId]: [...(state.subtasksByTask[taskId] ?? []), draft]
+      },
+      tasks: withSubtaskCounts(state.tasks, taskId, 1, 0)
+    }))
+
+    try {
+      const created = await window.polaris.subtasks.create({ taskId, title: cleanTitle })
+      set((state) => ({
+        subtasksByTask: {
+          ...state.subtasksByTask,
+          [taskId]: (state.subtasksByTask[taskId] ?? []).map((item) =>
+            item.id === draft.id ? created : item
+          )
+        },
+        ...clearError()
+      }))
+    } catch (error) {
+      console.error('Failed to add subtask:', error)
+      set((state) => ({
+        subtasksByTask: {
+          ...state.subtasksByTask,
+          [taskId]: (state.subtasksByTask[taskId] ?? []).filter((item) => item.id !== draft.id)
+        },
+        tasks: withSubtaskCounts(state.tasks, taskId, -1, 0),
+        ...writeFailed()
+      }))
+      // 调用方需要知道失败，才能把用户刚输入的文字还回输入框。
+      throw error
+    }
+  },
+
+  updateSubtask: async (id, patch) => {
+    const entry = Object.entries(get().subtasksByTask).find(([, items]) =>
+      items.some((item) => item.id === id)
+    )
+    if (!entry) return
+
+    const [taskId, items] = entry
+    const before = items.find((item) => item.id === id)
+    if (!before) return
+
+    const title = patch.title?.trim()
+    if (patch.title !== undefined && !title) return
+
+    const optimistic: Subtask = {
+      ...before,
+      title: title ?? before.title,
+      completed: patch.completed ?? before.completed
+    }
+    const doneDelta = Number(optimistic.completed) - Number(before.completed)
+
+    set((state) => ({
+      subtasksByTask: {
+        ...state.subtasksByTask,
+        [taskId]: (state.subtasksByTask[taskId] ?? []).map((item) =>
+          item.id === id ? optimistic : item
+        )
+      },
+      tasks: withSubtaskCounts(state.tasks, taskId, 0, doneDelta)
+    }))
+
+    try {
+      const updated = await window.polaris.subtasks.update({
+        id,
+        ...(title !== undefined ? { title } : {}),
+        ...(patch.completed !== undefined ? { completed: patch.completed } : {})
+      })
+      const settledDelta = Number(updated.completed) - Number(optimistic.completed)
+      set((state) => ({
+        subtasksByTask: {
+          ...state.subtasksByTask,
+          [taskId]: (state.subtasksByTask[taskId] ?? []).map((item) =>
+            item.id === id ? updated : item
+          )
+        },
+        tasks: withSubtaskCounts(state.tasks, taskId, 0, settledDelta),
+        ...clearError()
+      }))
+    } catch (error) {
+      console.error('Failed to update subtask:', error)
+      set((state) => ({
+        subtasksByTask: {
+          ...state.subtasksByTask,
+          [taskId]: (state.subtasksByTask[taskId] ?? []).map((item) =>
+            item.id === id ? before : item
+          )
+        },
+        tasks: withSubtaskCounts(state.tasks, taskId, 0, -doneDelta),
+        ...writeFailed()
+      }))
+    }
+  },
+
+  removeSubtask: async (id) => {
+    const entry = Object.entries(get().subtasksByTask).find(([, items]) =>
+      items.some((item) => item.id === id)
+    )
+    if (!entry) return
+
+    const [taskId, items] = entry
+    const index = items.findIndex((item) => item.id === id)
+    const before = items[index]
+    if (!before) return
+    const doneDelta = before.completed ? 1 : 0
+
+    set((state) => ({
+      subtasksByTask: {
+        ...state.subtasksByTask,
+        [taskId]: (state.subtasksByTask[taskId] ?? []).filter((item) => item.id !== id)
+      },
+      tasks: withSubtaskCounts(state.tasks, taskId, -1, -doneDelta)
+    }))
+
+    try {
+      await window.polaris.subtasks.remove(id)
+      set(clearError())
+    } catch (error) {
+      console.error('Failed to remove subtask:', error)
+      set((state) => {
+        const restored = [...(state.subtasksByTask[taskId] ?? [])]
+        restored.splice(Math.min(index, restored.length), 0, before)
+        return {
+          subtasksByTask: { ...state.subtasksByTask, [taskId]: restored },
+          tasks: withSubtaskCounts(state.tasks, taskId, 1, doneDelta),
+          ...writeFailed()
+        }
+      })
     }
   },
 
@@ -317,7 +513,12 @@ export const useTaskStore = create<TaskState>((set, get) => ({
 
     try {
       await window.polaris.tasks.deleteForever(id)
-      set(clearError())
+      set((state) => {
+        // 硬删后子任务已被 ON DELETE CASCADE 清掉，缓存不能留活口。
+        const subtasksByTask = { ...state.subtasksByTask }
+        delete subtasksByTask[id]
+        return { subtasksByTask, ...clearError() }
+      })
     } catch (error) {
       console.error('Failed to delete task forever:', error)
       set((state) => {
@@ -338,7 +539,11 @@ export const useTaskStore = create<TaskState>((set, get) => ({
 
     try {
       await window.polaris.tasks.emptyTrash()
-      set(clearError())
+      set((state) => {
+        const subtasksByTask = { ...state.subtasksByTask }
+        for (const task of current) delete subtasksByTask[task.id]
+        return { subtasksByTask, ...clearError() }
+      })
     } catch (error) {
       console.error('Failed to empty trash:', error)
       // 完整回滚：撤销槽也还原，否则失败后用户丢失原本可用的撤销。

@@ -6,6 +6,7 @@ import { z } from 'zod'
 import { getAutoStartState, setAutoStartState } from './autostart'
 import {
   createProject,
+  createSubtask,
   createTask,
   deleteProject,
   deleteTask,
@@ -14,9 +15,12 @@ import {
   getMeta,
   importBackup,
   initDatabase,
+  listSubtasks,
   listTasks,
   purgeExpiredDeleted,
-  setMeta
+  setMeta,
+  updateSubtask,
+  updateTask
 } from './db'
 import { registerIpc, registerTaskCreate } from './ipc'
 import {
@@ -62,8 +66,18 @@ const backupTaskSchema = z
   })
   .refine((task) => !task.recurrenceRule || task.dueAt, '重复任务需要截止时间')
 
+const backupSubtaskSchema = z.object({
+  id: z.string().min(1),
+  taskId: z.string().min(1),
+  title: z.string().min(1).max(500),
+  completed: z.boolean(),
+  sortOrder: z.number().int(),
+  createdAt: z.string()
+})
+
 const backupSchema = z.object({
-  schemaVersion: z.literal(1),
+  // v1（无 subtasks）继续可导入；v2 起带检查清单。
+  schemaVersion: z.union([z.literal(1), z.literal(2)]),
   app: z.literal('polaris'),
   exportedAt: z.string(),
   projects: z.array(
@@ -76,7 +90,9 @@ const backupSchema = z.object({
       updatedAt: z.string()
     })
   ),
-  tasks: z.array(backupTaskSchema)
+  tasks: z.array(backupTaskSchema),
+  // 旧备份没有这个字段，缺省即「没有检查清单数据」。
+  subtasks: z.array(backupSubtaskSchema).optional().default([])
 })
 
 // 原子写：先写同目录临时文件再 rename（同文件系统内 rename 是原子操作），
@@ -1174,6 +1190,10 @@ function resetTaskIpc(): void {
     'tasks:list-deleted',
     'tasks:delete-forever',
     'tasks:empty-trash',
+    'subtasks:list',
+    'subtasks:create',
+    'subtasks:update',
+    'subtasks:remove',
     'projects:list',
     'projects:create',
     'projects:update',
@@ -3294,6 +3314,116 @@ async function runSmokeTest(): Promise<void> {
         return Boolean(detailShown) && hiddenAfterUncomplete;
       })()`)) === true
 
+    // 检查清单 UI：详情里添加两条 → 勾选一条 → 行内改名 → 删一条 → 硬删父任务。
+    // 进度字面量同时验详情区与任务行徽标；持久性用 API 重新读库验证。
+    const subtaskUiResult = await mainWindow?.webContents.executeJavaScript(`(async () => {
+      ${pageHelpers}
+      let step = 'create';
+      const due = new Date(); due.setHours(23, 59, 0, 0);
+      const task = await window.polaris.tasks.create({ title: '冒烟子任务', dueAt: due.toISOString(), projectId: null });
+      const setInput = (input, value) => {
+        const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+        setter.call(input, value);
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+      };
+      const pressEnter = (input) => input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+      try {
+        [...document.querySelectorAll('.nav-item')].find((el) => el.textContent.includes('全部任务')).click();
+        window.dispatchEvent(new Event('focus'));
+        step = 'row';
+        if (!(await waitFor(() => findRow('冒烟子任务')))) throw new Error('row not found');
+        findRow('冒烟子任务').querySelector('.task-title').click();
+        step = 'detail';
+        if (!(await waitFor(() => document.querySelector('[data-subtask-add]')))) throw new Error('add input not found');
+        const add = document.querySelector('[data-subtask-add]');
+        setInput(add, '子任务甲'); pressEnter(add);
+        setInput(add, '子任务乙'); pressEnter(add);
+        step = 'rows';
+        if (!(await waitFor(() => document.querySelectorAll('[data-subtask-id]').length === 2))) throw new Error('rows not 2');
+        // 等异步读取落定再动手：焦点触发的 load() 若晚到，旧快照会把乐观更新的
+        // 计数打回去。连续两次进度读数相同才算稳（同 measureStrip 的视口稳定模式）。
+        let lastProgress = '';
+        await waitFor(() => {
+          const now = document.querySelector('[data-subtask-progress]')?.textContent.trim() ?? '';
+          const stable = now !== '' && now === lastProgress;
+          lastProgress = now;
+          return stable;
+        });
+        const progress0 = document.querySelector('[data-subtask-progress]')?.textContent.trim();
+        const badge0 = findRow('冒烟子任务').querySelector('[data-subtask-badge]')?.textContent.trim();
+        step = 'toggle';
+        document.querySelectorAll('.checklist-check')[0].click();
+        if (!(await waitFor(() => document.querySelector('[data-subtask-progress]')?.textContent.trim() === '1/2'))) {
+          const diag = {
+            progressNow: document.querySelector('[data-subtask-progress]')?.textContent.trim(),
+            pressed: document.querySelectorAll('.checklist-check')[0]?.getAttribute('aria-pressed'),
+            toast: document.querySelector('.toast-error .toast-message')?.textContent ?? null,
+            dbRows: await window.polaris.subtasks.list(task.id),
+            parent: (await window.polaris.tasks.list()).find((t) => t.id === task.id)
+          };
+          throw new Error('progress not 1/2 DIAG=' + JSON.stringify(diag));
+        }
+        const badge1 = findRow('冒烟子任务').querySelector('[data-subtask-badge]')?.textContent.trim();
+        const checkPressed = document.querySelectorAll('.checklist-check')[0].getAttribute('aria-pressed') === 'true';
+        step = 'rename';
+        const titleInput = document.querySelectorAll('.checklist-title')[1];
+        titleInput.focus();
+        setInput(titleInput, '子任务乙改');
+        pressEnter(titleInput);
+        await sleep(250);
+        const afterRename = await window.polaris.subtasks.list(task.id);
+        const renamed = afterRename.some((s) => s.title === '子任务乙改');
+        step = 'persist';
+        const parent = (await window.polaris.tasks.list()).find((t) => t.id === task.id);
+        const persisted =
+          afterRename.length === 2 &&
+          afterRename.filter((s) => s.completed).length === 1 &&
+          parent?.subtaskTotal === 2 &&
+          parent?.subtaskDone === 1;
+        step = 'remove';
+        document.querySelectorAll('.checklist-remove')[1].click();
+        if (!(await waitFor(() => document.querySelectorAll('[data-subtask-id]').length === 1))) throw new Error('rows not 1 after remove');
+        const progress2 = document.querySelector('[data-subtask-progress]')?.textContent.trim();
+        const badge2 = findRow('冒烟子任务').querySelector('[data-subtask-badge]')?.textContent.trim();
+        const remaining = (await window.polaris.subtasks.list(task.id)).map((s) => s.title).join('|');
+        step = 'purge';
+        await window.polaris.tasks.remove(task.id);
+        await window.polaris.tasks.deleteForever(task.id);
+        const purged = (await window.polaris.subtasks.list(task.id)).length === 0;
+        const rowProgress = progress0 === '0/2' && badge0 === '0/2' && progress2 === '1/1' && badge2 === '1/1';
+        const detailChain = progress0 === '0/2' && progress2 === '1/1' && checkPressed;
+        return {
+          rowProgress,
+          detailChain,
+          renamed,
+          persisted,
+          purged,
+          step,
+          progress0,
+          badge0,
+          badge1,
+          progress2,
+          badge2,
+          remaining,
+          parentTotal: parent?.subtaskTotal,
+          parentDone: parent?.subtaskDone
+        };
+      } catch (error) {
+        return { step, error: String(error) };
+      } finally {
+        try { await window.polaris.tasks.remove(task.id); } catch {}
+        try { await window.polaris.tasks.deleteForever(task.id); } catch {}
+      }
+    })()`)
+    const subtaskRowProgress = subtaskUiResult?.rowProgress === true
+    const subtaskDetailChain = subtaskUiResult?.detailChain === true
+    const subtaskRenamed = subtaskUiResult?.renamed === true
+    const subtaskPersisted = subtaskUiResult?.persisted === true
+    const subtaskPurged = subtaskUiResult?.purged === true
+    if (!subtaskRowProgress || !subtaskDetailChain || !subtaskRenamed || !subtaskPersisted || !subtaskPurged) {
+      console.error('SUBTASK_UI_FAIL', JSON.stringify(subtaskUiResult))
+    }
+
     // 自定义重复 UI：开弹层 → 自定义 → 周 → 间隔步进(+ 后 −) → 一三五 → 规则落库且弹层不超 420px。
     // 交互套用选择器冒烟的成熟模式：点 .task-title → 等 .detail-title → sleep 稳定 → 点行开弹层。
     // 诊断必须随结果返回主进程再打印：渲染层 console.error 不回传到冒烟 stdout。
@@ -3400,6 +3530,138 @@ async function runSmokeTest(): Promise<void> {
         deleteTaskForever(id)
       }
       if (backupProjectId) deleteProject(backupProjectId)
+    }
+
+    // 重复任务继承：完成后旧实例保留自己的勾选，新实例复制全部步骤但全部重置为未完成。
+    let subtaskRecurrenceWorks = false
+    const recurrenceSubtaskIds: string[] = []
+    try {
+      const due = new Date()
+      due.setHours(23, 59, 0, 0)
+      const task = createTask({
+        title: '冒烟子任务重复',
+        dueAt: due.toISOString(),
+        recurrenceRule: 'FREQ=DAILY'
+      })
+      recurrenceSubtaskIds.push(task.id)
+      const first = createSubtask({ taskId: task.id, title: '步骤一' })
+      createSubtask({ taskId: task.id, title: '步骤二' })
+      updateSubtask({ id: first.id, completed: true })
+      updateTask({ id: task.id, completed: true })
+
+      const spawned = listTasks().find(
+        (candidate) =>
+          candidate.id !== task.id &&
+          candidate.title === '冒烟子任务重复' &&
+          !candidate.completed &&
+          Boolean(candidate.recurrenceRule)
+      )
+      if (spawned) recurrenceSubtaskIds.push(spawned.id)
+
+      const oldTask = listTasks().find((candidate) => candidate.id === task.id)
+      const oldSubtasks = listSubtasks(task.id)
+      const newSubtasks = spawned ? listSubtasks(spawned.id) : []
+      subtaskRecurrenceWorks =
+        Boolean(spawned) &&
+        oldTask?.subtaskTotal === 2 &&
+        oldTask?.subtaskDone === 1 &&
+        oldSubtasks.length === 2 &&
+        oldSubtasks.filter((item) => item.completed).length === 1 &&
+        newSubtasks.length === 2 &&
+        newSubtasks.every((item) => !item.completed) &&
+        newSubtasks.map((item) => item.title).join('|') === '步骤一|步骤二'
+      if (!subtaskRecurrenceWorks) {
+        console.error(
+          'SUBTASK_RECURRENCE_FAIL',
+          JSON.stringify({ spawned: spawned?.id, oldTask, oldSubtasks, newSubtasks })
+        )
+      }
+    } catch (error) {
+      console.error('SUBTASK_RECURRENCE_ERROR', error)
+    } finally {
+      for (const id of recurrenceSubtaskIds) {
+        deleteTask(id)
+        deleteTaskForever(id)
+      }
+    }
+
+    // 备份兼容：v2 带 subtasks 且勾选状态保留；v1（无 subtasks 字段）仍能通过校验并导入。
+    let subtaskBackupWorks = false
+    const backupSubtaskFixtureIds: string[] = []
+    let backupSubtaskProjectId: string | null = null
+    try {
+      const project = createProject({ name: '冒烟子任务备份项目', color: '#5EEAD4' })
+      backupSubtaskProjectId = project.id
+      const task = createTask({
+        title: '冒烟子任务备份',
+        dueAt: new Date().toISOString(),
+        projectId: project.id
+      })
+      backupSubtaskFixtureIds.push(task.id)
+      const first = createSubtask({ taskId: task.id, title: '备份步骤一' })
+      createSubtask({ taskId: task.id, title: '备份步骤二' })
+      updateSubtask({ id: first.id, completed: true })
+
+      const backup = exportBackup()
+      const exported = backup.subtasks.filter((item) => item.taskId === task.id)
+      const exportOk =
+        exported.length === 2 &&
+        exported.filter((item) => item.completed).length === 1 &&
+        exported.map((item) => item.title).join('|') === '备份步骤一|备份步骤二'
+
+      const copyTaskId = 'smoke-subtask-copy'
+      const copy = {
+        projects: backup.projects,
+        tasks: backup.tasks.map((item) =>
+          item.id === task.id ? { ...item, id: copyTaskId, title: '冒烟子任务备份副本' } : item
+        ),
+        subtasks: backup.subtasks.map((item, index) =>
+          item.taskId === task.id
+            ? { ...item, id: `smoke-subtask-copy-${index}`, taskId: copyTaskId }
+            : item
+        )
+      }
+      const imported = importBackup(copy)
+      backupSubtaskFixtureIds.push(copyTaskId)
+      const copied = listSubtasks(copyTaskId)
+      const copiedTask = listTasks().find((item) => item.id === copyTaskId)
+      const copyOk =
+        imported.subtasksImported === 2 &&
+        copied.length === 2 &&
+        copied.filter((item) => item.completed).length === 1 &&
+        copiedTask?.subtaskTotal === 2 &&
+        copiedTask?.subtaskDone === 1
+
+      // 旧备份：schemaVersion 1 且没有 subtasks 字段，必须照常解析、缺省为空数组。
+      const v1 = backupSchema.safeParse({
+        schemaVersion: 1,
+        app: 'polaris',
+        exportedAt: new Date().toISOString(),
+        projects: [],
+        tasks: []
+      })
+      const v1Ok = v1.success && v1.data.subtasks.length === 0
+      const legacyImport = importBackup({ projects: [], tasks: [] })
+      subtaskBackupWorks =
+        exportOk &&
+        copyOk &&
+        v1Ok &&
+        legacyImport.subtasksImported === 0 &&
+        legacyImport.subtasksSkipped === 0
+      if (!subtaskBackupWorks) {
+        console.error(
+          'SUBTASK_BACKUP_FAIL',
+          JSON.stringify({ exportOk, copyOk, v1Ok, v1: v1.success ? v1.data : v1.error, imported, copied })
+        )
+      }
+    } catch (error) {
+      console.error('SUBTASK_BACKUP_ERROR', error)
+    } finally {
+      for (const id of backupSubtaskFixtureIds) {
+        deleteTask(id)
+        deleteTaskForever(id)
+      }
+      if (backupSubtaskProjectId) deleteProject(backupSubtaskProjectId)
     }
 
     // 原子写：写入与覆盖内容正确，且目录里不留临时文件（只剩目标文件）。
@@ -3802,7 +4064,14 @@ async function runSmokeTest(): Promise<void> {
       hotkeyDefaultOn: hotkeyDefaultOn === true,
       hotkeySettingsRoundTrip: hotkeySettingsRoundTrip === true,
       hotkeyConflictDegrades: hotkeyConflictDegrades === true,
-      hotkeyWakesAndFocuses: hotkeyWakesAndFocuses === true
+      hotkeyWakesAndFocuses: hotkeyWakesAndFocuses === true,
+      subtaskRowProgress: subtaskRowProgress === true,
+      subtaskDetailChain: subtaskDetailChain === true,
+      subtaskRenamed: subtaskRenamed === true,
+      subtaskPersisted: subtaskPersisted === true,
+      subtaskPurged: subtaskPurged === true,
+      subtaskRecurrenceWorks: subtaskRecurrenceWorks === true,
+      subtaskBackupWorks: subtaskBackupWorks === true
     }
     const failed = Object.keys(checks).filter((name) => !checks[name])
     const ok = failed.length === 0
@@ -3860,6 +4129,13 @@ async function runSmokeTest(): Promise<void> {
           hotkeySettingsRoundTrip,
           hotkeyConflictDegrades,
           hotkeyWakesAndFocuses,
+          subtaskRowProgress,
+          subtaskDetailChain,
+          subtaskRenamed,
+          subtaskPersisted,
+          subtaskPurged,
+          subtaskRecurrenceWorks,
+          subtaskBackupWorks,
           parseGrammarTable: parseAssertions.grammar,
           parseInvariants: parseAssertions.invariants,
           parseFormatNull: parseAssertions.format,
@@ -4010,13 +4286,14 @@ app.whenReady().then(() => {
   // 渲染层只发起 invoke；文件内容经 zod 整体校验后才落库。
   ipcMain.handle('data:export', async () => {
     try {
-      const { projects, tasks } = exportBackup()
+      const { projects, tasks, subtasks } = exportBackup()
       const backup = {
-        schemaVersion: 1,
+        schemaVersion: 2,
         app: 'polaris',
         exportedAt: new Date().toISOString(),
         projects,
-        tasks
+        tasks,
+        subtasks
       }
       const stamp = new Date().toISOString().slice(0, 10).replace(/-/g, '')
       const target = await dialog.showSaveDialog(mainWindow!, {
