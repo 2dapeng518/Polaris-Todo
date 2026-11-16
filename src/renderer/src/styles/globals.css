@@ -3393,11 +3393,16 @@ textarea {
   padding: 0 16px;
   border-bottom: 1px solid var(--line);
   color: var(--text-tertiary);
-  transition: border-color 120ms var(--ease-out);
+  transition:
+    border-color 120ms var(--ease-out),
+    background 120ms var(--ease-out);
 }
 
+/* 与文本输入柔和聚焦同族：下划线染淡 + 轻染色。整幅横条不加光晕，
+   免得晕圈溢出面板边缘。 */
 .command-input-row:focus-within {
-  border-bottom-color: var(--accent);
+  border-bottom-color: rgba(var(--accent-rgb), 0.34);
+  background: rgba(var(--accent-rgb), 0.035);
 }
 
 .command-input {
