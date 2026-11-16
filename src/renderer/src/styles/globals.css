@@ -729,6 +729,9 @@ textarea {
   padding: var(--space-2) var(--space-3) var(--space-4);
   border-right: 1px solid var(--line);
   background: var(--sidebar-bg);
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .nav-section {
@@ -1061,6 +1064,19 @@ textarea {
 
 .sidebar-spacer {
   flex: 1;
+}
+
+/* 导航区独立滚动：项目/标签再多也只滚导航，存储信任状与设置钉在侧栏底部，
+   低分辨率屏上备份出口永远一伸手就够到。 */
+.sidebar-scroll {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 /* 事实卡，不是状态灯：本地存储是恒真属性。不要加健康点、role="status" 或 aria-live。 */
@@ -3905,6 +3921,91 @@ textarea {
 .footer-version {
   font-family: var(--font-mono);
   letter-spacing: normal;
+}
+
+/* ---------- low viewport ---------- */
+
+/* 工作区 ≤620px（如 1024×576 屏减任务栏）：纵向间距压一档，侧栏与常规任务量
+   一屏放下，页脚不落滚动线以下。断点避开冒烟 640 的两列设置档；快捷添加 56px
+   外框断言只量默认高度与分数缩放，不进此档。侧栏导航走 .sidebar-scroll 独立
+   滚动，存储卡与设置钉底。 */
+@media (max-height: 620px) {
+  .main {
+    padding: 12px var(--space-6) 12px;
+  }
+
+  .view-header {
+    margin-bottom: 12px;
+  }
+
+  .view-eyebrow {
+    margin-bottom: 2px;
+  }
+
+  .view-title {
+    font-size: 24px;
+  }
+
+  .quick-add-shell {
+    min-height: 44px;
+  }
+
+  .quick-add {
+    height: 42px;
+  }
+
+  .task-sections {
+    margin-top: 14px;
+  }
+
+  .task-section {
+    margin-bottom: 12px;
+  }
+
+  .completed-section {
+    padding-top: 8px;
+  }
+
+  .section-label {
+    margin-bottom: 4px;
+  }
+
+  .task-item {
+    padding: 8px 10px;
+  }
+
+  .view-footer {
+    padding-top: 8px;
+  }
+
+  .sidebar {
+    gap: 2px;
+    padding-bottom: 8px;
+  }
+
+  .sidebar-scroll {
+    gap: 2px;
+  }
+
+  .nav-section {
+    padding-top: 2px;
+  }
+
+  .nav-label {
+    padding: 4px 10px 2px;
+  }
+
+  .nav-item {
+    height: 30px;
+  }
+
+  .project-item {
+    height: 28px;
+  }
+
+  .sidebar-storage {
+    padding: 8px;
+  }
 }
 
 /* ---------- loading ---------- */

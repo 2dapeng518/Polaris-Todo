@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, globalShortcut, ipcMain, nativeImage, shell, type NativeImage, type WebContents } from 'electron'
+import { app, BrowserWindow, dialog, globalShortcut, ipcMain, nativeImage, screen, shell, type NativeImage, type WebContents } from 'electron'
 import { join } from 'node:path'
 import { mkdtemp, readFile, readdir, rename, rm, unlink, writeFile } from 'node:fs/promises'
 import { randomUUID } from 'node:crypto'
@@ -149,12 +149,15 @@ if (!gotSingleInstanceLock) {
 }
 
 function createWindow(): void {
+  // 低分辨率屏：默认与最小尺寸不得超过当前屏幕工作区，
+  // 否则窗口被 minHeight 顶出屏幕，下缘永远够不到。
+  const workArea = screen.getPrimaryDisplay().workAreaSize
   mainWindow = new BrowserWindow({
-    width: 1280,
-    height: 840,
+    width: Math.min(1280, workArea.width),
+    height: Math.min(840, workArea.height),
     icon: nativeImage.createFromDataURL(TRAY_ICON_DATA_URL),
-    minWidth: 980,
-    minHeight: 640,
+    minWidth: Math.min(980, workArea.width),
+    minHeight: Math.min(640, workArea.height),
     show: false,
     backgroundColor: themeBackgroundColor(),
     titleBarStyle: 'hidden',
@@ -185,6 +188,20 @@ function createWindow(): void {
   mainWindow.webContents.on('did-fail-load', (_event, errorCode, _description, _url, isMainFrame) => {
     if (isMainFrame && errorCode !== -3 && hasSplashWindow() && mainWindow) {
       revealMainWindow(mainWindow)
+    }
+  })
+
+  // 分辨率变化/外接屏热插拔：按窗口所在屏的新工作区重收最小尺寸，
+  // 非最大化的超界窗口拉回屏内。最大化窗口由系统贴合工作区，不动。
+  screen.on('display-metrics-changed', () => {
+    if (!mainWindow || mainWindow.isDestroyed()) return
+    const wa = screen.getDisplayMatching(mainWindow.getBounds()).workAreaSize
+    mainWindow.setMinimumSize(Math.min(980, wa.width), Math.min(640, wa.height))
+    if (!mainWindow.isMaximized()) {
+      const [w, h] = mainWindow.getSize()
+      const nw = Math.min(w, wa.width)
+      const nh = Math.min(h, wa.height)
+      if (nw !== w || nh !== h) mainWindow.setSize(nw, nh)
     }
   })
 
@@ -4201,6 +4218,47 @@ async function runSmokeTest(): Promise<void> {
       }
     }
 
+    // 低分辨率视口：CDP 仿真 1024×536（1024×576 屏减任务栏的工作区），
+    // 紧凑档必须让侧栏与今天视图一屏放下，页脚不落滚动线以下。
+    let lowResFits = false
+    if (mainWindow) {
+      const dbg = mainWindow.webContents.debugger
+      const attachedHere = !dbg.isAttached()
+      if (attachedHere) dbg.attach('1.3')
+      try {
+        await dbg.sendCommand('Emulation.setDeviceMetricsOverride', { width: 1024, height: 536, deviceScaleFactor: 1, mobile: false })
+        await settledFrames(mainWindow.webContents)
+        const m = await mainWindow.webContents.executeJavaScript(`(() => {
+          const main = document.querySelector('.main');
+          const sidebar = document.querySelector('.sidebar');
+          const footer = document.querySelector('.view-footer');
+          if (!main || !sidebar || !footer) return { ok: false, reason: 'missing nodes' };
+          const mr = main.getBoundingClientRect();
+          const fr = footer.getBoundingClientRect();
+          const sr = sidebar.getBoundingClientRect();
+          const st = document.querySelector('.settings-item');
+          if (!st) return { ok: false, reason: 'missing settings' };
+          const st_r = st.getBoundingClientRect();
+          return {
+            ok: true,
+            compact: matchMedia('(max-height: 620px)').matches,
+            mainOver: main.scrollHeight - main.clientHeight,
+            sidebarOver: sidebar.scrollHeight - sidebar.clientHeight,
+            footerBottom: fr.bottom,
+            mainBottom: mr.bottom,
+            settingsBottom: st_r.bottom,
+            sidebarBottom: sr.bottom,
+            rows: document.querySelectorAll('.task-item').length
+          };
+        })()`)
+        lowResFits = m.ok && m.compact && m.mainOver <= 2 && m.sidebarOver <= 2 && m.footerBottom <= m.mainBottom + 1 && m.settingsBottom <= m.sidebarBottom + 1
+        if (!lowResFits) console.error('LOW_RES_FAIL', JSON.stringify(m))
+      } finally {
+        await dbg.sendCommand('Emulation.clearDeviceMetricsOverride', {})
+        if (attachedHere) dbg.detach()
+      }
+    }
+
     // 关于署名区：设置面板展示字体/图标许可（OFL 可见署名义务）。
     const aboutCreditsShown =
       (await mainWindow?.webContents.executeJavaScript(`(async () => {
@@ -4919,6 +4977,7 @@ async function runSmokeTest(): Promise<void> {
       backupRoundTripWorks: backupRoundTripWorks === true,
       atomicWriteWorks: atomicWriteWorks === true,
       scalingFrameWorks: scalingFrameWorks === true,
+      lowResFits: lowResFits === true,
       aboutCreditsShown: aboutCreditsShown === true,
       storageCardWorks: storageCardWorks === true,
       settingsFitsDefault: settingsFitsDefault === true,
@@ -4998,6 +5057,7 @@ async function runSmokeTest(): Promise<void> {
           backupRoundTripWorks,
           atomicWriteWorks,
           scalingFrameWorks,
+          lowResFits,
           aboutCreditsShown,
           storageCardWorks,
           settingsFitsDefault,
@@ -5310,6 +5370,7 @@ app.on('will-quit', () => {
   disposeGlobalHotkey()
   disposeMcp()
   disposeUpdater()
+  screen.removeAllListeners('display-metrics-changed')
 })
 
 app.on('window-all-closed', () => {
