@@ -190,6 +190,33 @@ export type McpState = {
   error?: string
 }
 
+/** 在线更新状态机。unsupported = 开发/未打包环境没有更新通道；
+ *  available → downloading → downloaded 由 electron-updater 事件驱动，
+ *  渲染层只消费快照，不自己推算进度。 */
+export type UpdateStatus =
+  | 'idle'
+  | 'unsupported'
+  | 'checking'
+  | 'available'
+  | 'downloading'
+  | 'downloaded'
+  | 'up-to-date'
+  | 'error'
+
+export type UpdateState = {
+  status: UpdateStatus
+  currentVersion: string
+  /** 检查到的新版本号；没查到或还没查时为 null。 */
+  latestVersion: string | null
+  /** 下载进度 0-100，仅 downloading 期间有意义，其余为 null。 */
+  percent: number | null
+  /** 更新说明（来自 GitHub Release 正文），无则 null。 */
+  releaseNotes: string | null
+  /** 用户点过「跳过此版本」的版本号；自动检查命中它时保持安静。 */
+  skippedVersion: string | null
+  error: string | null
+}
+
 export type PolarisApi = {
   tasks: {
     list: () => Promise<Task[]>
@@ -235,6 +262,17 @@ export type PolarisApi = {
     setGlobalHotkey: (enabled: boolean) => Promise<GlobalHotkeyState>
     getMcp: () => Promise<McpState>
     setMcp: (enabled: boolean) => Promise<McpState>
+  }
+  update: {
+    getState: () => Promise<UpdateState>
+    /** 手动检查：忽略「跳过此版本」，用户主动问就要给答案。 */
+    check: () => Promise<UpdateState>
+    /** 跳过指定版本（渲染层正在展示的那个）；自动检查不再为它弹窗。 */
+    skip: (version: string) => Promise<UpdateState>
+    /** 退出并安装已下载好的更新（quitAndInstall）。 */
+    install: () => Promise<void>
+    /** 订阅主进程推送的状态快照，返回取消订阅函数。 */
+    onState: (callback: (state: UpdateState) => void) => () => void
   }
   reminder: {
     dismiss: () => Promise<void>

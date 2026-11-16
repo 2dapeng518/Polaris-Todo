@@ -1,5 +1,11 @@
 appId: com.polaris.todo
 productName: Polaris
+# 在线更新走 GitHub Releases：build:win 会产出 latest.yml + exe + blockmap，
+# 发版时把三样一起传到对应 tag 的 Release 资产里，客户端靠 latest.yml 判断新版。
+publish:
+  provider: github
+  owner: 2dapeng518
+  repo: Polaris-Todo
 directories:
   buildResources: build
   output: dist

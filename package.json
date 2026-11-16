@@ -23,8 +23,9 @@
     "smoke": "node scripts/smoke.mjs",
     "verify:themes": "node scripts/verify-theme-contrast.mjs && node scripts/verify-theme-registry.mjs",
     "verify:datetime": "node scripts/verify-datetime.mjs",
-    "build:win": "npm run build && electron-builder --win nsis",
-    "build:mac": "npm run build && electron-builder --mac"
+    "build:win": "npm run build && electron-builder --win nsis --publish never",
+    "build:mac": "npm run build && electron-builder --mac --publish never",
+    "release:win": "npm run build && electron-builder --win nsis --publish always"
   },
   "dependencies": {
     "@fontsource-variable/geist-mono": "^5.3.0",
@@ -33,6 +34,7 @@
     "@fontsource-variable/noto-sans-sc": "^5.3.1",
     "better-sqlite3": "13.0.3",
     "date-fns": "4.4.0",
+    "electron-updater": "^6.8.11",
     "lucide-react": "1.72.0",
     "motion": "14.12.0",
     "react": "19.3.1",
