@@ -1031,15 +1031,26 @@ textarea {
 }
 
 /* 事实卡，不是状态灯：本地存储是恒真属性。不要加健康点、role="status" 或 aria-live。 */
+/* 存储卡片是可点的信任状：按钮重置 + hover 微亮，直达设置备份区。 */
 .sidebar-storage {
   display: flex;
   align-items: center;
   gap: 10px;
+  width: 100%;
   margin-bottom: 6px;
   padding: 10px;
   border: 1px solid var(--line);
   border-radius: 11px;
   background: var(--surface-1);
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: default;
+}
+
+.sidebar-storage:hover {
+  border-color: var(--line-strong);
+  background: var(--surface-2);
 }
 
 .storage-icon {
