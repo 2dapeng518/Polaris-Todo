@@ -27,6 +27,7 @@ import { formatCompletedAt, formatDue, todayAt, tomorrowAt } from '../lib/dates'
 import { useFocusTrap } from '../lib/useFocusTrap'
 import { useMediaQuery } from '../lib/useMediaQuery'
 import { DateTimePicker } from './DateTimePicker'
+import { SubtaskList } from './SubtaskList'
 
 type TaskPatch = Partial<
   Pick<
@@ -637,6 +638,8 @@ function TaskDetailBody({ task, titleRef, closeRef }: BodyProps) {
             onCompositionEnd={() => setNotesComposing(false)}
           />
         </div>
+
+        <SubtaskList taskId={task.id} total={task.subtaskTotal} done={task.subtaskDone} />
 
         <div className="detail-schedule">
           <ScheduleRow

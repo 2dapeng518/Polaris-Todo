@@ -485,9 +485,15 @@ textarea {
 .detail-action-primary:focus-visible,
 .empty-cta:focus-visible,
 .task-check.done:focus-visible,
-.switch.on:focus-visible {
+.switch.on:focus-visible,
+.checklist-check.is-done:focus-visible {
   outline-color: var(--on-accent);
   outline-offset: -3px;
+}
+
+/* 18px 的圆形勾选框比 task-check 小，-3px 会压到对钩上。 */
+.checklist-check.is-done:focus-visible {
+  outline-offset: -2px;
 }
 
 .detail-chip.active:focus-visible,
@@ -1558,6 +1564,14 @@ textarea {
   color: var(--text-tertiary);
 }
 
+.meta-subtasks {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+
 .meta-reminder-icon {
   color: var(--accent);
 }
@@ -2004,6 +2018,194 @@ textarea {
   outline: 2px solid var(--accent);
   outline-offset: -1px;
   background: var(--surface-2);
+}
+
+/* ---------- checklist ---------- */
+/* 轻量检查清单：只有勾选、行内标题、删除与底部连续添加。没有拖拽手柄，
+   排序固定为添加顺序（sort_order 由 DB 递增，MVP 不做重排）。 */
+
+.detail-checklist {
+  margin-top: 10px;
+}
+
+.detail-checklist-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.checklist-progress {
+  color: var(--text-tertiary);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.checklist {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin: 0 0 2px;
+  padding: 0;
+  list-style: none;
+}
+
+.checklist-row {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) 22px;
+  align-items: center;
+  gap: 8px;
+  min-height: 30px;
+  margin: 0 -8px;
+  padding: 1px 8px;
+  border-radius: 7px;
+  transition: background 0.16s;
+}
+
+.checklist-row:hover {
+  background: var(--hover);
+}
+
+.checklist-check {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 1.5px solid var(--line-strong);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--on-accent);
+  cursor: default;
+  transition:
+    background 0.16s,
+    border-color 0.16s;
+}
+
+.checklist-check:hover {
+  border-color: var(--accent);
+}
+
+.checklist-check.is-done {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+
+.checklist-title {
+  width: 100%;
+  min-width: 0;
+  padding: 4px 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.checklist-title:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+  background: var(--surface-2);
+}
+
+.checklist-row.is-done .checklist-title {
+  color: var(--text-tertiary);
+  text-decoration: line-through;
+  text-decoration-color: var(--done-line);
+}
+
+.checklist-remove {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-tertiary);
+  cursor: default;
+  opacity: 0.55;
+  transition:
+    opacity 0.16s,
+    color 0.16s,
+    background 0.16s;
+}
+
+.checklist-row:hover .checklist-remove,
+.checklist-remove:focus-visible {
+  opacity: 1;
+}
+
+.checklist-remove:hover {
+  background: rgba(var(--danger-rgb), 0.08);
+  color: var(--danger);
+}
+
+.checklist-remove:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.checklist-add-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 24px;
+  align-items: center;
+  gap: 6px;
+  margin: 0 -8px;
+  padding: 0 8px;
+}
+
+.checklist-add {
+  width: 100%;
+  height: 30px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text);
+  font-size: 13px;
+}
+
+.checklist-add::placeholder {
+  color: var(--text-tertiary);
+}
+
+.checklist-add:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+  background: var(--surface-2);
+}
+
+.checklist-add-submit {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--accent);
+  cursor: default;
+  transition:
+    background 0.16s,
+    opacity 0.16s;
+}
+
+.checklist-add-submit:hover:not(:disabled) {
+  background: rgba(var(--accent-rgb), 0.1);
+}
+
+.checklist-add-submit:disabled {
+  color: var(--text-tertiary);
+  opacity: 0.4;
+}
+
+.checklist-add-submit:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .detail-schedule {

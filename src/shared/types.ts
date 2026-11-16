@@ -19,6 +19,32 @@ export type Task = {
    *  live. Set by the DB on delete and cleared on restore, never supplied by
    *  the renderer. */
   deletedAt: string | null
+  /** Derived checklist progress, computed by the DB on every read. Never part
+   *  of CreateTaskInput/UpdateTaskInput and never stored on the task row. */
+  subtaskTotal: number
+  subtaskDone: number
+}
+
+/** A lightweight checklist item. Subtasks carry no due date, reminder,
+ *  recurrence, project or priority — they belong to exactly one task. */
+export type Subtask = {
+  id: string
+  taskId: string
+  title: string
+  completed: boolean
+  sortOrder: number
+  createdAt: string
+}
+
+export type CreateSubtaskInput = {
+  taskId: string
+  title: string
+}
+
+export type UpdateSubtaskInput = {
+  id: string
+  title?: string
+  completed?: boolean
 }
 
 export type Project = {
@@ -62,12 +88,19 @@ export type UpdateProjectInput = {
   color?: string
 }
 
+/** Backup rows carry no derived counts: they are recomputed from the subtasks
+ *  table after an import, and an old backup has no such field at all. */
+export type BackupTask = Omit<Task, 'subtaskTotal' | 'subtaskDone'>
+
+/** schemaVersion 2 added the subtasks array. Imports still accept version 1,
+ *  where `subtasks` is absent and means "no checklist data". */
 export type BackupData = {
-  schemaVersion: 1
+  schemaVersion: 2
   app: 'polaris'
   exportedAt: string
   projects: Project[]
-  tasks: Task[]
+  tasks: BackupTask[]
+  subtasks: Subtask[]
 }
 
 export type ExportResult = { saved: boolean; path?: string; error?: string }
@@ -79,6 +112,8 @@ export type ImportResult = {
   projectsSkipped?: number
   tasksImported?: number
   tasksSkipped?: number
+  subtasksImported?: number
+  subtasksSkipped?: number
   error?: string
 }
 
@@ -119,6 +154,12 @@ export type PolarisApi = {
     list: () => Promise<Project[]>
     create: (input: CreateProjectInput) => Promise<Project>
     update: (input: UpdateProjectInput) => Promise<Project>
+    remove: (id: string) => Promise<void>
+  }
+  subtasks: {
+    list: (taskId: string) => Promise<Subtask[]>
+    create: (input: CreateSubtaskInput) => Promise<Subtask>
+    update: (input: UpdateSubtaskInput) => Promise<Subtask>
     remove: (id: string) => Promise<void>
   }
   data: {
