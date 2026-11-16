@@ -1,14 +1,15 @@
 // Polaris 主题注册表：纯模块，无 DOM / Node 依赖，主进程、渲染器与预加载共享。
 // 设计原则：品牌信号色（teal）色相在所有主题中保持一致，主题改变的是 ambient 画布
 // （中性色阶的温度与色相）与克制的次要点缀色，以此体现「克制统一的高级感」。
-// 浅色家族的 teal 按画布明度微调深浅（暖砂/天蓝/护眼绿画布更深，信号色随之略深）以保 WCAG AA。
+// 浅色家族的 teal 按画布明度微调深浅（暖砂/天蓝画布更深，信号色随之略深）以保 WCAG AA。
+// 三深三浅按色系成对：夜阑↔昼白（中性）、暮蓝↔天蓝（蓝）、护眼绿↔暖砂（墨绿/燕麦）。
 // 画布之间必须拉开可感知的色差（ΔE00 ≥ 10）：近黑画布上的微弱色相偏移人眼几乎不可见。
 
 export type AppTheme = 'dark' | 'light' | 'dusk' | 'sand' | 'sky' | 'green'
 export type ThemeFamily = 'dark' | 'light'
 
-// 选择器与命令面板的展示顺序：先经典深浅，再暮蓝/暖砂，最后天蓝/护眼绿。
-export const THEME_ORDER: AppTheme[] = ['dark', 'light', 'dusk', 'sand', 'sky', 'green']
+// 选择器与命令面板的展示顺序：逐对成行（深在前浅在后），两列网格每行即一对。
+export const THEME_ORDER: AppTheme[] = ['dark', 'light', 'dusk', 'sky', 'green', 'sand']
 
 export type ThemeMeta = {
   label: string
@@ -24,7 +25,7 @@ export const THEME_META: Record<AppTheme, ThemeMeta> = {
   dusk: { label: '暮蓝', family: 'dark', desc: '深邃蓝调 · 沉静夜色', swatch: ['#132644', '#1e3760', '#5eead4'] },
   sand: { label: '暖砂', family: 'light', desc: '燕麦暖砂 · 柔和白昼', swatch: ['#ece0c6', '#fffaf2', '#0d6e66'] },
   sky: { label: '天蓝', family: 'light', desc: '晴空天蓝 · 清透白昼', swatch: ['#dceaf6', '#ffffff', '#0d6e66'] },
-  green: { label: '护眼绿', family: 'light', desc: '浅绿护眼 · 柔和白昼', swatch: ['#c7edcc', '#f6fcf7', '#0b6b63'] }
+  green: { label: '护眼绿', family: 'dark', desc: '墨绿护眼 · 沉静夜色', swatch: ['#10241a', '#163022', '#5eead4'] }
 }
 
 // 窗口首帧背景色，必须与 globals.css 中各主题的 --bg 完全一致。
@@ -34,7 +35,7 @@ export const THEME_WINDOW_BG: Record<AppTheme, string> = {
   dusk: '#132644',
   sand: '#ECE0C6',
   sky: '#DCEAF6',
-  green: '#C7EDCC'
+  green: '#10241A'
 }
 
 // 原生标题栏按钮符号色按家族区分（深/浅），与现有取值保持一致。
@@ -51,16 +52,16 @@ export function themeFamily(theme: AppTheme): ThemeFamily {
   return THEME_META[theme].family
 }
 
-// 标题栏快捷切换是对合（自身的逆）：dark↔light、dusk↔sand、sky↔green。
+// 标题栏快捷切换是对合（自身的逆）：dark↔light、dusk↔sky、green↔sand。
 // 这保证「连点两次回到原主题」这一不变量对全部主题成立，冒烟测试据此校验。
-// 经典两对跨家族；天蓝与护眼绿同为浅色护眼画布，互为配对。
+// 三对全部跨家族：每对一深一浅，快切即深浅互换。
 export function partnerTheme(theme: AppTheme): AppTheme {
   switch (theme) {
     case 'dark': return 'light'
     case 'light': return 'dark'
-    case 'dusk': return 'sand'
-    case 'sand': return 'dusk'
-    case 'sky': return 'green'
-    case 'green': return 'sky'
+    case 'dusk': return 'sky'
+    case 'sky': return 'dusk'
+    case 'green': return 'sand'
+    case 'sand': return 'green'
   }
 }

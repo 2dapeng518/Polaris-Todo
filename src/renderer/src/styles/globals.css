@@ -311,60 +311,61 @@
   --noise-opacity: 0.018;
 }
 
-/* 护眼绿 Green：经典浅绿护眼画布 + 暖苔绿中性色阶；深 teal 信号色，次要点缀为叶绿。 */
+/* 护眼绿 Green：墨绿夜色画布 + 绿调中性色阶；深色家族统一 teal 信号色，
+   次要点缀为嫩绿。与暖砂互为深浅配对（标题栏快切对合）。 */
 [data-theme="green"] {
-  color-scheme: light;
-  --bg: #c7edcc;
-  --bg-soft: #bfe5c5;
-  --panel: rgba(250, 255, 251, 0.74);
-  --line: rgba(28, 43, 28, 0.09);
-  --line-strong: rgba(28, 43, 28, 0.15);
-  --text: #1e2b1c;
-  --text-secondary: #4a6040;
-  --text-tertiary: #52684a;
-  --accent: #0b6b63;
-  --accent-2: #3f6212;
-  --warning: #b45309;
-  --danger: #be123c;
-  --reminder-primary-text: #ffffff;
-  --on-accent: #ffffff;
-  --accent-rgb: 11, 107, 99;
-  --accent-2-rgb: 63, 98, 18;
-  --danger-rgb: 190, 18, 60;
-  --priority-low-rgb: 79, 70, 229;
-  --priority-mid-rgb: 180, 83, 9;
+  color-scheme: dark;
+  --bg: #10241a;
+  --bg-soft: #163022;
+  --panel: rgba(22, 48, 34, 0.72);
+  --line: rgba(255, 255, 255, 0.07);
+  --line-strong: rgba(255, 255, 255, 0.12);
+  --text: #e6f2e9;
+  --text-secondary: #a4bfae;
+  --text-tertiary: #92b09c;
+  --accent: #5eead4;
+  --accent-2: #86efac;
+  --warning: #fbbf24;
+  --danger: #fb7185;
+  --reminder-primary-text: #07110f;
+  --on-accent: #07110f;
+  --accent-rgb: 94, 234, 212;
+  --accent-2-rgb: 134, 239, 172;
+  --danger-rgb: 251, 113, 133;
+  --priority-low-rgb: 134, 239, 172;
+  --priority-mid-rgb: 251, 191, 36;
   --aurora-c-rgb: 74, 222, 128;
-  --shadow-rgb: 28, 43, 28;
-  --surface-1: rgba(250, 255, 251, 0.55);
-  --surface-2: rgba(250, 255, 251, 0.74);
-  --hover: rgba(28, 43, 28, 0.04);
-  --hover-soft: rgba(28, 43, 28, 0.05);
-  --hover-strong: rgba(28, 43, 28, 0.065);
-  --selected: rgba(11, 107, 99, 0.08);
-  --input-bg: rgba(250, 255, 251, 0.88);
-  --scrollbar: rgba(28, 43, 28, 0.18);
-  --scrollbar-hover: rgba(28, 43, 28, 0.3);
-  --check-border: rgba(28, 43, 28, 0.22);
-  --check-mark: #ffffff;
-  --done-line: rgba(28, 43, 28, 0.22);
-  --swatch-ring: #1f2a1c;
-  --ring-track: rgba(28, 43, 28, 0.09);
-  --priority-low: #4338ca;
-  --priority-mid: #b45309;
-  --priority-high: #be123c;
-  --mark-a: #0b6b63;
-  --mark-b: #3f6212;
-  --inner-highlight: rgba(255, 255, 255, 0.9);
-  --inner-highlight-soft: rgba(255, 255, 255, 0.8);
-  --card-gradient: linear-gradient(180deg, rgba(250, 255, 251, 0.92), rgba(250, 255, 251, 0.6));
-  --sidebar-bg: linear-gradient(180deg, rgba(250, 255, 251, 0.76), rgba(199, 237, 204, 0.32));
-  --command-bg: linear-gradient(180deg, rgba(250, 255, 251, 0.99), rgba(240, 250, 242, 0.99));
-  --drawer-bg: rgba(250, 255, 251, 0.97);
-  --panel-bg: #eaf7ec;
-  --scrim: rgba(28, 43, 28, 0.16);
-  --command-overlay: rgba(28, 43, 28, 0.22);
-  --aurora-opacity: 0.45;
-  --noise-opacity: 0.018;
+  --shadow-rgb: 0, 0, 0;
+  --surface-1: rgba(255, 255, 255, 0.02);
+  --surface-2: rgba(255, 255, 255, 0.025);
+  --hover: rgba(255, 255, 255, 0.035);
+  --hover-soft: rgba(255, 255, 255, 0.04);
+  --hover-strong: rgba(255, 255, 255, 0.05);
+  --selected: rgba(94, 234, 212, 0.08);
+  --input-bg: rgba(0, 0, 0, 0.18);
+  --scrollbar: rgba(255, 255, 255, 0.1);
+  --scrollbar-hover: rgba(255, 255, 255, 0.18);
+  --check-border: rgba(255, 255, 255, 0.2);
+  --check-mark: #07110f;
+  --done-line: rgba(255, 255, 255, 0.18);
+  --swatch-ring: #ffffff;
+  --ring-track: rgba(255, 255, 255, 0.07);
+  --priority-low: #bbf7d0;
+  --priority-mid: #fcd34d;
+  --priority-high: #fda4af;
+  --mark-a: #5eead4;
+  --mark-b: #86efac;
+  --inner-highlight: rgba(255, 255, 255, 0.045);
+  --inner-highlight-soft: rgba(255, 255, 255, 0.035);
+  --card-gradient: linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.012));
+  --sidebar-bg: linear-gradient(180deg, rgba(16, 36, 26, 0.72), rgba(16, 36, 26, 0.28));
+  --command-bg: linear-gradient(180deg, rgba(22, 48, 34, 0.99), rgba(16, 36, 26, 0.99));
+  --drawer-bg: rgba(16, 36, 26, 0.96);
+  --panel-bg: #163022;
+  --scrim: rgba(4, 12, 7, 0.24);
+  --command-overlay: rgba(4, 12, 7, 0.5);
+  --aurora-opacity: 0.85;
+  --noise-opacity: 0.03;
 }
 
 * {
@@ -1642,9 +1643,7 @@ textarea {
 [data-theme="sand"] .project-dot,
 [data-theme="sand"] .meta-dot,
 [data-theme="sky"] .project-dot,
-[data-theme="sky"] .meta-dot,
-[data-theme="green"] .project-dot,
-[data-theme="green"] .meta-dot {
+[data-theme="sky"] .meta-dot {
   filter: brightness(0.82) saturate(1.15);
 }
 
@@ -4682,6 +4681,32 @@ textarea {
 
   .settings-panel > .settings-section:nth-child(2) .theme-picker {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  /* 三列时上排三深、下排三浅，列列成对（夜阑/昼白、暮蓝/天蓝、护眼绿/暖砂）；
+     两列默认序已逐对成行，无需重排。 */
+  .settings-panel > .settings-section:nth-child(2) .theme-option:nth-child(1) {
+    order: 1;
+  }
+
+  .settings-panel > .settings-section:nth-child(2) .theme-option:nth-child(2) {
+    order: 4;
+  }
+
+  .settings-panel > .settings-section:nth-child(2) .theme-option:nth-child(3) {
+    order: 2;
+  }
+
+  .settings-panel > .settings-section:nth-child(2) .theme-option:nth-child(4) {
+    order: 5;
+  }
+
+  .settings-panel > .settings-section:nth-child(2) .theme-option:nth-child(5) {
+    order: 3;
+  }
+
+  .settings-panel > .settings-section:nth-child(2) .theme-option:nth-child(6) {
+    order: 6;
   }
 
   .settings-panel > .settings-section:nth-child(3) {

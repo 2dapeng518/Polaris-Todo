@@ -1458,8 +1458,8 @@ async function runSmokeTest(): Promise<void> {
       const restoredTheme = document.documentElement.dataset.theme;
       const themeToggled = toggledTheme !== initialTheme && restoredTheme === initialTheme;
       // 主题矩阵：逐一切换全部 6 套主题，校验 data-theme、持久化、令牌生效与关键表面可读。
-      const themeBgHex = { dark: '#080a0f', light: '#f4f3ef', dusk: '#132644', sand: '#ece0c6', sky: '#dceaf6', green: '#c7edcc' };
-      const themePanelHex = { dark: '#0b0e15', light: '#fbfaf7', dusk: '#182c4e', sand: '#faf6ee', sky: '#eef6fc', green: '#eaf7ec' };
+      const themeBgHex = { dark: '#080a0f', light: '#f4f3ef', dusk: '#132644', sand: '#ece0c6', sky: '#dceaf6', green: '#10241a' };
+      const themePanelHex = { dark: '#0b0e15', light: '#fbfaf7', dusk: '#182c4e', sand: '#faf6ee', sky: '#eef6fc', green: '#163022' };
       let themeMatrix = typeof window.__polarisSetTheme === 'function';
       for (const id of ['dark', 'light', 'dusk', 'sand', 'sky', 'green']) {
         window.__polarisSetTheme(id);
@@ -1475,7 +1475,7 @@ async function runSmokeTest(): Promise<void> {
           taskColor !== '' && taskColor !== 'rgba(0, 0, 0, 0)';
       }
       // 对合不变量：每对配对连点两次回到原点（快捷切换不会迷失状态）。
-      for (const [a, b] of [['dark', 'light'], ['dusk', 'sand'], ['sky', 'green']]) {
+      for (const [a, b] of [['dark', 'light'], ['dusk', 'sky'], ['green', 'sand']]) {
         window.__polarisSetTheme(a);
         await sleep(120);
         document.querySelector('.theme-toggle').click();
@@ -1496,7 +1496,7 @@ async function runSmokeTest(): Promise<void> {
       await sleep(220);
       const menuIds = [...document.querySelectorAll('[data-theme-menu-item]')].map((el) => el.dataset.themeMenuItem);
       const menuListed = menuIds.length === 6 &&
-        ['dark', 'light', 'dusk', 'sand', 'sky', 'green'].every((id, i) => menuIds[i] === id);
+        ['dark', 'light', 'dusk', 'sky', 'green', 'sand'].every((id, i) => menuIds[i] === id);
       // 打开即聚焦当前主题行。这条断了 Esc 就会打在箭头上而不是菜单里 ——
       // 曾经因为「首帧 visibility:hidden 占位」静默失败过。
       const menuInitialFocus = document.activeElement?.getAttribute('role') === 'menuitemradio' &&
