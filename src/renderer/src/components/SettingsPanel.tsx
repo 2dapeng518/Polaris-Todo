@@ -1,12 +1,36 @@
 import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { Check, X } from './Icon'
-import type { AutoStartState, GlobalHotkeyState, McpState } from '@shared/types'
+import type { AutoStartState, GlobalHotkeyState, McpState, UpdateState } from '@shared/types'
 import { THEME_META, THEME_ORDER } from '@shared/themes'
 import { useTaskStore } from '../stores/useTaskStore'
 import { useThemeStore } from '../stores/useThemeStore'
 import { useAppVersion } from '../stores/useAppVersion'
+import { useUpdateStore } from '../stores/useUpdateStore'
 import { useFocusTrap } from '../lib/useFocusTrap'
+
+/** 更新状态一行说清；错误细节另有 settings-error，这里不堆长文。 */
+function updateStatusText(state: UpdateState | null): string {
+  if (!state) return '从 GitHub Releases 获取新版本'
+  switch (state.status) {
+    case 'unsupported':
+      return '当前环境不提供在线更新，打包安装后生效'
+    case 'checking':
+      return '正在检查更新…'
+    case 'available':
+      return `发现新版本 ${state.latestVersion}，准备下载`
+    case 'downloading':
+      return `正在下载 ${state.latestVersion} · ${state.percent ?? 0}%`
+    case 'downloaded':
+      return `${state.latestVersion} 已就绪，重启后安装`
+    case 'up-to-date':
+      return '已是最新版本'
+    case 'error':
+      return '检查更新失败'
+    default:
+      return '从 GitHub Releases 获取新版本'
+  }
+}
 
 type SettingsPanelProps = {
   open: boolean
@@ -39,8 +63,17 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
     running: false,
     endpoint: 'http://127.0.0.1:3737/mcp'
   })
+  const update = useUpdateStore((state) => state.state)
+  const checkUpdate = useUpdateStore((state) => state.check)
+  const openUpdateDialog = useUpdateStore((state) => state.openDialog)
+  const [updateChecking, setUpdateChecking] = useState(false)
+  // 手动点过检查才展示状态行：dev 的 unsupported 默认不占面板高度。
+  const [updateAsked, setUpdateAsked] = useState(false)
 
-  useFocusTrap(panelRef, open && !paletteOpen, panelRef)
+  const updateDialogOpen = useUpdateStore((state) => state.dialogOpen)
+
+  // 更新弹窗可能叠在设置面板上（「查看更新」）：焦点陷阱让位，别互相抢。
+  useFocusTrap(panelRef, open && !paletteOpen && !updateDialogOpen, panelRef)
 
   useEffect(() => {
     if (open && paletteOpen) onClose()
@@ -151,6 +184,19 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
       setMcp(await window.polaris.app.setMcp(next))
     } catch {
       setMcp((current) => ({ ...current, enabled: !next }))
+    }
+  }
+
+  const handleCheckUpdate = async () => {
+    setUpdateChecking(true)
+    setUpdateAsked(true)
+    try {
+      // 手动检查忽略「跳过此版本」；发现新版时 store 会顺手拉起更新弹窗。
+      await checkUpdate()
+    } catch {
+      // 主进程会把 error 快照推回来，这里不另造一份错误文案。
+    } finally {
+      setUpdateChecking(false)
     }
   }
 
@@ -443,6 +489,8 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
               </div>
             </div>
 
+            {/* 更新入口收进页脚：默认零增高，保住设置面板一屏；
+                状态/错误行只在检查过或有动静时出现。 */}
             <div className="settings-footer">
               {version && (
                 <>
@@ -450,8 +498,38 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
                   {' · '}
                 </>
               )}
+              {update?.status === 'downloaded' ? (
+                <button className="update-footer-btn ready" onClick={openUpdateDialog}>
+                  查看更新
+                </button>
+              ) : (
+                <button
+                  className="update-footer-btn"
+                  onClick={() => void handleCheckUpdate()}
+                  disabled={
+                    updateChecking ||
+                    update?.status === 'checking' ||
+                    update?.status === 'downloading'
+                  }
+                >
+                  检查更新
+                </button>
+              )}
+              {' · '}
               数据仅保存在本机
             </div>
+            {update &&
+              (updateAsked ||
+                ['checking', 'available', 'downloading', 'downloaded', 'up-to-date', 'error'].includes(
+                  update.status
+                )) && (
+                <div className="settings-hint update-footer-status" role="status">
+                  {updateStatusText(update)}
+                </div>
+              )}
+            {update?.status === 'error' && update.error && (
+              <div className="settings-error" role="alert">{update.error}</div>
+            )}
           </motion.div>
         </motion.div>
       )}

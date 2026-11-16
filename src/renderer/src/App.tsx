@@ -7,7 +7,9 @@ import { TaskView } from './components/TaskView'
 import { ThemeSync } from './components/ThemeSync'
 import { TitleBar } from './components/TitleBar'
 import { UndoToast } from './components/UndoToast'
+import { UpdateDialog } from './components/UpdateDialog'
 import { useTaskStore } from './stores/useTaskStore'
+import { subscribeUpdateStore } from './stores/useUpdateStore'
 
 export default function App() {
   const load = useTaskStore((state) => state.load)
@@ -33,6 +35,9 @@ export default function App() {
     return () => window.removeEventListener('focus', onFocus)
   }, [load, loadTrash])
 
+  // 更新状态订阅只挂主窗口：提醒窗口不该弹更新框。
+  useEffect(() => subscribeUpdateStore(), [])
+
   return (
     <MotionConfig reducedMotion="user">
       <div className="app-shell">
@@ -55,6 +60,7 @@ export default function App() {
         )}
         <CommandPalette />
         <UndoToast />
+        <UpdateDialog />
       </div>
     </MotionConfig>
   )

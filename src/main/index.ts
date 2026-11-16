@@ -30,6 +30,8 @@ import {
 import { registerIpc, registerTaskCreate } from './ipc'
 import { parseCsvImport } from '../shared/csvImport'
 import { disposeMcp, getMcpState, initMcp, MCP_ENDPOINT, setMcpEnabled } from './mcp'
+import { disposeUpdater, initUpdater } from './updater'
+import { normalizeReleaseNotes, shouldSurfaceUpdate } from '../shared/update'
 import {
   disposeGlobalHotkey,
   getGlobalHotkeyState,
@@ -4426,6 +4428,186 @@ async function runSmokeTest(): Promise<void> {
       console.error('HOTKEY_CHECK_ERROR', error)
     }
 
+    // 在线更新：纯逻辑真值表 + 设置页手动检查（dev 无通道，答案必须确定）+
+    // 用合成快照走真实 update:state 推送通道，驱动弹窗全流程：
+    // 发现 → 进度 → 就绪 → 稍后不再弹 → 设置页重开 → 跳过持久化 → 安装守卫。
+    const updateLogicTable =
+      normalizeReleaseNotes('  fix bug  ') === 'fix bug' &&
+      normalizeReleaseNotes('') === null &&
+      normalizeReleaseNotes(null) === null &&
+      normalizeReleaseNotes(undefined) === null &&
+      normalizeReleaseNotes([{ note: 'a' }, { note: ' b ' }, { note: '' }]) === 'a\n\nb' &&
+      normalizeReleaseNotes([{ note: '' }]) === null &&
+      normalizeReleaseNotes(42) === null &&
+      shouldSurfaceUpdate('1.2.3', null, false) === true &&
+      shouldSurfaceUpdate('1.2.3', '1.2.3', false) === false &&
+      shouldSurfaceUpdate('1.2.3', '1.2.3', true) === true &&
+      shouldSurfaceUpdate('1.2.4', '1.2.3', false) === true
+    let updateSettingsCheck = false
+    let updateDialogFlow = false
+    let updateSkipPersists = false
+    let updateInstallGuard = false
+    try {
+      const wc = mainWindow!.webContents
+      const pushUpdate = (over: Record<string, unknown>): void => {
+        wc.send('update:state', {
+          status: 'available',
+          currentVersion: app.getVersion(),
+          latestVersion: '99.0.0',
+          percent: 0,
+          releaseNotes: '修复若干问题\n提升稳定性',
+          skippedVersion: getMeta('update_skipped_version'),
+          error: null,
+          ...over
+        })
+      }
+
+      // 先做手动检查：此时渲染层还是真实快照（dev = unsupported），
+      // 答案必须确定且不弹窗；合成快照之后会覆盖渲染层状态，不能反过来。
+      const manualCheck = await wc.executeJavaScript(`(async () => {
+        ${pageHelpers}
+        document.querySelector('.settings-item').click();
+        const panel = await waitFor(() => document.querySelector('.settings-panel'));
+        if (!panel) return { found: false };
+        await sleep(300);
+        const btn = [...panel.querySelectorAll('.update-footer-btn')].find((b) => b.textContent === '检查更新');
+        btn?.click();
+        const answered = await waitFor(() => {
+          const line = document.querySelector('.update-footer-status');
+          return line && line.textContent.includes('当前环境不提供在线更新') ? line : null;
+        });
+        const state = await window.polaris.update.getState();
+        const noDialog = !document.querySelector('.update-panel');
+        document.querySelector('.settings-panel .detail-close')?.click();
+        await sleep(250);
+        return { found: Boolean(btn), answered: Boolean(answered), unsupported: state?.status === 'unsupported', noDialog };
+      })()`)
+      updateSettingsCheck =
+        manualCheck?.found === true &&
+        manualCheck?.answered === true &&
+        manualCheck?.unsupported === true &&
+        manualCheck?.noDialog === true
+
+      pushUpdate({})
+      const dialogShown = await wc.executeJavaScript(`(async () => {
+        ${pageHelpers}
+        const dlg = await waitFor(() => document.querySelector('.update-panel'));
+        if (!dlg) return { found: false };
+        await sleep(300);
+        const text = dlg.textContent;
+        const install = dlg.querySelector('.update-install');
+        return {
+          found: true,
+          titled: text.includes('软件更新') && text.includes('发现新版本可用'),
+          versions: text.includes('99.0.0') && text.includes('${app.getVersion()}'),
+          notes: text.includes('修复若干问题') && text.includes('提升稳定性'),
+          installDisabled: install ? install.disabled : false
+        };
+      })()`)
+      pushUpdate({ status: 'downloading', percent: 42 })
+      const progressShown = await wc.executeJavaScript(`(async () => {
+        ${pageHelpers}
+        const bar = await waitFor(() => document.querySelector('.update-progress [role="progressbar"], .update-progress[role="progressbar"]'));
+        if (!bar) return false;
+        return bar.getAttribute('aria-valuenow') === '42' && bar.textContent.includes('42%');
+      })()`)
+      pushUpdate({ status: 'downloaded', percent: 100 })
+      const readyAndLater = await wc.executeJavaScript(`(async () => {
+        ${pageHelpers}
+        const ready = await waitFor(() => document.querySelector('.update-ready'));
+        if (!ready) return { ready: false };
+        const readyText = ready.textContent.includes('下载完成');
+        const install = document.querySelector('.update-install');
+        const enabled = install ? !install.disabled : false;
+        const later = [...document.querySelectorAll('.update-panel button')].find((b) => b.textContent === '稍后');
+        later?.click();
+        // 退场是弹簧动画，等它真正离场而不是赌一个固定时长。
+        const closed = (await waitFor(() => !document.querySelector('.update-panel'))) === true;
+        return { ready: true, readyText, enabled, closed };
+      })()`)
+      // 「稍后」过的版本：再推同版本快照不许自动弹。
+      pushUpdate({ status: 'downloaded', percent: 100 })
+      const staysDismissed = await wc.executeJavaScript(`(async () => {
+        ${pageHelpers}
+        await sleep(450);
+        return !document.querySelector('.update-panel');
+      })()`)
+      // 设置页页脚「查看更新」重开 → 「跳过此版本」关闭并持久化。
+      const skipViaSettings = await wc.executeJavaScript(`(async () => {
+        ${pageHelpers}
+        document.querySelector('.settings-item').click();
+        const panel = await waitFor(() => document.querySelector('.settings-panel'));
+        if (!panel) return { found: false };
+        await sleep(300);
+        const statusLine = panel.querySelector('.update-footer-status');
+        const desc = statusLine ? statusLine.textContent.includes('99.0.0 已就绪') : false;
+        const viewBtn = [...panel.querySelectorAll('.update-footer-btn')].find((b) => b.textContent === '查看更新');
+        if (!viewBtn) { document.querySelector('.settings-panel .detail-close')?.click(); return { found: false }; }
+        viewBtn.click();
+        const dlg = await waitFor(() => document.querySelector('.update-panel'));
+        const reopened = Boolean(dlg);
+        const skipBtn = [...document.querySelectorAll('.update-panel button')].find((b) => b.textContent === '跳过此版本');
+        skipBtn?.click();
+        const closed = (await waitFor(() => !document.querySelector('.update-panel'))) === true;
+        document.querySelector('.settings-panel .detail-close')?.click();
+        await sleep(250);
+        return { found: true, desc, reopened, closed };
+      })()`)
+      const skippedState = await wc.executeJavaScript(`window.polaris.update.getState()`)
+      updateSkipPersists =
+        skipViaSettings?.found === true &&
+        skipViaSettings?.desc === true &&
+        skipViaSettings?.reopened === true &&
+        skipViaSettings?.closed === true &&
+        skippedState?.skippedVersion === '99.0.0' &&
+        getMeta('update_skipped_version') === '99.0.0'
+      // 跳过后的版本再推快照：保持安静。
+      pushUpdate({ status: 'downloaded', percent: 100 })
+      const skipStaysSilent = await wc.executeJavaScript(`(async () => {
+        ${pageHelpers}
+        await sleep(450);
+        return !document.querySelector('.update-panel');
+      })()`)
+      updateDialogFlow =
+        dialogShown?.found === true &&
+        dialogShown?.titled === true &&
+        dialogShown?.versions === true &&
+        dialogShown?.notes === true &&
+        dialogShown?.installDisabled === true &&
+        progressShown === true &&
+        readyAndLater?.ready === true &&
+        readyAndLater?.readyText === true &&
+        readyAndLater?.enabled === true &&
+        readyAndLater?.closed === true &&
+        staysDismissed === true &&
+        skipStaysSilent === true
+      // 安装守卫：未打包环境点「立即重启」必须报错且进程活着。
+      pushUpdate({ status: 'downloaded', percent: 100, latestVersion: '99.0.1' })
+      const installAttempt = await wc.executeJavaScript(`(async () => {
+        ${pageHelpers}
+        const dlg = await waitFor(() => document.querySelector('.update-panel'));
+        if (!dlg) return false;
+        const install = dlg.querySelector('.update-install');
+        if (!install || install.disabled) return false;
+        install.click();
+        await sleep(450);
+        return true;
+      })()`)
+      const guardState = await wc.executeJavaScript(`window.polaris.update.getState()`)
+      updateInstallGuard =
+        installAttempt === true &&
+        !wc.isDestroyed() &&
+        typeof guardState?.error === 'string' &&
+        guardState.error.includes('无法安装')
+      if (!updateLogicTable) console.error('UPDATE_LOGIC_FAIL')
+      if (!updateDialogFlow) console.error('UPDATE_DIALOG_FAIL', JSON.stringify({ dialogShown, progressShown, readyAndLater, staysDismissed, skipStaysSilent }))
+      if (!updateSkipPersists) console.error('UPDATE_SKIP_FAIL', JSON.stringify({ skipViaSettings, skippedState }))
+      if (!updateSettingsCheck) console.error('UPDATE_SETTINGS_FAIL', JSON.stringify(manualCheck))
+      if (!updateInstallGuard) console.error('UPDATE_GUARD_FAIL', JSON.stringify({ installAttempt, guardState }))
+    } catch (error) {
+      console.error('UPDATE_CHECK_ERROR', error)
+    }
+
     // 逐条具名，而不是串成一条 && 链：失败时必须能一眼看出是哪条断言。
     // 只筛 result 里 value === false 是不够的 —— afterAdd / afterDelete /
     // commandCount 是数值比较，版本号是字符串比较，它们失败时 JSON 里
@@ -4552,7 +4734,12 @@ async function runSmokeTest(): Promise<void> {
       subtaskPersisted: subtaskPersisted === true,
       subtaskPurged: subtaskPurged === true,
       subtaskRecurrenceWorks: subtaskRecurrenceWorks === true,
-      subtaskBackupWorks: subtaskBackupWorks === true
+      subtaskBackupWorks: subtaskBackupWorks === true,
+      updateLogicTable: updateLogicTable === true,
+      updateSettingsCheck: updateSettingsCheck === true,
+      updateDialogFlow: updateDialogFlow === true,
+      updateSkipPersists: updateSkipPersists === true,
+      updateInstallGuard: updateInstallGuard === true
     }
     const failed = Object.keys(checks).filter((name) => !checks[name])
     const ok = failed.length === 0
@@ -4620,6 +4807,11 @@ async function runSmokeTest(): Promise<void> {
           subtaskPurged,
           subtaskRecurrenceWorks,
           subtaskBackupWorks,
+          updateLogicTable,
+          updateSettingsCheck,
+          updateDialogFlow,
+          updateSkipPersists,
+          updateInstallGuard,
           tagUiWorks,
           tagRecurrenceWorks,
           tagBackupWorks,
@@ -4855,6 +5047,14 @@ app.whenReady().then(() => {
   startReminderScheduler()
   // 窗口和托盘就绪后再注册：处理器要靠 showMainWindow 把窗口叫出来。
   initMcp()
+  // 在线更新：未打包（dev/冒烟/截图）时完全惰性，不发网络请求。
+  initUpdater({
+    getWindow: () => mainWindow,
+    onBeforeInstall: () => {
+      // quitAndInstall 要真退出：掀掉「关窗驻托盘」的拦路标记。
+      isQuitting = true
+    }
+  })
   initGlobalHotkey(() => {
     void revealQuickCapture()
   })
@@ -4872,6 +5072,7 @@ app.on('will-quit', () => {
   // 全局热键是进程级资源，退出时显式注销，别留给下一个实例。
   disposeGlobalHotkey()
   disposeMcp()
+  disposeUpdater()
 })
 
 app.on('window-all-closed', () => {

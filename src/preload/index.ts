@@ -13,6 +13,7 @@ import type {
   ImportResult,
   PolarisApi,
   UpdateProjectInput,
+  UpdateState,
   UpdateSubtaskInput,
   UpdateTaskInput
 } from '../shared/types'
@@ -66,6 +67,19 @@ const api: PolarisApi = {
       ipcRenderer.invoke('app:set-global-hotkey', enabled),
     getMcp: (): Promise<McpState> => ipcRenderer.invoke('app:get-mcp'),
     setMcp: (enabled: boolean): Promise<McpState> => ipcRenderer.invoke('app:set-mcp', enabled)
+  },
+  update: {
+    getState: (): Promise<UpdateState> => ipcRenderer.invoke('update:get-state'),
+    check: (): Promise<UpdateState> => ipcRenderer.invoke('update:check'),
+    skip: (version: string): Promise<UpdateState> => ipcRenderer.invoke('update:skip', version),
+    install: (): Promise<void> => ipcRenderer.invoke('update:install'),
+    onState: (callback: (state: UpdateState) => void) => {
+      // 只把状态快照交给渲染层，原始 IpcRendererEvent 不出 preload。
+      const listener = (_event: Electron.IpcRendererEvent, state: UpdateState): void =>
+        callback(state)
+      ipcRenderer.on('update:state', listener)
+      return () => ipcRenderer.removeListener('update:state', listener)
+    }
   },
   reminder: {
     dismiss: () => ipcRenderer.invoke('reminder:dismiss')
