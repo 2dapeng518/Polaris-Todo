@@ -16,6 +16,7 @@ export {
   CornerDownLeft,
   Flag,
   FolderPlus,
+  Grid2x2,
   HardDrive,
   ListChecks,
   ListTodo,

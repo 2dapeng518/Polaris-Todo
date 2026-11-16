@@ -25,6 +25,10 @@ const MESSAGES: Record<AppView, { title: string; desc: string }> = {
     title: '还没有完成记录',
     desc: '完成一项任务后，这里会记录你的节奏'
   },
+  matrix: {
+    title: '还没有任务',
+    desc: '按 N 或点击上方输入框，添加第一件事'
+  },
   trash: {
     title: '回收站是空的',
     desc: `删除的任务会在这里保留 ${TRASH_RETENTION_DAYS} 天`

@@ -65,6 +65,12 @@ npm run make:icon   # regenerate build/icon.png / .ico / .icns
 - Backup v3 carries `tags` and `taskTags` arrays; `backupSchema` makes both optional with `.default([])` so v1/v2 files still validate and import. `importBackup` reports `tagsImported`/`taskTagsImported`.
 - Smoke: `tagUiWorks` (detail create/attach, row chip, sidebar count literal, filter hit count, delete-cascade), `tagRecurrenceWorks` and `tagBackupWorks`, all registered in the `checks` map and the result JSON.
 
+## Matrix view
+
+- `matrix` is a pure derived view (no DB/IPC changes): important = `priority >= 2`, urgent = `isTodayOrOverdue(dueAt)` (no due date = not urgent). Only active tasks enter the matrix. Quadrants: do「立即做」/ plan「计划做」/ quick「快速处理」/ later「有余力再做」, rendered as a 2×2 card grid that stacks below 960px. `MatrixView` re-derives on a 60s tick so crossing midnight re-judges urgency, same pattern as `StatsView`.
+- Routing copies stats: sidebar entry (Grid2x2, no count badge — it would duplicate 全部任务), palette command, QuickAdd hidden, `N` routes back to today, `setView('matrix')` clears selection. `EmptyState` carries a matrix entry for the `Record<AppView, …>` exhaustiveness check even though the matrix renders its own per-quadrant empty text.
+- Smoke: `matrixWorks` seeds one task per quadrant, opens via the palette, and asserts membership literals, quadrant label order, badge-equals-rendered-rows self-consistency (demo tasks also live in the matrix, so absolute counts are not asserted), and detail-open. Registered in the `checks` map and the result JSON.
+
 ## Recurrence and reminders
 
 - Recurrence rules are RFC 5545 strings executed by `rrule` in `src/shared/recurrence.ts`. `rrule` treats a Date's UTC fields as a floating wall clock, so the code converts local wall time in and out (`toWallTime`/`fromWallTime`) to keep 18:00 at 18:00. COUNT and UNTIL are rejected. The monthly preset clamps 29–31 to the last day of short months (`nextMonthlyClamped`).
