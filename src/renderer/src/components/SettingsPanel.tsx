@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { Check, X } from './Icon'
-import type { AutoStartState, GlobalHotkeyState } from '@shared/types'
+import type { AutoStartState, GlobalHotkeyState, McpState } from '@shared/types'
 import { THEME_META, THEME_ORDER } from '@shared/themes'
 import { useTaskStore } from '../stores/useTaskStore'
 import { useThemeStore } from '../stores/useThemeStore'
@@ -33,6 +33,11 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
     enabled: true,
     registered: true,
     accelerator: 'Ctrl+Alt+P'
+  })
+  const [mcp, setMcp] = useState<McpState>({
+    enabled: false,
+    running: false,
+    endpoint: 'http://127.0.0.1:3737/mcp'
   })
 
   useFocusTrap(panelRef, open && !paletteOpen, panelRef)
@@ -77,6 +82,17 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
       .catch((error) => {
         if (!cancelled) {
           setHotkey((current) => ({ ...current, error: String(error) }))
+        }
+      })
+
+    window.polaris.app
+      .getMcp()
+      .then((value) => {
+        if (!cancelled) setMcp(value)
+      })
+      .catch((error) => {
+        if (!cancelled) {
+          setMcp((current) => ({ ...current, error: String(error) }))
         }
       })
 
@@ -125,6 +141,16 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
       setHotkey(await window.polaris.app.setGlobalHotkey(next))
     } catch {
       setHotkey((current) => ({ ...current, enabled: !next }))
+    }
+  }
+
+  const toggleMcp = async () => {
+    const next = !mcp.enabled
+    setMcp((current) => ({ ...current, enabled: next, error: undefined }))
+    try {
+      setMcp(await window.polaris.app.setMcp(next))
+    } catch {
+      setMcp((current) => ({ ...current, enabled: !next }))
     }
   }
 
@@ -339,6 +365,31 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
               {hotkey.enabled && hotkey.error && (
                 <div className="settings-error" role="alert">
                   {hotkey.error}，关闭占用程序后可重新打开此开关
+                </div>
+              )}
+            </div>
+
+            <div className="settings-section">
+              <div className="settings-row">
+                <div>
+                  <div className="settings-row-title">本地 MCP 服务</div>
+                  <div className="settings-row-desc">
+                    {mcp.enabled ? mcp.endpoint : '已关闭 · 开启后 AI 助手可在本机读写任务'}
+                  </div>
+                </div>
+                <button
+                  role="switch"
+                  aria-checked={mcp.enabled}
+                  aria-label="本地 MCP 服务"
+                  className={`switch ${mcp.enabled ? 'on' : ''}`}
+                  onClick={() => void toggleMcp()}
+                >
+                  <span className="switch-thumb" />
+                </button>
+              </div>
+              {mcp.enabled && mcp.error && (
+                <div className="settings-error" role="alert">
+                  {mcp.error}，关闭占用程序后可重新打开此开关
                 </div>
               )}
             </div>

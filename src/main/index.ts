@@ -29,6 +29,7 @@ import {
 } from './db'
 import { registerIpc, registerTaskCreate } from './ipc'
 import { parseCsvImport } from '../shared/csvImport'
+import { disposeMcp, getMcpState, initMcp, MCP_ENDPOINT, setMcpEnabled } from './mcp'
 import {
   disposeGlobalHotkey,
   getGlobalHotkeyState,
@@ -2329,6 +2330,73 @@ async function runSmokeTest(): Promise<void> {
     const parseAssertions = runParseAssertions()
     const retentionOk = runRetentionAssertions()
     const csvAssertions = runCsvImportAssertions()
+
+    // 本地 MCP：开启 → initialize / tools/list / tools/call 真实 HTTP 往返 → 关闭后拒连。
+    let mcpWorks = false
+    let mcpFixtureId: string | null = null
+    try {
+      setMcpEnabled(true)
+      const deadline = Date.now() + 3000
+      while (Date.now() < deadline && !getMcpState().running && !getMcpState().error) {
+        await new Promise((resolve) => setTimeout(resolve, 50))
+      }
+      if (getMcpState().running) {
+        const rpc = async (method: string, params: Record<string, unknown>, id: number) => {
+          const res = await fetch(MCP_ENDPOINT, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ jsonrpc: '2.0', id, method, params })
+          })
+          return (await res.json()) as { result?: Record<string, any> }
+        }
+        const toolText = (response: { result?: Record<string, any> }): string =>
+          (response.result?.content as Array<{ text: string }> | undefined)?.[0]?.text ?? '{}'
+        const init = await rpc('initialize', { protocolVersion: '2025-03-26', capabilities: {}, clientInfo: { name: 'smoke', version: '0' } }, 1)
+        const list = await rpc('tools/list', {}, 2)
+        const created = await rpc('tools/call', { name: 'create_task', arguments: { title: '冒烟MCP任务', priority: 2 } }, 3)
+        const createdTask = JSON.parse(toolText(created)) as { id?: string }
+        mcpFixtureId = createdTask.id ?? null
+        const listed = await rpc('tools/call', { name: 'list_tasks', arguments: {} }, 4)
+        const tasks = JSON.parse(toolText(listed)) as Array<{ id: string }>
+        const completed = await rpc('tools/call', { name: 'complete_task', arguments: { id: mcpFixtureId } }, 5)
+        const doneTask = JSON.parse(toolText(completed)) as { completed?: boolean }
+        const getRes = await fetch(MCP_ENDPOINT)
+        mcpWorks =
+          (init.result?.serverInfo as { name?: string } | undefined)?.name === 'polaris' &&
+          Array.isArray(list.result?.tools) &&
+          (list.result?.tools as unknown[]).length === 8 &&
+          Boolean(mcpFixtureId) &&
+          tasks.some((task) => task.id === mcpFixtureId) &&
+          doneTask.completed === true &&
+          getRes.status === 405
+        if (!mcpWorks) {
+          console.error('MCP_FAIL', JSON.stringify({ init: init.result, toolCount: (list.result?.tools as unknown[] | undefined)?.length, created: created.result, doneTask, getStatus: getRes.status }))
+        }
+      } else {
+        console.error('MCP_START_FAIL', JSON.stringify(getMcpState()))
+      }
+    } catch (error) {
+      console.error('MCP_ERROR', error)
+    } finally {
+      if (mcpFixtureId) {
+        deleteTask(mcpFixtureId)
+        deleteTaskForever(mcpFixtureId)
+      }
+      setMcpEnabled(false)
+      const stopDeadline = Date.now() + 2000
+      while (Date.now() < stopDeadline && getMcpState().running) {
+        await new Promise((resolve) => setTimeout(resolve, 50))
+      }
+      let refused = false
+      try {
+        await fetch(MCP_ENDPOINT)
+      } catch {
+        refused = true
+      }
+      mcpWorks = mcpWorks && refused
+    }
+
+
     const recurrenceOk = runRecurrenceAssertions()
     const customRecurrenceOk = runCustomRecurrenceAssertions()
 
@@ -4450,6 +4518,7 @@ async function runSmokeTest(): Promise<void> {
       retentionTable: retentionOk === true,
       csvParseTable: csvAssertions.table,
       csvRoundTrip: csvAssertions.roundTrip,
+      mcpWorks,
       recurrenceClampTable: recurrenceOk === true,
       parseGrammarTable: parseAssertions.grammar === true,
       parseInvariants: parseAssertions.invariants === true,
@@ -4522,6 +4591,7 @@ async function runSmokeTest(): Promise<void> {
           retentionTable: retentionOk,
           csvParseTable: csvAssertions.table,
           csvRoundTrip: csvAssertions.roundTrip,
+          mcpWorks,
           recurrenceClampTable: recurrenceOk,
           paletteEscWorks,
           emptyStateWorks,
@@ -4718,6 +4788,13 @@ app.whenReady().then(() => {
 
   // 数据备份：导出全量 JSON；导入按 ID 非破坏性合并。文件对话框与读写都在主进程，
   // 渲染层只发起 invoke；文件内容经 zod 整体校验后才落库。
+  ipcMain.handle('app:get-mcp', () => getMcpState())
+
+  ipcMain.handle('app:set-mcp', (_event, enabled: unknown) => {
+    if (typeof enabled !== 'boolean') return getMcpState()
+    return setMcpEnabled(enabled)
+  })
+
   ipcMain.handle('data:export', async () => {
     try {
       const { projects, tasks, tags, taskTags, subtasks } = exportBackup()
@@ -4777,6 +4854,7 @@ app.whenReady().then(() => {
   createTray(showMainWindow, () => app.quit())
   startReminderScheduler()
   // 窗口和托盘就绪后再注册：处理器要靠 showMainWindow 把窗口叫出来。
+  initMcp()
   initGlobalHotkey(() => {
     void revealQuickCapture()
   })
@@ -4793,6 +4871,7 @@ app.on('before-quit', () => {
 app.on('will-quit', () => {
   // 全局热键是进程级资源，退出时显式注销，别留给下一个实例。
   disposeGlobalHotkey()
+  disposeMcp()
 })
 
 app.on('window-all-closed', () => {

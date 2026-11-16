@@ -9,6 +9,7 @@ import type {
   CsvImportResult,
   ExportResult,
   GlobalHotkeyState,
+  McpState,
   ImportResult,
   PolarisApi,
   UpdateProjectInput,
@@ -62,7 +63,9 @@ const api: PolarisApi = {
     getGlobalHotkey: (): Promise<GlobalHotkeyState> =>
       ipcRenderer.invoke('app:get-global-hotkey'),
     setGlobalHotkey: (enabled: boolean): Promise<GlobalHotkeyState> =>
-      ipcRenderer.invoke('app:set-global-hotkey', enabled)
+      ipcRenderer.invoke('app:set-global-hotkey', enabled),
+    getMcp: (): Promise<McpState> => ipcRenderer.invoke('app:get-mcp'),
+    setMcp: (enabled: boolean): Promise<McpState> => ipcRenderer.invoke('app:set-mcp', enabled)
   },
   reminder: {
     dismiss: () => ipcRenderer.invoke('reminder:dismiss')
