@@ -19,8 +19,3 @@ export function createTray(onOpen: () => void, onQuit: () => void): Tray {
   tray.on('click', onOpen)
   return tray
 }
-
-export function destroyTray(): void {
-  tray?.destroy()
-  tray = null
-}

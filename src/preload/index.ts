@@ -34,7 +34,6 @@ const api: PolarisApi = {
     import: (): Promise<ImportResult> => ipcRenderer.invoke('data:import')
   },
   app: {
-    platform: process.platform,
     getVersion: (): Promise<string> => ipcRenderer.invoke('app:get-version'),
     setTheme: (theme: AppTheme) => ipcRenderer.invoke('app:set-theme', theme),
     getAutoStart: (): Promise<AutoStartState> => ipcRenderer.invoke('app:get-autostart'),

@@ -117,7 +117,6 @@ export type PolarisApi = {
     import: () => Promise<ImportResult>
   }
   app: {
-    platform: string
     getVersion: () => Promise<string>
     setTheme: (theme: AppTheme) => Promise<void>
     getAutoStart: () => Promise<AutoStartState>
