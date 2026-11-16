@@ -26,12 +26,12 @@ for (const id of THEME_ORDER) {
   assert(partnerTheme(partnerTheme(id)) === id, 'partner 对合：' + id + ' ↔ ' + partnerTheme(id))
   assert(partnerTheme(id) !== id, 'partner 非自身：' + id)
 }
-// 经典两对必须跨家族；天蓝↔护眼绿同为浅色护眼画布，允许同家族配对。
-for (const id of ['dark', 'light', 'dusk', 'sand']) {
+// 三对全部跨家族：每对一深一浅。
+for (const id of THEME_ORDER) {
   assert(themeFamily(partnerTheme(id)) !== themeFamily(id), 'partner 跨家族：' + id)
 }
-assert(themeFamily('dark') === 'dark' && themeFamily('dusk') === 'dark', 'dark/dusk 属深色家族')
-assert(themeFamily('light') === 'light' && themeFamily('sand') === 'light' && themeFamily('sky') === 'light' && themeFamily('green') === 'light', 'light/sand/sky/green 属浅色家族')
+assert(themeFamily('dark') === 'dark' && themeFamily('dusk') === 'dark' && themeFamily('green') === 'dark', 'dark/dusk/green 属深色家族')
+assert(themeFamily('light') === 'light' && themeFamily('sand') === 'light' && themeFamily('sky') === 'light', 'light/sand/sky 属浅色家族')
 assert(THEME_SYMBOL_COLOR.dark && THEME_SYMBOL_COLOR.light, '原生符号色按家族齐备')
 
 console.log('=== 窗口背景与 CSS --bg 一致 ===')
