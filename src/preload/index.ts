@@ -38,7 +38,10 @@ const api: PolarisApi = {
     setTheme: (theme: AppTheme) => ipcRenderer.invoke('app:set-theme', theme),
     getAutoStart: (): Promise<AutoStartState> => ipcRenderer.invoke('app:get-autostart'),
     setAutoStart: (enabled: boolean): Promise<AutoStartState> =>
-      ipcRenderer.invoke('app:set-autostart', enabled)
+      ipcRenderer.invoke('app:set-autostart', enabled),
+    getCloseToTray: (): Promise<boolean> => ipcRenderer.invoke('app:get-close-to-tray'),
+    setCloseToTray: (enabled: boolean): Promise<boolean> =>
+      ipcRenderer.invoke('app:set-close-to-tray', enabled)
   },
   reminder: {
     dismiss: () => ipcRenderer.invoke('reminder:dismiss')

@@ -3696,7 +3696,7 @@ textarea {
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
-  margin-bottom: 16px;
+  margin-bottom: 10px;
 }
 
 .settings-eyebrow {
@@ -3717,7 +3717,7 @@ textarea {
 }
 
 .settings-section {
-  padding: 14px 0;
+  padding: 9px 0;
   border-top: 1px solid var(--line);
 }
 
@@ -3744,20 +3744,20 @@ textarea {
 
 .theme-section-desc {
   max-width: none;
-  margin-bottom: 12px;
+  margin-bottom: 6px;
 }
 
 .theme-picker {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
+  gap: 6px;
 }
 
 .theme-option {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 10px;
+  padding: 8px;
   border: 1px solid var(--line);
   border-radius: 10px;
   background: var(--surface-1);
@@ -3790,8 +3790,8 @@ textarea {
 .theme-swatch {
   position: relative;
   flex: none;
-  width: 34px;
-  height: 34px;
+  width: 30px;
+  height: 30px;
   border: 1px solid var(--line-strong);
   border-radius: 8px;
   overflow: hidden;
