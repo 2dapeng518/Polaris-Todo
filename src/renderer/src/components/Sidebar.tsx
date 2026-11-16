@@ -49,8 +49,18 @@ export function Sidebar() {
 
   useEffect(() => {
     const openProjectForm = () => setAddingProject(true)
+    // 托盘「设置」走主进程派发的固定事件，与侧栏按钮开的是同一个面板；
+    // 清掉滚动目标，避免带上一次存储卡片留下的 backup 定位。
+    const openSettings = () => {
+      setSettingsScrollTarget(null)
+      setSettingsOpen(true)
+    }
     window.addEventListener('polaris:new-project', openProjectForm)
-    return () => window.removeEventListener('polaris:new-project', openProjectForm)
+    window.addEventListener('polaris:open-settings', openSettings)
+    return () => {
+      window.removeEventListener('polaris:new-project', openProjectForm)
+      window.removeEventListener('polaris:open-settings', openSettings)
+    }
   }, [])
 
   const activeTasks = tasks.filter((task) => !task.completed)

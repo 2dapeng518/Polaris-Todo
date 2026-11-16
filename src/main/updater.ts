@@ -73,6 +73,41 @@ async function check(): Promise<UpdateState> {
   return state()
 }
 
+/** 托盘菜单的手动检查入口：与设置页脚走同一个 check()，结果只走返回值，
+ *  气泡文案与是否唤起窗口由调用方按 describeTrayCheck 决定。 */
+export function manualCheckForUpdates(): Promise<UpdateState> {
+  return check()
+}
+
+export interface TrayCheckFeedback {
+  /** 气泡正文：手动检查永远给答案，包括「已是最新」和失败。 */
+  balloon: string
+  /** 是否唤起主窗口：只有更新值得看时才打扰，最新/失败/不支持都安静。 */
+  surface: boolean
+}
+
+/** 纯函数，冒烟直接对状态表逐条验证；错误文案截断，气泡不放整段堆栈。 */
+export function describeTrayCheck(state: UpdateState): TrayCheckFeedback {
+  switch (state.status) {
+    case 'unsupported':
+      return { balloon: '当前环境不提供在线更新', surface: false }
+    case 'checking':
+      return { balloon: '正在检查更新，请稍候', surface: false }
+    case 'available':
+      return { balloon: `发现新版本 v${state.latestVersion}，正在后台下载`, surface: true }
+    case 'downloading':
+      return { balloon: `新版本 v${state.latestVersion} 下载中（${state.percent ?? 0}%）`, surface: true }
+    case 'downloaded':
+      return { balloon: `新版本 v${state.latestVersion} 已就绪，重启即可安装`, surface: true }
+    case 'up-to-date':
+      return { balloon: `已是最新版本 v${state.currentVersion}`, surface: false }
+    case 'error':
+      return { balloon: `检查更新失败：${(state.error ?? '未知错误').slice(0, 120)}`, surface: false }
+    default:
+      return { balloon: '更新状态未知，请稍后再试', surface: false }
+  }
+}
+
 export function initUpdater(options: {
   getWindow: () => BrowserWindow | null
   /** quitAndInstall 前把主窗口的「关闭即驻托盘」拦路标记掀掉。 */

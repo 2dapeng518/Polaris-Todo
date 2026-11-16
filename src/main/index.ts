@@ -30,7 +30,7 @@ import {
 import { registerIpc, registerTaskCreate } from './ipc'
 import { parseCsvImport } from '../shared/csvImport'
 import { disposeMcp, getMcpState, initMcp, MCP_ENDPOINT, setMcpEnabled } from './mcp'
-import { disposeUpdater, initUpdater } from './updater'
+import { describeTrayCheck, disposeUpdater, initUpdater, manualCheckForUpdates } from './updater'
 import { normalizeReleaseNotes, shouldSurfaceUpdate } from '../shared/update'
 import {
   disposeGlobalHotkey,
@@ -48,7 +48,7 @@ import {
   getReminderWindow,
   startReminderScheduler
 } from './reminders'
-import { createTray } from './tray'
+import { createTray, getTrayMenuLabels, showTrayBalloon } from './tray'
 import { TRAY_ICON_DATA_URL } from './tray-icon'
 import { dismissKeys, formatParsedDue, parseQuickAdd, pruneDismissed } from '../shared/quickAddParse'
 import { isPurgeable } from '../shared/retention'
@@ -4325,6 +4325,82 @@ async function runSmokeTest(): Promise<void> {
       console.error('TRAY_TOGGLE_ERROR', error)
     }
 
+    // 托盘菜单增强：「设置 / 检查更新」真实存在于构建出来的菜单；
+    // 「设置」与热键共用 revealAndDispatch 路径，隐藏窗口时也能唤起并开面板；
+    // 「检查更新」反馈文案走纯函数表逐条验证；unsupported 环境把真实托盘
+    // 检查路径走一遍，必须不唤起窗口、不弹更新对话框。
+    // 放在更新合成快照之前：那时渲染层还是干净状态，noDialog 才可证。
+    let trayMenuEntries = false
+    let traySettingsOpens = false
+    let trayCheckFeedback = false
+    let trayCheckSilent = false
+    try {
+      const labels = getTrayMenuLabels()
+      trayMenuEntries =
+        labels.length === 4 &&
+        labels[0] === '打开 Polaris' &&
+        labels[1] === '设置' &&
+        labels[2] === '检查更新' &&
+        labels[3] === '退出'
+      if (!trayMenuEntries) console.error('TRAY_MENU_FAIL', JSON.stringify(labels))
+
+      // 先藏窗口再走真实托盘路径：唤起 + 开面板要一次完成。
+      mainWindow?.hide()
+      await revealSettings()
+      const wokeForSettings = await waitForCondition(
+        () => Boolean(mainWindow) && !mainWindow!.isDestroyed() && mainWindow!.isVisible(),
+        2000,
+        50
+      )
+      if (mainWindow) await settledFrames(mainWindow.webContents)
+      const settingsOpened = await mainWindow!.webContents.executeJavaScript(`(async () => {
+        ${pageHelpers}
+        const panel = await waitFor(() => document.querySelector('.settings-panel'));
+        if (!panel) return false;
+        await sleep(300);
+        panel.querySelector('.detail-close')?.click();
+        const closed = await waitFor(() => !document.querySelector('.settings-panel'));
+        return Boolean(closed);
+      })()`)
+      traySettingsOpens = wokeForSettings === true && settingsOpened === true
+      if (!traySettingsOpens) console.error('TRAY_SETTINGS_FAIL', JSON.stringify({ wokeForSettings, settingsOpened }))
+
+      const feedbackBase = {
+        currentVersion: '0.0.1',
+        latestVersion: null,
+        percent: null,
+        releaseNotes: null,
+        skippedVersion: null,
+        error: null
+      }
+      trayCheckFeedback =
+        describeTrayCheck({ ...feedbackBase, status: 'unsupported' }).surface === false &&
+        describeTrayCheck({ ...feedbackBase, status: 'unsupported' }).balloon.includes('不提供在线更新') &&
+        describeTrayCheck({ ...feedbackBase, status: 'checking' }).surface === false &&
+        describeTrayCheck({ ...feedbackBase, status: 'up-to-date' }).surface === false &&
+        describeTrayCheck({ ...feedbackBase, status: 'up-to-date' }).balloon.includes('0.0.1') &&
+        describeTrayCheck({ ...feedbackBase, status: 'available', latestVersion: '9.9.9' }).surface === true &&
+        describeTrayCheck({ ...feedbackBase, status: 'available', latestVersion: '9.9.9' }).balloon.includes('9.9.9') &&
+        describeTrayCheck({ ...feedbackBase, status: 'downloading', latestVersion: '9.9.9', percent: 42 }).balloon.includes('42%') &&
+        describeTrayCheck({ ...feedbackBase, status: 'downloaded', latestVersion: '9.9.9' }).surface === true &&
+        describeTrayCheck({ ...feedbackBase, status: 'error', error: '网络超时' }).surface === false &&
+        describeTrayCheck({ ...feedbackBase, status: 'error', error: '网络超时' }).balloon.includes('网络超时')
+      if (!trayCheckFeedback) console.error('TRAY_FEEDBACK_FAIL')
+
+      // 真实路径走一遍：dev = unsupported，检查后窗口必须保持隐藏、无更新弹窗。
+      mainWindow?.hide()
+      await checkUpdatesFromTray()
+      await new Promise((resolve) => setTimeout(resolve, 300))
+      const noUpdateDialog = await mainWindow!.webContents.executeJavaScript(`!document.querySelector('.update-panel')`)
+      trayCheckSilent =
+        Boolean(mainWindow) && !mainWindow!.isDestroyed() && !mainWindow!.isVisible() && noUpdateDialog === true
+      mainWindow?.show()
+      if (mainWindow) await settledFrames(mainWindow.webContents)
+      if (!trayCheckSilent) console.error('TRAY_CHECK_SILENT_FAIL', JSON.stringify({ noUpdateDialog }))
+    } catch (error) {
+      console.error('TRAY_MENU_ERROR', error)
+    }
+
     // 全局热键：默认开且注册成功、设置开关 IPC 往返 + meta 持久化、
     // 组合键被占用时降级为「开但未注册」并给出中文提示、隐藏窗口时按热键
     // 能唤起窗口、切回「今天」并聚焦输入框。真实按键无法从页面合成，
@@ -4800,6 +4876,10 @@ async function runSmokeTest(): Promise<void> {
       storageCardWorks: storageCardWorks === true,
       settingsFitsDefault: settingsFitsDefault === true,
       trayToggleWorks: trayToggleWorks === true,
+      trayMenuEntries: trayMenuEntries === true,
+      traySettingsOpens: traySettingsOpens === true,
+      trayCheckFeedback: trayCheckFeedback === true,
+      trayCheckSilent: trayCheckSilent === true,
       hotkeyDefaultOn: hotkeyDefaultOn === true,
       hotkeySettingsRoundTrip: hotkeySettingsRoundTrip === true,
       hotkeyConflictDegrades: hotkeyConflictDegrades === true,
@@ -4874,6 +4954,10 @@ async function runSmokeTest(): Promise<void> {
           storageCardWorks,
           settingsFitsDefault,
           trayToggleWorks,
+          trayMenuEntries,
+          traySettingsOpens,
+          trayCheckFeedback,
+          trayCheckSilent,
           hotkeyDefaultOn,
           hotkeySettingsRoundTrip,
           hotkeyConflictDegrades,
@@ -4944,10 +5028,11 @@ function showMainWindow(): void {
   mainWindow.focus()
 }
 
-// 全局热键的唯一动作：先按现有路径唤起窗口，再把 N 键那条 polaris:quick-add
-// 事件原样送进渲染层（detail.forceToday 让它切回「今天」）。主进程没有别的
-// 推送通道，这里用 executeJavaScript 派发一个固定字符串，不插值、不加 IPC。
-async function revealQuickCapture(): Promise<void> {
+// 主进程 → 渲染层的动作统一走这条路：先按现有路径唤起窗口，等页面可执行，
+// 再用 executeJavaScript 派发一个固定字符串事件，不插值、不加 IPC。
+// 全局热键（polaris:quick-add）和托盘「设置」（polaris:open-settings）共用，
+// 不许出现第二条聚焦/唤起路径。
+async function revealAndDispatch(script: string): Promise<void> {
   showMainWindow()
   if (!mainWindow || mainWindow.isDestroyed()) return
 
@@ -4969,13 +5054,32 @@ async function revealQuickCapture(): Promise<void> {
   }
   if (contents.isDestroyed()) return
 
-  await contents
-    .executeJavaScript(
-      "window.dispatchEvent(new CustomEvent('polaris:quick-add', { detail: { forceToday: true } }))"
-    )
-    .catch(() => {
-      // 页面尚未可执行时这次按键落空，下次再按仍可用；不打断主进程。
-    })
+  await contents.executeJavaScript(script).catch(() => {
+    // 页面尚未可执行时这次触发落空，下次再点仍可用；不打断主进程。
+  })
+}
+
+// 全局热键的唯一动作：N 键那条 polaris:quick-add 事件原样送进渲染层
+// （detail.forceToday 让它切回「今天」）。
+async function revealQuickCapture(): Promise<void> {
+  await revealAndDispatch(
+    "window.dispatchEvent(new CustomEvent('polaris:quick-add', { detail: { forceToday: true } }))"
+  )
+}
+
+// 托盘「设置」：唤起窗口后让侧栏打开设置面板（不滚动到任何分区）。
+async function revealSettings(): Promise<void> {
+  await revealAndDispatch("window.dispatchEvent(new CustomEvent('polaris:open-settings'))")
+}
+
+// 托盘「检查更新」：手动检查永远给答案 —— 气泡负责「已是最新/失败/不支持」
+// 这类不值得开窗的结果；只有更新值得看（发现/下载中/已就绪）才唤起主窗口，
+// 弹窗本身仍由渲染层既有的 update:state 推送驱动，这里不另做 UI。
+async function checkUpdatesFromTray(): Promise<void> {
+  const result = await manualCheckForUpdates()
+  const feedback = describeTrayCheck(result)
+  showTrayBalloon('Polaris', feedback.balloon)
+  if (feedback.surface) showMainWindow()
 }
 
 app.on('second-instance', () => {
@@ -5122,7 +5226,12 @@ app.whenReady().then(() => {
   }
 
   createWindow()
-  createTray(showMainWindow, () => app.quit())
+  createTray({
+    onOpen: showMainWindow,
+    onOpenSettings: () => void revealSettings(),
+    onCheckUpdates: () => void checkUpdatesFromTray(),
+    onQuit: () => app.quit()
+  })
   startReminderScheduler()
   // 窗口和托盘就绪后再注册：处理器要靠 showMainWindow 把窗口叫出来。
   initMcp()
