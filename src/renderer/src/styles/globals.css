@@ -4444,8 +4444,18 @@ textarea {
   margin-top: 7px;
 }
 
-.settings-language-select {
+/* 语言下拉整族：触发器 + 自绘菜单。原生 select 的弹出层由系统绘制，
+   深色主题下仍是白底蓝高亮；自绘后背景/描边/悬停全走主题令牌。 */
+.settings-language {
+  position: relative;
   flex: none;
+}
+
+.settings-language-select {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
   min-width: 118px;
   padding: 5px 8px;
   border: 1px solid var(--line-strong);
@@ -4454,6 +4464,68 @@ textarea {
   color: var(--text);
   font-size: 12px;
   cursor: default;
+  transition: background 0.16s;
+}
+
+.settings-language-select:hover,
+.settings-language-select[aria-expanded="true"] {
+  background: var(--hover);
+}
+
+.settings-language-select .lucide {
+  flex: none;
+  color: var(--text-tertiary);
+}
+
+/* 菜单锚在行内绝对定位：设置面板自身滚动，跟着行滚即可，
+   不需要视口级重定位。 */
+.settings-language-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 30;
+  min-width: 100%;
+  padding: 5px;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  background: var(--panel-bg);
+  box-shadow:
+    0 12px 32px rgba(var(--shadow-rgb), 0.3),
+    inset 0 1px 0 var(--inner-highlight);
+  animation: pop-in 140ms var(--ease-out);
+}
+
+.settings-language-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 7px;
+  color: var(--text);
+  font-size: 12px;
+  white-space: nowrap;
+  cursor: default;
+  user-select: none;
+  transition: background 0.16s;
+}
+
+.settings-language-option:hover,
+.settings-language-option.is-active {
+  background: var(--hover);
+}
+
+.settings-language-option.selected {
+  background: rgba(var(--accent-rgb), 0.09);
+}
+
+.settings-language-option:focus-visible {
+  outline-offset: -2px;
+}
+
+.settings-language-check {
+  display: inline-flex;
+  color: var(--accent);
 }
 
 .settings-language-select:focus-visible {

@@ -4805,6 +4805,65 @@ async function runSmokeTest(): Promise<void> {
       console.error('LANGUAGE_SWITCH_ERROR', error)
     }
 
+    // 语言下拉手绘菜单：弹出层必须用主题 panel 令牌而不是系统白底，
+    // 点选选项走真实 setLocale 路径，Esc 只收菜单不收设置面板。
+    let languageMenuThemed = false
+    try {
+      const menuResult = await mainWindow!.webContents.executeJavaScript(`(async () => {
+        ${pageHelpers}
+        document.querySelector('.settings-item')?.click();
+        const panel = await waitFor(() => document.querySelector('.settings-panel'));
+        if (!panel) return { found: false };
+        const trigger = panel.querySelector('.settings-language-select');
+        if (!trigger) return { trigger: false };
+        trigger.click();
+        const menu = await waitFor(() => document.querySelector('.settings-language-menu'));
+        if (!menu) return { menu: false };
+        // 令牌对照：临时节点吃 var(--panel-bg)，与菜单实际背景逐字节比。
+        const probe = document.createElement('div');
+        probe.style.background = 'var(--panel-bg)';
+        document.body.appendChild(probe);
+        const tokenBg = getComputedStyle(probe).backgroundColor;
+        probe.remove();
+        const menuBg = getComputedStyle(menu).backgroundColor;
+        const themed = menuBg === tokenBg && menuBg !== 'rgb(255, 255, 255)';
+        const options = [...menu.querySelectorAll('.settings-language-option')];
+        const twoOptions = options.length === 2 && options[0].getAttribute('aria-selected') === 'true';
+        // 点英文选项：真实点击路径切语言，菜单收起，触发器文案跟随。
+        options[1].click();
+        const switchedEn = await waitFor(() => document.documentElement.lang === 'en' && !document.querySelector('.settings-language-menu'));
+        const triggerEn = panel.querySelector('.settings-language-select')?.textContent?.includes('English') === true;
+        // 再切回中文复原，避免影响后续断言。
+        panel.querySelector('.settings-language-select').click();
+        const menu2 = await waitFor(() => document.querySelector('.settings-language-menu'));
+        menu2?.querySelector('[data-language-index="0"]')?.click();
+        const switchedZh = await waitFor(() => document.documentElement.lang === 'zh-CN');
+        // Esc 只收菜单：在聚焦选项上派发 Escape，面板必须还在。
+        panel.querySelector('.settings-language-select').click();
+        const menu3 = await waitFor(() => document.querySelector('.settings-language-menu'));
+        const activeOption = menu3?.querySelector('.settings-language-option.is-active');
+        activeOption?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+        const escClosedMenu = await waitFor(() => !document.querySelector('.settings-language-menu'));
+        const panelStillOpen = Boolean(document.querySelector('.settings-panel'));
+        document.querySelector('.settings-panel .detail-close')?.click();
+        const closed = await waitFor(() => !document.querySelector('.settings-panel'));
+        return { found: true, themed, menuBg, tokenBg, twoOptions, switchedEn, triggerEn, switchedZh, escClosedMenu, panelStillOpen, closed };
+      })()`)
+      languageMenuThemed =
+        menuResult?.found === true &&
+        menuResult?.themed === true &&
+        menuResult?.twoOptions === true &&
+        menuResult?.switchedEn === true &&
+        menuResult?.triggerEn === true &&
+        menuResult?.switchedZh === true &&
+        menuResult?.escClosedMenu === true &&
+        menuResult?.panelStillOpen === true &&
+        menuResult?.closed === true
+      if (!languageMenuThemed) console.error('LANGUAGE_MENU_FAIL', JSON.stringify(menuResult))
+    } catch (error) {
+      console.error('LANGUAGE_MENU_ERROR', error)
+    }
+
     // 全局热键：默认开且注册成功、设置开关 IPC 往返 + meta 持久化、
     // 组合键被占用时降级为「开但未注册」并给出中文提示、隐藏窗口时按热键
     // 能唤起窗口、切回「今天」并聚焦输入框。真实按键无法从页面合成，
@@ -5292,6 +5351,7 @@ async function runSmokeTest(): Promise<void> {
       trayCheckFeedbackEn: trayCheckFeedbackEn === true,
       trayCheckSilent: trayCheckSilent === true,
       languageSwitchWorks: languageSwitchWorks === true,
+      languageMenuThemed: languageMenuThemed === true,
       hotkeyDefaultOn: hotkeyDefaultOn === true,
       hotkeySettingsRoundTrip: hotkeySettingsRoundTrip === true,
       hotkeyConflictDegrades: hotkeyConflictDegrades === true,
@@ -5374,6 +5434,7 @@ async function runSmokeTest(): Promise<void> {
           trayCheckFeedbackEn,
           trayCheckSilent,
           languageSwitchWorks,
+          languageMenuThemed,
           hotkeyDefaultOn,
           hotkeySettingsRoundTrip,
           hotkeyConflictDegrades,
