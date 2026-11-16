@@ -7,6 +7,7 @@ import {
 } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import {
+  BarChart3,
   CalendarDays,
   CheckCircle2,
   Circle,
@@ -150,6 +151,7 @@ export function CommandPalette() {
         icon: CheckCircle2,
         run: go('completed')
       },
+      { kind: 'command', id: 'view-stats', label: '统计', icon: BarChart3, run: go('stats') },
       { kind: 'command', id: 'view-trash', label: '回收站', icon: Trash2, run: go('trash') }
     ]
   }, [setOpen, setView, theme, toggleTheme, setTheme])

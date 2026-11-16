@@ -3,6 +3,7 @@
 // .lucide 规则统一（--icon-stroke / --icon-stroke-strong），组件侧 strokeWidth
 // prop 是 presentation attribute，优先级低于作者 CSS，实际不生效。
 export {
+  BarChart3,
   Bell,
   CalendarDays,
   Check,
