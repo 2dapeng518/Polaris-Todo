@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { BarChart3, CalendarDays, CheckCircle2, Grid2x2, HardDrive, ListTodo, Pencil, Plus, Settings2, Sun, Tag, Trash2 } from './Icon'
+import { BarChart3, CalendarClock, CalendarDays, CheckCircle2, Grid2x2, HardDrive, ListTodo, Pencil, Plus, Settings2, Sun, Tag, Trash2 } from './Icon'
 import { AnimatePresence, motion } from 'motion/react'
 import type { AppView, Project } from '@shared/types'
 import { useTaskStore } from '../stores/useTaskStore'
@@ -9,7 +9,7 @@ import { ConfirmDialog } from './ConfirmDialog'
 
 const NAV_ITEMS: Array<{ view: AppView; label: string; icon: typeof Sun }> = [
   { view: 'today', label: '今天', icon: Sun },
-  { view: 'upcoming', label: '即将到来', icon: CalendarDays },
+  { view: 'upcoming', label: '即将到来', icon: CalendarClock },
   { view: 'calendar', label: '日历', icon: CalendarDays },
   { view: 'all', label: '全部任务', icon: ListTodo },
   { view: 'completed', label: '已完成', icon: CheckCircle2 },

@@ -5,6 +5,7 @@
 export {
   BarChart3,
   Bell,
+  CalendarClock,
   CalendarDays,
   Check,
   CheckCircle2,

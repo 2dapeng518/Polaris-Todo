@@ -8,6 +8,7 @@ import {
 import { AnimatePresence, motion } from 'motion/react'
 import {
   BarChart3,
+  CalendarClock,
   CalendarDays,
   CheckCircle2,
   Grid2x2,
@@ -141,7 +142,7 @@ export function CommandPalette() {
         kind: 'command',
         id: 'view-upcoming',
         label: '即将到来',
-        icon: CalendarDays,
+        icon: CalendarClock,
         run: go('upcoming')
       },
       { kind: 'command', id: 'view-all', label: '全部任务', icon: ListTodo, run: go('all') },
