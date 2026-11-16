@@ -175,8 +175,9 @@ export function initUpdater(options: {
       return
     }
     options.onBeforeInstall()
-    // isSilent=false：让用户看到 NSIS 安装界面；isForceRunAfter=true：装完自动拉起新版。
-    autoUpdater.quitAndInstall(false, true)
+    // isSilent=true：/S 静默安装，不弹 NSIS 向导（含用户/目录选择页）；
+    // isForceRunAfter=true：装完自动拉起新版。按机器安装的老用户仍会有一次 UAC 确认。
+    autoUpdater.quitAndInstall(true, true)
   })
 
   if (!supported()) return
