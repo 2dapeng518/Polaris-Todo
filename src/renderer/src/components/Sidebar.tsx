@@ -131,6 +131,7 @@ export function Sidebar() {
 
   return (
     <aside className="sidebar">
+      <div className="sidebar-scroll">
       <nav className="nav-section" aria-label="视图">
         <div className="nav-label">视图</div>
         {NAV_ITEMS.map((item) => {
@@ -357,6 +358,7 @@ export function Sidebar() {
       )}
 
       <div className="sidebar-spacer" />
+      </div>
 
       {/* 信任状 + 出口：承诺任务数据不出本机，点一下直达备份，随时能带走。
           主语是「任务数据」不是「应用」——更新检查会联网，措辞必须精确。 */}
