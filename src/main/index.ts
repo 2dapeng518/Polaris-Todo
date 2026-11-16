@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, nativeImage, shell, type WebContents } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, nativeImage, shell, type NativeImage, type WebContents } from 'electron'
 import { join } from 'node:path'
 import { mkdtemp, readFile, readdir, rename, rm, unlink, writeFile } from 'node:fs/promises'
 import { randomUUID } from 'node:crypto'
@@ -11,10 +11,12 @@ import {
   deleteTask,
   deleteTaskForever,
   exportBackup,
+  getMeta,
   importBackup,
   initDatabase,
   listTasks,
-  purgeExpiredDeleted
+  purgeExpiredDeleted,
+  setMeta
 } from './db'
 import { registerIpc, registerTaskCreate } from './ipc'
 import { getCurrentTheme, initAppTheme, setCurrentTheme, themeBackgroundColor } from './theme'
@@ -86,6 +88,9 @@ async function writeFileAtomic(filePath: string, content: string): Promise<void>
 let mainWindow: BrowserWindow | null = null
 let isQuitting = false
 
+// 关窗是否驻留托盘（meta 持久化，默认开）。关掉后关窗=退出应用，提醒随之停止。
+const closeToTrayEnabled = (): boolean => getMeta('close_to_tray') !== '0'
+
 const startHidden =
   process.argv.includes('--hidden') &&
   !process.env['POLARIS_SMOKE'] &&
@@ -138,7 +143,7 @@ function createWindow(): void {
   })
 
   mainWindow.on('close', (event) => {
-    if (!isQuitting) {
+    if (!isQuitting && closeToTrayEnabled()) {
       event.preventDefault()
       mainWindow?.hide()
     }
@@ -2936,20 +2941,32 @@ async function runSmokeTest(): Promise<void> {
             flipped
           )
         })
-        await settledFrames(reminder.webContents)
         const flippedTheme = await reminder.webContents.executeJavaScript(
           `document.documentElement.dataset.theme`
         )
-        const flippedImage = await reminder.webContents.capturePage()
+        const flipWant = ({ dark: [11, 14, 21], light: [251, 250, 247], dusk: [24, 44, 78], sand: [250, 246, 238], sky: [238, 246, 252], green: [234, 247, 236] } as Record<string, number[]>)[flipped] ?? [11, 14, 21]
+        // View Transitions 的 cross-fade 使绘制收敛晚于 dataset.theme。跨窗主题跟随
+        // 是收敛断言：轮询真实绘制像素直到匹配新主题，而非等 DOM 状态后单次采样。
+        let converged: NativeImage | null = null
+        const flipPainted = await waitForCondition(async () => {
+          if (reminder.isDestroyed() || reminder.webContents.isDestroyed()) return false
+          const img = await reminder.webContents.capturePage()
+          const sz = img.getSize()
+          const px = img
+            .crop({ x: sz.width - 6, y: Math.floor(sz.height / 2), width: 1, height: 1 })
+            .toBitmap()
+          const match =
+            Math.abs(px[2] - flipWant[0]) <= 1 &&
+            Math.abs(px[1] - flipWant[1]) <= 1 &&
+            Math.abs(px[0] - flipWant[2]) <= 1
+          if (match) converged = img
+          return match
+        }, 3000, 60)
+        const flippedImage = converged ?? (await reminder.webContents.capturePage())
         const flippedSize = flippedImage.getSize()
         const fp = flippedImage
           .crop({ x: flippedSize.width - 6, y: Math.floor(flippedSize.height / 2), width: 1, height: 1 })
           .toBitmap()
-        const flipWant = ({ dark: [11, 14, 21], light: [251, 250, 247], dusk: [24, 44, 78], sand: [250, 246, 238], sky: [238, 246, 252], green: [234, 247, 236] } as Record<string, number[]>)[flipped] ?? [11, 14, 21]
-        const flipPainted =
-          Math.abs(fp[2] - flipWant[0]) <= 1 &&
-          Math.abs(fp[1] - flipWant[1]) <= 1 &&
-          Math.abs(fp[0] - flipWant[2]) <= 1
         // Re-check the bevel in the other theme: the day theme is where the
         // 90%-white highlight was glaring.
         const flipGeom = await reminder.webContents.executeJavaScript(`(() => {
@@ -3343,6 +3360,70 @@ async function runSmokeTest(): Promise<void> {
         return ok;
       })()`)) === true
 
+    // 默认窗口（1280×840）下设置面板应一屏放下、无上下滚动：紧凑化后的回归守卫。
+    let settingsFitsDefault = false
+    if (mainWindow) {
+      const originalSize = mainWindow.getSize()
+      mainWindow.setSize(1280, 840)
+      await settledFrames(mainWindow.webContents)
+      const settingsFitResult = await mainWindow.webContents.executeJavaScript(`(async () => {
+        ${pageHelpers}
+        document.querySelector('.settings-item').click();
+        const panel = await waitFor(() => document.querySelector('.settings-panel'));
+        if (!panel) return { fits: false, found: false };
+        await sleep(350);
+        const result = {
+          fits: panel.scrollHeight <= panel.clientHeight + 1,
+          found: true,
+          scrollHeight: panel.scrollHeight,
+          clientHeight: panel.clientHeight
+        };
+        document.querySelector('.settings-panel .detail-close')?.click();
+        await sleep(250);
+        return result;
+      })()`)
+      settingsFitsDefault = settingsFitResult?.fits === true
+      if (!settingsFitsDefault) console.error('SETTINGS_FIT_FAIL', JSON.stringify(settingsFitResult))
+      mainWindow.setSize(originalSize[0], originalSize[1])
+      await settledFrames(mainWindow.webContents)
+    }
+
+    // 托盘驻留开关：默认开；UI 往返持久化；开启时关窗=隐藏而非退出。
+    let trayToggleWorks = false
+    try {
+      const defaultOn = await mainWindow?.webContents.executeJavaScript(`window.polaris.app.getCloseToTray()`)
+      const uiRoundTrip = await mainWindow?.webContents.executeJavaScript(`(async () => {
+        ${pageHelpers}
+        document.querySelector('.settings-item').click();
+        const panel = await waitFor(() => document.querySelector('.settings-panel'));
+        if (!panel) return false;
+        await sleep(300);
+        const sel = '.settings-panel .switch[aria-label="关闭窗口后驻留托盘"]';
+        const sw = document.querySelector(sel);
+        if (!sw) return false;
+        const initial = sw.getAttribute('aria-checked') === 'true';
+        sw.click(); await sleep(200);
+        const afterOff = await window.polaris.app.getCloseToTray();
+        const offChecked = document.querySelector(sel).getAttribute('aria-checked') === 'false';
+        document.querySelector(sel).click(); await sleep(200);
+        const afterOn = await window.polaris.app.getCloseToTray();
+        document.querySelector('.settings-panel .detail-close')?.click(); await sleep(250);
+        return initial === true && afterOff === false && offChecked && afterOn === true;
+      })()`)
+      mainWindow?.close()
+      const hiddenAlive = await waitForCondition(
+        () => Boolean(mainWindow) && !mainWindow!.isDestroyed() && !mainWindow!.isVisible(),
+        2000,
+        50
+      )
+      mainWindow?.show()
+      if (mainWindow) await settledFrames(mainWindow.webContents)
+      trayToggleWorks = defaultOn === true && uiRoundTrip === true && hiddenAlive
+      if (!trayToggleWorks) console.error('TRAY_TOGGLE_FAIL', JSON.stringify({ defaultOn, uiRoundTrip, hiddenAlive }))
+    } catch (error) {
+      console.error('TRAY_TOGGLE_ERROR', error)
+    }
+
     // 逐条具名，而不是串成一条 && 链：失败时必须能一眼看出是哪条断言。
     // 只筛 result 里 value === false 是不够的 —— afterAdd / afterDelete /
     // commandCount 是数值比较，版本号是字符串比较，它们失败时 JSON 里
@@ -3450,7 +3531,9 @@ async function runSmokeTest(): Promise<void> {
       backupRoundTripWorks: backupRoundTripWorks === true,
       atomicWriteWorks: atomicWriteWorks === true,
       scalingFrameWorks: scalingFrameWorks === true,
-      aboutCreditsShown: aboutCreditsShown === true
+      aboutCreditsShown: aboutCreditsShown === true,
+      settingsFitsDefault: settingsFitsDefault === true,
+      trayToggleWorks: trayToggleWorks === true
     }
     const failed = Object.keys(checks).filter((name) => !checks[name])
     const ok = failed.length === 0
@@ -3499,6 +3582,8 @@ async function runSmokeTest(): Promise<void> {
           atomicWriteWorks,
           scalingFrameWorks,
           aboutCreditsShown,
+          settingsFitsDefault,
+          trayToggleWorks,
           parseGrammarTable: parseAssertions.grammar,
           parseInvariants: parseAssertions.invariants,
           parseFormatNull: parseAssertions.format,
@@ -3592,6 +3677,14 @@ app.whenReady().then(() => {
     return setAutoStartState(Boolean(enabled))
   })
 
+  ipcMain.handle('app:get-close-to-tray', () => closeToTrayEnabled())
+
+  ipcMain.handle('app:set-close-to-tray', (_event, enabled: boolean) => {
+    const value = Boolean(enabled)
+    setMeta('close_to_tray', value ? '1' : '0')
+    return value
+  })
+
   // Read-only, no payload to validate. The renderer must never hardcode a version
   // string: app.getVersion() reads the packaged package.json, so a release bump
   // reaches the settings panel without a code edit.
@@ -3671,6 +3764,9 @@ app.on('window-all-closed', () => {
     process.env['POLARIS_SHOT'] ||
     process.env['POLARIS_SCREENSHOT']
   ) {
+    app.quit()
+  } else if (!closeToTrayEnabled()) {
+    // 不驻留托盘时，关窗即退出（否则进程无窗无托盘空转）。
     app.quit()
   }
 })

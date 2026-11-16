@@ -28,6 +28,7 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
   const [backupBusy, setBackupBusy] = useState(false)
   const [backupStatus, setBackupStatus] = useState<string | null>(null)
   const [backupError, setBackupError] = useState<string | null>(null)
+  const [closeToTray, setCloseToTray] = useState(true)
 
   useFocusTrap(panelRef, open && !paletteOpen, panelRef)
 
@@ -52,6 +53,15 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
       })
       .finally(() => {
         if (!cancelled) setBusy(false)
+      })
+
+    window.polaris.app
+      .getCloseToTray()
+      .then((value) => {
+        if (!cancelled) setCloseToTray(value)
+      })
+      .catch(() => {
+        if (!cancelled) setCloseToTray(true)
       })
 
     return () => {
@@ -79,6 +89,16 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
       setAutoStart((current) => ({ ...current, error: String(error) }))
     } finally {
       setBusy(false)
+    }
+  }
+
+  const toggleCloseToTray = async () => {
+    const next = !closeToTray
+    setCloseToTray(next)
+    try {
+      await window.polaris.app.setCloseToTray(next)
+    } catch {
+      setCloseToTray(!next)
     }
   }
 
@@ -230,10 +250,20 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
                 <div>
                   <div className="settings-row-title">关闭窗口后驻留托盘</div>
                   <div className="settings-row-desc">
-                    关闭主窗口不会退出，提醒与托盘常驻继续运行
+                    {closeToTray
+                      ? '关闭主窗口不会退出，提醒与托盘常驻继续运行'
+                      : '关闭主窗口将退出应用，提醒随之停止'}
                   </div>
                 </div>
-                <span className="settings-static">已开启</span>
+                <button
+                  role="switch"
+                  aria-checked={closeToTray}
+                  aria-label="关闭窗口后驻留托盘"
+                  className={`switch ${closeToTray ? 'on' : ''}`}
+                  onClick={() => void toggleCloseToTray()}
+                >
+                  <span className="switch-thumb" />
+                </button>
               </div>
             </div>
 

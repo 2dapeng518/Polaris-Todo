@@ -121,6 +121,8 @@ export type PolarisApi = {
     setTheme: (theme: AppTheme) => Promise<void>
     getAutoStart: () => Promise<AutoStartState>
     setAutoStart: (enabled: boolean) => Promise<AutoStartState>
+    getCloseToTray: () => Promise<boolean>
+    setCloseToTray: (enabled: boolean) => Promise<boolean>
   }
   reminder: {
     dismiss: () => Promise<void>
