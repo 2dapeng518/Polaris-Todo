@@ -6,6 +6,7 @@ import type {
   CreateSubtaskInput,
   CreateTagInput,
   CreateTaskInput,
+  CsvImportResult,
   ExportResult,
   GlobalHotkeyState,
   ImportResult,
@@ -46,7 +47,8 @@ const api: PolarisApi = {
   },
   data: {
     export: (): Promise<ExportResult> => ipcRenderer.invoke('data:export'),
-    import: (): Promise<ImportResult> => ipcRenderer.invoke('data:import')
+    import: (): Promise<ImportResult> => ipcRenderer.invoke('data:import'),
+    importCsv: (): Promise<CsvImportResult> => ipcRenderer.invoke('data:import-csv')
   },
   app: {
     getVersion: (): Promise<string> => ipcRenderer.invoke('app:get-version'),

@@ -166,6 +166,29 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
     }
   }
 
+  const handleImportCsv = async () => {
+    setBackupBusy(true)
+    setBackupError(null)
+    setBackupStatus(null)
+    try {
+      const result = await window.polaris.data.importCsv()
+      if (result.ok) {
+        const source = result.format === 'todoist' ? 'Todoist' : '滴答清单'
+        setBackupStatus(
+          `${source} 导入完成：任务 +${result.tasksImported ?? 0}（跳过 ${result.tasksSkipped ?? 0}），项目 +${result.projectsImported ?? 0}，子任务 +${result.subtasksImported ?? 0}，标签 +${result.tagsImported ?? 0}`
+        )
+        await useTaskStore.getState().load()
+        await useTaskStore.getState().loadTrash()
+      } else if (!result.canceled && result.error) {
+        setBackupError(`导入失败：${result.error}`)
+      }
+    } catch (error) {
+      setBackupError(`导入失败：${String(error)}`)
+    } finally {
+      setBackupBusy(false)
+    }
+  }
+
   return (
     <AnimatePresence>
       {open && (
@@ -331,6 +354,14 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
                 </button>
                 <button className="backup-btn" onClick={() => void handleImport()} disabled={backupBusy}>
                   导入备份
+                </button>
+                <button
+                  className="backup-btn"
+                  onClick={() => void handleImportCsv()}
+                  disabled={backupBusy}
+                  title="支持滴答清单 / Todoist 的 CSV 导出，按表头自动识别"
+                >
+                  导入 CSV
                 </button>
               </div>
               {backupStatus && (

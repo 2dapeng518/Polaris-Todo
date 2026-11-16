@@ -150,6 +150,18 @@ export type ImportResult = {
   error?: string
 }
 
+export type CsvImportResult = {
+  ok: boolean
+  canceled?: boolean
+  format?: 'todoist' | 'dida'
+  tasksImported?: number
+  tasksSkipped?: number
+  projectsImported?: number
+  subtasksImported?: number
+  tagsImported?: number
+  error?: string
+}
+
 export type AppView = 'today' | 'upcoming' | 'all' | 'completed' | 'stats' | 'matrix' | 'trash'
 
 import type { AppTheme } from './themes'
@@ -203,6 +215,7 @@ export type PolarisApi = {
   data: {
     export: () => Promise<ExportResult>
     import: () => Promise<ImportResult>
+    importCsv: () => Promise<CsvImportResult>
   }
   app: {
     getVersion: () => Promise<string>
