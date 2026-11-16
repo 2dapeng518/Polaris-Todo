@@ -94,6 +94,15 @@ export type AutoStartState = {
   error?: string
 }
 
+/** 全局热键的期望状态与实际注册状态分开：组合键被别的程序占用时，
+ *  enabled 仍是用户的选择（开），registered 才是这次注册的结果。 */
+export type GlobalHotkeyState = {
+  enabled: boolean
+  registered: boolean
+  accelerator: string
+  error?: string
+}
+
 export type PolarisApi = {
   tasks: {
     list: () => Promise<Task[]>
@@ -123,6 +132,8 @@ export type PolarisApi = {
     setAutoStart: (enabled: boolean) => Promise<AutoStartState>
     getCloseToTray: () => Promise<boolean>
     setCloseToTray: (enabled: boolean) => Promise<boolean>
+    getGlobalHotkey: () => Promise<GlobalHotkeyState>
+    setGlobalHotkey: (enabled: boolean) => Promise<GlobalHotkeyState>
   }
   reminder: {
     dismiss: () => Promise<void>

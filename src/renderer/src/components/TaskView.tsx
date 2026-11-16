@@ -55,9 +55,17 @@ export function TaskView() {
   const focusAfterExit = useRef<HTMLElement | null | undefined>(undefined)
 
   useEffect(() => {
-    const focusQuickAdd = () => {
+    const focusQuickAdd = (event: Event) => {
       // 确认弹窗开着时不路由：模态期间背景视图不该被切走。
       if (trashConfirm) return
+      // 全局热键要求无论当前在哪个视图都回「今天」；N 键不带 detail，行为不变。
+      const forceToday =
+        (event as CustomEvent<{ forceToday?: boolean } | undefined>).detail?.forceToday === true
+      if (forceToday && view !== 'today') {
+        setView('today')
+        requestAnimationFrame(() => quickAddRef.current?.focus())
+        return
+      }
       if (quickAddRef.current) {
         quickAddRef.current.focus()
         return

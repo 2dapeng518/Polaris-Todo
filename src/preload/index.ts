@@ -5,6 +5,7 @@ import type {
   CreateProjectInput,
   CreateTaskInput,
   ExportResult,
+  GlobalHotkeyState,
   ImportResult,
   PolarisApi,
   UpdateProjectInput,
@@ -41,7 +42,11 @@ const api: PolarisApi = {
       ipcRenderer.invoke('app:set-autostart', enabled),
     getCloseToTray: (): Promise<boolean> => ipcRenderer.invoke('app:get-close-to-tray'),
     setCloseToTray: (enabled: boolean): Promise<boolean> =>
-      ipcRenderer.invoke('app:set-close-to-tray', enabled)
+      ipcRenderer.invoke('app:set-close-to-tray', enabled),
+    getGlobalHotkey: (): Promise<GlobalHotkeyState> =>
+      ipcRenderer.invoke('app:get-global-hotkey'),
+    setGlobalHotkey: (enabled: boolean): Promise<GlobalHotkeyState> =>
+      ipcRenderer.invoke('app:set-global-hotkey', enabled)
   },
   reminder: {
     dismiss: () => ipcRenderer.invoke('reminder:dismiss')
