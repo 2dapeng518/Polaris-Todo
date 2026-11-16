@@ -8,7 +8,8 @@ import { useTaskStore } from '../stores/useTaskStore'
 import { useThemeStore } from '../stores/useThemeStore'
 import { useAppVersion } from '../stores/useAppVersion'
 import { useUpdateStore } from '../stores/useUpdateStore'
-import { useLocaleStore, useT, useLocale, type Translate } from '../stores/useLocaleStore'
+import { useT, useLocale, type Translate } from '../stores/useLocaleStore'
+import { LanguageSelect } from './LanguageSelect'
 import { useFocusTrap } from '../lib/useFocusTrap'
 
 /** 更新状态一行说清；错误细节另有 settings-error，这里不堆长文。 */
@@ -47,7 +48,6 @@ type SettingsPanelProps = {
 export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelProps) {
   const t = useT()
   const locale = useLocale()
-  const setLocale = useLocaleStore((state) => state.setLocale)
   const [autoStart, setAutoStart] = useState<AutoStartState>({
     enabled: false,
     supported: true
@@ -384,15 +384,7 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
                   <div className="settings-row-title">{t('settings.language')}</div>
                   <div className="settings-row-desc">{t('settings.languageDesc')}</div>
                 </div>
-                <select
-                  className="settings-language-select"
-                  aria-label={t('settings.language')}
-                  value={locale}
-                  onChange={(event) => setLocale(event.target.value === 'en' ? 'en' : 'zh-CN')}
-                >
-                  <option value="zh-CN">{t('settings.languageZh')}</option>
-                  <option value="en">{t('settings.languageEn')}</option>
-                </select>
+                <LanguageSelect />
               </div>
             </div>
 
