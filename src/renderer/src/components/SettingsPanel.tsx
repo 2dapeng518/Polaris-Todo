@@ -35,9 +35,11 @@ function updateStatusText(state: UpdateState | null): string {
 type SettingsPanelProps = {
   open: boolean
   onClose: () => void
+  /** 侧栏存储卡片进来时直达备份区；普通入口为 null，停在顶部。 */
+  scrollTo?: 'backup' | null
 }
 
-export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
+export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelProps) {
   const [autoStart, setAutoStart] = useState<AutoStartState>({
     enabled: false,
     supported: true
@@ -78,6 +80,17 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
   useEffect(() => {
     if (open && paletteOpen) onClose()
   }, [open, paletteOpen, onClose])
+
+  // 直达备份区：等入场弹簧落定再滚，滚动发生在面板自己的 overflow 容器里。
+  useEffect(() => {
+    if (!open || scrollTo !== 'backup') return
+    const timer = setTimeout(() => {
+      panelRef.current
+        ?.querySelector('.backup-actions')
+        ?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+    }, 350)
+    return () => clearTimeout(timer)
+  }, [open, scrollTo])
 
   useEffect(() => {
     if (!open) return
@@ -515,8 +528,6 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
                   检查更新
                 </button>
               )}
-              {' · '}
-              数据仅保存在本机
             </div>
             {update &&
               (updateAsked ||

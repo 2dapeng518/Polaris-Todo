@@ -40,6 +40,8 @@ export function Sidebar() {
   const [projectName, setProjectName] = useState('')
   const [projectColor, setProjectColor] = useState(PROJECT_COLORS[0])
   const [settingsOpen, setSettingsOpen] = useState(false)
+  // 侧栏存储卡片进来时直达备份区；普通「设置」入口不滚动。
+  const [settingsScrollTarget, setSettingsScrollTarget] = useState<'backup' | null>(null)
   const [editingProject, setEditingProject] = useState<Project | null>(null)
   const [editName, setEditName] = useState('')
   const [editColor, setEditColor] = useState(PROJECT_COLORS[0])
@@ -342,13 +344,23 @@ export function Sidebar() {
 
       <div className="sidebar-spacer" />
 
-      <div className="sidebar-storage">
+      {/* 信任状 + 出口：承诺任务数据不出本机，点一下直达备份，随时能带走。
+          主语是「任务数据」不是「应用」——更新检查会联网，措辞必须精确。 */}
+      <button
+        className="sidebar-storage"
+        title="打开数据备份"
+        aria-haspopup="dialog"
+        onClick={() => {
+          setSettingsScrollTarget('backup')
+          setSettingsOpen(true)
+        }}
+      >
         <HardDrive size={16} strokeWidth={1.8} className="storage-icon" aria-hidden="true" />
         <div>
-          <div className="storage-title">数据仅保存在本机</div>
-          <div className="storage-subtitle">自动保存</div>
+          <div className="storage-title">任务数据仅存本机</div>
+          <div className="storage-subtitle">自动保存 · 点击备份</div>
         </div>
-      </div>
+      </button>
 
       <button
         className="nav-item settings-item"
@@ -361,7 +373,14 @@ export function Sidebar() {
         <span className="nav-text">设置</span>
       </button>
 
-      <SettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      <SettingsPanel
+        open={settingsOpen}
+        scrollTo={settingsScrollTarget}
+        onClose={() => {
+          setSettingsOpen(false)
+          setSettingsScrollTarget(null)
+        }}
+      />
 
       <AnimatePresence>
         {deletingProject && (

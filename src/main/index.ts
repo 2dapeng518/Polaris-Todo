@@ -4217,6 +4217,50 @@ async function runSmokeTest(): Promise<void> {
         return ok;
       })()`)) === true
 
+    // 存储卡片：信任状措辞精确到「任务数据」、点击直达备份区、页脚不再重复。
+    // 故意压矮窗口制造面板溢出，让「滚动到位」成为真断言而非恒真。
+    let storageCardWorks = false
+    if (mainWindow) {
+      const originalSize = mainWindow.getSize()
+      mainWindow.setSize(1280, 620)
+      await settledFrames(mainWindow.webContents)
+      const cardResult = await mainWindow.webContents.executeJavaScript(`(async () => {
+        ${pageHelpers}
+        const card = document.querySelector('.sidebar-storage');
+        if (!card) return { found: false };
+        const wording = card.textContent.includes('任务数据仅存本机');
+        card.click();
+        const panel = await waitFor(() => document.querySelector('.settings-panel'));
+        if (!panel) return { found: true, wording, opened: false };
+        await sleep(900);
+        const backup = panel.querySelector('.backup-actions');
+        const pr = panel.getBoundingClientRect();
+        const br = backup ? backup.getBoundingClientRect() : null;
+        const scrolled = br ? br.top >= pr.top && br.bottom <= pr.bottom + 1 : false;
+        const footerDup = panel.querySelector('.settings-footer').textContent.includes('数据仅保存在本机');
+        document.querySelector('.settings-panel .detail-close')?.click();
+        // 等旧面板退场动画走完再重开，否则量到的是还挂在 DOM 里的旧节点。
+        await waitFor(() => !document.querySelector('.settings-panel'));
+        document.querySelector('.settings-item').click();
+        const panel2 = await waitFor(() => document.querySelector('.settings-panel'));
+        await sleep(450);
+        const topOnNormal = panel2 ? panel2.scrollTop <= 2 : false;
+        document.querySelector('.settings-panel .detail-close')?.click();
+        await sleep(250);
+        return { found: true, wording, opened: true, scrolled, footerDup, topOnNormal };
+      })()`)
+      storageCardWorks =
+        cardResult?.found === true &&
+        cardResult?.wording === true &&
+        cardResult?.opened === true &&
+        cardResult?.scrolled === true &&
+        cardResult?.footerDup === false &&
+        cardResult?.topOnNormal === true
+      if (!storageCardWorks) console.error('STORAGE_CARD_FAIL', JSON.stringify(cardResult))
+      mainWindow.setSize(originalSize[0], originalSize[1])
+      await settledFrames(mainWindow.webContents)
+    }
+
     // 默认窗口（1280×840）下设置面板应一屏放下、无上下滚动：紧凑化后的回归守卫。
     let settingsFitsDefault = false
     if (mainWindow) {
@@ -4753,6 +4797,7 @@ async function runSmokeTest(): Promise<void> {
       atomicWriteWorks: atomicWriteWorks === true,
       scalingFrameWorks: scalingFrameWorks === true,
       aboutCreditsShown: aboutCreditsShown === true,
+      storageCardWorks: storageCardWorks === true,
       settingsFitsDefault: settingsFitsDefault === true,
       trayToggleWorks: trayToggleWorks === true,
       hotkeyDefaultOn: hotkeyDefaultOn === true,
@@ -4826,6 +4871,7 @@ async function runSmokeTest(): Promise<void> {
           atomicWriteWorks,
           scalingFrameWorks,
           aboutCreditsShown,
+          storageCardWorks,
           settingsFitsDefault,
           trayToggleWorks,
           hotkeyDefaultOn,
