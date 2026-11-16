@@ -3121,6 +3121,114 @@ async function runSmokeTest(): Promise<void> {
         return allEmpty && allCta && completedEmpty && completedCta && navigated;
       })()`)) === true
 
+    // 统计视图入口：命令面板直达「统计」，空库时先给空态（完成记录为 0）。
+    const statsViewOpens =
+      (await mainWindow?.webContents.executeJavaScript(`(async () => {
+        ${pageHelpers}
+        const navStats = [...document.querySelectorAll('.nav-item')].find((el) => el.textContent.includes('统计'));
+        if (!navStats) return false;
+        document.querySelector('.search-trigger').click();
+        if (!(await waitFor(() => document.querySelector('.command-input')))) return false;
+        const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+        setter.call(document.querySelector('.command-input'), '统计');
+        document.querySelector('.command-input').dispatchEvent(new Event('input', { bubbles: true }));
+        const item = await waitFor(() => document.querySelector('.command-item'));
+        if (!item || !item.textContent.includes('统计')) return false;
+        item.click();
+        const titled = await waitFor(() => document.querySelector('.view-title')?.textContent?.trim() === '统计');
+        const empty = document.querySelector('.empty-title')?.textContent === '还没有完成记录';
+        const cta = document.querySelector('.empty-cta')?.textContent === '查看今天';
+        return Boolean(titled) && empty && cta;
+      })()`)) === true
+
+    // 迁移 4 之前完成的任务 completedAt 为 NULL：用备份导入造一条真实的历史行，
+    // 它只能进累计与项目分布，不能进今日/趋势/按时率。
+    const statsLegacyAt = new Date().toISOString()
+    importBackup({
+      projects: [],
+      tasks: [
+        {
+          id: randomUUID(),
+          title: '冒烟统计 早期',
+          notes: '',
+          completed: true,
+          completedAt: null,
+          dueAt: null,
+          remindAt: null,
+          remindedAt: null,
+          recurrenceRule: null,
+          projectId: null,
+          priority: 0,
+          createdAt: statsLegacyAt,
+          updatedAt: statsLegacyAt,
+          deletedAt: null
+        }
+      ]
+    })
+
+    // 统计数字：4 条今日完成（按时/逾期各 1、无截止 2）+ 1 条无时刻的历史行。
+    // 期望值全部写字面量：今天 4 / 本周 4 / 累计 5 / 按时 50% / 项目 2·40% / 无项目 3·60%。
+    const statsResult =
+      (await mainWindow?.webContents.executeJavaScript(`(async () => {
+        ${pageHelpers}
+        const project = await window.polaris.projects.create({ name: '冒烟统计项目', color: '#5EEAD4' });
+        const now = Date.now();
+        const addDone = async (title, offset, projectId) => {
+          const task = await window.polaris.tasks.create({
+            title,
+            dueAt: offset === null ? null : new Date(now + offset).toISOString(),
+            projectId
+          });
+          await window.polaris.tasks.update({ id: task.id, completed: true });
+        };
+        let firstPass = false;
+        let thirty = false;
+        let backSeven = false;
+        try {
+          await addDone('冒烟统计 按时', 3600000, project.id);
+          await addDone('冒烟统计 逾期', -3600000, project.id);
+          await addDone('冒烟统计 无截止甲', null, null);
+          await addDone('冒烟统计 无截止乙', null, null);
+          window.dispatchEvent(new Event('focus'));
+          const kpi = (name) => document.querySelector('.stats-kpi[data-stat="' + name + '"] .stats-kpi-value')?.textContent?.trim();
+          const ready = await waitFor(() => kpi('total') === '5');
+          const rows = [...document.querySelectorAll('.stats-dist-row')];
+          const projectRow = rows.find((el) => el.dataset.dist === project.id);
+          const noneRow = rows.find((el) => el.dataset.dist === 'none');
+          firstPass =
+            Boolean(ready) &&
+            kpi('today') === '4' &&
+            kpi('week') === '4' &&
+            kpi('total') === '5' &&
+            kpi('ontime') === '50%' &&
+            projectRow?.querySelector('.stats-dist-count')?.textContent?.trim() === '2 · 40%' &&
+            noneRow?.querySelector('.stats-dist-count')?.textContent?.trim() === '3 · 60%' &&
+            document.querySelector('.stats-note')?.textContent.includes('共 1 项') === true &&
+            document.querySelectorAll('.stats-chart[data-range="7"] .stats-bar-col').length === 7 &&
+            document.querySelector('.stats-chart .stats-bar-col:last-child .stats-bar')?.dataset.count === '4' &&
+            !document.querySelector('.quick-add')
+          const rangeButton = (label) => [...document.querySelectorAll('.stats-range button')].find((b) => b.textContent.startsWith(label));
+          rangeButton('30').click();
+          thirty =
+            (await waitFor(() => document.querySelectorAll('.stats-chart[data-range="30"] .stats-bar-col').length === 30)) &&
+            document.querySelectorAll('.stats-chart-axis[data-range="30"] span').length === 30
+          rangeButton('7').click();
+          backSeven = await waitFor(() => document.querySelectorAll('.stats-chart[data-range="7"] .stats-bar-col').length === 7)
+        } finally {
+          for (const t of (await window.polaris.tasks.list()).filter((task) => task.title.startsWith('冒烟统计'))) {
+            await window.polaris.tasks.remove(t.id);
+          }
+          for (const t of (await window.polaris.tasks.listDeleted()).filter((task) => task.title.startsWith('冒烟统计'))) {
+            await window.polaris.tasks.deleteForever(t.id);
+          }
+          await window.polaris.projects.remove(project.id);
+          window.dispatchEvent(new Event('focus'));
+        }
+        return { firstPass, thirty, backSeven };
+      })()`)) as { firstPass: boolean; thirty: boolean; backSeven: boolean } | null
+    const statsNumbersCorrect = statsResult?.firstPass === true
+    const statsRangeToggle = statsResult?.thirty === true && statsResult?.backSeven === true
+
     // 项目管理闭环：UI 改名 → 任务仍映射；UI 删除（确认弹窗）→ 任务归「无项目」（外键 SET NULL）。
     const projectManageWorks =
       (await mainWindow?.webContents.executeJavaScript(`(async () => {
@@ -3523,6 +3631,9 @@ async function runSmokeTest(): Promise<void> {
       reminderSurfaceTested: reminderSurfaceTested === true,
       paletteEscWorks: paletteEscWorks === true,
       emptyStateWorks: emptyStateWorks === true,
+      statsViewOpens: statsViewOpens === true,
+      statsNumbersCorrect: statsNumbersCorrect === true,
+      statsRangeToggle: statsRangeToggle === true,
       projectManageWorks: projectManageWorks === true,
       completedAtShown: completedAtShown === true,
       reminderSnoozeWorks: reminderSnoozeWorks === true,
@@ -3573,6 +3684,9 @@ async function runSmokeTest(): Promise<void> {
           recurrenceClampTable: recurrenceOk,
           paletteEscWorks,
           emptyStateWorks,
+          statsViewOpens,
+          statsNumbersCorrect,
+          statsRangeToggle,
           projectManageWorks,
           completedAtShown,
           reminderSnoozeWorks,

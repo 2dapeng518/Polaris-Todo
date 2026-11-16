@@ -4166,6 +4166,239 @@ textarea {
   color: var(--danger);
 }
 
+/* ---------- stats ---------- */
+
+.stats-view {
+  display: grid;
+  gap: 18px;
+  padding-bottom: 8px;
+}
+
+.stats-kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+}
+
+.stats-kpi {
+  display: grid;
+  align-content: start;
+  gap: 4px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface-1);
+}
+
+.stats-kpi-label {
+  color: var(--text-tertiary);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.stats-kpi-value {
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 26px;
+  font-weight: 500;
+  line-height: 1.15;
+  font-variant-numeric: tabular-nums;
+}
+
+.stats-kpi-hint {
+  color: var(--text-tertiary);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.stats-panel {
+  padding: 14px 16px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface-1);
+}
+
+.stats-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+/* 面板标题沿用 .section-label，但面板自己已有内边距。 */
+.stats-panel-head .section-label {
+  margin-bottom: 0;
+  padding: 0;
+}
+
+.stats-range {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface-2);
+}
+
+.stats-range button {
+  height: 24px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-tertiary);
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    background 0.18s var(--ease-out),
+    color 0.18s var(--ease-out);
+}
+
+.stats-range button:hover {
+  color: var(--text-secondary);
+}
+
+.stats-range button.active {
+  background: rgba(var(--accent-rgb), 0.14);
+  color: var(--accent);
+}
+
+.stats-chart {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  align-items: end;
+  gap: 6px;
+  height: 168px;
+  padding: 10px 2px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.stats-chart[data-range='30'] {
+  grid-template-columns: repeat(30, 1fr);
+  gap: 2px;
+}
+
+.stats-bar-col {
+  display: flex;
+  align-items: flex-end;
+  height: 100%;
+  border-radius: 4px;
+}
+
+.stats-bar-col:hover {
+  background: var(--hover);
+}
+
+.stats-bar {
+  width: 100%;
+  min-height: 3px;
+  border-radius: 4px 4px 2px 2px;
+  /* 实心 accent：品牌渐变只属于四角星与空态，图表柱用信号色本身。 */
+  background: var(--accent);
+  transition: height 0.32s var(--ease-out);
+}
+
+/* 零值也留 3px 基线：有空档和「这一天没有数据」是两回事。 */
+.stats-bar.is-zero {
+  background: var(--line-strong);
+}
+
+.stats-chart-axis {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+  padding: 6px 2px 0;
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-align: center;
+}
+
+.stats-chart-axis[data-range='30'] {
+  grid-template-columns: repeat(30, 1fr);
+  gap: 2px;
+}
+
+.stats-chart-axis span {
+  white-space: nowrap;
+}
+
+.stats-note {
+  margin-top: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text-tertiary);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.stats-dist {
+  display: grid;
+  gap: 10px;
+}
+
+.stats-dist-row {
+  display: grid;
+  grid-template-columns: minmax(84px, 132px) 1fr auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.stats-dist-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.stats-dist-name > span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stats-dist-dot {
+  flex-shrink: 0;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+
+.stats-dist-dot.is-muted {
+  background: var(--text-tertiary);
+}
+
+.stats-dist-track {
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--line);
+}
+
+.stats-dist-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+  transition: width 0.32s var(--ease-out);
+}
+
+.stats-dist-count {
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
 /* ---------- responsive ---------- */
 
 @media (max-width: 1100px) {

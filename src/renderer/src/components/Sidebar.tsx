@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { CalendarDays, CheckCircle2, HardDrive, ListTodo, Pencil, Plus, Settings2, Sun, Trash2 } from './Icon'
+import { BarChart3, CalendarDays, CheckCircle2, HardDrive, ListTodo, Pencil, Plus, Settings2, Sun, Trash2 } from './Icon'
 import { AnimatePresence, motion } from 'motion/react'
 import type { AppView, Project } from '@shared/types'
 import { useTaskStore } from '../stores/useTaskStore'
@@ -12,6 +12,7 @@ const NAV_ITEMS: Array<{ view: AppView; label: string; icon: typeof Sun }> = [
   { view: 'upcoming', label: '即将到来', icon: CalendarDays },
   { view: 'all', label: '全部任务', icon: ListTodo },
   { view: 'completed', label: '已完成', icon: CheckCircle2 },
+  { view: 'stats', label: '统计', icon: BarChart3 },
   { view: 'trash', label: '回收站', icon: Trash2 }
 ]
 
@@ -50,6 +51,7 @@ export function Sidebar() {
     upcoming: activeTasks.filter((task) => isUpcoming(task.dueAt)).length,
     all: activeTasks.length,
     completed: tasks.filter((task) => task.completed).length,
+    stats: tasks.filter((task) => task.completed).length,
     trash: trashedTasks.length
   }
 
@@ -128,7 +130,8 @@ export function Sidebar() {
               )}
               <Icon size={16} strokeWidth={1.8} className="nav-icon" aria-hidden="true" />
               <span className="nav-text">{item.label}</span>
-              <span className="nav-count">{counts[item.view]}</span>
+              {/* 统计不是任务列表：它的数字和「已完成」相同，并排显示两个一样的角标只会让人以为重复了。 */}
+              {item.view !== 'stats' && <span className="nav-count">{counts[item.view]}</span>}
             </button>
           )
         })}

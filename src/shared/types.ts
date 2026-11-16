@@ -82,7 +82,7 @@ export type ImportResult = {
   error?: string
 }
 
-export type AppView = 'today' | 'upcoming' | 'all' | 'completed' | 'trash'
+export type AppView = 'today' | 'upcoming' | 'all' | 'completed' | 'stats' | 'trash'
 
 import type { AppTheme } from './themes'
 
