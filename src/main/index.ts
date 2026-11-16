@@ -742,7 +742,12 @@ async function captureDemo(mode: string): Promise<void> {
 // Pure-function half of the quick-add checks. Expectations are written as
 // literals, never recomputed through the parser — that would be testing the
 // implementation against itself.
-function runParseAssertions(): { grammar: boolean; invariants: boolean; format: boolean } {
+function runParseAssertions(): {
+  grammar: boolean
+  invariants: boolean
+  format: boolean
+  english: boolean
+} {
   const now = new Date(2026, 10, 12, 10, 30, 0)
   const projects = [
     { id: 'p1', name: '工作' },
@@ -860,7 +865,6 @@ function runParseAssertions(): { grammar: boolean; invariants: boolean; format: 
     ['报销 上周三', '报销 上周三', null, null],
     ['3天后交方案', '3天后交方案', null, null],
     ['周末大扫除', '周末大扫除', null, null],
-    ['tomorrow 3pm', 'tomorrow 3pm', null, null],
     ['把下周三的报告提前', '把下周三的报告提前', null, null],
     ['梳理本周的任务清单', '梳理本周的任务清单', null, null],
     ['预约周五的牙医', '预约周五的牙医', null, null],
@@ -1111,7 +1115,117 @@ function runParseAssertions(): { grammar: boolean; invariants: boolean; format: 
   const released = pruneDismissed('交报告', new Map([['relative|明天', 1]]))
   if (released.size !== 0) formatOk = false
 
-  return { grammar, invariants, format: formatOk }
+  // ---- 英文自然语言解析 ----
+  // 固定时钟同上（2026-11-12 周四 10:30）。[input, title, localDue, priority, timeExplicit]
+  // 期望全部写成字面量，绝不经被测函数回算。
+  const enTable: Array<[string, string, string | null, number, boolean]> = [
+    ['Call mom tomorrow 3pm', 'Call mom', '2026-11-13 15:00', 0, true],
+    ['tomorrow 3pm', '', '2026-11-13 15:00', 0, true],
+    ['tomorrow', '', '2026-11-13 23:59', 0, false],
+    ['today', '', '2026-11-12 23:59', 0, false],
+    ['day after tomorrow report', 'report', '2026-11-14 23:59', 0, false],
+    ['standup tmr', 'standup', '2026-11-13 23:59', 0, false],
+    ['tonight', '', '2026-11-12 20:00', 0, true],
+    ['tonight 8pm', '', '2026-11-12 20:00', 0, true],
+    ['standup friday', 'standup', '2026-11-13 23:59', 0, false],
+    ['Monday review', 'review', '2026-11-16 23:59', 0, false],
+    ['next friday demo', 'demo', '2026-11-20 23:59', 0, false],
+    ['this friday demo', 'demo', '2026-11-13 23:59', 0, false],
+    ['this monday demo', 'this monday demo', null, 0, false],
+    ['on friday demo', 'demo', '2026-11-13 23:59', 0, false],
+    ['gym sat 10am', 'gym', '2026-11-14 10:00', 0, true],
+    ['gym sat', 'gym', '2026-11-14 23:59', 0, false],
+    ['call 3pm', 'call', '2026-11-12 15:00', 0, true],
+    ['call 3:30pm', 'call', '2026-11-12 15:30', 0, true],
+    ['call 3 pm', 'call', '2026-11-12 15:00', 0, true],
+    ['call at 3', 'call', '2026-11-12 15:00', 0, true],
+    ['call at 15', 'call', '2026-11-12 15:00', 0, true],
+    ['lunch noon', 'lunch', '2026-11-12 12:00', 0, true],
+    ['sleep midnight', 'sleep', '2026-11-13 00:00', 0, true],
+    ['run morning', 'run', '2026-11-13 09:00', 0, true],
+    ['call afternoon', 'call', '2026-11-12 15:00', 0, true],
+    ['dinner evening', 'dinner', '2026-11-12 20:00', 0, true],
+    ['pay in 2 hours', 'pay', '2026-11-12 12:30', 0, true],
+    ['pay in 30 minutes', 'pay', '2026-11-12 11:00', 0, true],
+    ['pay in 3 days', 'pay', '2026-11-15 10:30', 0, true],
+    ['pay in 2 weeks', 'pay', '2026-11-26 10:30', 0, true],
+    ['party dec 25', 'party', '2026-12-25 23:59', 0, false],
+    ['party december 25', 'party', '2026-12-25 23:59', 0, false],
+    ['party 25 dec', 'party', '2026-12-25 23:59', 0, false],
+    ['party 12/25', 'party', '2026-12-25 23:59', 0, false],
+    ['jan 5 report', 'report', '2027-01-05 23:59', 0, false],
+    ['report dec 25 2026', 'report', '2026-12-25 23:59', 0, false],
+    ['写周报 !high', '写周报', null, 3, false],
+    ['fix !med', 'fix', null, 2, false],
+    ['fix !medium', 'fix', null, 2, false],
+    ['fix !low', 'fix', null, 1, false],
+    ['明天 3pm 开会', '开会', '2026-11-13 15:00', 0, true]
+  ]
+  let english = true
+  for (const [input, wantTitle, wantDue, wantPriority, wantExplicit] of enTable) {
+    const result = parseQuickAdd(input, ctx)
+    const got = [result.title, local(result.dueAt), result.priority, result.timeExplicit]
+    if (
+      got[0] !== wantTitle ||
+      got[1] !== wantDue ||
+      got[2] !== wantPriority ||
+      got[3] !== wantExplicit
+    ) {
+      english = false
+      console.error(
+        'PARSE_EN_FAIL',
+        JSON.stringify({ input, got, want: [wantTitle, wantDue, wantPriority, wantExplicit] })
+      )
+    }
+  }
+
+  // 误报反例：整串原样留下、无 due、无优先级、无 token。
+  const enNegatives = [
+    'May the force be with you',
+    'sat down and read',
+    'Sun Microsystems report',
+    'march forward',
+    'April is nice',
+    'join 2 hours of calls',
+    'call mom on friday please',
+    'we sat together',
+    'SAT scores',
+    'good morning team',
+    'good evening all',
+    'Mon ami',
+    'Sun Tzu'
+  ]
+  for (const input of enNegatives) {
+    const result = parseQuickAdd(input, ctx)
+    if (
+      result.title !== input ||
+      result.dueAt !== null ||
+      result.priority !== 0 ||
+      result.tokens.length !== 0
+    ) {
+      english = false
+      console.error(
+        'PARSE_EN_NEGATIVE_FAIL',
+        JSON.stringify({
+          input,
+          got: [result.title, local(result.dueAt), result.priority, result.tokens.length]
+        })
+      )
+    }
+  }
+
+  // 取消 chip 与中文同一套机制：tomorrow 不再消费，只剩 3pm。
+  const enDismissed = parseQuickAdd('Call mom tomorrow 3pm', dismissCtx(['relative|tomorrow']))
+  if (
+    enDismissed.title !== 'Call mom tomorrow' ||
+    local(enDismissed.dueAt) !== '2026-11-12 15:00' ||
+    enDismissed.chips.length !== 1
+  ) {
+    english = false
+    console.error('PARSE_EN_DISMISS_FAIL', JSON.stringify([enDismissed.title, local(enDismissed.dueAt)]))
+  }
+
+  return { grammar, invariants, format: formatOk, english }
 }
 
 // 保留期边界用字面量期望钉死：isPurgeable 是自动清理的唯一权威，db 层逐行
@@ -1959,6 +2073,29 @@ async function runSmokeTest(): Promise<void> {
       [...document.querySelectorAll('.nav-item')].find((el) => el.textContent.includes('今天')).click();
       await sleep(400);
 
+      // (q) 英文自然语言与界面语言无关：中文界面下同样出 chip、同样剥离、同样提交
+      const enQuick = document.querySelector('.quick-add input');
+      const enExpectedDue = new Date(2026, 10, 13, 15, 0).toISOString();
+      const enInput = '冒烟解析英文 Call mom tomorrow 3pm';
+      setInput(enQuick, enInput);
+      await waitFor(() => chipCount() === 1);
+      await sleep(320);
+      const languageParseEnChip =
+        document.querySelector('.qa-chip')?.textContent?.trim() === '明天 15:00' && noticeCount() === 0;
+
+      // 取消识别：整块时间 chip 一起失效，原文一字不动（与中文取消语义一致）
+      clickWith(document.querySelector('.qa-chip'), 0);
+      await waitFor(() => chipCount() === 0);
+      const languageParseEnDismiss = enQuick.value === enInput;
+      clickWith(document.querySelector('.qa-toggle'), 0);
+      await waitFor(() => chipCount() === 1);
+      await sleep(320);
+
+      enter(enQuick);
+      await sleep(700);
+      const enTask = (await window.polaris.tasks.list()).find((t) => t.title === '冒烟解析英文 Call mom');
+      const languageParseEnWorks = Boolean(enTask) && enTask.dueAt === enExpectedDue;
+
       // ---------- in-app date/time picker ----------
       const pickerSeed = new Date();
       pickerSeed.setHours(18, 0, 0, 0);
@@ -2314,6 +2451,9 @@ async function runSmokeTest(): Promise<void> {
         parseLastChipFocus,
         parseDraftSurvives,
         parseReceiptNamesProject,
+        languageParseEnChip,
+        languageParseEnDismiss,
+        languageParseEnWorks,
         pickerNoNativeInput,
         pickerGridShape,
         pickerFitsBudget,
@@ -5071,6 +5211,9 @@ async function runSmokeTest(): Promise<void> {
       parseLastChipFocus: result.parseLastChipFocus === true,
       parseDraftSurvives: result.parseDraftSurvives === true,
       parseReceiptNamesProject: result.parseReceiptNamesProject === true,
+      languageParseEnChip: result.languageParseEnChip === true,
+      languageParseEnDismiss: result.languageParseEnDismiss === true,
+      languageParseEnWorks: result.languageParseEnWorks === true,
       pickerNoNativeInput: result.pickerNoNativeInput === true,
       pickerGridShape: result.pickerGridShape === true,
       pickerFitsBudget: result.pickerFitsBudget === true,
@@ -5118,6 +5261,7 @@ async function runSmokeTest(): Promise<void> {
       mcpWorks,
       recurrenceClampTable: recurrenceOk === true,
       parseGrammarTable: parseAssertions.grammar === true,
+      parseGrammarEnTable: parseAssertions.english === true,
       parseInvariants: parseAssertions.invariants === true,
       parseFormatNull: parseAssertions.format === true,
       parseLayoutNarrow: parseLayoutNarrow === true,
@@ -5255,6 +5399,7 @@ async function runSmokeTest(): Promise<void> {
           parseGrammarTable: parseAssertions.grammar,
           parseInvariants: parseAssertions.invariants,
           parseFormatNull: parseAssertions.format,
+          parseGrammarEnTableJson: parseAssertions.english,
           parseLayoutNarrow,
           parseLayoutWide,
           reminderSurfaceTested
