@@ -16,8 +16,11 @@ import {
   exportBackup,
   getMeta,
   importBackup,
+  importCsvText,
   initDatabase,
+  listProjects,
   listSubtasks,
+  listTags,
   listTasks,
   purgeExpiredDeleted,
   setMeta,
@@ -25,6 +28,7 @@ import {
   updateTask
 } from './db'
 import { registerIpc, registerTaskCreate } from './ipc'
+import { parseCsvImport } from '../shared/csvImport'
 import {
   disposeGlobalHotkey,
   getGlobalHotkeyState,
@@ -1223,6 +1227,115 @@ function resetTaskIpc(): void {
   registerIpc()
 }
 
+// CSV 搬家：纯函数真值表（两种格式签名、引号/转义/BOM/CRLF、indent 子任务、
+// 优先级映射、重复描述不猜截止、删除/分区/笔记行跳过）+ 真实落库往返。
+function runCsvImportAssertions(): { table: boolean; roundTrip: boolean } {
+  const standardCsv = [
+    'TYPE,CONTENT,DESCRIPTION,PRIORITY,INDENT,DATE,IS_DELETED,IS_ARCHIVED,PROJECT_NAME',
+    'task,"冒烟CSV甲,带逗号","备注甲",4,0,2026-11-20,false,false,冒烟CSV项目',
+    'task,冒烟CSV子步骤,,1,1,,false,false,',
+    'section,冒烟CSV分区,,1,0,,false,false,',
+    'task,冒烟CSV已删,,1,0,,true,false,',
+    'task,冒烟CSV乙,,2,0,every day,false,false,',
+    'note,冒烟CSV笔记,,1,0,,false,false,'
+  ].join('\r\n')
+  const didaCsv = '\uFEFF任务名称,任务内容,清单名称,标签,优先级,截止日期,完成状态\r\n' +
+    '冒烟CSV丙,备注丙,冒烟CSV清单,"工作,紧急",高,2026-11-21 15:00,未完成\r\n' +
+    '冒烟CSV丁,,,,低,,已完成\r\n' +
+    ',空标题跳过,,,,,\r\n'
+
+  let table = false
+  try {
+    const t = parseCsvImport(standardCsv)
+    const d = parseCsvImport(didaCsv)
+    const bad = parseCsvImport('a,b\r\n1,2\r\n')
+    const empty = parseCsvImport('')
+    const expectedDue = new Date(2026, 10, 20, 23, 59, 0).toISOString()
+    const expectedDidaDue = new Date(2026, 10, 21, 15, 0, 0).toISOString()
+    table =
+      t.ok && t.format === 'standard' &&
+      t.tasks.length === 2 && t.skipped === 3 &&
+      t.tasks[0].title === '冒烟CSV甲,带逗号' &&
+      t.tasks[0].notes === '备注甲' &&
+      t.tasks[0].priority === 3 &&
+      t.tasks[0].dueAt === expectedDue &&
+      t.tasks[0].projectName === '冒烟CSV项目' &&
+      t.tasks[0].subtasks.join('|') === '冒烟CSV子步骤' &&
+      t.tasks[1].title === '冒烟CSV乙' &&
+      t.tasks[1].priority === 1 &&
+      t.tasks[1].dueAt === null &&
+      d.ok && d.format === 'legacy' &&
+      d.tasks.length === 2 && d.skipped === 1 &&
+      d.tasks[0].priority === 3 &&
+      d.tasks[0].dueAt === expectedDidaDue &&
+      d.tasks[0].tags.join('|') === '工作|紧急' &&
+      d.tasks[0].projectName === '冒烟CSV清单' &&
+      d.tasks[1].completed === true && d.tasks[1].priority === 1 &&
+      !bad.ok && !empty.ok
+    if (!table) console.error('CSV_TABLE_FAIL', JSON.stringify({ t, d, bad: bad.error, empty: empty.error }))
+  } catch (error) {
+    console.error('CSV_TABLE_ERROR', error)
+  }
+
+  let roundTrip = false
+  const fixtureTaskIds: string[] = []
+  const fixtureProjectIds: string[] = []
+  const fixtureTagIds: string[] = []
+  try {
+    const result = importCsvText(standardCsv)
+    const tasks = listTasks().filter((task) => task.title.startsWith('冒烟CSV'))
+    for (const task of tasks) fixtureTaskIds.push(task.id)
+    const parent = tasks.find((task) => task.title === '冒烟CSV甲,带逗号')
+    const project = listProjects().find((item) => item.name === '冒烟CSV项目')
+    if (project) fixtureProjectIds.push(project.id)
+    roundTrip =
+      result.ok === true &&
+      result.tasksImported === 2 &&
+      result.tasksSkipped === 3 &&
+      result.projectsImported === 1 &&
+      result.subtasksImported === 1 &&
+      parent?.priority === 3 &&
+      parent?.subtaskTotal === 1 &&
+      parent?.projectId === project?.id &&
+      listSubtasks(parent?.id ?? '').length === 1
+
+    const didaResult = importCsvText(didaCsv)
+    const didaTasks = listTasks().filter(
+      (task) => task.title === '冒烟CSV丙' || task.title === '冒烟CSV丁'
+    )
+    for (const task of didaTasks) fixtureTaskIds.push(task.id)
+    const bing = didaTasks.find((task) => task.title === '冒烟CSV丙')
+    const ding = didaTasks.find((task) => task.title === '冒烟CSV丁')
+    for (const tag of listTags().filter((item) => item.name === '工作' || item.name === '紧急')) {
+      fixtureTagIds.push(tag.id)
+    }
+    const didaProject = listProjects().find((item) => item.name === '冒烟CSV清单')
+    if (didaProject) fixtureProjectIds.push(didaProject.id)
+    roundTrip =
+      roundTrip &&
+      didaResult.ok === true &&
+      didaResult.tasksImported === 2 &&
+      didaResult.tagsImported === 2 &&
+      bing?.tags.some((item) => item.name === '工作') === true &&
+      bing?.tags.some((item) => item.name === '紧急') === true &&
+      ding?.completed === true &&
+      ding?.completedAt === null
+    if (!roundTrip) {
+      console.error('CSV_ROUNDTRIP_FAIL', JSON.stringify({ result, didaResult, parent, bing, ding }))
+    }
+  } catch (error) {
+    console.error('CSV_ROUNDTRIP_ERROR', error)
+  } finally {
+    for (const id of fixtureTaskIds) {
+      deleteTask(id)
+      deleteTaskForever(id)
+    }
+    for (const id of fixtureProjectIds) deleteProject(id)
+    for (const id of fixtureTagIds) deleteTag(id)
+  }
+  return { table, roundTrip }
+}
+
 async function runSmokeTest(): Promise<void> {
   if (!mainWindow) {
     app.exit(1)
@@ -2215,6 +2328,7 @@ async function runSmokeTest(): Promise<void> {
 
     const parseAssertions = runParseAssertions()
     const retentionOk = runRetentionAssertions()
+    const csvAssertions = runCsvImportAssertions()
     const recurrenceOk = runRecurrenceAssertions()
     const customRecurrenceOk = runCustomRecurrenceAssertions()
 
@@ -4270,6 +4384,8 @@ async function runSmokeTest(): Promise<void> {
       confirmDescribedBy: confirmDescribedBy === true,
       trashFocusLands: trashFocusLands === true,
       retentionTable: retentionOk === true,
+      csvParseTable: csvAssertions.table,
+      csvRoundTrip: csvAssertions.roundTrip,
       recurrenceClampTable: recurrenceOk === true,
       parseGrammarTable: parseAssertions.grammar === true,
       parseInvariants: parseAssertions.invariants === true,
@@ -4340,6 +4456,8 @@ async function runSmokeTest(): Promise<void> {
           confirmDescribedBy,
           trashFocusLands,
           retentionTable: retentionOk,
+          csvParseTable: csvAssertions.table,
+          csvRoundTrip: csvAssertions.roundTrip,
           recurrenceClampTable: recurrenceOk,
           paletteEscWorks,
           emptyStateWorks,
@@ -4487,6 +4605,21 @@ app.whenReady().then(() => {
       symbolColor: THEME_SYMBOL_COLOR[themeFamily(theme)],
       height: 48
     })
+  })
+
+  ipcMain.handle('data:import-csv', async () => {
+    try {
+      const source = await dialog.showOpenDialog(mainWindow!, {
+        title: '导入 CSV（主流待办应用 / Csv）',
+        properties: ['openFile'],
+        filters: [{ name: 'CSV', extensions: ['csv'] }]
+      })
+      if (source.canceled || !source.filePaths[0]) return { ok: false, canceled: true }
+      const raw = await readFile(source.filePaths[0], 'utf8')
+      return importCsvText(raw)
+    } catch (error) {
+      return { ok: false, error: String(error) }
+    }
   })
 
   ipcMain.handle('reminder:dismiss', () => {

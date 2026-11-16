@@ -5,6 +5,7 @@ import { mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { nextOccurrence } from '../shared/recurrence'
 import { isPurgeable } from '../shared/retention'
+import { parseCsvImport } from '../shared/csvImport'
 import type {
   BackupTask,
   CreateSubtaskInput,
@@ -699,6 +700,79 @@ export function importBackup(data: {
   })
   run()
   return counts
+}
+
+export type CsvImportCounts = {
+  ok: boolean
+  format?: 'standard' | 'legacy'
+  tasksImported?: number
+  tasksSkipped?: number
+  projectsImported?: number
+  subtasksImported?: number
+  tagsImported?: number
+  error?: string
+}
+
+// CSV 搬家：解析 → 落库。项目与标签按名复用，任务总是新建。
+// 重复/提醒/附件不迁移（语义无法可靠对应，见 shared/csvImport.ts）。
+export function importCsvText(text: string): CsvImportCounts {
+  const parsed = parseCsvImport(text)
+  if (!parsed.ok) return { ok: false, error: parsed.error, tasksSkipped: parsed.skipped }
+  let projectsImported = 0
+  let subtasksImported = 0
+  let tagsImported = 0
+  let tasksImported = 0
+  for (const item of parsed.tasks) {
+    let projectId: string | null = null
+    if (item.projectName) {
+      const existing = listProjects().find((project) => project.name === item.projectName)
+      if (existing) {
+        projectId = existing.id
+      } else {
+        const created = createProject({ name: item.projectName, color: '#5EEAD4' })
+        projectId = created.id
+        projectsImported++
+      }
+    }
+    const task = createTask({
+      title: item.title,
+      dueAt: item.dueAt,
+      projectId,
+      priority: item.priority
+    })
+    if (item.notes) updateTask({ id: task.id, notes: item.notes })
+    if (item.completed) {
+      // 完成时刻未知：只置完成态，不盖 completed_at——盖导入时刻会污染
+      // 基于完成时刻的统计（与迁移 4 之前的老行同语义）。
+      db.prepare('UPDATE tasks SET completed = 1 WHERE id = ?').run(task.id)
+    }
+    for (const title of item.subtasks) {
+      createSubtask({ taskId: task.id, title })
+      subtasksImported++
+    }
+    if (item.tags.length > 0) {
+      const tagIds: string[] = []
+      for (const name of item.tags) {
+        let tag = listTags().find((candidate) => candidate.name === name)
+        if (!tag) {
+          tag = createTag({ name })
+          tagsImported++
+        }
+        tagIds.push(tag.id)
+      }
+      updateTask({ id: task.id, tagIds })
+    }
+    tasksImported++
+  }
+  return {
+    ok: true,
+    format: parsed.format,
+    tasksImported,
+    tasksSkipped: parsed.skipped,
+    projectsImported,
+    subtasksImported,
+    tagsImported
+  }
 }
 
 export function createTask(input: CreateTaskInput): Task {
