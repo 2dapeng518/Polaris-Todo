@@ -595,16 +595,6 @@ textarea {
   letter-spacing: 0.04em;
 }
 
-.brand-badge {
-  padding: 2px 6px;
-  border: 1px solid rgba(var(--accent-rgb), 0.22);
-  border-radius: 999px;
-  background: rgba(var(--accent-rgb), 0.06);
-  color: var(--accent);
-  font-size: 9px;
-  letter-spacing: 0.14em;
-}
-
 /* 分体式主题开关：描边与底色在胶囊上，两段各自透明，悬停只点亮所在那一段。
    整枚胶囊 no-drag —— .titlebar 是 drag 区，不写就变成拖窗口。 */
 .theme-switch {
