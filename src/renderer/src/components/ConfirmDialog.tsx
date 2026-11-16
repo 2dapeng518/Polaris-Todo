@@ -2,6 +2,7 @@ import { useEffect, useId, useRef } from 'react'
 import { motion } from 'motion/react'
 import { useTaskStore } from '../stores/useTaskStore'
 import { useFocusTrap } from '../lib/useFocusTrap'
+import { useT } from '../stores/useLocaleStore'
 
 type ConfirmDialogProps = {
   message: string
@@ -15,6 +16,7 @@ type ConfirmDialogProps = {
 // 危险按钮沿用 detail-popover-action + detail-popover-danger 的 tint 语言，
 // 全 app 没有实心危险填充，这里也不造。
 export function ConfirmDialog({ message, confirmLabel, onConfirm, onClose }: ConfirmDialogProps) {
+  const t = useT()
   const panelRef = useRef<HTMLDivElement>(null)
   const cancelRef = useRef<HTMLButtonElement>(null)
   const paletteOpen = useTaskStore((state) => state.paletteOpen)
@@ -43,7 +45,7 @@ export function ConfirmDialog({ message, confirmLabel, onConfirm, onClose }: Con
         tabIndex={-1}
         role="dialog"
         aria-modal="true"
-        aria-label="操作确认"
+        aria-label={t('dialog.confirm')}
         aria-describedby={messageId}
         initial={{ opacity: 0, y: -14, scale: 0.98 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -62,7 +64,7 @@ export function ConfirmDialog({ message, confirmLabel, onConfirm, onClose }: Con
         <p className="confirm-message" id={messageId}>{message}</p>
         <div className="confirm-actions">
           <button ref={cancelRef} className="detail-popover-action" onClick={onClose}>
-            取消
+            {t('common.cancel')}
           </button>
           <button className="detail-popover-action detail-popover-danger" onClick={onConfirm}>
             {confirmLabel}

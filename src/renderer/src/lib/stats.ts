@@ -1,3 +1,4 @@
+import { translate, type Locale } from '@shared/i18n'
 import type { Project, Task } from '@shared/types'
 
 export type StatsRange = 7 | 30
@@ -60,7 +61,8 @@ export function deriveStats(
   tasks: Task[],
   projects: Project[],
   now: Date,
-  range: StatsRange
+  range: StatsRange,
+  locale: Locale = 'zh-CN'
 ): StatsSnapshot {
   const today = startOfToday(now)
   const tomorrow = addDays(today, 1)
@@ -96,7 +98,7 @@ export function deriveStats(
     const sliceKey = project?.id ?? null
     const slice = distribution.get(sliceKey) ?? {
       id: sliceKey,
-      name: project?.name ?? '无项目',
+      name: project?.name ?? translate(locale, 'detail.noProject'),
       color: project?.color ?? null,
       count: 0
     }
@@ -129,7 +131,7 @@ export function deriveStats(
     // 同数时项目按名称，无项目压到最后，避免它抢在具体项目前面。
     if (a.id === null) return 1
     if (b.id === null) return -1
-    return a.name.localeCompare(b.name, 'zh-Hans-CN')
+    return a.name.localeCompare(b.name, locale === 'en' ? 'en' : 'zh-Hans-CN')
   })
 
   const trend = [...trendBuckets.values()]

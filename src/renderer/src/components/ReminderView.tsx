@@ -1,10 +1,13 @@
 import { useEffect, useState } from 'react'
 import { Bell, Check, Clock3, X } from './Icon'
 import { useTaskStore } from '../stores/useTaskStore'
+import { useT, useLocale } from '../stores/useLocaleStore'
 import { formatDue } from '../lib/dates'
 import { ThemeSync } from './ThemeSync'
 
 export function ReminderView({ taskId }: { taskId: string }) {
+  const t = useT()
+  const locale = useLocale()
   const tasks = useTaskStore((state) => state.tasks)
   const projects = useTaskStore((state) => state.projects)
   const loading = useTaskStore((state) => state.loading)
@@ -56,20 +59,27 @@ export function ReminderView({ taskId }: { taskId: string }) {
         <div className="reminder-header">
           <div className="reminder-eyebrow">
             <Bell size={12} strokeWidth={1.9} aria-hidden="true" />
-            <span>提醒{task?.remindAt ? ` · ${formatDue(task.remindAt)}` : ''}</span>
+            <span>
+              {t('reminder.title')}
+              {task?.remindAt ? ` · ${formatDue(task.remindAt, locale)}` : ''}
+            </span>
           </div>
-          <button className="reminder-close" onClick={dismiss} aria-label="关闭提醒">
+          <button
+            className="reminder-close"
+            onClick={dismiss}
+            aria-label={t('reminder.close')}
+          >
             <X size={14} strokeWidth={1.8} aria-hidden="true" />
           </button>
         </div>
 
         {loading ? (
-          <div className="reminder-loading">正在载入提醒…</div>
+          <div className="reminder-loading">{t('reminder.loading')}</div>
         ) : task ? (
           <>
             <div className="reminder-title">{task.title}</div>
             <div className="reminder-meta">
-              <span>{formatDue(task.dueAt)}</span>
+              <span>{formatDue(task.dueAt, locale)}</span>
               {project && (
                 <span className="meta-project">
                   <span className="meta-dot" style={{ background: project.color }} />
@@ -86,13 +96,13 @@ export function ReminderView({ taskId }: { taskId: string }) {
                       className="reminder-secondary reminder-snooze-tier"
                       onClick={() => void snooze(minutes)}
                     >
-                      {minutes} 分钟
+                      {t('reminder.minutes', { count: minutes })}
                     </button>
                   ))}
                   <button
                     className="reminder-snooze-cancel"
                     onClick={() => setSnoozeOpen(false)}
-                    aria-label="取消稍后提醒"
+                    aria-label={t('reminder.snoozeCancel')}
                   >
                     <X size={14} strokeWidth={1.8} aria-hidden="true" />
                   </button>
@@ -101,7 +111,7 @@ export function ReminderView({ taskId }: { taskId: string }) {
                 <>
                   <button className="reminder-primary" onClick={() => void complete()}>
                     <Check size={14} aria-hidden="true" />
-                    完成
+                    {t('reminder.complete')}
                   </button>
                   <button
                     className="reminder-secondary"
@@ -110,7 +120,7 @@ export function ReminderView({ taskId }: { taskId: string }) {
                     aria-expanded={snoozeOpen}
                   >
                     <Clock3 size={14} strokeWidth={1.8} aria-hidden="true" />
-                    稍后
+                    {t('reminder.snooze')}
                   </button>
                 </>
               )}
@@ -118,10 +128,10 @@ export function ReminderView({ taskId }: { taskId: string }) {
           </>
         ) : (
           <div className="reminder-empty">
-            <div className="reminder-empty-title">任务已不存在</div>
-            <div className="reminder-empty-desc">这条提醒对应的任务可能已被删除</div>
+            <div className="reminder-empty-title">{t('reminder.missing')}</div>
+            <div className="reminder-empty-desc">{t('reminder.missingDesc')}</div>
             <button className="reminder-secondary" onClick={dismiss}>
-              关闭
+              {t('reminder.closeAction')}
             </button>
           </div>
         )}

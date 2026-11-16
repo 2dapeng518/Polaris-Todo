@@ -4,12 +4,14 @@ import DOMPurify from 'dompurify'
 import { Check } from './Icon'
 import { useTaskStore } from '../stores/useTaskStore'
 import { useUpdateStore } from '../stores/useUpdateStore'
+import { useT } from '../stores/useLocaleStore'
 import { useFocusTrap } from '../lib/useFocusTrap'
 
 // 软件更新弹窗：发现新版本 → 下载进度 → 下载完成三态一体，
 // 底部「跳过此版本 / 稍后 / 立即重启」。快照全部来自主进程推送，
 // 这里只做展示与三个动作，不持有第二份进度。
 export function UpdateDialog() {
+  const t = useT()
   const open = useUpdateStore((state) => state.dialogOpen)
   const update = useUpdateStore((state) => state.state)
   const dismissDialog = useUpdateStore((state) => state.dismissDialog)
@@ -48,7 +50,7 @@ export function UpdateDialog() {
             tabIndex={-1}
             role="dialog"
             aria-modal="true"
-            aria-label="软件更新"
+            aria-label={t('dialog.update')}
             initial={{ opacity: 0, y: -14, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -10, scale: 0.98 }}
@@ -61,8 +63,8 @@ export function UpdateDialog() {
               dismissDialog()
             }}
           >
-            <div className="update-title">软件更新</div>
-            <div className="update-subtitle">发现新版本可用</div>
+            <div className="update-title">{t('dialog.update')}</div>
+            <div className="update-subtitle">{t('dialog.updateAvailable')}</div>
 
             <div className="update-versions">
               <span className="update-version-old">{update.currentVersion}</span>
@@ -72,7 +74,7 @@ export function UpdateDialog() {
 
             {update.releaseNotes && (
               <div className="update-notes">
-                <div className="update-notes-label">更新内容</div>
+                <div className="update-notes-label">{t('dialog.notes')}</div>
                 {/<[a-z][^>]*>/i.test(update.releaseNotes) ? (
                   // GitHub 渠道的说明来自 releases.atom 的 <content>，是渲染后的
                   // HTML（h2/ul/li…）。DOMPurify 消毒后按富文本展示，标签不再露出。
@@ -97,19 +99,21 @@ export function UpdateDialog() {
                 aria-valuenow={percent}
                 aria-valuemin={0}
                 aria-valuemax={100}
-                aria-label="下载进度"
+                aria-label={t('dialog.progress')}
               >
                 <div className="update-progress-track">
                   <div className="update-progress-fill" style={{ width: `${percent}%` }} />
                 </div>
-                <span className="update-progress-text">正在下载 {percent}%</span>
+                <span className="update-progress-text">
+                  {t('dialog.downloading', { percent })}
+                </span>
               </div>
             )}
 
             {downloaded && (
               <div className="update-ready" role="status">
                 <Check size={15} strokeWidth={2} aria-hidden="true" />
-                下载完成！准备安装。
+                {t('dialog.ready')}
               </div>
             )}
 
@@ -119,18 +123,18 @@ export function UpdateDialog() {
 
             <div className="update-actions">
               <button className="update-skip" onClick={() => void skip()}>
-                跳过此版本
+                {t('dialog.skip')}
               </button>
               <span className="update-actions-spacer" />
               <button ref={laterRef} className="detail-popover-action" onClick={dismissDialog}>
-                稍后
+                {t('dialog.later')}
               </button>
               <button
                 className="detail-popover-action detail-action-primary update-install"
                 onClick={() => void install()}
                 disabled={!downloaded}
               >
-                立即重启
+                {t('dialog.restart')}
               </button>
             </div>
           </motion.div>

@@ -5,8 +5,11 @@ import type { Task } from '@shared/types'
 import { recurrenceLabel } from '@shared/recurrence'
 import { useTaskStore } from '../stores/useTaskStore'
 import { formatCompletedAt, formatDue, isOverdue } from '../lib/dates'
+import { useLocale, useT } from '../stores/useLocaleStore'
 
 export function TaskItem({ task }: { task: Task }) {
+  const t = useT()
+  const locale = useLocale()
   const toggleTask = useTaskStore((state) => state.toggleTask)
   const removeTask = useTaskStore((state) => state.removeTask)
   const selectTask = useTaskStore((state) => state.selectTask)
@@ -45,7 +48,7 @@ export function TaskItem({ task }: { task: Task }) {
       <button
         className={`task-check ${task.completed ? 'done' : ''}`}
         onClick={() => void toggleTask(task.id)}
-        aria-label={task.completed ? '标记为未完成' : '标记为完成'}
+        aria-label={task.completed ? t('views.item.markIncomplete') : t('views.item.markComplete')}
         aria-pressed={task.completed}
       >
         {/* 不写 strokeWidth：它是 svg 的 presentation attribute，优先级低于
@@ -68,25 +71,25 @@ export function TaskItem({ task }: { task: Task }) {
         <span className="task-title">{task.title}</span>
         <span className="task-meta">
           {task.completed && task.completedAt && (
-            <span className="meta-completed meta-time" title="完成时间">
+            <span className="meta-completed meta-time" title={t('views.item.completedAtTitle')}>
               <Check size={10} strokeWidth={1.8} className="meta-completed-icon" aria-hidden="true" />
-              完成于 {formatCompletedAt(task.completedAt)}
+              {t('views.item.completedAt', { time: formatCompletedAt(task.completedAt, locale) })}
             </span>
           )}
           {task.dueAt && (
             <span className={`meta-time ${overdue ? 'meta-overdue' : ''}`}>
-              {formatDue(task.dueAt)}
+              {formatDue(task.dueAt, locale)}
             </span>
           )}
           {task.remindAt && (
-            <span className="meta-reminder meta-time" title="已设置提醒">
+            <span className="meta-reminder meta-time" title={t('views.item.reminderTitle')}>
               <Bell
                 size={10}
                 strokeWidth={1.8}
                 className="meta-reminder-icon"
                 aria-hidden="true"
               />
-              {formatDue(task.remindAt)}
+              {formatDue(task.remindAt, locale)}
             </span>
           )}
           {project && (
@@ -96,7 +99,7 @@ export function TaskItem({ task }: { task: Task }) {
             </span>
           )}
           {task.tags.length > 0 && (
-            <span className="meta-tags" aria-label={`标签：${task.tags.map((tag) => tag.name).join('、')}`}>
+            <span className="meta-tags" aria-label={t('views.item.tags', { tags: task.tags.map((tag) => tag.name).join(locale === 'en' ? ', ' : '、') })}>
               {task.tags.slice(0, 3).map((tag) => (
                 <span key={tag.id} className="meta-tag" data-tag-name={tag.name}>
                   #{tag.name}
@@ -113,16 +116,16 @@ export function TaskItem({ task }: { task: Task }) {
             </span>
           )}
           {task.recurrenceRule && (
-            <span className="meta-recurrence" title={`重复：${recurrenceLabel(task.recurrenceRule)}`}>
+            <span className="meta-recurrence" title={t('views.item.recurrence', { label: recurrenceLabel(task.recurrenceRule, locale) })}>
               <Repeat2 size={10} strokeWidth={1.8} aria-hidden="true" />
-              {recurrenceLabel(task.recurrenceRule)}
+              {recurrenceLabel(task.recurrenceRule, locale)}
             </span>
           )}
           {task.subtaskTotal > 0 && (
             <span
               className="meta-subtasks"
               data-subtask-badge
-              title={`检查清单 ${task.subtaskDone}/${task.subtaskTotal}`}
+              title={t('views.item.checklist', { done: task.subtaskDone, total: task.subtaskTotal })}
             >
               <ListChecks size={10} strokeWidth={1.8} aria-hidden="true" />
               {task.subtaskDone}/{task.subtaskTotal}
@@ -133,7 +136,7 @@ export function TaskItem({ task }: { task: Task }) {
               className={`meta-priority ${task.priority === 3 ? 'meta-priority-high' : ''}`}
             >
               <Flag size={10} strokeWidth={2} aria-hidden="true" />
-              {task.priority === 3 ? '高优先级' : '中优先级'}
+              {task.priority === 3 ? t('views.item.high') : t('views.item.medium')}
             </span>
           )}
         </span>
@@ -142,7 +145,7 @@ export function TaskItem({ task }: { task: Task }) {
       <button
         className="task-delete"
         onClick={() => void handleDelete()}
-        aria-label="删除任务"
+        aria-label={t('views.item.delete')}
       >
         <Trash2 size={14} strokeWidth={1.8} aria-hidden="true" />
       </button>

@@ -24,7 +24,9 @@ import {
 import type { AppView } from '@shared/types'
 import { useTaskStore } from '../stores/useTaskStore'
 import { useThemeStore } from '../stores/useThemeStore'
+import { useLocale, useT } from '../stores/useLocaleStore'
 import { THEME_META, THEME_ORDER, partnerTheme, themeFamily } from '@shared/themes'
+import { themeLabel } from '@shared/i18n'
 import { formatDue } from '../lib/dates'
 import { useFocusTrap } from '../lib/useFocusTrap'
 
@@ -50,6 +52,8 @@ type TaskItem = {
 type PaletteItem = CommandItem | TaskItem
 
 export function CommandPalette() {
+  const t = useT()
+  const locale = useLocale()
   const open = useTaskStore((state) => state.paletteOpen)
   const setOpen = useTaskStore((state) => state.setPaletteOpen)
   const tasks = useTaskStore((state) => state.tasks)
@@ -97,7 +101,7 @@ export function CommandPalette() {
       {
         kind: 'command',
         id: 'new-task',
-        label: '新建任务',
+        label: t('palette.newTask'),
         hint: 'N',
         icon: Plus,
         run: () => {
@@ -108,7 +112,7 @@ export function CommandPalette() {
       {
         kind: 'command',
         id: 'new-project',
-        label: '新建项目',
+        label: t('palette.newProject'),
         icon: FolderPlus,
         run: () => {
           close()
@@ -118,7 +122,7 @@ export function CommandPalette() {
       {
         kind: 'command',
         id: 'toggle-theme',
-        label: `切换到 ${THEME_META[nextTheme].label}`,
+        label: t('palette.switchTheme', { theme: themeLabel(locale, nextTheme) }),
         icon: themeFamily(theme) === 'dark' ? Moon : Sun,
         run: () => {
           toggleTheme()
@@ -129,8 +133,8 @@ export function CommandPalette() {
       ...THEME_ORDER.map((id) => ({
         kind: 'command' as const,
         id: `theme-${id}`,
-        label: `主题：${THEME_META[id].label}`,
-        hint: theme === id ? '当前' : undefined,
+        label: t('palette.theme', { theme: themeLabel(locale, id) }),
+        hint: theme === id ? t('palette.current') : undefined,
         icon: THEME_META[id].family === 'dark' ? Moon : Sun,
         run: () => {
           setTheme(id)
@@ -138,28 +142,28 @@ export function CommandPalette() {
         }
       })),
       /* 视图命令与侧栏同序：时间轴→任务轴→回顾→系统。 */
-      { kind: 'command', id: 'view-today', label: '今天', icon: Sun, run: go('today') },
+      { kind: 'command', id: 'view-today', label: t('nav.view.today'), icon: Sun, run: go('today') },
       {
         kind: 'command',
         id: 'view-upcoming',
-        label: '即将到来',
+        label: t('nav.view.upcoming'),
         icon: CalendarClock,
         run: go('upcoming')
       },
-      { kind: 'command', id: 'view-calendar', label: '日历', icon: CalendarDays, run: go('calendar') },
-      { kind: 'command', id: 'view-matrix', label: '四象限', icon: Grid2x2, run: go('matrix') },
-      { kind: 'command', id: 'view-all', label: '全部任务', icon: ListTodo, run: go('all') },
+      { kind: 'command', id: 'view-calendar', label: t('nav.view.calendar'), icon: CalendarDays, run: go('calendar') },
+      { kind: 'command', id: 'view-matrix', label: t('nav.view.matrix'), icon: Grid2x2, run: go('matrix') },
+      { kind: 'command', id: 'view-all', label: t('nav.view.all'), icon: ListTodo, run: go('all') },
       {
         kind: 'command',
         id: 'view-completed',
-        label: '已完成',
+        label: t('nav.view.completed'),
         icon: CheckCircle2,
         run: go('completed')
       },
-      { kind: 'command', id: 'view-stats', label: '统计', icon: BarChart3, run: go('stats') },
-      { kind: 'command', id: 'view-trash', label: '回收站', icon: Trash2, run: go('trash') }
+      { kind: 'command', id: 'view-stats', label: t('nav.view.stats'), icon: BarChart3, run: go('stats') },
+      { kind: 'command', id: 'view-trash', label: t('nav.view.trash'), icon: Trash2, run: go('trash') }
     ]
-  }, [setOpen, setView, theme, toggleTheme, setTheme])
+  }, [setOpen, setView, theme, toggleTheme, setTheme, t, locale])
 
   const items = useMemo<PaletteItem[]>(() => {
     const normalized = query.trim().toLowerCase()
@@ -181,7 +185,7 @@ export function CommandPalette() {
               kind: 'task',
               id: task.id,
               label: task.title,
-              subtitle: `${formatDue(task.dueAt)}${project ? ` · ${project.name}` : ''}`,
+              subtitle: `${formatDue(task.dueAt, locale)}${project ? ` · ${project.name}` : ''}`,
               completed: task.completed,
               color: project?.color,
               run: () => {
@@ -193,7 +197,7 @@ export function CommandPalette() {
       : []
 
     return [...matchedCommands, ...matchedTasks]
-  }, [query, commands, tasks, projects, selectTask, setOpen])
+  }, [query, commands, tasks, projects, selectTask, setOpen, locale])
 
   const active = items.length === 0 ? -1 : Math.min(activeIndex, items.length - 1)
   const firstTaskIndex = items.findIndex((item) => item.kind === 'task')
@@ -248,7 +252,7 @@ export function CommandPalette() {
             tabIndex={-1}
             role="dialog"
             aria-modal="true"
-            aria-label="命令面板"
+            aria-label={t('palette.title')}
             initial={{ opacity: 0, y: -14, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -10, scale: 0.98 }}
@@ -270,14 +274,14 @@ export function CommandPalette() {
                 autoComplete="off"
                 spellCheck={false}
                 onKeyDown={onKeyDown}
-                placeholder="搜索任务，或输入命令…"
-                aria-label="命令面板"
+                placeholder={t('palette.placeholder')}
+                aria-label={t('palette.title')}
               />
               <kbd>Esc</kbd>
             </div>
 
             <div className="command-list" ref={listRef}>
-              {items.length === 0 && <div className="command-empty">没有匹配结果</div>}
+              {items.length === 0 && <div className="command-empty">{t('palette.empty')}</div>}
               {items.map((item, index) => {
                 const Icon =
                   item.kind === 'command'
@@ -288,9 +292,9 @@ export function CommandPalette() {
                 return (
                   <div key={`${item.kind}-${item.id}`}>
                     {index === 0 && item.kind === 'command' && (
-                      <div className="command-section">操作</div>
+                      <div className="command-section">{t('palette.actions')}</div>
                     )}
-                    {index === firstTaskIndex && <div className="command-section">任务</div>}
+                    {index === firstTaskIndex && <div className="command-section">{t('palette.tasks')}</div>}
                     <button
                       data-index={index}
                       className={`command-item ${index === active ? 'active' : ''}`}
@@ -321,13 +325,13 @@ export function CommandPalette() {
 
             <div className="command-footer">
               <span>
-                <kbd>↑↓</kbd> 选择
+                <kbd>↑↓</kbd> {t('palette.select')}
               </span>
               <span>
-                <kbd>↵</kbd> 打开
+                <kbd>↵</kbd> {t('palette.open')}
               </span>
               <span>
-                <kbd>Esc</kbd> 关闭
+                <kbd>Esc</kbd> {t('palette.close')}
               </span>
               <span className="command-brand">Polaris</span>
             </div>

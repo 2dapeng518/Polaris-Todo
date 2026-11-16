@@ -1,18 +1,20 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useTaskStore } from '../stores/useTaskStore'
+import { useT } from '../stores/useLocaleStore'
 import { isTodayOrOverdue } from '../lib/dates'
 import { TaskItem } from './TaskItem'
 
 // 派生规则：重要 = priority >= 2（中/高）；紧急 = 今天到期或已逾期，
 // 无截止视为不紧急。只统计未完成任务；已完成不进矩阵。
 const QUADRANTS = [
-  { id: 'do', label: '立即做', hint: '重要且紧急', important: true, urgent: true },
-  { id: 'plan', label: '计划做', hint: '重要不紧急', important: true, urgent: false },
-  { id: 'quick', label: '快速处理', hint: '紧急不重要', important: false, urgent: true },
-  { id: 'later', label: '有余力再做', hint: '不紧急不重要', important: false, urgent: false }
+  { id: 'do', labelKey: 'matrix.do', hintKey: 'matrix.doHint', important: true, urgent: true },
+  { id: 'plan', labelKey: 'matrix.plan', hintKey: 'matrix.planHint', important: true, urgent: false },
+  { id: 'quick', labelKey: 'matrix.quick', hintKey: 'matrix.quickHint', important: false, urgent: true },
+  { id: 'later', labelKey: 'matrix.later', hintKey: 'matrix.laterHint', important: false, urgent: false }
 ] as const
 
 export function MatrixView() {
+  const t = useT()
   const tasks = useTaskStore((state) => state.tasks)
   // 矩阵可能长时间开着：跨过午夜后「紧急」的判定不能还是昨天。
   const [now, setNow] = useState(() => new Date())
@@ -35,17 +37,20 @@ export function MatrixView() {
   }, [tasks, now])
 
   return (
-    <div className="matrix-view" role="group" aria-label="四象限">
+    <div className="matrix-view" role="group" aria-label={t('matrix.groupAria')}>
       {groups.map((group) => (
         <section
           key={group.id}
           className="matrix-quadrant"
           data-quadrant={group.id}
-          aria-label={`${group.label}：${group.hint}`}
+          aria-label={t('matrix.sectionAria', {
+            label: t(group.labelKey),
+            hint: t(group.hintKey)
+          })}
         >
           <div className="matrix-quadrant-head">
-            <span className="matrix-quadrant-title">{group.label}</span>
-            <span className="matrix-quadrant-hint">{group.hint}</span>
+            <span className="matrix-quadrant-title">{t(group.labelKey)}</span>
+            <span className="matrix-quadrant-hint">{t(group.hintKey)}</span>
             <span className="matrix-quadrant-count" data-quadrant-count>
               {group.items.length}
             </span>
@@ -57,7 +62,7 @@ export function MatrixView() {
               ))}
             </div>
           ) : (
-            <p className="matrix-quadrant-empty">暂时没有任务</p>
+            <p className="matrix-quadrant-empty">{t('matrix.empty')}</p>
           )}
         </section>
       ))}

@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { Task } from '@shared/types'
 import { useTaskStore } from '../stores/useTaskStore'
-import { dayKey, monthLabel, monthMatrix } from '../lib/dateTime'
+import { useT, useLocale } from '../stores/useLocaleStore'
+import { dayKey, monthLabel, monthMatrix, weekdayLabels } from '../lib/dateTime'
 import { isOverdue } from '../lib/dates'
 import { ChevronLeft, ChevronRight } from './Icon'
 
-const WEEKDAYS = ['一', '二', '三', '四', '五', '六', '日']
 const MAX_CHIPS = 3
 
 const firstOfMonth = (date: Date): Date => {
@@ -18,6 +18,8 @@ const firstOfMonth = (date: Date): Date => {
 // 月历视图：复用选择器的 42 格月矩阵（周一起始），翻月高度恒定。
 // 只展示有截止时间的任务；无截止不进日历。已完成任务弱化显示。
 export function CalendarView() {
+  const t = useT()
+  const locale = useLocale()
   const tasks = useTaskStore((state) => state.tasks)
   const selectTask = useTaskStore((state) => state.selectTask)
   const [month, setMonth] = useState(() => firstOfMonth(new Date()))
@@ -53,25 +55,37 @@ export function CalendarView() {
   return (
     <div className="calendar-view">
       <div className="calendar-toolbar">
-        <button className="calendar-nav" onClick={() => shift(-1)} aria-label="上个月">
+        <button
+          className="calendar-nav"
+          onClick={() => shift(-1)}
+          aria-label={t('calendar.prevMonth')}
+        >
           <ChevronLeft size={14} aria-hidden="true" />
         </button>
         <span className="calendar-month" data-calendar-month>
-          {monthLabel(month)}
+          {monthLabel(month, locale)}
         </span>
-        <button className="calendar-nav" onClick={() => shift(1)} aria-label="下个月">
+        <button
+          className="calendar-nav"
+          onClick={() => shift(1)}
+          aria-label={t('calendar.nextMonth')}
+        >
           <ChevronRight size={14} aria-hidden="true" />
         </button>
         <button className="calendar-today" onClick={() => setMonth(firstOfMonth(new Date()))}>
-          今天
+          {t('calendar.today')}
         </button>
       </div>
       <div className="calendar-weekdays" aria-hidden="true">
-        {WEEKDAYS.map((day) => (
+        {weekdayLabels(locale).map((day) => (
           <span key={day}>{day}</span>
         ))}
       </div>
-      <div className="calendar-grid" role="grid" aria-label={`${monthLabel(month)}任务日历`}>
+      <div
+        className="calendar-grid"
+        role="grid"
+        aria-label={t('calendar.gridAria', { month: monthLabel(month, locale) })}
+      >
         {cells.map((day) => {
           const key = dayKey(day)
           const inMonth = day.getMonth() === month.getMonth()
@@ -84,7 +98,11 @@ export function CalendarView() {
               className={`calendar-cell ${inMonth ? '' : 'is-out'} ${key === todayKey ? 'is-today' : ''}`}
               role="gridcell"
               data-date={key}
-              aria-label={`${day.getMonth() + 1}月${day.getDate()}日，${dayTasks.length}项任务`}
+              aria-label={t('calendar.cellAria', {
+                month: day.getMonth() + 1,
+                day: day.getDate(),
+                count: dayTasks.length
+              })}
             >
               <span className="calendar-daynum">{day.getDate()}</span>
               <div className="calendar-chips">
@@ -96,7 +114,11 @@ export function CalendarView() {
                     data-calendar-task={task.id}
                     title={task.title}
                     onClick={() => selectTask(task.id)}
-                    aria-label={`${task.title}${task.completed ? '（已完成）' : ''}`}
+                    aria-label={
+                      task.completed
+                        ? t('calendar.completedAria', { title: task.title })
+                        : task.title
+                    }
                   >
                     {task.priority >= 2 && <span className="calendar-chip-dot" aria-hidden="true" />}
                     <span className="calendar-chip-title">{task.title}</span>

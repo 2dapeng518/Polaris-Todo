@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react'
 import { ChevronDown, Moon, Sun } from './Icon'
-import { THEME_META, partnerTheme, themeFamily } from '@shared/themes'
+import { partnerTheme, themeFamily } from '@shared/themes'
+import { themeLabel } from '@shared/i18n'
 import { useThemeStore } from '../stores/useThemeStore'
+import { useT, useLocale } from '../stores/useLocaleStore'
 import { ThemeMenu } from './ThemeMenu'
 
 // 分体式主题开关：左段是原来的配对快切（一击往返，行为与类名都不变），
@@ -11,6 +13,8 @@ import { ThemeMenu } from './ThemeMenu'
 // 左段图标只表达当前家族（深=Moon/浅=Sun），不表达目标、无 ⇄；目标由
 // title/aria-label 与播报承载。sky↔green 同浅，图标恒 Sun。
 export function ThemeToggle() {
+  const t = useT()
+  const locale = useLocale()
   const theme = useThemeStore((state) => state.theme)
   const toggleTheme = useThemeStore((state) => state.toggleTheme)
   const [menuOpen, setMenuOpen] = useState(false)
@@ -30,8 +34,8 @@ export function ThemeToggle() {
   useEffect(() => {
     if (lastAnnounced.current === theme) return
     lastAnnounced.current = theme
-    setAnnouncement(`已切换到 ${THEME_META[theme].label}`)
-  }, [theme])
+    setAnnouncement(t('themes.switched', { theme: themeLabel(locale, theme) }))
+  }, [theme, t, locale])
 
   const onContextMenu = (event: ReactMouseEvent<HTMLDivElement>) => {
     event.preventDefault()
@@ -43,8 +47,11 @@ export function ThemeToggle() {
       <button
         className="theme-toggle"
         onClick={toggleTheme}
-        title={`切换到 ${THEME_META[next].label}`}
-        aria-label={`切换到 ${THEME_META[next].label}（当前：${THEME_META[theme].label}）`}
+        title={t('themes.switchTo', { target: themeLabel(locale, next) })}
+        aria-label={t('themes.switchToCurrent', {
+          target: themeLabel(locale, next),
+          current: themeLabel(locale, theme)
+        })}
       >
         {isDark ? (
           <Moon size={14} strokeWidth={1.8} aria-hidden="true" />
@@ -56,8 +63,8 @@ export function ThemeToggle() {
         ref={triggerRef}
         className="theme-menu-trigger"
         onClick={() => (menuOpen ? closeMenu(true) : setMenuOpen(true))}
-        title="全部 6 套颜色主题"
-        aria-label={`选择颜色主题（共 6 套，当前：${THEME_META[theme].label}）`}
+        title={t('themes.all')}
+        aria-label={t('themes.choose', { current: themeLabel(locale, theme) })}
         aria-haspopup="menu"
         aria-expanded={menuOpen}
         aria-controls={menuOpen ? 'theme-menu' : undefined}

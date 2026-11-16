@@ -3,10 +3,13 @@ import { AnimatePresence, motion } from 'motion/react'
 import { Repeat2, Trash2, TriangleAlert, X } from './Icon'
 import { useTaskStore } from '../stores/useTaskStore'
 import { formatDue } from '../lib/dates'
+import { useLocale, useT } from '../stores/useLocaleStore'
 
 const DISMISS_AFTER = 6000
 
 export function UndoToast() {
+  const t = useT()
+  const locale = useLocale()
   const pending = useTaskStore((state) => state.pendingDeletion)
   const notice = useTaskStore((state) => state.notice)
   const storageError = useTaskStore((state) => state.storageError)
@@ -64,11 +67,11 @@ export function UndoToast() {
             transition={{ type: 'spring', stiffness: 420, damping: 40 }}
           >
             <TriangleAlert size={14} aria-hidden="true" />
-            <span className="toast-message">{storageError}</span>
+            <span className="toast-message">{t(storageError)}</span>
             <button
               className="toast-dismiss"
               onClick={clearStorageError}
-              aria-label="关闭提示"
+              aria-label={t('common.dismiss')}
             >
               <X size={12} strokeWidth={1.8} aria-hidden="true" />
             </button>
@@ -92,10 +95,10 @@ export function UndoToast() {
             }}
           >
             <Trash2 size={14} aria-hidden="true" />
-            <span className="toast-message">已删除「{pending.title}」</span>
+            <span className="toast-message">{t('views.toast.deleted', { title: pending.title })}</span>
             <kbd className="toast-key">Ctrl Z</kbd>
             <button className="toast-action" onClick={() => void undoDelete()}>
-              撤销
+              {t('common.undo')}
             </button>
           </motion.div>
         ) : notice ? (
@@ -109,12 +112,12 @@ export function UndoToast() {
           >
             <Repeat2 size={14} aria-hidden="true" />
             <span className="toast-message">
-              已创建下一次 · {formatDue(notice.dueAt)}
+              {t('views.toast.recurrence', { date: formatDue(notice.dueAt, locale) })}
             </span>
             <button
               className="toast-dismiss"
               onClick={clearNotice}
-              aria-label="关闭提示"
+              aria-label={t('common.dismiss')}
             >
               <X size={12} strokeWidth={1.8} aria-hidden="true" />
             </button>

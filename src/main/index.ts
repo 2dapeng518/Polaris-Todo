@@ -40,6 +40,8 @@ import {
   setGlobalHotkeyEnabled
 } from './hotkey'
 import { getCurrentTheme, initAppTheme, setCurrentTheme, themeBackgroundColor } from './theme'
+import { getCurrentLocale, initAppLocale, setCurrentLocale } from './locale'
+import { translate } from '../shared/i18n'
 import { createSplashWindow, hasSplashWindow, openSplashWindow, revealMainWindow } from './splash'
 import { isAppTheme, THEME_ORDER, THEME_SYMBOL_COLOR, themeFamily } from '../shared/themes'
 import {
@@ -48,7 +50,7 @@ import {
   getReminderWindow,
   startReminderScheduler
 } from './reminders'
-import { createTray, getTrayMenuLabels, showTrayBalloon } from './tray'
+import { createTray, getTrayMenuLabels, showTrayBalloon, updateTrayLocale } from './tray'
 import { TRAY_ICON_DATA_URL } from './tray-icon'
 import { dismissKeys, formatParsedDue, parseQuickAdd, pruneDismissed } from '../shared/quickAddParse'
 import { isPurgeable } from '../shared/retention'
@@ -143,6 +145,10 @@ const startHidden =
   !process.env['POLARIS_SHOT'] &&
   !process.env['POLARIS_SCREENSHOT']
 
+// 渲染层首帧的语言来自 URL：主进程的 meta 记录是权威值。
+const withLocale = (url: string): string =>
+  `${url}${url.includes('?') ? '&' : '?'}locale=${getCurrentLocale()}`
+
 const gotSingleInstanceLock = app.requestSingleInstanceLock()
 if (!gotSingleInstanceLock) {
   app.quit()
@@ -217,10 +223,14 @@ function createWindow(): void {
     return { action: 'deny' }
   })
 
+  // 界面语言随地址传给渲染层：主进程的 meta 记录是权威值，渲染层首帧据此
+  // 初始化（冒烟/截图模式下 initAppLocale 已强制 zh-CN，因此具有确定性）。
   if (process.env['ELECTRON_RENDERER_URL']) {
-    void mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
+    void mainWindow.loadURL(withLocale(process.env['ELECTRON_RENDERER_URL']))
   } else {
-    void mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
+    void mainWindow.loadFile(join(__dirname, '../renderer/index.html'), {
+      query: { locale: getCurrentLocale() }
+    })
   }
 
   if (process.env['POLARIS_SCREENSHOT']) {
@@ -4496,6 +4506,7 @@ async function runSmokeTest(): Promise<void> {
     let trayMenuEntries = false
     let traySettingsOpens = false
     let trayCheckFeedback = false
+    let trayCheckFeedbackEn = false
     let trayCheckSilent = false
     try {
       const labels = getTrayMenuLabels()
@@ -4550,6 +4561,35 @@ async function runSmokeTest(): Promise<void> {
         describeTrayCheck({ ...feedbackBase, status: 'error', error: '网络超时' }).balloon.includes('网络超时')
       if (!trayCheckFeedback) console.error('TRAY_FEEDBACK_FAIL')
 
+      // 同一张状态表逐条走英文：托盘气泡是主进程文案，必须跟界面语言一致。
+      // 末尾统一扫一遍汉字，防止某个分支漏翻仍显示中文。
+      const enFeedback = [
+        describeTrayCheck({ ...feedbackBase, status: 'unsupported' }, 'en'),
+        describeTrayCheck({ ...feedbackBase, status: 'checking' }, 'en'),
+        describeTrayCheck({ ...feedbackBase, status: 'up-to-date' }, 'en'),
+        describeTrayCheck({ ...feedbackBase, status: 'available', latestVersion: '9.9.9' }, 'en'),
+        describeTrayCheck({ ...feedbackBase, status: 'downloading', latestVersion: '9.9.9', percent: 42 }, 'en'),
+        describeTrayCheck({ ...feedbackBase, status: 'downloaded', latestVersion: '9.9.9' }, 'en'),
+        describeTrayCheck({ ...feedbackBase, status: 'error', error: 'network timeout' }, 'en')
+      ]
+      trayCheckFeedbackEn =
+        enFeedback[0].surface === false &&
+        enFeedback[0].balloon.includes("aren't available") &&
+        enFeedback[1].surface === false &&
+        enFeedback[1].balloon.includes('Checking for updates') &&
+        enFeedback[2].surface === false &&
+        enFeedback[2].balloon.includes("You're up to date") &&
+        enFeedback[2].balloon.includes('0.0.1') &&
+        enFeedback[3].surface === true &&
+        enFeedback[3].balloon.includes('Version v9.9.9') &&
+        enFeedback[4].balloon.includes('Downloading v9.9.9 (42%)') &&
+        enFeedback[5].surface === true &&
+        enFeedback[5].balloon.includes('ready') &&
+        enFeedback[6].surface === false &&
+        enFeedback[6].balloon.includes('Update check failed') &&
+        enFeedback.every((item) => !/[一-鿿]/.test(item.balloon))
+      if (!trayCheckFeedbackEn) console.error('TRAY_FEEDBACK_EN_FAIL', JSON.stringify(enFeedback))
+
       // 真实路径走一遍：dev = unsupported，检查后窗口必须保持隐藏、无更新弹窗。
       mainWindow?.hide()
       await checkUpdatesFromTray()
@@ -4562,6 +4602,67 @@ async function runSmokeTest(): Promise<void> {
       if (!trayCheckSilent) console.error('TRAY_CHECK_SILENT_FAIL', JSON.stringify({ noUpdateDialog }))
     } catch (error) {
       console.error('TRAY_MENU_ERROR', error)
+    }
+
+    // 界面语言切换：页面文案、<html lang>、托盘菜单三处必须同步。
+    // 切到英文后等 React 重渲染落定再读；切回中文复原，避免影响后续断言。
+    let languageSwitchWorks = false
+    try {
+      const en = await mainWindow!.webContents.executeJavaScript(`(async () => {
+        ${pageHelpers}
+        const navTexts = () => [...document.querySelectorAll('.nav-section .nav-item .nav-text')].map((node) => node.textContent || '');
+        window.__polarisSetLocale?.('en');
+        const navEn = await waitFor(() => navTexts().includes('Today') && navTexts().includes('Upcoming'));
+        const viewTitleEn = await waitFor(() => document.querySelector('.view-title')?.textContent === 'Today');
+        const eyebrowEn = document.querySelector('.view-eyebrow')?.textContent || '';
+        document.querySelector('.settings-item')?.click();
+        const panelEn = await waitFor(() => document.querySelector('.settings-panel'));
+        const settingsTitleEn = panelEn ? panelEn.querySelector('.settings-title')?.textContent || '' : '';
+        document.querySelector('.settings-panel .detail-close')?.click();
+        const closedEn = await waitFor(() => !document.querySelector('.settings-panel'));
+        return { navEn, viewTitleEn, eyebrowEn, settingsTitleEn, closedEn, langEn: document.documentElement.lang };
+      })()`)
+      const trayEn = await waitForCondition(() => {
+        const labels = getTrayMenuLabels()
+        return (
+          labels[0] === 'Open Polaris' &&
+          labels[1] === 'Settings' &&
+          labels[2] === 'Check for updates' &&
+          labels[3] === 'Quit'
+        )
+      }, 3000, 50)
+      const zh = await mainWindow!.webContents.executeJavaScript(`(async () => {
+        ${pageHelpers}
+        const navTexts = () => [...document.querySelectorAll('.nav-section .nav-item .nav-text')].map((node) => node.textContent || '');
+        window.__polarisSetLocale?.('zh-CN');
+        const navZh = await waitFor(() => navTexts().includes('今天') && navTexts().includes('即将到来'));
+        const viewTitleZh = await waitFor(() => document.querySelector('.view-title')?.textContent === '今天');
+        const eyebrowZh = document.querySelector('.view-eyebrow')?.textContent || '';
+        return { navZh, viewTitleZh, eyebrowZh, langZh: document.documentElement.lang };
+      })()`)
+      const trayZh = await waitForCondition(() => {
+        const labels = getTrayMenuLabels()
+        return labels[0] === '打开 Polaris' && labels[1] === '设置'
+      }, 3000, 50)
+      // 英文日期形如 "Nov 16 · Monday"，中文形如 "11月16日 · 星期一"。
+      languageSwitchWorks =
+        en?.navEn === true &&
+        en?.viewTitleEn === true &&
+        en?.closedEn === true &&
+        en?.settingsTitleEn === 'Settings' &&
+        en?.langEn === 'en' &&
+        /^[A-Z][a-z]{2} \d{1,2} · [A-Z][a-z]+$/.test(String(en?.eyebrowEn)) &&
+        trayEn === true &&
+        zh?.navZh === true &&
+        zh?.viewTitleZh === true &&
+        zh?.langZh === 'zh-CN' &&
+        /月\d{1,2}日 · 星期/.test(String(zh?.eyebrowZh)) &&
+        trayZh === true
+      if (!languageSwitchWorks) {
+        console.error('LANGUAGE_SWITCH_FAIL', JSON.stringify({ en, zh, trayEn, trayZh }))
+      }
+    } catch (error) {
+      console.error('LANGUAGE_SWITCH_ERROR', error)
     }
 
     // 全局热键：默认开且注册成功、设置开关 IPC 往返 + meta 持久化、
@@ -5044,7 +5145,9 @@ async function runSmokeTest(): Promise<void> {
       trayMenuEntries: trayMenuEntries === true,
       traySettingsOpens: traySettingsOpens === true,
       trayCheckFeedback: trayCheckFeedback === true,
+      trayCheckFeedbackEn: trayCheckFeedbackEn === true,
       trayCheckSilent: trayCheckSilent === true,
+      languageSwitchWorks: languageSwitchWorks === true,
       hotkeyDefaultOn: hotkeyDefaultOn === true,
       hotkeySettingsRoundTrip: hotkeySettingsRoundTrip === true,
       hotkeyConflictDegrades: hotkeyConflictDegrades === true,
@@ -5124,7 +5227,9 @@ async function runSmokeTest(): Promise<void> {
           trayMenuEntries,
           traySettingsOpens,
           trayCheckFeedback,
+          trayCheckFeedbackEn,
           trayCheckSilent,
+          languageSwitchWorks,
           hotkeyDefaultOn,
           hotkeySettingsRoundTrip,
           hotkeyConflictDegrades,
@@ -5264,7 +5369,19 @@ app.whenReady().then(() => {
   // Missed retention windows are caught up on launch, same as missed reminders.
   purgeExpiredDeleted(new Date().toISOString())
   initAppTheme()
+  initAppLocale()
   registerIpc()
+
+  ipcMain.handle('app:get-locale', () => getCurrentLocale())
+
+  ipcMain.handle('app:set-locale', (event, locale: string) => {
+    if (locale !== 'zh-CN' && locale !== 'en') return getCurrentLocale()
+    // 只有主窗口拥有全局语言；提醒窗口回传自身同步值时不回写。
+    if (!mainWindow || event.sender !== mainWindow.webContents) return getCurrentLocale()
+    setCurrentLocale(locale)
+    updateTrayLocale(locale)
+    return locale
+  })
 
   ipcMain.handle('app:set-theme', (event, theme: string) => {
     if (!isAppTheme(theme)) return
@@ -5287,9 +5404,11 @@ app.whenReady().then(() => {
   ipcMain.handle('data:import-csv', async () => {
     try {
       const source = await dialog.showOpenDialog(mainWindow!, {
-        title: '导入 CSV（主流待办应用 / Csv）',
+        title: translate(getCurrentLocale(), 'native.csvTitle'),
         properties: ['openFile'],
-        filters: [{ name: 'CSV', extensions: ['csv'] }]
+        filters: [
+          { name: translate(getCurrentLocale(), 'native.csvFilter'), extensions: ['csv'] }
+        ]
       })
       if (source.canceled || !source.filePaths[0]) return { ok: false, canceled: true }
       const raw = await readFile(source.filePaths[0], 'utf8')
@@ -5352,9 +5471,11 @@ app.whenReady().then(() => {
       }
       const stamp = new Date().toISOString().slice(0, 10).replace(/-/g, '')
       const target = await dialog.showSaveDialog(mainWindow!, {
-        title: '导出备份',
+        title: translate(getCurrentLocale(), 'native.exportTitle'),
         defaultPath: `polaris-backup-${stamp}.json`,
-        filters: [{ name: 'JSON', extensions: ['json'] }]
+        filters: [
+          { name: translate(getCurrentLocale(), 'native.jsonFilter'), extensions: ['json'] }
+        ]
       })
       if (target.canceled || !target.filePath) return { saved: false }
       await writeFileAtomic(target.filePath, JSON.stringify(backup, null, 2))
@@ -5367,9 +5488,11 @@ app.whenReady().then(() => {
   ipcMain.handle('data:import', async () => {
     try {
       const source = await dialog.showOpenDialog(mainWindow!, {
-        title: '导入备份',
+        title: translate(getCurrentLocale(), 'native.importTitle'),
         properties: ['openFile'],
-        filters: [{ name: 'JSON', extensions: ['json'] }]
+        filters: [
+          { name: translate(getCurrentLocale(), 'native.jsonFilter'), extensions: ['json'] }
+        ]
       })
       if (source.canceled || !source.filePaths[0]) return { ok: false, canceled: true }
       const raw = await readFile(source.filePaths[0], 'utf8')

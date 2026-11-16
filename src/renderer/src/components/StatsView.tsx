@@ -1,11 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useTaskStore } from '../stores/useTaskStore'
+import { useLocale, useT } from '../stores/useLocaleStore'
 import { deriveStats, type StatsRange } from '../lib/stats'
 import { EmptyState } from './EmptyState'
 
 const RANGES: StatsRange[] = [7, 30]
 
 export function StatsView() {
+  const t = useT()
+  const locale = useLocale()
   const tasks = useTaskStore((state) => state.tasks)
   const projects = useTaskStore((state) => state.projects)
   const [range, setRange] = useState<StatsRange>(7)
@@ -18,8 +21,8 @@ export function StatsView() {
   }, [])
 
   const stats = useMemo(
-    () => deriveStats(tasks, projects, now, range),
-    [tasks, projects, now, range]
+    () => deriveStats(tasks, projects, now, range, locale),
+    [tasks, projects, now, range, locale]
   )
 
   if (stats.totalDone === 0) return <EmptyState view="stats" />
@@ -31,31 +34,33 @@ export function StatsView() {
 
   return (
     <div className="stats-view">
-      <div className="stats-kpis" role="group" aria-label="关键数字">
+      <div className="stats-kpis" role="group" aria-label={t('stats.kpis')}>
         <div className="stats-kpi" data-stat="today">
-          <span className="stats-kpi-label">今日完成</span>
+          <span className="stats-kpi-label">{t('stats.today')}</span>
           <strong className="stats-kpi-value">{stats.todayDone}</strong>
-          <span className="stats-kpi-hint">按完成时刻统计</span>
+          <span className="stats-kpi-hint">{t('stats.todayHint')}</span>
         </div>
         <div className="stats-kpi" data-stat="week">
-          <span className="stats-kpi-label">本周完成</span>
+          <span className="stats-kpi-label">{t('stats.week')}</span>
           <strong className="stats-kpi-value">{stats.weekDone}</strong>
-          <span className="stats-kpi-hint">周一至今天</span>
+          <span className="stats-kpi-hint">{t('stats.weekHint')}</span>
         </div>
         <div className="stats-kpi" data-stat="total">
-          <span className="stats-kpi-label">累计完成</span>
+          <span className="stats-kpi-label">{t('stats.total')}</span>
           <strong className="stats-kpi-value">{stats.totalDone}</strong>
           <span className="stats-kpi-hint">
-            {stats.untimed > 0 ? `其中 ${stats.untimed} 项未记录时刻` : '全部已记录时刻'}
+            {stats.untimed > 0
+              ? t('stats.untimedHint', { count: stats.untimed })
+              : t('stats.allTimed')}
           </span>
         </div>
         <div className="stats-kpi" data-stat="ontime">
-          <span className="stats-kpi-label">按时完成率</span>
+          <span className="stats-kpi-label">{t('stats.onTime')}</span>
           <strong className="stats-kpi-value">{rateText}</strong>
           <span className="stats-kpi-hint">
             {stats.dueCount === 0
-              ? '没有设过截止时间的完成记录'
-              : `${stats.onTimeCount}/${stats.dueCount} 项在截止前完成`}
+              ? t('stats.noDue')
+              : t('stats.onTimeHint', { done: stats.onTimeCount, due: stats.dueCount })}
           </span>
         </div>
       </div>
@@ -63,10 +68,10 @@ export function StatsView() {
       <section className="stats-panel" aria-labelledby="stats-trend-heading">
         <div className="stats-panel-head">
           <div className="section-label" id="stats-trend-heading">
-            <span>完成趋势</span>
+            <span>{t('stats.trend')}</span>
             <span className="section-count">{stats.trendTotal}</span>
           </div>
-          <div className="stats-range" role="group" aria-label="时间范围">
+          <div className="stats-range" role="group" aria-label={t('stats.range')}>
             {RANGES.map((value) => (
               <button
                 key={value}
@@ -75,7 +80,7 @@ export function StatsView() {
                 aria-pressed={range === value}
                 onClick={() => setRange(value)}
               >
-                {value} 天
+                {t('stats.rangeDays', { days: value })}
               </button>
             ))}
           </div>
@@ -85,10 +90,14 @@ export function StatsView() {
           className="stats-chart"
           data-range={range}
           role="img"
-          aria-label={`最近 ${range} 天完成趋势，共完成 ${stats.trendTotal} 项`}
+          aria-label={t('stats.trendAria', { days: range, total: stats.trendTotal })}
         >
           {stats.trend.map((day) => (
-            <div className="stats-bar-col" key={day.key} title={`${day.label} · ${day.count} 项`}>
+            <div
+              className="stats-bar-col"
+              key={day.key}
+              title={t('stats.barTitle', { label: day.label, count: day.count })}
+            >
               <div
                 className={`stats-bar${day.count === 0 ? ' is-zero' : ''}`}
                 data-count={day.count}
@@ -110,7 +119,7 @@ export function StatsView() {
 
         {stats.untimed > 0 && (
           <p className="stats-note">
-            早期完成的任务未记录时刻，不计入趋势与按时完成率（共 {stats.untimed} 项）。
+            {t('stats.note', { count: stats.untimed })}
           </p>
         )}
       </section>
@@ -118,7 +127,7 @@ export function StatsView() {
       <section className="stats-panel" aria-labelledby="stats-dist-heading">
         <div className="stats-panel-head">
           <div className="section-label" id="stats-dist-heading">
-            <span>项目分布</span>
+            <span>{t('stats.distribution')}</span>
             <span className="section-count">{stats.totalDone}</span>
           </div>
         </div>

@@ -11,7 +11,6 @@ import {
 import { ChevronLeft, ChevronRight, Minus, Plus } from './Icon'
 import { addDays, addMonths, isSameDay, isSameMonth, startOfMonth, startOfWeek } from 'date-fns'
 import {
-  WEEKDAY_LABELS,
   clampPart,
   clampToMonth,
   dayKey,
@@ -28,11 +27,13 @@ import {
   pad2,
   partMax,
   shiftMinutes,
+  weekdayLabels,
   withTime,
   wrapPart,
   type Draft,
   type TimePart
 } from '../lib/dateTime'
+import { useT, useLocale } from '../stores/useLocaleStore'
 
 export type DateTimePickerProps = {
   value: string | null
@@ -43,6 +44,8 @@ export type DateTimePickerProps = {
 }
 
 export function DateTimePicker({ value, fallback, label, onChange, onDone }: DateTimePickerProps) {
+  const t = useT()
+  const locale = useLocale()
   const [draft, setDraft] = useState<Draft>(() => draftFrom(value, fallback))
   const [month, setMonth] = useState<Date>(() => monthFor(value))
   const [focusDay, setFocusDay] = useState<Date>(() => draftFrom(value, fallback).day)
@@ -129,15 +132,19 @@ export function DateTimePicker({ value, fallback, label, onChange, onDone }: Dat
       })
     }
     setAnnounce(
-      `已选择 ${dayLabel(actual.day)} ${pad2(actual.hour)}:${pad2(actual.minute)}` +
-        (adjusted(next, actual) ? '（该本地时间不存在，已调整）' : '')
+      t('picker.selected', {
+        date: dayLabel(actual.day, locale),
+        time: `${pad2(actual.hour)}:${pad2(actual.minute)}`
+      }) + (adjusted(next, actual) ? t('picker.adjusted') : '')
     )
   }
 
   const commitTime = (next: Draft): void => {
     const actual = commit(next)
     if (adjusted(next, actual)) {
-      setAnnounce(`该本地时间不存在，已调整为 ${pad2(actual.hour)}:${pad2(actual.minute)}`)
+      setAnnounce(
+        t('picker.adjustedTo', { time: `${pad2(actual.hour)}:${pad2(actual.minute)}` })
+      )
     }
   }
 
@@ -146,7 +153,7 @@ export function DateTimePicker({ value, fallback, label, onChange, onDone }: Dat
     if (gridRef.current?.contains(document.activeElement)) focusRequest.current = true
     setMonth(target)
     setFocusDay(clampToMonth(target, rovingDay.getDate()))
-    setAnnounce(monthLabel(target))
+    setAnnounce(monthLabel(target, locale))
   }
 
   const onGridKeyDown = (event: KeyboardEvent<HTMLDivElement>): void => {
@@ -158,7 +165,7 @@ export function DateTimePicker({ value, fallback, label, onChange, onDone }: Dat
       setFocusDay(next)
       if (!isSameMonth(next, month)) {
         setMonth(startOfMonth(next))
-        setAnnounce(monthLabel(next))
+        setAnnounce(monthLabel(next, locale))
       }
     }
 
@@ -174,7 +181,7 @@ export function DateTimePicker({ value, fallback, label, onChange, onDone }: Dat
       focusRequest.current = true
       setMonth(target)
       setFocusDay(clampToMonth(target, rovingDay.getDate()))
-      setAnnounce(monthLabel(target))
+      setAnnounce(monthLabel(target, locale))
       return
     }
     if (key === 'Enter' || key === ' ') {
@@ -187,24 +194,40 @@ export function DateTimePicker({ value, fallback, label, onChange, onDone }: Dat
     <div className="dp">
       <div className="dp-head">
         <div className="dp-month" id={monthId}>
-          <span className="dp-num">{month.getFullYear()}</span>
-          <span className="dp-unit">年</span>
-          <span className="dp-num">{month.getMonth() + 1}</span>
-          <span className="dp-unit">月</span>
+          {locale === 'en' ? (
+            <span className="dp-num">{monthLabel(month, 'en')}</span>
+          ) : (
+            <>
+              <span className="dp-num">{month.getFullYear()}</span>
+              <span className="dp-unit">{t('picker.year')}</span>
+              <span className="dp-num">{month.getMonth() + 1}</span>
+              <span className="dp-unit">{t('picker.month')}</span>
+            </>
+          )}
         </div>
         <button className="dp-today" type="button" onClick={() => pickDay(new Date(), false)}>
-          今天
+          {t('picker.today')}
         </button>
-        <button className="dp-nav" type="button" aria-label="上一月" onClick={() => gotoMonth(-1)}>
+        <button
+          className="dp-nav"
+          type="button"
+          aria-label={t('picker.prevMonth')}
+          onClick={() => gotoMonth(-1)}
+        >
           <ChevronLeft size={14} strokeWidth={1.8} aria-hidden="true" />
         </button>
-        <button className="dp-nav" type="button" aria-label="下一月" onClick={() => gotoMonth(1)}>
+        <button
+          className="dp-nav"
+          type="button"
+          aria-label={t('picker.nextMonth')}
+          onClick={() => gotoMonth(1)}
+        >
           <ChevronRight size={14} strokeWidth={1.8} aria-hidden="true" />
         </button>
       </div>
 
       <div className="dp-week" aria-hidden="true">
-        {WEEKDAY_LABELS.map((day) => (
+        {weekdayLabels(locale).map((day) => (
           <span key={day}>{day}</span>
         ))}
       </div>
@@ -265,6 +288,8 @@ function MonthGrid({
   onPick,
   onKeyDown
 }: MonthGridProps) {
+  const t = useT()
+  const locale = useLocale()
   return (
     <div
       className="dp-grid"
@@ -291,7 +316,13 @@ function MonthGrid({
             ]
               .filter(Boolean)
               .join(' ')
-            const suffix = isToday ? '，今天' : outside ? (day < month ? '，上月' : '，下月') : ''
+            const suffix = isToday
+              ? t('picker.suffix.today')
+              : outside
+                ? day < month
+                  ? t('picker.suffix.prev')
+                  : t('picker.suffix.next')
+                : ''
             return (
               <div
                 key={dayKey(day)}
@@ -302,7 +333,7 @@ function MonthGrid({
                 tabIndex={isRoving ? 0 : -1}
                 aria-selected={isSelected}
                 aria-current={isToday ? 'date' : undefined}
-                aria-label={`${dayLabel(day)}${suffix}`}
+                aria-label={`${dayLabel(day, locale)}${suffix}`}
                 onClick={() => onPick(day)}
               >
                 {day.getDate()}
@@ -336,6 +367,8 @@ function TimeField({
   onCommit,
   onDone
 }: TimeFieldProps) {
+  const t = useT()
+  const locale = useLocale()
   // null means "show the committed value". Typing keeps its own text until a
   // commit happens, so the field can never display one hour while storing another.
   const [hourText, setHourText] = useState<string | null>(null)
@@ -422,8 +455,8 @@ function TimeField({
   const renderPart = (part: TimePart, ref: RefObject<HTMLInputElement | null>) => {
     const text = part === 'hour' ? hourText : minuteText
     const max = partMax(part)
-    const unit = part === 'hour' ? '时' : '分'
-    const name = part === 'hour' ? '小时' : '分钟'
+    const unit = part === 'hour' ? t('picker.hour') : t('picker.minute')
+    const name = part === 'hour' ? t('picker.hourName') : t('picker.minuteName')
     return (
       <input
         ref={ref}
@@ -433,7 +466,7 @@ function TimeField({
         role="spinbutton"
         autoComplete="off"
         spellCheck={false}
-        aria-label={`${label} ${name}${empty ? '（未设置）' : ''}`}
+        aria-label={`${label} ${name}${empty ? t('picker.unset') : ''}`}
         aria-valuemin={0}
         aria-valuemax={max}
         aria-valuenow={draft[part]}
@@ -490,15 +523,15 @@ function TimeField({
         </span>
         {renderPart('minute', minuteRef)}
         <span className="dp-meridiem" aria-hidden="true">
-          {dayPart(draft.hour)}
+          {dayPart(draft.hour, locale)}
         </span>
       </div>
       <button
         className="dp-step"
         type="button"
-        aria-label="提前 15 分钟"
+        aria-label={t('picker.earlier15')}
         aria-keyshortcuts="Shift+ArrowDown"
-        title="提前 15 分钟"
+        title={t('picker.earlier15')}
         disabled={total === 0}
         onClick={() => step(-15)}
       >
@@ -507,9 +540,9 @@ function TimeField({
       <button
         className="dp-step"
         type="button"
-        aria-label="推迟 15 分钟"
+        aria-label={t('picker.later15')}
         aria-keyshortcuts="Shift+ArrowUp"
-        title="推迟 15 分钟"
+        title={t('picker.later15')}
         disabled={total === 1439}
         onClick={() => step(15)}
       >

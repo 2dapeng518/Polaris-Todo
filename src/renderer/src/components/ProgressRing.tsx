@@ -1,11 +1,14 @@
+import { useT } from '../stores/useLocaleStore'
+
 export function ProgressRing({ value, label }: { value: number; label: string }) {
+  const t = useT()
   const radius = 16
   const circumference = 2 * Math.PI * radius
   const clamped = Math.max(0, Math.min(1, value))
   const offset = circumference * (1 - clamped)
 
   return (
-    <div className="progress-ring" title={`今日完成 ${label}`}>
+    <div className="progress-ring" title={t('views.progressTitle', { label })}>
       <svg width="44" height="44" viewBox="0 0 44 44" aria-hidden="true">
         <circle
           cx="22"
@@ -31,7 +34,7 @@ export function ProgressRing({ value, label }: { value: number; label: string })
       </svg>
       <div className="progress-label">
         <strong>{label}</strong>
-        <span>今日</span>
+        <span>{t('views.progressLabel')}</span>
       </div>
     </div>
   )

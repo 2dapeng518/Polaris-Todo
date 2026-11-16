@@ -1,5 +1,6 @@
 import { format, isBefore, isToday, isTomorrow, startOfDay } from 'date-fns'
-import { zhCN } from 'date-fns/locale'
+import { enUS, zhCN } from 'date-fns/locale'
+import { DEFAULT_LOCALE, translate, type Locale, type MessageKey } from './i18n'
 
 // Quick-add natural-language parsing. Pure: no React, no DOM, no Node.
 //
@@ -79,6 +80,8 @@ export type ParseContext = {
   now: Date
   projects: ReadonlyArray<{ id: string; name: string }>
   dismissed: ReadonlyMap<string, number>
+  /** 只影响显示文案；中文自然语言语法保持不变。 */
+  locale?: Locale
 }
 
 export const QUICK_ADD_TITLE_MAX = 500
@@ -173,7 +176,15 @@ const RE = {
 
 const LOOSE_CLOCK = new RegExp(`((?:${PERIODS})[ \\t]*)?${NUM3}\\s*[点时]`, 'g')
 const SUFFIX_HEAD = new RegExp(`^(?:半|钟|一刻|三刻|${NUM3}\\s*分)`)
-const PRIORITY_LABEL: Record<number, string> = { 1: '低', 2: '中', 3: '高' }
+/** 优先级的显示短名：解析语法仍只认中文与数字，这里只负责怎么说。 */
+function priorityText(locale: Locale, priority: number): string {
+  const value = priority >= 1 && priority <= 3 ? priority : 0
+  return translate(locale, `detail.priorityOption.${value}` as MessageKey)
+}
+
+function assumedText(locale: Locale): string {
+  return translate(locale, 'quickAdd.assumedSuffix')
+}
 const DATE_KINDS: TokenKind[] = ['relative', 'relcomp', 'weekday', 'monthday', 'iso']
 
 type Cand = {
@@ -360,16 +371,25 @@ export function dismissKeys(
 export function formatParsedDue(
   value: string | null,
   timeExplicit: boolean,
-  now: Date
+  now: Date,
+  locale: Locale = DEFAULT_LOCALE
 ): string {
-  if (!value) return '无日期'
+  if (!value) return translate(locale, 'quickAdd.dueNone')
   const date = new Date(value)
-  const year = date.getFullYear() !== now.getFullYear() ? 'yyyy年' : ''
-  if (isToday(date)) return timeExplicit ? `今天 ${format(date, 'HH:mm')}` : '今天'
-  if (isTomorrow(date)) return timeExplicit ? `明天 ${format(date, 'HH:mm')}` : '明天'
-  const stem = format(date, `${year}M月d日`, { locale: zhCN })
-  const tail = timeExplicit ? format(date, ' HH:mm') : ' ' + format(date, 'EEE', { locale: zhCN })
-  if (isBefore(date, startOfDay(now))) return `已逾期 · ${stem}${tail}`
+  const dateLocale = locale === 'en' ? enUS : zhCN
+  const today = translate(locale, 'dates.today')
+  const tomorrow = translate(locale, 'dates.tomorrow')
+  if (isToday(date)) return timeExplicit ? `${today} ${format(date, 'HH:mm')}` : today
+  if (isTomorrow(date)) return timeExplicit ? `${tomorrow} ${format(date, 'HH:mm')}` : tomorrow
+  const sameYear = date.getFullYear() === now.getFullYear()
+  const stem =
+    locale === 'en'
+      ? format(date, sameYear ? 'MMM d' : 'MMM d, yyyy', { locale: dateLocale })
+      : format(date, `${sameYear ? '' : 'yyyy年'}M月d日`, { locale: dateLocale })
+  const tail = timeExplicit ? format(date, ' HH:mm') : ' ' + format(date, 'EEE', { locale: dateLocale })
+  if (isBefore(date, startOfDay(now))) {
+    return `${translate(locale, 'dates.overdue')} · ${stem}${tail}`
+  }
   return `${stem}${tail}`
 }
 
@@ -383,7 +403,7 @@ function sourceOf(raw: string, tokens: ParseToken[]): string {
 }
 
 export function parseQuickAdd(raw: string, ctx: ParseContext): QuickAddParse {
-  const { now, projects, dismissed } = ctx
+  const { now, projects, dismissed, locale = DEFAULT_LOCALE } = ctx
   const normalized = norm(raw)
   const poisoned: Span[] = []
   const cands: Cand[] = []
@@ -431,7 +451,7 @@ export function parseQuickAdd(raw: string, ctx: ParseContext): QuickAddParse {
         kind: 'miss',
         name: run,
         span: { start: at0, end: at0 + 1 + run.length },
-        text: `未找到「${run}」`
+        text: translate(locale, 'quickAdd.miss', { name: run })
       })
     }
   }
@@ -907,19 +927,26 @@ export function parseQuickAdd(raw: string, ctx: ParseContext): QuickAddParse {
       kind: 'ambiguous',
       name: ambiguous.name ?? '',
       span: { start: ambiguous.start, end: ambiguous.end },
-      text: `有 ${twins} 个「${ambiguous.name}」，未指定项目`
+      text: translate(locale, 'quickAdd.ambiguous', {
+        count: twins,
+        name: ambiguous.name ?? ''
+      })
     })
   }
 
   const chips: ParseChip[] = []
   const dueTokens = tokens.filter((t) => DATE_KINDS.includes(t.kind) || t.kind === 'clockCn' || t.kind === 'clock24' || t.kind === 'period')
   if (dueAt && dueTokens.length) {
-    const label = formatParsedDue(dueAt, timeExplicit, now)
+    const label = formatParsedDue(dueAt, timeExplicit, now, locale)
     const source = sourceOf(raw, dueTokens)
     chips.push({
       id: 'due',
       label,
-      ariaLabel: `取消识别：截止时间 ${label}${assumed ? '（时间为推断）' : ''}，来自「${source}」`,
+      ariaLabel: translate(locale, 'quickAdd.chipDue', {
+        label,
+        assumed: assumed ? assumedText(locale) : '',
+        source
+      }),
       source,
       tokenKeys: dueTokens.map((t) => t.key),
       spans: dueTokens.map((t) => ({ start: t.start, end: t.end })),
@@ -933,7 +960,10 @@ export function parseQuickAdd(raw: string, ctx: ParseContext): QuickAddParse {
     chips.push({
       id: 'project',
       label: projTok.name ?? '',
-      ariaLabel: `取消识别：项目 ${projTok.name}，来自「${source}」`,
+      ariaLabel: translate(locale, 'quickAdd.chipProject', {
+        name: projTok.name ?? '',
+        source
+      }),
       source,
       tokenKeys: projTokens.map((t) => t.key),
       spans: projTokens.map((t) => ({ start: t.start, end: t.end })),
@@ -943,12 +973,12 @@ export function parseQuickAdd(raw: string, ctx: ParseContext): QuickAddParse {
   }
   const prioTokens = tokens.filter((t) => t.kind === 'priority')
   if (prioTok && prioTokens.length) {
-    const label = PRIORITY_LABEL[prioTok.priority ?? 0] ?? ''
+    const label = priorityText(locale, prioTok.priority ?? 0)
     const source = sourceOf(raw, prioTokens)
     chips.push({
       id: 'priority',
-      label: `${label}优先级`,
-      ariaLabel: `取消识别：优先级 ${label}，来自「${source}」`,
+      label: translate(locale, 'quickAdd.priorityLabel', { priority: label }),
+      ariaLabel: translate(locale, 'quickAdd.chipPriority', { priority: label, source }),
       source,
       tokenKeys: prioTokens.map((t) => t.key),
       spans: prioTokens.map((t) => ({ start: t.start, end: t.end })),
@@ -959,12 +989,30 @@ export function parseQuickAdd(raw: string, ctx: ParseContext): QuickAddParse {
 
   const segments: string[] = []
   for (const chip of chips) {
-    if (chip.id === 'due') segments.push(`截止 ${chip.label}${chip.assumed ? '（时间为推断）' : ''}`)
-    else if (chip.id === 'project') segments.push(`项目 ${chip.label}`)
-    else segments.push(`优先级 ${PRIORITY_LABEL[prioTok?.priority ?? 0] ?? ''}`)
+    if (chip.id === 'due') {
+      segments.push(
+        translate(locale, 'quickAdd.announceDue', {
+          label: chip.label,
+          assumed: chip.assumed ? assumedText(locale) : ''
+        })
+      )
+    } else if (chip.id === 'project') {
+      segments.push(translate(locale, 'quickAdd.announceProject', { name: chip.label }))
+    } else {
+      segments.push(
+        translate(locale, 'quickAdd.announcePriority', {
+          priority: priorityText(locale, prioTok?.priority ?? 0)
+        })
+      )
+    }
   }
-  let announcement = segments.length ? `已识别：${segments.join('，')}。` : ''
-  for (const notice of notices) announcement += `${notice.text}。`
+  let announcement = segments.length
+    ? translate(locale, 'quickAdd.announce', {
+        segments: segments.join(translate(locale, 'quickAdd.sep'))
+      })
+    : ''
+  const period = translate(locale, 'quickAdd.period')
+  for (const notice of notices) announcement += `${notice.text}${period}`
 
   const signature = [
     dueAt,

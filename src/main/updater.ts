@@ -2,7 +2,9 @@ import { app, ipcMain, type BrowserWindow } from 'electron'
 import { autoUpdater } from 'electron-updater'
 import type { UpdateState, UpdateStatus } from '../shared/types'
 import { normalizeReleaseNotes } from '../shared/update'
+import { translate, type Locale } from '../shared/i18n'
 import { getMeta, setMeta } from './db'
+import { getCurrentLocale } from './locale'
 
 // 在线更新的唯一所有者。渠道是 GitHub Releases（electron-builder.yml 的
 // publish），客户端只认 Release 资产里的 latest.yml：比对 semver → 后台下载
@@ -86,25 +88,43 @@ export interface TrayCheckFeedback {
   surface: boolean
 }
 
-/** 纯函数，冒烟直接对状态表逐条验证；错误文案截断，气泡不放整段堆栈。 */
-export function describeTrayCheck(state: UpdateState): TrayCheckFeedback {
+/** 纯函数，冒烟直接对状态表逐条验证；错误文案截断，气泡不放整段堆栈。
+ *  locale 默认中文：现有冒烟直调不传参也不会变。 */
+export function describeTrayCheck(state: UpdateState, locale: Locale = 'zh-CN'): TrayCheckFeedback {
   switch (state.status) {
     case 'unsupported':
-      return { balloon: '当前环境不提供在线更新', surface: false }
+      return { balloon: translate(locale, 'updater.unsupported'), surface: false }
     case 'checking':
-      return { balloon: '正在检查更新，请稍候', surface: false }
+      return { balloon: translate(locale, 'updater.checking'), surface: false }
     case 'available':
-      return { balloon: `发现新版本 v${state.latestVersion}，正在后台下载`, surface: true }
+      return {
+        balloon: translate(locale, 'updater.available', { version: state.latestVersion ?? '' }),
+        surface: true
+      }
     case 'downloading':
-      return { balloon: `新版本 v${state.latestVersion} 下载中（${state.percent ?? 0}%）`, surface: true }
+      return {
+        balloon: translate(locale, 'updater.downloading', {
+          version: state.latestVersion ?? '',
+          percent: state.percent ?? 0
+        }),
+        surface: true
+      }
     case 'downloaded':
-      return { balloon: `新版本 v${state.latestVersion} 已就绪，重启即可安装`, surface: true }
+      return {
+        balloon: translate(locale, 'updater.downloaded', { version: state.latestVersion ?? '' }),
+        surface: true
+      }
     case 'up-to-date':
-      return { balloon: `已是最新版本 v${state.currentVersion}`, surface: false }
+      return { balloon: translate(locale, 'updater.upToDate', { version: state.currentVersion }), surface: false }
     case 'error':
-      return { balloon: `检查更新失败：${(state.error ?? '未知错误').slice(0, 120)}`, surface: false }
+      return {
+        balloon: translate(locale, 'updater.error', {
+          error: (state.error ?? translate(locale, 'updater.unknownError')).slice(0, 120)
+        }),
+        surface: false
+      }
     default:
-      return { balloon: '更新状态未知，请稍后再试', surface: false }
+      return { balloon: translate(locale, 'updater.unknown'), surface: false }
   }
 }
 
@@ -171,7 +191,7 @@ export function initUpdater(options: {
   ipcMain.handle('update:install', () => {
     // 未打包或没下载完就点重启：不动进程，报错给渲染层。
     if (!supported() || status !== 'downloaded') {
-      patch({ error: '更新尚未就绪，无法安装' })
+      patch({ error: translate(getCurrentLocale(), 'updater.notReady') })
       return
     }
     options.onBeforeInstall()

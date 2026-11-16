@@ -10,6 +10,7 @@ import {
   type ParseChip
 } from '@shared/quickAddParse'
 import { useTaskStore } from '../stores/useTaskStore'
+import { useLocale, useT } from '../stores/useLocaleStore'
 import { isTodayOrOverdue, isUpcoming, todayAt, tomorrowAt } from '../lib/dates'
 
 type QuickAddProps = {
@@ -43,6 +44,8 @@ const STRIP_MOTION = {
 }
 
 export function QuickAdd({ inputRef }: QuickAddProps) {
+  const t = useT()
+  const locale = useLocale()
   const [raw, setRaw] = useState(draftCache.raw)
   const [parseText, setParseText] = useState(draftCache.raw)
   const [dismissed, setDismissed] = useState<ReadonlyMap<string, number>>(draftCache.dismissed)
@@ -69,8 +72,8 @@ export function QuickAdd({ inputRef }: QuickAddProps) {
   const now = useMemo(readNow, [nowTick])
 
   const parse = useMemo(
-    () => parseQuickAdd(parseText, { now, projects, dismissed }),
-    [parseText, now, projects, dismissed]
+    () => parseQuickAdd(parseText, { now, projects, dismissed, locale }),
+    [parseText, now, projects, dismissed, locale]
   )
 
   const parseRef = useRef(parse)
@@ -167,11 +170,13 @@ export function QuickAdd({ inputRef }: QuickAddProps) {
     // Keep the dismissals the user made: a chip they cancelled must stay
     // cancelled in the task that gets written.
     const activeDismissed = dismissed
-    const parsed = parseQuickAdd(submitted, { now: freshNow, projects, dismissed: activeDismissed })
+    const parsed = parseQuickAdd(submitted, { now: freshNow, projects, dismissed: activeDismissed, locale })
 
     if (parsed.emptyTitle || parsed.tooLong) {
       announce(
-        parsed.emptyTitle ? '未添加：还差一个任务名' : `未添加：任务名太长（最多 ${QUICK_ADD_TITLE_MAX} 字）`
+        parsed.emptyTitle
+          ? t('quickAdd.notAddedEmpty')
+          : t('quickAdd.notAddedLong', { max: QUICK_ADD_TITLE_MAX })
       )
       return
     }
@@ -190,16 +195,20 @@ export function QuickAdd({ inputRef }: QuickAddProps) {
 
       // View-default hours are invented too, so they are never shown.
       const showTime = parsed.dueAt ? parsed.timeExplicit : false
-      let text = '已添加' + (dueAt ? ` · ${formatParsedDue(dueAt, showTime, freshNow)}` : '')
+      let text = t('quickAdd.added') + (dueAt ? ` · ${formatParsedDue(dueAt, showTime, freshNow, locale)}` : '')
       const inView =
         view === 'today' ? isTodayOrOverdue(dueAt) : view === 'upcoming' ? isUpcoming(dueAt) : true
       const inProject = projectFilter === null || projectId === projectFilter
       if (!inProject) {
-        const name = projects.find((project) => project.id === projectId)?.name ?? '其他项目'
-        text += ` · 在「${name}」`
+        const name = projects.find((project) => project.id === projectId)?.name ?? t('quickAdd.otherProject')
+        text += ` · ${t('quickAdd.inProject', { name })}`
       } else if (!inView) {
-        const where = isTodayOrOverdue(dueAt) ? '今天' : isUpcoming(dueAt) ? '即将到来' : '全部任务'
-        text += ` · 在「${where}」`
+        const where = isTodayOrOverdue(dueAt)
+          ? t('nav.view.today')
+          : isUpcoming(dueAt)
+            ? t('nav.view.upcoming')
+            : t('nav.view.all')
+        text += ` · ${t('quickAdd.inView', { where })}`
       }
       setNote({ kind: 'ok', text })
       announce(text)
@@ -211,8 +220,8 @@ export function QuickAdd({ inputRef }: QuickAddProps) {
       setRaw(submitted)
       setParseText(submitted)
       setDismissed(activeDismissed)
-      setNote({ kind: 'error', text: '添加失败，请重试' })
-      announce('添加失败，请重试')
+      setNote({ kind: 'error', text: t('quickAdd.addFailed') })
+      announce(t('quickAdd.addFailed'))
     }
   }
 
@@ -238,7 +247,7 @@ export function QuickAdd({ inputRef }: QuickAddProps) {
     const next = dismissKeys(chip.tokenKeys, dismissed, parse.candidateCounts)
     const after = parseQuickAdd(parseText, { now, projects, dismissed: next })
     setDismissed(next)
-    announce(`已保留为文字，标题将为「${after.title}」`)
+    announce(t('quickAdd.keptAsText', { title: after.title }))
     if (keyboard) {
       // Never bounce focus back to the input: Tab → Enter would then submit the
       // exact opposite of what the chip said.
@@ -265,7 +274,7 @@ export function QuickAdd({ inputRef }: QuickAddProps) {
     const next = dismissKeys(keys, dismissed, parse.candidateCounts)
     const after = parseQuickAdd(parseText, { now, projects, dismissed: next })
     setDismissed(next)
-    announce(`已保留为文字，标题将为「${after.title}」`)
+    announce(t('quickAdd.keptAsText', { title: after.title }))
     inputRef.current?.focus()
   }
 
@@ -287,14 +296,14 @@ export function QuickAdd({ inputRef }: QuickAddProps) {
 
   const blocked = parse.emptyTitle || parse.tooLong
   const showStrip = !note && (parse.chips.length + parse.notices.length > 0 || blocked)
-  const lead = parse.chips.length > 0 ? '已识别' : '未识别'
+  const lead = parse.chips.length > 0 ? t('quickAdd.parsed') : t('quickAdd.notParsed')
   const projectColor = (id: string | null): string =>
     projects.find((project) => project.id === id)?.color ?? 'var(--text-tertiary)'
 
   const titleHint = parse.emptyTitle
-    ? '还差一个任务名'
+    ? t('quickAdd.needTitle')
     : parse.tooLong
-      ? `任务名太长（最多 ${QUICK_ADD_TITLE_MAX} 字）`
+      ? t('quickAdd.tooLongHint', { max: QUICK_ADD_TITLE_MAX })
       : null
 
   return (
@@ -338,21 +347,21 @@ export function QuickAdd({ inputRef }: QuickAddProps) {
           name="new-task"
           autoComplete="off"
           spellCheck={false}
-          placeholder="添加任务…"
-          aria-label="添加任务"
+          placeholder={t('quickAdd.placeholder')}
+          aria-label={t('quickAdd.label')}
           aria-describedby="qa-hint"
           aria-invalid={blocked || undefined}
           aria-errormessage={blocked ? 'qa-error' : undefined}
         />
         {blocked ? (
-          <span className="quick-add-hint">{parse.emptyTitle ? '需要任务名' : '任务名太长'}</span>
+          <span className="quick-add-hint">{parse.emptyTitle ? t('quickAdd.needTitle') : t('quickAdd.tooLong')}</span>
         ) : parse.chips.length > 0 ? (
           <button ref={toggleRef} type="button" className="qa-toggle" onClick={keepAsText}>
-            保留为文字
+            {t('quickAdd.keepAsText')}
           </button>
         ) : dismissed.size > 0 ? (
           <button ref={toggleRef} type="button" className="qa-toggle" onClick={restoreParse}>
-            恢复识别
+            {t('quickAdd.restoreParse')}
           </button>
         ) : (
           <span className="quick-add-hint">
@@ -379,13 +388,13 @@ export function QuickAdd({ inputRef }: QuickAddProps) {
               <span className="qa-title">{parse.title}</span>
             )}
             <span className="qa-divider" aria-hidden="true" />
-            <div className="qa-chips" role="group" aria-label="识别结果" ref={chipsRef}>
+            <div className="qa-chips" role="group" aria-label={t('quickAdd.chipsAria')} ref={chipsRef}>
               {parse.chips.map((chip, index) => (
                 <button
                   key={chip.id}
                   type="button"
                   className={`qa-chip${chip.past ? ' past' : ''}`}
-                  title={`${chip.source}${chip.assumed ? ' · 时间为推断' : ''}`}
+                  title={`${chip.source}${chip.assumed ? ` · ${t('quickAdd.timeAssumed')}` : ''}`}
                   aria-label={chip.ariaLabel}
                   onClick={onChipClick(chip, index)}
                   onKeyDown={onChipKeyDown(chip, index)}
@@ -407,7 +416,7 @@ export function QuickAdd({ inputRef }: QuickAddProps) {
               <span
                 key={`${notice.kind}-${notice.name}`}
                 className="qa-notice"
-                title={notice.kind === 'miss' ? '可在侧栏新建同名项目' : undefined}
+                title={notice.kind === 'miss' ? t('quickAdd.missHint') : undefined}
               >
                 {notice.text}
               </span>
@@ -430,7 +439,7 @@ export function QuickAdd({ inputRef }: QuickAddProps) {
       </AnimatePresence>
 
       <p id="qa-hint" className="sr-only">
-        按 Tab 查看识别结果，Esc 清空
+        {t('quickAdd.hint')}
       </p>
       {/* Always mounted: aria-errormessage must resolve even while the strip is
           animating in, inert, or replaced by a receipt. */}

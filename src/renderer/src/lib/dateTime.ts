@@ -8,7 +8,8 @@ import {
   startOfMonth,
   startOfWeek
 } from 'date-fns'
-import { zhCN } from 'date-fns/locale'
+import { zhCN, enUS } from 'date-fns/locale'
+import { DEFAULT_LOCALE, translate, type Locale, type MessageKey } from '@shared/i18n'
 
 // Pure date/time helpers for the in-app picker. No React, no DOM.
 // Everything here works in LOCAL wall time; only draftToIso crosses to UTC.
@@ -17,6 +18,12 @@ export type Draft = { day: Date; hour: number; minute: number }
 export type TimePart = 'hour' | 'minute'
 
 export const WEEKDAY_LABELS = ['一', '二', '三', '四', '五', '六', '日'] as const
+
+const EN_WEEKDAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const
+
+export function weekdayLabels(locale: Locale = DEFAULT_LOCALE): readonly string[] {
+  return locale === 'en' ? EN_WEEKDAY_LABELS : WEEKDAY_LABELS
+}
 
 // Same vocabulary as shared/quickAddParse.ts, so the picker and the quick-add
 // parser never describe the same hour with different words.
@@ -41,16 +48,20 @@ export function monthMatrix(month: Date): Date[] {
   return Array.from({ length: 42 }, (_, index) => addDays(start, index))
 }
 
-export function monthLabel(month: Date): string {
-  return format(month, 'yyyy年M月', { locale: zhCN })
+export function monthLabel(month: Date, locale: Locale = DEFAULT_LOCALE): string {
+  return locale === 'en'
+    ? format(month, 'MMMM yyyy', { locale: enUS })
+    : format(month, 'yyyy年M月', { locale: zhCN })
 }
 
 export function dayKey(day: Date): string {
   return format(day, 'yyyy-MM-dd')
 }
 
-export function dayLabel(day: Date): string {
-  return format(day, 'M月d日 EEEE', { locale: zhCN })
+export function dayLabel(day: Date, locale: Locale = DEFAULT_LOCALE): string {
+  return locale === 'en'
+    ? format(day, 'EEEE, MMM d', { locale: enUS })
+    : format(day, 'M月d日 EEEE', { locale: zhCN })
 }
 
 export function monthFor(value: string | null): Date {
@@ -87,12 +98,12 @@ export function wrapPart(part: TimePart, value: number): number {
   return ((value % span) + span) % span
 }
 
-export function dayPart(hour: number): string {
-  let label = DAY_PARTS[0][1]
-  for (const [from, name] of DAY_PARTS) {
-    if (hour >= from) label = name
+export function dayPart(hour: number, locale: Locale = DEFAULT_LOCALE): string {
+  let from = DAY_PARTS[0][0]
+  for (const [threshold] of DAY_PARTS) {
+    if (hour >= threshold) from = threshold
   }
-  return label
+  return translate(locale, `picker.part.${from}` as MessageKey)
 }
 
 // Full-width digits are normalized, everything non-numeric is dropped, and the
