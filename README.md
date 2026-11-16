@@ -17,6 +17,10 @@
 
 Polaris 面向 Windows 11 桌面，用 Electron 构建，数据落在本机 SQLite 文件里，不依赖账号或云同步。界面使用简体中文，强调键盘操作、可访问性和安静的视觉层级：八个视图、自然语言快速添加、子任务与标签、提醒与重复、统计回顾，外加托盘驻留、全局热键和后台自动更新——装好之后几乎不用想起它，它一直在。
 
+<div align="center">
+<img src="docs/screenshots/main-dark.png" alt="Polaris 主界面 · 夜阑主题" width="860" />
+</div>
+
 ## 安装
 
 从 [GitHub Releases](https://github.com/daboluo20/Polaris-Todo/releases/latest) 下载 `Polaris-Setup-<版本>.exe`：按用户安装，无需管理员权限，安装界面为简体中文。
@@ -69,6 +73,20 @@ Polaris 面向 Windows 11 桌面，用 Electron 构建，数据落在本机 SQLi
 - **设置一屏收纳**：设置面板在默认窗口一屏放下，矮窗口自动两列回流；自定义标题栏保留 Windows 原生最小化 / 最大化 / 关闭按钮。
 - **关于与署名**：设置「关于」区显示当前版本与 MIT 许可；完整第三方组件与字体声明随安装包放在 `resources/NOTICE` 与 `resources/licenses/`。
 
+## 界面预览
+
+| 任务详情检查器 | 日历视图 |
+|---|---|
+| ![任务详情检查器](docs/screenshots/detail.png) | ![日历视图](docs/screenshots/calendar.png) |
+
+| 四象限 | 统计回顾 |
+|---|---|
+| ![四象限](docs/screenshots/matrix.png) | ![统计回顾](docs/screenshots/stats.png) |
+
+| 设置面板 | 命令面板 |
+|---|---|
+| ![设置面板](docs/screenshots/settings.png) | ![命令面板](docs/screenshots/palette.png) |
+
 ## 主题
 
 六套颜色主题，三深三浅、按色系成对，每对一深一浅：
@@ -82,6 +100,13 @@ Polaris 面向 Windows 11 桌面，用 Electron 构建，数据落在本机 SQLi
 - 标题栏是一枚**分体式开关**：左段一击在配对间往返（连点两次必回原主题），右段箭头展开六选一菜单；设置面板的主题卡片同样任选，命令面板另有「主题：夜阑」等六条直达命令。
 - 切换立即生效并记住：支持 View Transitions 时做一次约 200ms 的柔和淡变，reduced-motion 下直接切换；首次启动跟随系统浅色 / 深色偏好。
 - 青绿信号色全主题统一，画布各有气质，文字对比度均达 WCAG AA（`npm run verify:themes` 持续校验）。
+
+每列一对，上深下浅：
+
+| 夜阑 ↔ 昼白 | 暮蓝 ↔ 天蓝 | 松墨 ↔ 暖砂 |
+|---|---|---|
+| ![夜阑](docs/screenshots/theme-dark.png) | ![暮蓝](docs/screenshots/theme-dusk.png) | ![松墨](docs/screenshots/theme-green.png) |
+| ![昼白](docs/screenshots/theme-light.png) | ![天蓝](docs/screenshots/theme-sky.png) | ![暖砂](docs/screenshots/theme-sand.png) |
 
 ## 快捷键
 
@@ -280,7 +305,7 @@ build/         应用图标与安装包资源
 <details>
 <summary><b>POLARIS_SHOT 截图模式清单</b></summary>
 
-模式包括 `detail`、`palette`、`projects`、`reminder`、`reminder-detail`、`settings`、`theme-menu`、`palette-theme`、`toast`、`recurrence`、`parse`、`parse-past`、`parse-notice`、`parse-blocked`、`due-picker`、`due-clear`、`trash` 及各自的 `light-` 变体，另有仅深色的 `trash-confirm`（回收站的彻底删除确认弹窗）、`narrow`（先把窗口缩到 1100×800 再截详情栏），以及 `themes`（逐套截取六主题主视图、展开的主题菜单与主题选择器）、`splash`（逐六主题截取启动页，不触碰主窗口主题）。回收站截图会自种两条已删任务、截完硬删清场。
+模式包括 `detail`、`palette`、`projects`、`reminder`、`reminder-detail`、`settings`、`theme-menu`、`palette-theme`、`toast`、`recurrence`、`parse`、`parse-past`、`parse-notice`、`parse-blocked`、`due-picker`、`due-clear`、`trash` 及各自的 `light-` 变体，另有仅深色的 `trash-confirm`（回收站的彻底删除确认弹窗）、`narrow`（先把窗口缩到 1100×800 再截详情栏）、`calendar`（自种八条散布当月的任务，含逾期与一条已完成，截完硬删清场）、`matrix` 与 `stats`（用首启示例数据截四象限与统计），以及 `themes`（逐套截取六主题主视图、展开的主题菜单与主题选择器）、`splash`（逐六主题截取启动页，不触碰主窗口主题）。回收站截图会自种两条已删任务、截完硬删清场。README 里的截图归档在 `docs/screenshots/`。
 
 </details>
 
