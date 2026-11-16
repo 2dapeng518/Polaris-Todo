@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { Fragment, useEffect, useState, type FormEvent } from 'react'
 import { BarChart3, CalendarClock, CalendarDays, CheckCircle2, Grid2x2, HardDrive, ListTodo, Pencil, Plus, Settings2, Sun, Tag, Trash2 } from './Icon'
 import { AnimatePresence, motion } from 'motion/react'
 import type { AppView, Project } from '@shared/types'
@@ -7,14 +7,16 @@ import { isTodayOrOverdue, isUpcoming } from '../lib/dates'
 import { SettingsPanel } from './SettingsPanel'
 import { ConfirmDialog } from './ConfirmDialog'
 
-const NAV_ITEMS: Array<{ view: AppView; label: string; icon: typeof Sun }> = [
+/* 排序即工作流：时间轴（现在→接下来→俯瞰）→ 任务轴（分轻重→全集→归档）
+   → 回顾（统计）→ 系统（回收站）。divider 把干活的与回顾的视觉分组。 */
+const NAV_ITEMS: Array<{ view: AppView; label: string; icon: typeof Sun; divider?: boolean }> = [
   { view: 'today', label: '今天', icon: Sun },
   { view: 'upcoming', label: '即将到来', icon: CalendarClock },
   { view: 'calendar', label: '日历', icon: CalendarDays },
+  { view: 'matrix', label: '四象限', icon: Grid2x2 },
   { view: 'all', label: '全部任务', icon: ListTodo },
   { view: 'completed', label: '已完成', icon: CheckCircle2 },
-  { view: 'stats', label: '统计', icon: BarChart3 },
-  { view: 'matrix', label: '四象限', icon: Grid2x2 },
+  { view: 'stats', label: '统计', icon: BarChart3, divider: true },
   { view: 'trash', label: '回收站', icon: Trash2 }
 ]
 
@@ -135,8 +137,9 @@ export function Sidebar() {
           const Icon = item.icon
           const active = view === item.view && !projectFilter && !tagFilter
           return (
+            <Fragment key={item.view}>
+            {item.divider && <div className="nav-divider" role="separator" aria-hidden="true" />}
             <button
-              key={item.view}
               className={`nav-item ${active ? 'active' : ''}`}
               onClick={() => setView(item.view)}
               aria-current={active ? 'page' : undefined}
@@ -153,6 +156,7 @@ export function Sidebar() {
               {/* 统计与四象限不是任务列表：数字分别与「已完成」「全部任务」相同，并排显示一样的角标只会让人以为重复了。 */}
               {item.view !== 'stats' && item.view !== 'matrix' && <span className="nav-count">{counts[item.view]}</span>}
             </button>
+            </Fragment>
           )
         })}
       </nav>

@@ -311,7 +311,7 @@
   --noise-opacity: 0.018;
 }
 
-/* 护眼绿 Green：墨绿夜色画布 + 绿调中性色阶；深色家族统一 teal 信号色，
+/* 松墨 Green：墨绿夜色画布 + 绿调中性色阶；深色家族统一 teal 信号色，
    次要点缀为嫩绿。与暖砂互为深浅配对（标题栏快切对合）。 */
 [data-theme="green"] {
   color-scheme: dark;
@@ -736,6 +736,14 @@ textarea {
   flex-direction: column;
   gap: 2px;
   padding-top: 6px;
+}
+
+/* 视图分组线：干活视图与回顾视图之间的一道浅痕，左右与项内文字对齐。 */
+.nav-divider {
+  flex: none;
+  height: 1px;
+  margin: 4px 10px;
+  background: var(--line);
 }
 
 .nav-label {
@@ -4683,7 +4691,7 @@ textarea {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
-  /* 三列时上排三深、下排三浅，列列成对（夜阑/昼白、暮蓝/天蓝、护眼绿/暖砂）；
+  /* 三列时上排三深、下排三浅，列列成对（夜阑/昼白、暮蓝/天蓝、松墨/暖砂）；
      两列默认序已逐对成行，无需重排。 */
   .settings-panel > .settings-section:nth-child(2) .theme-option:nth-child(1) {
     order: 1;
