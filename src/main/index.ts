@@ -4261,36 +4261,43 @@ async function runSmokeTest(): Promise<void> {
       await settledFrames(mainWindow.webContents)
     }
 
-    // 默认窗口（1280×840）下设置面板应一屏放下、无上下滚动：紧凑化后的回归守卫。
+    // 设置面板一屏守卫：默认 840（两列回流）与 900（单列）两档都量。
     // 必须点过「检查更新」让状态行出现再量——用户真实场景带着状态行，空面板量了不算。
+    // 热键被外部程序占用时面板会多一条冲突错误行；两档预算都吞得下，守卫不因热键状态翻红。
     let settingsFitsDefault = false
     if (mainWindow) {
-      const originalSize = mainWindow.getSize()
-      mainWindow.setSize(1280, 840)
-      await settledFrames(mainWindow.webContents)
-      const settingsFitResult = await mainWindow.webContents.executeJavaScript(`(async () => {
-        ${pageHelpers}
-        document.querySelector('.settings-item').click();
-        const panel = await waitFor(() => document.querySelector('.settings-panel'));
-        if (!panel) return { fits: false, found: false };
-        await sleep(350);
-        panel.querySelector('.update-footer-btn')?.click();
-        await sleep(350);
-        const result = {
-          fits: panel.scrollHeight <= panel.clientHeight + 1,
-          found: true,
-          statusShown: Boolean(panel.querySelector('.update-footer-status')),
-          scrollHeight: panel.scrollHeight,
-          clientHeight: panel.clientHeight
-        };
-        document.querySelector('.settings-panel .detail-close')?.click();
-        await sleep(250);
-        return result;
-      })()`)
-      settingsFitsDefault = settingsFitResult?.fits === true && settingsFitResult?.statusShown === true
-      if (!settingsFitsDefault) console.error('SETTINGS_FIT_FAIL', JSON.stringify(settingsFitResult))
-      mainWindow.setSize(originalSize[0], originalSize[1])
-      await settledFrames(mainWindow.webContents)
+      const win = mainWindow
+      const originalSize = win.getSize()
+      const fitAt = async (h: number) => {
+        win.setSize(1280, h)
+        await settledFrames(win.webContents)
+        return win.webContents.executeJavaScript(`(async () => {
+          ${pageHelpers}
+          document.querySelector('.settings-item').click();
+          const panel = await waitFor(() => document.querySelector('.settings-panel'));
+          if (!panel) return { fits: false, found: false };
+          await sleep(350);
+          panel.querySelector('.update-footer-btn')?.click();
+          await sleep(350);
+          const result = {
+            fits: panel.scrollHeight <= panel.clientHeight + 1,
+            found: true,
+            statusShown: Boolean(panel.querySelector('.update-footer-status')),
+            scrollHeight: panel.scrollHeight,
+            clientHeight: panel.clientHeight
+          };
+          document.querySelector('.settings-panel .detail-close')?.click();
+          await sleep(250);
+          return result;
+        })()`)
+      }
+      const fit840 = await fitAt(840)
+      const fit900 = await fitAt(900)
+      settingsFitsDefault =
+        fit840?.fits === true && fit840?.statusShown === true && fit900?.fits === true && fit900?.statusShown === true
+      if (!settingsFitsDefault) console.error('SETTINGS_FIT_FAIL', JSON.stringify({ fit840, fit900 }))
+      win.setSize(originalSize[0], originalSize[1])
+      await settledFrames(win.webContents)
     }
 
     // 最小窗口（980×640）+ 状态行：低窗口两列回流必须一屏全显、末行可见。

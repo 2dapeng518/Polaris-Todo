@@ -502,6 +502,30 @@ textarea {
   outline-offset: -3px;
 }
 
+/* 文本输入统一走快速添加壳的「柔和聚焦」语言：1px 淡 accent 边 + 3px 浅光晕
+   + 3.5% 染色，不套按钮的 2px 硬环——大备注框套硬环像被警告。无边框字段用
+   inset 阴影模拟 1px 边，聚焦不长边框、不撑布局；有边框字段直接把边框染淡。
+   按钮/导航/勾选仍用上面的 2px 硬环，两种语言按控件类型分。 */
+.detail-title:focus-visible,
+.detail-notes:focus-visible,
+.checklist-title:focus-visible,
+.checklist-add:focus-visible {
+  outline: 0;
+  background: rgba(var(--accent-rgb), 0.035);
+  box-shadow:
+    inset 0 0 0 1px rgba(var(--accent-rgb), 0.34),
+    0 0 0 3px rgba(var(--accent-rgb), 0.07);
+}
+
+.detail-tags .detail-tag-input:focus-visible,
+.project-form input:focus-visible,
+.dp-clock:focus-within {
+  outline: 0;
+  border-color: rgba(var(--accent-rgb), 0.34);
+  background-image: linear-gradient(rgba(var(--accent-rgb), 0.035), rgba(var(--accent-rgb), 0.035));
+  box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.07);
+}
+
 ::-webkit-scrollbar {
   width: 10px;
   height: 10px;
@@ -959,13 +983,12 @@ textarea {
   background: var(--input-bg);
   color: var(--text);
   font-size: 12px;
+  transition:
+    border-color 0.16s,
+    box-shadow 0.16s var(--ease-out);
 }
 
-/* 与标签输入同一套聚焦语言：2px 单环内贴，不再独用 1px 淡边框。 */
-.project-form input:focus-visible {
-  border-color: transparent;
-  outline-offset: -2px;
-}
+/* 聚焦视觉走文件顶部「柔和聚焦」组规则。 */
 
 .color-swatches {
   display: flex;
@@ -1927,6 +1950,9 @@ textarea {
   overflow-y: auto;
   resize: none;
   white-space: pre-wrap;
+  transition:
+    box-shadow 0.16s var(--ease-out),
+    background 0.16s;
 }
 
 .detail-title::placeholder {
@@ -1935,8 +1961,6 @@ textarea {
 
 .detail-title:focus-visible {
   border-radius: 6px;
-  outline: 2px solid var(--accent);
-  outline-offset: 3px;
 }
 
 .detail-summary {
@@ -2039,17 +2063,16 @@ textarea {
   line-height: 1.65;
   resize: none;
   overflow-y: auto;
+  transition:
+    box-shadow 0.16s var(--ease-out),
+    background 0.16s;
 }
 
 .detail-notes::placeholder {
   color: var(--text-tertiary);
 }
 
-.detail-notes:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: -1px;
-  background: var(--surface-2);
-}
+/* 聚焦视觉走文件顶部「柔和聚焦」组规则。 */
 
 /* ---------- checklist ---------- */
 /* 轻量检查清单：只有勾选、行内标题、删除与底部连续添加。没有拖拽手柄，
@@ -2132,13 +2155,12 @@ textarea {
   color: var(--text);
   font-size: 13px;
   line-height: 1.5;
+  transition:
+    box-shadow 0.16s var(--ease-out),
+    background 0.16s;
 }
 
-.checklist-title:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: -1px;
-  background: var(--surface-2);
-}
+/* 聚焦视觉走文件顶部「柔和聚焦」组规则。 */
 
 .checklist-row.is-done .checklist-title {
   color: var(--text-tertiary);
@@ -2197,17 +2219,16 @@ textarea {
   background: transparent;
   color: var(--text);
   font-size: 13px;
+  transition:
+    box-shadow 0.16s var(--ease-out),
+    background 0.16s;
 }
 
 .checklist-add::placeholder {
   color: var(--text-tertiary);
 }
 
-.checklist-add:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: -1px;
-  background: var(--surface-2);
-}
+/* 聚焦视觉走文件顶部「柔和聚焦」组规则。 */
 
 .checklist-add-submit {
   display: grid;
@@ -2754,19 +2775,15 @@ textarea {
   font-size: 12px;
   transition:
     border-color 0.16s,
-    background 0.16s;
+    background 0.16s,
+    box-shadow 0.16s var(--ease-out);
 }
 
 .detail-tags .detail-tag-input::placeholder {
   color: var(--text-tertiary);
 }
 
-/* 文本输入聚焦必触发 :focus-visible，全局 2px accent 外圈会叠在 accent 边框上
-   变成双环。按「同一时刻只留一条 accent 边」的约定：边框让位，外圈内贴。 */
-.detail-tags .detail-tag-input:focus-visible {
-  border-color: transparent;
-  outline-offset: -2px;
-}
+/* 聚焦视觉走文件顶部「柔和聚焦」组规则。 */
 
 .detail-tag-suggestions {
   gap: 4px;
@@ -3241,12 +3258,12 @@ textarea {
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
   background: var(--input-bg);
-  transition: border-color 0.16s;
+  transition:
+    border-color 0.16s,
+    box-shadow 0.16s var(--ease-out);
 }
 
-.dp-clock:focus-within {
-  border-color: var(--accent);
-}
+/* 聚焦视觉走文件顶部「柔和聚焦」组规则。 */
 
 .dp-clock.is-empty .dp-part {
   color: var(--text-tertiary);
@@ -3267,9 +3284,10 @@ textarea {
   outline: 0;
 }
 
+/* 时钟外框已给柔和聚焦信号；当前编辑的数位用淡染色标位，不套硬环。 */
 .dp-part:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 1px;
+  outline: 0;
+  background: rgba(var(--accent-rgb), 0.1);
 }
 
 .dp-colon {
@@ -4632,13 +4650,15 @@ textarea {
   letter-spacing: normal;
 }
 
-/* 低窗口（≤830px）单列放不下全部设置：面板加宽、两列回流，内容全显不滚动，
+/* 低窗口（≤860px）单列放不下全部设置：面板加宽、两列回流，内容全显不滚动，
    不靠压字号换高度。主题网格改三列两行横跨整幅；四个开关行叠左列，
    备份与关于叠右列；页脚与状态行回到整幅。子元素顺序固定（header + 7 section
    + footer），nth-child 定位稳定；状态/错误行是条件追加的末位子元素，按类名兜底。
-   高度预算 ≈  header 55 + 主题 132 + max(开关 184, 备份+关于 236) + 页脚 56
-   + 内边距 24 ≈ 500px，最小窗口 640 减去 96 留白仍有 543px 可用。 */
-@media (max-height: 830px) {
+   高度预算 ≈ header 55 + 主题 132 + max(开关 184, 备份+关于 236) + 页脚 56
+   + 内边距 24 ≈ 500px，加热键冲突错误行 25px 也远小于最小窗口 640-96=543px。
+   断点取 860 而非 830：默认 840 窗口也走两列，留足余量吞掉任何条件行；
+   单列只留给 >860 的高窗口（756px 全条件内容在 861-96=765px 里仍放得下）。 */
+@media (max-height: 860px) {
   .settings-panel {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
