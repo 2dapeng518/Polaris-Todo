@@ -29,6 +29,10 @@ const MESSAGES: Record<AppView, { title: string; desc: string }> = {
     title: '还没有任务',
     desc: '按 N 或点击上方输入框，添加第一件事'
   },
+  calendar: {
+    title: '这个月没有安排',
+    desc: '给任务设个截止时间，它就会出现在日历上'
+  },
   trash: {
     title: '回收站是空的',
     desc: `删除的任务会在这里保留 ${TRASH_RETENTION_DAYS} 天`

@@ -3693,6 +3693,70 @@ async function runSmokeTest(): Promise<void> {
     const matrixWorks = matrixResult?.ok === true
     if (!matrixWorks) console.error('MATRIX_FAIL', JSON.stringify(matrixResult))
 
+    // 日历：42 格月矩阵、任务按截止落格、翻月与今天按钮、chip 点开详情。
+    // 落格日期选「今天」与「本月 15 号」（今天恰为 15 号则用 16 号），任何运行日都不跨月。
+    const calendarResult = await mainWindow?.webContents.executeJavaScript(`(async () => {
+      ${pageHelpers}
+      let step = 'seed';
+      const ids = [];
+      const base = new Date(); base.setHours(23, 59, 0, 0);
+      const mid = new Date(base.getFullYear(), base.getMonth(), base.getDate() === 15 ? 16 : 15, 23, 59, 0, 0);
+      const key = (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+      const label = (d) => d.getFullYear() + '年' + (d.getMonth() + 1) + '月';
+      try {
+        const mk = async (title, dueAt) => {
+          const t = await window.polaris.tasks.create({ title, dueAt, projectId: null });
+          ids.push(t.id);
+        };
+        await mk('冒烟日历今', base.toISOString());
+        await mk('冒烟日历中', mid.toISOString());
+        await mk('冒烟日历无', null);
+        window.dispatchEvent(new Event('focus'));
+        step = 'open';
+        document.querySelector('.search-trigger').click();
+        if (!(await waitFor(() => document.querySelector('.command-input')))) throw new Error('palette not open');
+        const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+        setter.call(document.querySelector('.command-input'), '日历');
+        document.querySelector('.command-input').dispatchEvent(new Event('input', { bubbles: true }));
+        const item = await waitFor(() => document.querySelector('.command-item'));
+        if (!item || !item.textContent.includes('日历')) throw new Error('palette command missing');
+        item.click();
+        if (!(await waitFor(() => document.querySelector('.view-title')?.textContent?.trim() === '日历'))) throw new Error('title wrong');
+        step = 'grid';
+        const now = new Date();
+        if (!(await waitFor(() => document.querySelector('[data-calendar-month]')?.textContent?.trim() === label(now)))) throw new Error('month label wrong');
+        const cells = document.querySelectorAll('.calendar-cell').length;
+        const chipIn = (k, title) => [...document.querySelectorAll('[data-date="' + k + '"] .calendar-chip-title')].some((el) => el.textContent.trim() === title);
+        if (!(await waitFor(() => chipIn(key(base), '冒烟日历今')))) throw new Error('today chip missing');
+        const placement = chipIn(key(mid), '冒烟日历中');
+        const noDueAbsent = ![...document.querySelectorAll('.calendar-chip-title')].some((el) => el.textContent.includes('冒烟日历无'));
+        step = 'nav';
+        document.querySelector('.calendar-nav[aria-label="下个月"]').click();
+        const next = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+        if (!(await waitFor(() => document.querySelector('[data-calendar-month]')?.textContent?.trim() === label(next)))) throw new Error('next month wrong');
+        const cellsAfter = document.querySelectorAll('.calendar-cell').length;
+        document.querySelector('.calendar-today').click();
+        if (!(await waitFor(() => document.querySelector('[data-calendar-month]')?.textContent?.trim() === label(now)))) throw new Error('today button wrong');
+        step = 'detail';
+        document.querySelector('[data-date="' + key(base) + '"] .calendar-chip').click();
+        const detailOpened = await waitFor(() => document.querySelector('.detail-title'));
+        return {
+          ok: cells === 42 && cellsAfter === 42 && placement && noDueAbsent && Boolean(detailOpened),
+          step, cells, cellsAfter, placement, noDueAbsent
+        };
+      } catch (error) {
+        return { step, error: String(error) };
+      } finally {
+        for (const id of ids) {
+          try { await window.polaris.tasks.remove(id); } catch {}
+          try { await window.polaris.tasks.deleteForever(id); } catch {}
+        }
+      }
+    })()`)
+    const calendarWorks = calendarResult?.ok === true
+    if (!calendarWorks) console.error('CALENDAR_FAIL', JSON.stringify(calendarResult))
+
+
 
     // 自定义重复 UI：开弹层 → 自定义 → 周 → 间隔步进(+ 后 −) → 一三五 → 规则落库且弹层不超 420px。
     // 交互套用选择器冒烟的成熟模式：点 .task-title → 等 .detail-title → sleep 稳定 → 点行开弹层。
@@ -4490,6 +4554,7 @@ async function runSmokeTest(): Promise<void> {
           tagRecurrenceWorks,
           tagBackupWorks,
           matrixWorks,
+          calendarWorks,
           parseGrammarTable: parseAssertions.grammar,
           parseInvariants: parseAssertions.invariants,
           parseFormatNull: parseAssertions.format,
