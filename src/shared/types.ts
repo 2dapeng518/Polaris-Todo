@@ -23,6 +23,22 @@ export type Task = {
    *  of CreateTaskInput/UpdateTaskInput and never stored on the task row. */
   subtaskTotal: number
   subtaskDone: number
+  /** Associated tags, derived by the DB on every read (ordered by name).
+   *  UpdateTaskInput.tagIds is the only write path; never stored on the task
+   *  row itself. */
+  tags: Tag[]
+}
+
+/** A global label. Tags have no colour, due date or hierarchy — they are an
+ *  organisation axis orthogonal to projects, so a task can carry several. */
+export type Tag = {
+  id: string
+  name: string
+  createdAt: string
+}
+
+export type CreateTagInput = {
+  name: string
 }
 
 /** A lightweight checklist item. Subtasks carry no due date, reminder,
@@ -75,6 +91,10 @@ export type UpdateTaskInput = {
   recurrenceRule?: string | null
   projectId?: string | null
   priority?: number
+  /** Replacement semantics: the full desired tag set. Omitted leaves the
+   *  associations untouched; an empty array clears them. Unknown ids are
+   *  dropped rather than rejected so a stale renderer cannot fail a save. */
+  tagIds?: string[]
 }
 
 export type CreateProjectInput = {
@@ -88,19 +108,28 @@ export type UpdateProjectInput = {
   color?: string
 }
 
-/** Backup rows carry no derived counts: they are recomputed from the subtasks
- *  table after an import, and an old backup has no such field at all. */
-export type BackupTask = Omit<Task, 'subtaskTotal' | 'subtaskDone'>
+/** Backup rows carry no derived counts or tags: both are recomputed from the
+ *  subtasks and task_tags tables after an import, and an old backup has no
+ *  such field at all. */
+export type BackupTask = Omit<Task, 'subtaskTotal' | 'subtaskDone' | 'tags'>
 
-/** schemaVersion 2 added the subtasks array. Imports still accept version 1,
- *  where `subtasks` is absent and means "no checklist data". */
+/** schemaVersion 3 added the tags and taskTags arrays. Imports still accept
+ *  versions 1 and 2, where those arrays are absent and mean "no tag data". */
 export type BackupData = {
-  schemaVersion: 2
+  schemaVersion: 3
   app: 'polaris'
   exportedAt: string
   projects: Project[]
   tasks: BackupTask[]
+  tags: Tag[]
+  taskTags: TaskTag[]
   subtasks: Subtask[]
+}
+
+/** One row of the task_tags join table. */
+export type TaskTag = {
+  taskId: string
+  tagId: string
 }
 
 export type ExportResult = { saved: boolean; path?: string; error?: string }
@@ -114,6 +143,10 @@ export type ImportResult = {
   tasksSkipped?: number
   subtasksImported?: number
   subtasksSkipped?: number
+  tagsImported?: number
+  tagsSkipped?: number
+  taskTagsImported?: number
+  taskTagsSkipped?: number
   error?: string
 }
 
@@ -160,6 +193,11 @@ export type PolarisApi = {
     list: (taskId: string) => Promise<Subtask[]>
     create: (input: CreateSubtaskInput) => Promise<Subtask>
     update: (input: UpdateSubtaskInput) => Promise<Subtask>
+    remove: (id: string) => Promise<void>
+  }
+  tags: {
+    list: () => Promise<Tag[]>
+    create: (input: CreateTagInput) => Promise<Tag>
     remove: (id: string) => Promise<void>
   }
   data: {

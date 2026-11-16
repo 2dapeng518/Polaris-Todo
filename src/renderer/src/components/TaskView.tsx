@@ -38,6 +38,8 @@ export function TaskView() {
   const projects = useTaskStore((state) => state.projects)
   const view = useTaskStore((state) => state.view)
   const projectFilter = useTaskStore((state) => state.projectFilter)
+  const tagFilter = useTaskStore((state) => state.tagFilter)
+  const tags = useTaskStore((state) => state.tags)
   const setView = useTaskStore((state) => state.setView)
   const setPaletteOpen = useTaskStore((state) => state.setPaletteOpen)
   const selectedTaskId = useTaskStore((state) => state.selectedTaskId)
@@ -103,7 +105,10 @@ export function TaskView() {
   }, [selectedTaskId, paletteOpen, trashConfirm])
 
   const { visible, completed, totalToday, doneToday } = useMemo(() => {
-    const inProject = (task: Task) => !projectFilter || task.projectId === projectFilter
+    // 项目与标签筛选互斥（store 保证），双条件叠加让语义自洽。
+    const inProject = (task: Task) =>
+      (!projectFilter || task.projectId === projectFilter) &&
+      (!tagFilter || task.tags.some((tag) => tag.id === tagFilter))
 
     const active = tasks.filter((task) => !task.completed && inProject(task))
     const completedTasks = tasks.filter((task) => task.completed && inProject(task))
@@ -141,13 +146,14 @@ export function TaskView() {
       totalToday: todayActive.length + todayDone.length,
       doneToday: todayDone.length
     }
-  }, [tasks, trashedTasks, view, projectFilter])
+  }, [tasks, trashedTasks, view, projectFilter, tagFilter])
 
   const projectName = projectFilter
     ? projects.find((project) => project.id === projectFilter)?.name
     : undefined
-  const title = projectName ?? VIEW_TITLES[view]
-  const subtitle = projectFilter ? `${visible.length} 项未完成` : viewEyebrow(view)
+  const tagName = tagFilter ? tags.find((tag) => tag.id === tagFilter)?.name : undefined
+  const title = projectName ?? (tagName ? `#${tagName}` : VIEW_TITLES[view])
+  const subtitle = projectFilter || tagFilter ? `${visible.length} 项未完成` : viewEyebrow(view)
   const progress = totalToday === 0 ? 0 : doneToday / totalToday
 
   const confirmMessage = trashConfirm

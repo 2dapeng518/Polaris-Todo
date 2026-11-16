@@ -7,8 +7,10 @@ import { getAutoStartState, setAutoStartState } from './autostart'
 import {
   createProject,
   createSubtask,
+  createTag,
   createTask,
   deleteProject,
+  deleteTag,
   deleteTask,
   deleteTaskForever,
   exportBackup,
@@ -75,9 +77,20 @@ const backupSubtaskSchema = z.object({
   createdAt: z.string()
 })
 
+const backupTagSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1).max(40),
+  createdAt: z.string()
+})
+
+const backupTaskTagSchema = z.object({
+  taskId: z.string().min(1),
+  tagId: z.string().min(1)
+})
+
 const backupSchema = z.object({
-  // v1（无 subtasks）继续可导入；v2 起带检查清单。
-  schemaVersion: z.union([z.literal(1), z.literal(2)]),
+  // v1（无 subtasks）与 v2（无 tags）都继续可导入；v3 起带标签与关联。
+  schemaVersion: z.union([z.literal(1), z.literal(2), z.literal(3)]),
   app: z.literal('polaris'),
   exportedAt: z.string(),
   projects: z.array(
@@ -91,6 +104,9 @@ const backupSchema = z.object({
     })
   ),
   tasks: z.array(backupTaskSchema),
+  // 旧备份没有这两个字段，缺省即「没有标签数据」。
+  tags: z.array(backupTagSchema).optional().default([]),
+  taskTags: z.array(backupTaskTagSchema).optional().default([]),
   // 旧备份没有这个字段，缺省即「没有检查清单数据」。
   subtasks: z.array(backupSubtaskSchema).optional().default([])
 })
@@ -1197,7 +1213,10 @@ function resetTaskIpc(): void {
     'projects:list',
     'projects:create',
     'projects:update',
-    'projects:delete'
+    'projects:delete',
+    'tags:list',
+    'tags:create',
+    'tags:remove'
   ]) {
     ipcMain.removeHandler(channel)
   }
@@ -3424,6 +3443,78 @@ async function runSmokeTest(): Promise<void> {
       console.error('SUBTASK_UI_FAIL', JSON.stringify(subtaskUiResult))
     }
 
+    // 标签：详情建标签贴标签、任务行 chip、侧栏筛选命中、删标签级联清 chip。
+    const tagUiResult = await mainWindow?.webContents.executeJavaScript(`(async () => {
+      ${pageHelpers}
+      let step = 'create';
+      const due = new Date(); due.setHours(23, 59, 0, 0);
+      const task = await window.polaris.tasks.create({ title: '冒烟标签甲', dueAt: due.toISOString(), projectId: null });
+      const taskB = await window.polaris.tasks.create({ title: '冒烟标签乙', dueAt: due.toISOString(), projectId: null });
+      const setInput = (input, value) => {
+        const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+        setter.call(input, value);
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+      };
+      try {
+        [...document.querySelectorAll('.nav-item')].find((el) => el.textContent.includes('全部任务')).click();
+        window.dispatchEvent(new Event('focus'));
+        step = 'row';
+        if (!(await waitFor(() => findRow('冒烟标签甲') && findRow('冒烟标签乙')))) throw new Error('rows not found');
+        findRow('冒烟标签甲').querySelector('.task-title').click();
+        step = 'detail';
+        if (!(await waitFor(() => document.querySelector('.detail-tag-input')))) throw new Error('tag input not found');
+        const input = document.querySelector('.detail-tag-input');
+        setInput(input, '冒烟标签');
+        input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+        step = 'chip';
+        if (!(await waitFor(() => document.querySelector('[data-detail-tag="冒烟标签"]')))) throw new Error('detail chip missing');
+        if (!(await waitFor(() => findRow('冒烟标签甲').querySelector('[data-tag-name="冒烟标签"]')))) throw new Error('row chip missing');
+        const tag = (await window.polaris.tags.list()).find((t) => t.name === '冒烟标签');
+        if (!tag) throw new Error('tag not persisted');
+        step = 'assign';
+        await window.polaris.tasks.update({ id: taskB.id, tagIds: [tag.id] });
+        window.dispatchEvent(new Event('focus'));
+        if (!(await waitFor(() => findRow('冒烟标签乙')?.querySelector('[data-tag-name="冒烟标签"]')))) throw new Error('second chip missing');
+        step = 'sidebar';
+        const tagRow = () => [...document.querySelectorAll('.tag-item')].find((el) => el.textContent.includes('冒烟标签'));
+        if (!(await waitFor(() => tagRow()))) throw new Error('sidebar tag row missing');
+        // 计数落定：连续两次读数相同才算稳（同子任务进度的稳定模式）。
+        let lastCount = '';
+        await waitFor(() => {
+          const now = tagRow()?.querySelector('.nav-count')?.textContent.trim() ?? '';
+          const stable = now !== '' && now === lastCount;
+          lastCount = now;
+          return stable;
+        });
+        const countText = tagRow().querySelector('.nav-count').textContent.trim();
+        tagRow().querySelector('.project-select').click();
+        step = 'filter';
+        if (!(await waitFor(() => document.querySelector('.view-title')?.textContent.trim() === '#冒烟标签'))) throw new Error('filter title wrong');
+        if (!(await waitFor(() => document.querySelectorAll('.task-item').length === 2))) throw new Error('filter rows not 2');
+        const filterRows = [...document.querySelectorAll('.task-item')].every((el) => el.querySelector('[data-tag-name="冒烟标签"]'));
+        [...document.querySelectorAll('.nav-item')].find((el) => el.textContent.includes('全部任务')).click();
+        await waitFor(() => document.querySelector('.view-title')?.textContent.trim() === '全部任务');
+        step = 'cascade';
+        tagRow().querySelector('.project-action-danger').click();
+        if (!(await waitFor(() => document.querySelectorAll('[data-tag-name]').length === 0))) throw new Error('chips survived tag delete');
+        const sectionGone = document.querySelectorAll('.tag-item').length === 0;
+        const tagsLeft = (await window.polaris.tags.list()).filter((t) => t.name === '冒烟标签').length;
+        return {
+          ok: countText === '2' && filterRows && sectionGone && tagsLeft === 0,
+          step, countText, filterRows, sectionGone, tagsLeft
+        };
+      } catch (error) {
+        return { step, error: String(error) };
+      } finally {
+        for (const id of [task.id, taskB.id]) {
+          try { await window.polaris.tasks.remove(id); } catch {}
+          try { await window.polaris.tasks.deleteForever(id); } catch {}
+        }
+      }
+    })()`)
+    const tagUiWorks = tagUiResult?.ok === true
+    if (!tagUiWorks) console.error('TAG_UI_FAIL', JSON.stringify(tagUiResult))
+
     // 自定义重复 UI：开弹层 → 自定义 → 周 → 间隔步进(+ 后 −) → 一三五 → 规则落库且弹层不超 420px。
     // 交互套用选择器冒烟的成熟模式：点 .task-title → 等 .detail-title → sleep 稳定 → 点行开弹层。
     // 诊断必须随结果返回主进程再打印：渲染层 console.error 不回传到冒烟 stdout。
@@ -3662,6 +3753,82 @@ async function runSmokeTest(): Promise<void> {
         deleteTaskForever(id)
       }
       if (backupSubtaskProjectId) deleteProject(backupSubtaskProjectId)
+    }
+
+    // 标签重复继承与备份兼容：新实例继承标签；v3 导出带标签与关联；v1/v2 仍可导入。
+    let tagRecurrenceWorks = false
+    let tagBackupWorks = false
+    const tagFixtureIds: string[] = []
+    let tagFixtureProjectId: string | null = null
+    let tagFixtureId: string | null = null
+    try {
+      const tag = createTag({ name: '冒烟继承标签' })
+      tagFixtureId = tag.id
+      const due = new Date()
+      due.setHours(23, 59, 0, 0)
+      const task = createTask({
+        title: '冒烟标签重复',
+        dueAt: due.toISOString(),
+        recurrenceRule: 'FREQ=DAILY'
+      })
+      tagFixtureIds.push(task.id)
+      updateTask({ id: task.id, tagIds: [tag.id] })
+      updateTask({ id: task.id, completed: true })
+      const spawned = listTasks().find(
+        (candidate) =>
+          candidate.id !== task.id &&
+          candidate.title === '冒烟标签重复' &&
+          !candidate.completed &&
+          Boolean(candidate.recurrenceRule)
+      )
+      if (spawned) tagFixtureIds.push(spawned.id)
+      const oldTask = listTasks().find((candidate) => candidate.id === task.id)
+      tagRecurrenceWorks =
+        Boolean(spawned) &&
+        oldTask?.tags.some((item) => item.id === tag.id) === true &&
+        spawned?.tags.some((item) => item.id === tag.id) === true
+      if (!tagRecurrenceWorks) {
+        console.error('TAG_RECURRENCE_FAIL', JSON.stringify({ spawned: spawned?.id, oldTags: oldTask?.tags, newTags: spawned?.tags }))
+      }
+
+      const project = createProject({ name: '冒烟标签备份项目', color: '#5EEAD4' })
+      tagFixtureProjectId = project.id
+      const backupTask = createTask({
+        title: '冒烟标签备份',
+        dueAt: new Date().toISOString(),
+        projectId: project.id
+      })
+      tagFixtureIds.push(backupTask.id)
+      updateTask({ id: backupTask.id, tagIds: [tag.id] })
+      const backup = exportBackup()
+      const exportOk =
+        backup.tags.some((item) => item.id === tag.id) &&
+        backup.taskTags.some((link) => link.taskId === backupTask.id && link.tagId === tag.id)
+      // 旧备份：schemaVersion 2 没有 tags/taskTags 字段，必须照常解析、缺省为空数组。
+      const v2 = backupSchema.safeParse({
+        schemaVersion: 2,
+        app: 'polaris',
+        exportedAt: new Date().toISOString(),
+        projects: [],
+        tasks: [],
+        subtasks: []
+      })
+      const v2Ok = v2.success && v2.data.tags.length === 0 && v2.data.taskTags.length === 0
+      const legacyImport = importBackup({ projects: [], tasks: [] })
+      tagBackupWorks =
+        exportOk && v2Ok && legacyImport.tagsImported === 0 && legacyImport.taskTagsImported === 0
+      if (!tagBackupWorks) {
+        console.error('TAG_BACKUP_FAIL', JSON.stringify({ exportOk, v2Ok, legacyImport }))
+      }
+    } catch (error) {
+      console.error('TAG_MAIN_ERROR', error)
+    } finally {
+      for (const id of tagFixtureIds) {
+        deleteTask(id)
+        deleteTaskForever(id)
+      }
+      if (tagFixtureId) deleteTag(tagFixtureId)
+      if (tagFixtureProjectId) deleteProject(tagFixtureProjectId)
     }
 
     // 原子写：写入与覆盖内容正确，且目录里不留临时文件（只剩目标文件）。
@@ -4136,6 +4303,9 @@ async function runSmokeTest(): Promise<void> {
           subtaskPurged,
           subtaskRecurrenceWorks,
           subtaskBackupWorks,
+          tagUiWorks,
+          tagRecurrenceWorks,
+          tagBackupWorks,
           parseGrammarTable: parseAssertions.grammar,
           parseInvariants: parseAssertions.invariants,
           parseFormatNull: parseAssertions.format,
@@ -4286,13 +4456,15 @@ app.whenReady().then(() => {
   // 渲染层只发起 invoke；文件内容经 zod 整体校验后才落库。
   ipcMain.handle('data:export', async () => {
     try {
-      const { projects, tasks, subtasks } = exportBackup()
+      const { projects, tasks, tags, taskTags, subtasks } = exportBackup()
       const backup = {
-        schemaVersion: 2,
+        schemaVersion: 3,
         app: 'polaris',
         exportedAt: new Date().toISOString(),
         projects,
         tasks,
+        tags,
+        taskTags,
         subtasks
       }
       const stamp = new Date().toISOString().slice(0, 10).replace(/-/g, '')

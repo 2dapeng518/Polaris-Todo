@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { BarChart3, CalendarDays, CheckCircle2, HardDrive, ListTodo, Pencil, Plus, Settings2, Sun, Trash2 } from './Icon'
+import { BarChart3, CalendarDays, CheckCircle2, HardDrive, ListTodo, Pencil, Plus, Settings2, Sun, Tag, Trash2 } from './Icon'
 import { AnimatePresence, motion } from 'motion/react'
 import type { AppView, Project } from '@shared/types'
 import { useTaskStore } from '../stores/useTaskStore'
@@ -26,6 +26,10 @@ export function Sidebar() {
   const projectFilter = useTaskStore((state) => state.projectFilter)
   const setView = useTaskStore((state) => state.setView)
   const setProjectFilter = useTaskStore((state) => state.setProjectFilter)
+  const tags = useTaskStore((state) => state.tags)
+  const tagFilter = useTaskStore((state) => state.tagFilter)
+  const setTagFilter = useTaskStore((state) => state.setTagFilter)
+  const removeTag = useTaskStore((state) => state.removeTag)
   const createProject = useTaskStore((state) => state.createProject)
   const updateProject = useTaskStore((state) => state.updateProject)
   const deleteProject = useTaskStore((state) => state.deleteProject)
@@ -113,7 +117,7 @@ export function Sidebar() {
         <div className="nav-label">视图</div>
         {NAV_ITEMS.map((item) => {
           const Icon = item.icon
-          const active = view === item.view && !projectFilter
+          const active = view === item.view && !projectFilter && !tagFilter
           return (
             <button
               key={item.view}
@@ -288,6 +292,49 @@ export function Sidebar() {
           )
         })}
       </nav>
+
+      {tags.length > 0 && (
+        <nav className="nav-section tags-section" aria-label="标签">
+          <div className="nav-label">
+            <span>标签</span>
+            <span className="nav-label-count">{tags.length}</span>
+          </div>
+          {tags.map((tag) => {
+            const count = activeTasks.filter((task) => task.tags.some((item) => item.id === tag.id)).length
+            const active = tagFilter === tag.id
+            return (
+              <div key={tag.id} className={`nav-item project-item tag-item ${active ? 'active' : ''}`}>
+                {active && (
+                  <motion.span
+                    layoutId="nav-active"
+                    className="nav-active-bg"
+                    transition={{ type: 'spring', stiffness: 420, damping: 40 }}
+                  />
+                )}
+                <button
+                  className="project-select"
+                  onClick={() => setTagFilter(tag.id)}
+                  aria-pressed={active}
+                >
+                  <Tag size={13} strokeWidth={1.8} className="tag-nav-icon" aria-hidden="true" />
+                  <span className="nav-text">{tag.name}</span>
+                  <span className="nav-count">{count}</span>
+                </button>
+                <div className="project-actions">
+                  <button
+                    className="project-action project-action-danger"
+                    aria-label={`删除标签 ${tag.name}`}
+                    title="删除标签"
+                    onClick={() => void removeTag(tag.id)}
+                  >
+                    <Trash2 size={13} strokeWidth={1.8} aria-hidden="true" />
+                  </button>
+                </div>
+              </div>
+            )
+          })}
+        </nav>
+      )}
 
       <div className="sidebar-spacer" />
 
