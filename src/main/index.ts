@@ -490,6 +490,53 @@ async function captureDuePickerScreenshot(filename: string, confirm: boolean): P
   await captureTo(filename)
 }
 
+// 日历截图：首启示例只落在今天/明天，月历太稀疏。自种一批散布全月的任务
+// （含逾期与一条已完成），截完硬删清场、路由回今天——与回收站截图同一套路。
+async function captureCalendarScreenshot(filename: string): Promise<void> {
+  const wc = mainWindow?.webContents
+  if (!wc) return
+  const ids = await wc.executeJavaScript(`(async () => {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const projects = await window.polaris.projects.list();
+    const polaris = projects.find((p) => p.name === 'Polaris');
+    const personal = projects.find((p) => p.name === '个人');
+    const now = new Date();
+    const y = now.getFullYear(), m = now.getMonth();
+    const at = (day, hour) => new Date(y, m, day, hour, 0, 0, 0).toISOString();
+    const seeds = [
+      { title: '整理竞品调研笔记', dueAt: at(3, 10), projectId: polaris ? polaris.id : null, priority: 1 },
+      { title: '提交报销单', dueAt: at(8, 17), projectId: personal ? personal.id : null, priority: 2 },
+      { title: '设计评审会', dueAt: at(12, 14), projectId: polaris ? polaris.id : null, priority: 3 },
+      { title: '给绿植浇水', dueAt: at(15, 9), projectId: personal ? personal.id : null, priority: 0 },
+      { title: '发布补丁版本', dueAt: at(19, 20), projectId: polaris ? polaris.id : null, priority: 3 },
+      { title: '周末采购清单', dueAt: at(22, 11), projectId: personal ? personal.id : null, priority: 1 },
+      { title: '读完《设计中的设计》', dueAt: at(26, 21), projectId: personal ? personal.id : null, priority: 0 },
+      { title: '月度回顾', dueAt: at(28, 16), projectId: polaris ? polaris.id : null, priority: 2 }
+    ];
+    const created = [];
+    for (const seed of seeds) {
+      const task = await window.polaris.tasks.create(seed);
+      created.push(task.id);
+    }
+    await window.polaris.tasks.toggle(created[3], true);
+    window.dispatchEvent(new Event('focus'));
+    await sleep(400);
+    [...document.querySelectorAll('.nav-item')].find((el) => el.textContent.includes('日历'))?.click();
+    for (let i = 0; i < 40 && !document.querySelector('.calendar-grid, [role="gridcell"]'); i++) await sleep(50);
+    await sleep(450);
+    return created;
+  })()`)
+  await captureTo(filename)
+  await wc.executeJavaScript(`(async () => {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    for (const id of ${JSON.stringify(ids)}) await window.polaris.tasks.deleteForever(id);
+    window.dispatchEvent(new Event('focus'));
+    await sleep(300);
+    [...document.querySelectorAll('.nav-item')].find((el) => el.textContent.includes('今天'))?.click();
+    await sleep(300);
+  })()`)
+}
+
 async function captureDemo(mode: string): Promise<void> {
   if (!mainWindow) {
     app.quit()
@@ -653,6 +700,17 @@ async function captureDemo(mode: string): Promise<void> {
       await captureTrashScreenshot('screenshot-trash-confirm.png', true)
     } else if (PARSE_SHOTS[mode]) {
       await captureParseScreenshot(`screenshot-${mode}.png`, PARSE_SHOTS[mode])
+    } else if (mode === 'calendar') {
+      await captureCalendarScreenshot('screenshot-calendar.png')
+    } else if (mode === 'matrix' || mode === 'stats') {
+      // 四象限与统计直接用首启示例数据：六条任务恰好落满四个象限，
+      // 统计有今日完成与项目分布，不需要额外种子。
+      const label = mode === 'matrix' ? '四象限' : '统计'
+      await mainWindow.webContents.executeJavaScript(
+        `[...document.querySelectorAll('.nav-item')].find((el) => el.textContent.includes(${JSON.stringify(label)}))?.click()`
+      )
+      await new Promise((resolve) => setTimeout(resolve, 700))
+      await captureTo(`screenshot-${mode}.png`)
     } else if (mode === 'narrow') {
       mainWindow.setSize(1100, 800)
       await new Promise((resolve) => setTimeout(resolve, 500))
