@@ -10,6 +10,7 @@ import { EmptyState } from './EmptyState'
 import { ProgressRing } from './ProgressRing'
 import { QuickAdd } from './QuickAdd'
 import { StatsView } from './StatsView'
+import { MatrixView } from './MatrixView'
 import { TaskItem } from './TaskItem'
 import { TrashItem } from './TrashItem'
 import { formatHeaderDate, isTodayOrOverdue, isUpcoming } from '../lib/dates'
@@ -20,6 +21,7 @@ const VIEW_TITLES: Record<AppView, string> = {
   all: '全部任务',
   completed: '已完成',
   stats: '统计',
+  matrix: '四象限',
   trash: '回收站'
 }
 
@@ -28,6 +30,7 @@ function viewEyebrow(view: AppView): string {
   if (view === 'upcoming') return '接下来几天的安排'
   if (view === 'completed') return '已经完成的事项'
   if (view === 'stats') return '完成趋势与节奏'
+  if (view === 'matrix') return '按重要与紧急安排'
   if (view === 'trash') return `删除的任务保留 ${TRASH_RETENTION_DAYS} 天`
   return '所有未完成的事项'
 }
@@ -74,7 +77,7 @@ export function TaskView() {
       }
       // 回收站与统计页不挂输入框：路由回「今天」再聚焦。N、面板「新建任务」
       // 和 footer 提示都走这一条事件路径，提示不是假 affordance。
-      if (view === 'trash' || view === 'stats') {
+      if (view === 'trash' || view === 'stats' || view === 'matrix') {
         setView('today')
         requestAnimationFrame(() => quickAddRef.current?.focus())
       }
@@ -210,7 +213,7 @@ export function TaskView() {
                 <Trash2 size={14} strokeWidth={1.8} aria-hidden="true" />
                 <span>清空回收站</span>
               </button>
-            ) : view === 'stats' ? (
+            ) : view === 'stats' || view === 'matrix' ? (
               <button className="search-trigger" onClick={() => setPaletteOpen(true)}>
                 <Search size={16} strokeWidth={1.8} aria-hidden="true" />
                 <span>搜索</span>
@@ -229,12 +232,14 @@ export function TaskView() {
           </div>
         </header>
 
-        {view !== 'completed' && view !== 'trash' && view !== 'stats' && (
+        {view !== 'completed' && view !== 'trash' && view !== 'stats' && view !== 'matrix' && (
           <QuickAdd inputRef={quickAddRef} />
         )}
 
         {view === 'stats' ? (
           <StatsView />
+        ) : view === 'matrix' ? (
+          <MatrixView />
         ) : visible.length === 0 && completed.length === 0 ? (
           <EmptyState view={view} />
         ) : (

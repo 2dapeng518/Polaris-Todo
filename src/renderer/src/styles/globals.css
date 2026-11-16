@@ -2456,6 +2456,67 @@ textarea {
   flex-shrink: 0;
 }
 
+/* 四象限：2×2 卡片网格，窄屏单列堆叠。克制配色，信号色只留给任务本身。 */
+.matrix-view {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  align-items: start;
+}
+
+.matrix-quadrant {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 120px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface-1);
+}
+
+.matrix-quadrant-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.matrix-quadrant-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.matrix-quadrant-hint {
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+.matrix-quadrant-count {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.matrix-quadrant-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.matrix-quadrant-empty {
+  margin: 4px 0;
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+@media (max-width: 960px) {
+  .matrix-view {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* 标签编辑区：已贴 chip + 新建输入框 + 建议 chip。与项目 chips 同一套
    28px/8px 圆角语言，输入框压到 30px 以免详情列过高。 */
 .detail-tags {

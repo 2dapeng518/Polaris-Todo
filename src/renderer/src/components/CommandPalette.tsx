@@ -10,6 +10,7 @@ import {
   BarChart3,
   CalendarDays,
   CheckCircle2,
+  Grid2x2,
   Circle,
   FolderPlus,
   ListTodo,
@@ -152,6 +153,7 @@ export function CommandPalette() {
         run: go('completed')
       },
       { kind: 'command', id: 'view-stats', label: '统计', icon: BarChart3, run: go('stats') },
+      { kind: 'command', id: 'view-matrix', label: '四象限', icon: Grid2x2, run: go('matrix') },
       { kind: 'command', id: 'view-trash', label: '回收站', icon: Trash2, run: go('trash') }
     ]
   }, [setOpen, setView, theme, toggleTheme, setTheme])

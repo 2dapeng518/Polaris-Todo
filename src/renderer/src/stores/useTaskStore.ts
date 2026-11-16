@@ -349,7 +349,7 @@ export const useTaskStore = create<TaskState>((set, get) => ({
       tagFilter: null,
       // 进回收站关闭检查器：软删行没有详情，留着选中只会让第三列空转。
       // 统计页是整幅图表，检查器没有并排的空间。
-      selectedTaskId: view === 'trash' || view === 'stats' ? null : state.selectedTaskId,
+      selectedTaskId: view === 'trash' || view === 'stats' || view === 'matrix' ? null : state.selectedTaskId,
       // 确认弹窗不随导航漂流：视图一变就关。
       trashConfirm: null
     }))

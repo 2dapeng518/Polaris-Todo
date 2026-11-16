@@ -3515,6 +3515,71 @@ async function runSmokeTest(): Promise<void> {
     const tagUiWorks = tagUiResult?.ok === true
     if (!tagUiWorks) console.error('TAG_UI_FAIL', JSON.stringify(tagUiResult))
 
+    // 四象限：自种四条任务分落四象限，命令面板直达，断言象限标题、归属与计数自洽。
+    const matrixResult = await mainWindow?.webContents.executeJavaScript(`(async () => {
+      ${pageHelpers}
+      let step = 'seed';
+      const ids = [];
+      const today = new Date(); today.setHours(23, 59, 0, 0);
+      const future = new Date(Date.now() + 3 * 86400000); future.setHours(23, 59, 0, 0);
+      try {
+        const mk = async (title, priority, dueAt) => {
+          const t = await window.polaris.tasks.create({ title, priority, dueAt, projectId: null });
+          ids.push(t.id);
+        };
+        await mk('冒烟象限甲', 3, today.toISOString());
+        await mk('冒烟象限乙', 2, future.toISOString());
+        await mk('冒烟象限丙', 1, today.toISOString());
+        await mk('冒烟象限丁', 0, null);
+        window.dispatchEvent(new Event('focus'));
+        step = 'open';
+        document.querySelector('.search-trigger').click();
+        if (!(await waitFor(() => document.querySelector('.command-input')))) throw new Error('palette not open');
+        const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+        setter.call(document.querySelector('.command-input'), '四象限');
+        document.querySelector('.command-input').dispatchEvent(new Event('input', { bubbles: true }));
+        const item = await waitFor(() => document.querySelector('.command-item'));
+        if (!item || !item.textContent.includes('四象限')) throw new Error('palette command missing');
+        item.click();
+        if (!(await waitFor(() => document.querySelector('.view-title')?.textContent?.trim() === '四象限'))) throw new Error('title wrong');
+        step = 'quadrants';
+        const count = (id) => document.querySelector('[data-quadrant="' + id + '"] [data-quadrant-count]')?.textContent?.trim();
+        const titles = (id) => [...document.querySelectorAll('[data-quadrant="' + id + '"] .task-title')].map((el) => el.textContent.trim()).join('|');
+        // 示例任务也在矩阵里：计数不断言绝对值，断言「徽标 = 渲染行数」的自洽，
+        // 四条自种任务的归属用字面量钉死。等 focus 触发的 load() 落定。
+        if (!(await waitFor(() =>
+          titles('do').includes('冒烟象限甲') && titles('plan').includes('冒烟象限乙') &&
+          titles('quick').includes('冒烟象限丙') && titles('later').includes('冒烟象限丁')
+        ))) throw new Error('membership wrong');
+        const consistent = ['do', 'plan', 'quick', 'later'].every((id) =>
+          count(id) === String(document.querySelectorAll('[data-quadrant="' + id + '"] .task-item').length)
+        );
+        const membership =
+          titles('do').split('|').filter((t) => t === '冒烟象限甲').length === 1 &&
+          titles('plan').split('|').filter((t) => t === '冒烟象限乙').length === 1 &&
+          titles('quick').split('|').filter((t) => t === '冒烟象限丙').length === 1 &&
+          titles('later').split('|').filter((t) => t === '冒烟象限丁').length === 1;
+        const labels = [...document.querySelectorAll('.matrix-quadrant-title')].map((el) => el.textContent.trim()).join('|');
+        step = 'detail';
+        document.querySelector('[data-quadrant="do"] .task-title').click();
+        const detailOpened = await waitFor(() => document.querySelector('.detail-title'));
+        return {
+          ok: membership && consistent && labels === '立即做|计划做|快速处理|有余力再做' && Boolean(detailOpened),
+          step, membership, consistent, labels
+        };
+      } catch (error) {
+        return { step, error: String(error) };
+      } finally {
+        for (const id of ids) {
+          try { await window.polaris.tasks.remove(id); } catch {}
+          try { await window.polaris.tasks.deleteForever(id); } catch {}
+        }
+      }
+    })()`)
+    const matrixWorks = matrixResult?.ok === true
+    if (!matrixWorks) console.error('MATRIX_FAIL', JSON.stringify(matrixResult))
+
+
     // 自定义重复 UI：开弹层 → 自定义 → 周 → 间隔步进(+ 后 −) → 一三五 → 规则落库且弹层不超 420px。
     // 交互套用选择器冒烟的成熟模式：点 .task-title → 等 .detail-title → sleep 稳定 → 点行开弹层。
     // 诊断必须随结果返回主进程再打印：渲染层 console.error 不回传到冒烟 stdout。
@@ -4306,6 +4371,7 @@ async function runSmokeTest(): Promise<void> {
           tagUiWorks,
           tagRecurrenceWorks,
           tagBackupWorks,
+          matrixWorks,
           parseGrammarTable: parseAssertions.grammar,
           parseInvariants: parseAssertions.invariants,
           parseFormatNull: parseAssertions.format,
