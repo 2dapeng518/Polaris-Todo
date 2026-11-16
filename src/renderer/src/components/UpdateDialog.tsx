@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
+import DOMPurify from 'dompurify'
 import { Check } from './Icon'
 import { useTaskStore } from '../stores/useTaskStore'
 import { useUpdateStore } from '../stores/useUpdateStore'
@@ -72,7 +73,20 @@ export function UpdateDialog() {
             {update.releaseNotes && (
               <div className="update-notes">
                 <div className="update-notes-label">更新内容</div>
-                <div className="update-notes-body">{update.releaseNotes}</div>
+                {/<[a-z][^>]*>/i.test(update.releaseNotes) ? (
+                  // GitHub 渠道的说明来自 releases.atom 的 <content>，是渲染后的
+                  // HTML（h2/ul/li…）。DOMPurify 消毒后按富文本展示，标签不再露出。
+                  <div
+                    className="update-notes-body rich"
+                    dangerouslySetInnerHTML={{
+                      __html: DOMPurify.sanitize(update.releaseNotes, {
+                        USE_PROFILES: { html: true }
+                      })
+                    }}
+                  />
+                ) : (
+                  <div className="update-notes-body plain">{update.releaseNotes}</div>
+                )}
               </div>
             )}
 
