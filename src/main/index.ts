@@ -4262,6 +4262,7 @@ async function runSmokeTest(): Promise<void> {
     }
 
     // 默认窗口（1280×840）下设置面板应一屏放下、无上下滚动：紧凑化后的回归守卫。
+    // 必须点过「检查更新」让状态行出现再量——用户真实场景带着状态行，空面板量了不算。
     let settingsFitsDefault = false
     if (mainWindow) {
       const originalSize = mainWindow.getSize()
@@ -4273,9 +4274,12 @@ async function runSmokeTest(): Promise<void> {
         const panel = await waitFor(() => document.querySelector('.settings-panel'));
         if (!panel) return { fits: false, found: false };
         await sleep(350);
+        panel.querySelector('.update-footer-btn')?.click();
+        await sleep(350);
         const result = {
           fits: panel.scrollHeight <= panel.clientHeight + 1,
           found: true,
+          statusShown: Boolean(panel.querySelector('.update-footer-status')),
           scrollHeight: panel.scrollHeight,
           clientHeight: panel.clientHeight
         };
@@ -4283,8 +4287,44 @@ async function runSmokeTest(): Promise<void> {
         await sleep(250);
         return result;
       })()`)
-      settingsFitsDefault = settingsFitResult?.fits === true
+      settingsFitsDefault = settingsFitResult?.fits === true && settingsFitResult?.statusShown === true
       if (!settingsFitsDefault) console.error('SETTINGS_FIT_FAIL', JSON.stringify(settingsFitResult))
+      mainWindow.setSize(originalSize[0], originalSize[1])
+      await settledFrames(mainWindow.webContents)
+    }
+
+    // 最小窗口（980×640）+ 状态行：低窗口两列回流必须一屏全显、末行可见。
+    let settingsFitsCompact = false
+    if (mainWindow) {
+      const originalSize = mainWindow.getSize()
+      mainWindow.setSize(980, 640)
+      await settledFrames(mainWindow.webContents)
+      const compactFitResult = await mainWindow.webContents.executeJavaScript(`(async () => {
+        ${pageHelpers}
+        document.querySelector('.settings-item').click();
+        const panel = await waitFor(() => document.querySelector('.settings-panel'));
+        if (!panel) return { fits: false, found: false };
+        await sleep(350);
+        panel.querySelector('.update-footer-btn')?.click();
+        await sleep(350);
+        const pr = panel.getBoundingClientRect();
+        const hint = panel.querySelector('.update-footer-status');
+        const last = hint ? hint.getBoundingClientRect().bottom : panel.querySelector('.settings-footer').getBoundingClientRect().bottom;
+        const result = {
+          fits: panel.scrollHeight <= panel.clientHeight + 1,
+          found: true,
+          lastVisible: last <= pr.bottom + 1,
+          grid: getComputedStyle(panel).display === 'grid',
+          scrollHeight: panel.scrollHeight,
+          clientHeight: panel.clientHeight
+        };
+        document.querySelector('.settings-panel .detail-close')?.click();
+        await sleep(250);
+        return result;
+      })()`)
+      settingsFitsCompact =
+        compactFitResult?.fits === true && compactFitResult?.lastVisible === true && compactFitResult?.grid === true
+      if (!settingsFitsCompact) console.error('SETTINGS_COMPACT_FAIL', JSON.stringify(compactFitResult))
       mainWindow.setSize(originalSize[0], originalSize[1])
       await settledFrames(mainWindow.webContents)
     }
@@ -4875,6 +4915,7 @@ async function runSmokeTest(): Promise<void> {
       aboutCreditsShown: aboutCreditsShown === true,
       storageCardWorks: storageCardWorks === true,
       settingsFitsDefault: settingsFitsDefault === true,
+      settingsFitsCompact: settingsFitsCompact === true,
       trayToggleWorks: trayToggleWorks === true,
       trayMenuEntries: trayMenuEntries === true,
       traySettingsOpens: traySettingsOpens === true,
@@ -4953,6 +4994,7 @@ async function runSmokeTest(): Promise<void> {
           aboutCreditsShown,
           storageCardWorks,
           settingsFitsDefault,
+          settingsFitsCompact,
           trayToggleWorks,
           trayMenuEntries,
           traySettingsOpens,
