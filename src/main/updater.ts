@@ -113,8 +113,8 @@ export interface TrayCheckFeedback {
   surface: boolean
 }
 
-/** 纯函数，冒烟直接对状态表逐条验证；错误文案截断，气泡不放整段堆栈。
- *  locale 默认中文：现有冒烟直调不传参也不会变。 */
+/** 纯函数，harness 断言直接对状态表逐条验证；错误文案截断，气泡不放整段堆栈。
+ *  locale 默认中文：现有 harness 直调不传参也不会变。 */
 export function describeTrayCheck(state: UpdateState, locale: Locale = 'zh-CN'): TrayCheckFeedback {
   switch (state.status) {
     case 'unsupported':

@@ -4,7 +4,7 @@ import type { Locale } from './i18n'
  * 在线更新的纯逻辑：不碰 Electron / 网络，主进程与校验脚本共用。
  * 版本大小比较交给 electron-updater（semver），这里只管三件小事：
  * 「跳过此版本」的安静规则、Release 正文的归一化，以及下载进度的
- * 字节/速度/剩余时间格式化（主进程与冒烟共用同一套期望值）。
+ * 字节/速度/剩余时间格式化（主进程与 harness 断言共用同一套期望值）。
  */
 
 /** electron-updater 的 releaseNotes 可能是 string、{version,note}[] 或 null。

@@ -53,7 +53,7 @@ export function showTrayBalloon(title: string, content: string): void {
   tray.displayBalloon({ title, content })
 }
 
-/** 冒烟用：读实际构建出来的菜单项标签（分隔线不算入口），不是常量的副本。 */
+/** harness 断言用：读实际构建出来的菜单项标签（分隔线不算入口），不是常量的副本。 */
 export function getTrayMenuLabels(): string[] {
   return menu ? menu.items.filter((item) => item.type !== 'separator').map((item) => item.label) : []
 }
