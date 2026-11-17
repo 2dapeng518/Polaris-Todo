@@ -9,6 +9,7 @@ import { getAutoStartState, setAutoStartState } from './autostart'
 import {
   exportBackup,
   getMeta,
+  getWriteRevision,
   importBackup,
   importCsvText,
   initDatabase,
@@ -578,6 +579,10 @@ app.whenReady().then(() => {
   ipcMain.handle('app:mcp-token-get', () => getMcpToken())
 
   ipcMain.handle('app:mcp-token-regenerate', () => regenerateMcpToken())
+
+  // 写修订号只读探针：无载荷可校验（同 app:get-version 的只读风格），
+  // 单行主键 SELECT。渲染层 focus 时先比对它，变了才全量重拉（迁移 7 触发器维护）。
+  ipcMain.handle('data:revision', () => getWriteRevision())
 
   ipcMain.handle('data:export', async () => {
     try {

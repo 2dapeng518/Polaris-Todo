@@ -19,8 +19,10 @@ import {
   getMeta,
   getTask,
   importBackup,
+  listDeletedTasks,
   listSubtasks,
   listTasks,
+  purgeExpiredDeleted,
   updateSubtask,
   updateTask
 } from '../db'
@@ -1479,6 +1481,9 @@ export async function runSmokeTest(): Promise<void> {
       try {
         storageLoadError = await wc.executeJavaScript(`(async () => {
           ${pageHelpers}
+          // 修订号门控后 focus 只在号变化时才重拉：先真写一条（tasks:create
+          // 未被摘，触发器跳号）再 focus，保证 load 真的发起并撞上被摘的通道。
+          await window.polaris.tasks.create({ title: '冒烟读失败 探针', dueAt: null, projectId: null });
           window.dispatchEvent(new Event('focus'));
           return Boolean(await waitFor(() => errorToast()?.textContent.includes('读取本地数据失败')));
         })()`)
@@ -1491,6 +1496,9 @@ export async function runSmokeTest(): Promise<void> {
         if (!button) return false;
         button.click();
         const gone = await waitFor(() => !document.querySelector('.toast-error'));
+        // 探针清场：软删进回收站，由下方回收站链开头的硬删清扫统一处理。
+        const probe = (await window.polaris.tasks.list()).find((t) => t.title === '冒烟读失败 探针');
+        if (probe) await window.polaris.tasks.remove(probe.id);
         window.dispatchEvent(new Event('focus'));
         await sleep(300);
         return Boolean(gone);
@@ -1779,6 +1787,9 @@ export async function runSmokeTest(): Promise<void> {
       try {
         await wc.executeJavaScript(`(async () => {
           ${pageHelpers}
+          // 同 storageLoadError：修订号门控后先真写一条跳号，focus 才会发起
+          // 两个读并双双撞上被摘的通道（tasks:create 未被摘）。
+          await window.polaris.tasks.create({ title: '冒烟双读失败 探针', dueAt: null, projectId: null });
           window.dispatchEvent(new Event('focus'));
           await waitFor(() => errorToast()?.textContent.includes('读取本地数据失败'));
           // toast 由先失败的读挂出；等后一个读的 catch 也落地再进入下一阶段。
@@ -1804,8 +1815,15 @@ export async function runSmokeTest(): Promise<void> {
       // 两个读都成功，错误 toast 才允许消失；随后路由回今天。
       storageDualReadCleared = await wc.executeJavaScript(`(async () => {
         ${pageHelpers}
+        // 上一次 load 失败没盖章，号与盖章不同 → 这次 focus 门自然打开。
         window.dispatchEvent(new Event('focus'));
         const cleared = await waitFor(() => !errorToast());
+        // 探针清场：软删 + 硬删一步到位，不给后面的回收站断言留计数污染。
+        const probe = (await window.polaris.tasks.list()).find((t) => t.title === '冒烟双读失败 探针');
+        if (probe) {
+          await window.polaris.tasks.remove(probe.id);
+          await window.polaris.tasks.deleteForever(probe.id);
+        }
         [...document.querySelectorAll('.nav-item')].find((el) => el.textContent.includes('今天')).click();
         window.dispatchEvent(new Event('focus'));
         await waitFor(() => document.querySelector('.quick-add input'));
@@ -2613,6 +2631,206 @@ export async function runSmokeTest(): Promise<void> {
     const subtaskPurged = subtaskUiResult?.purged === true
     if (!subtaskRowProgress || !subtaskDetailChain || !subtaskRenamed || !subtaskPersisted || !subtaskPurged) {
       console.error('SUBTASK_UI_FAIL', JSON.stringify(subtaskUiResult))
+    }
+
+    // ---------- focus 修订号门控（迁移 7 触发器 + data:revision） ----------
+    // 主进程侧计数探针：tasks:list / tasks:list-deleted 包一层计数，行为与生产
+    // 一致（list-deleted 保留 purge 语义），照 resetTaskIpc 的摘装手法恢复。
+    // 三段：无变化 focus 不重拉；DB 直写（与 MCP/CSV 外部写入同一条触发器路径）
+    // 后 focus 重拉且 UI 可见；自有 UI 写成功盖章后 focus 不多拉。
+    let focusRevisionGate = false
+    let focusGateListCalls = 0
+    let focusGateTrashCalls = 0
+    if (mainWindow) {
+      const wc = mainWindow.webContents
+      ipcMain.removeHandler('tasks:list')
+      ipcMain.handle('tasks:list', () => {
+        focusGateListCalls += 1
+        return listTasks()
+      })
+      ipcMain.removeHandler('tasks:list-deleted')
+      ipcMain.handle('tasks:list-deleted', () => {
+        focusGateTrashCalls += 1
+        purgeExpiredDeleted(new Date().toISOString())
+        return listDeletedTasks()
+      })
+      try {
+        // 静场：先 focus 一次把盖章与修订号对齐（前段清场是 API 直写，号已跳，
+        // 这次会拉），等 fire-and-forget 盖章与在途读全部落地再取基线。
+        await wc.executeJavaScript(`(async () => {
+          ${pageHelpers}
+          window.dispatchEvent(new Event('focus'));
+          await sleep(500);
+        })()`)
+        const baseList = focusGateListCalls
+        const baseTrash = focusGateTrashCalls
+        // 1) 无变化 focus：门必须关着，两条读通道都不得被调用。真实 OS focus
+        // 事件插进来也无害——同样过门，号没变就不拉（门控天然抗焦点噪声）。
+        await wc.executeJavaScript(`(async () => {
+          ${pageHelpers}
+          window.dispatchEvent(new Event('focus'));
+          window.dispatchEvent(new Event('focus'));
+          await sleep(450);
+        })()`)
+        const gateStaysClosed = focusGateListCalls === baseList && focusGateTrashCalls === baseTrash
+        // 2) DB 直写绕过渲染层（触发器跳号）→ focus 必须重拉且 UI 可见。
+        const gateDue = new Date()
+        gateDue.setHours(23, 59, 0, 0)
+        const gateProbe = createTask({ title: '冒烟修订门 探针', dueAt: gateDue.toISOString() })
+        const gateExternalShown = await wc.executeJavaScript(`(async () => {
+          ${pageHelpers}
+          window.dispatchEvent(new Event('focus'));
+          return Boolean(await waitFor(() => findRow('冒烟修订门 探针')));
+        })()`)
+        const gateExternalPulled = focusGateListCalls > baseList && focusGateTrashCalls > baseTrash
+        // 3) 自有 UI 写（勾选探针 → runUpdate 成功盖章）后 focus：不多拉。
+        // 行完成后进入默认折叠的已完成区，从活动列表消失即乐观落定。
+        await wc.executeJavaScript(`(async () => {
+          ${pageHelpers}
+          findRow('冒烟修订门 探针').querySelector('.task-check').click();
+          await waitFor(() => !findRow('冒烟修订门 探针'));
+          await sleep(450);
+        })()`)
+        const baseList2 = focusGateListCalls
+        const baseTrash2 = focusGateTrashCalls
+        await wc.executeJavaScript(`(async () => {
+          ${pageHelpers}
+          window.dispatchEvent(new Event('focus'));
+          await sleep(450);
+        })()`)
+        const gateOwnWriteQuiet = focusGateListCalls === baseList2 && focusGateTrashCalls === baseTrash2
+        focusRevisionGate = gateStaysClosed && Boolean(gateExternalShown) && gateExternalPulled && gateOwnWriteQuiet
+        if (!focusRevisionGate) {
+          console.error('FOCUS_GATE_FAIL', JSON.stringify({
+            gateStaysClosed, gateExternalShown: Boolean(gateExternalShown), gateExternalPulled, gateOwnWriteQuiet
+          }))
+        }
+        // 清场：探针软删 + 硬删，focus 同步（号跳会拉，属预期行为）。
+        deleteTask(gateProbe.id)
+        deleteTaskForever(gateProbe.id)
+        await wc.executeJavaScript(`(async () => {
+          ${pageHelpers}
+          window.dispatchEvent(new Event('focus'));
+          await sleep(350);
+        })()`)
+      } finally {
+        resetTaskIpc()
+      }
+    }
+
+    // ---------- 子任务字段级回滚（与 runUpdate 同构的并发竞态防护） ----------
+    // A（仅改名）被带闸门的 handler 拦截：乐观已应用、IPC 停在闸门上；B（仅
+    // 勾选）直通真实 DB 成功落定——模拟并发成功写入。放行 A 令其失败：字段级
+    // 回滚只还原 title，B 的 completed 必须存活；整行回滚会把它抹掉（旧缺陷）。
+    let subtaskFieldRollback = false
+    if (mainWindow) {
+      const wc = mainWindow.webContents
+      let releaseSubtaskFail: (() => void) | null = null
+      const subtaskFailGate = new Promise<void>((resolve) => {
+        releaseSubtaskFail = resolve
+      })
+      ipcMain.removeHandler('subtasks:update')
+      ipcMain.handle('subtasks:update', async (_event, input: { id: string; title?: string; completed?: boolean }) => {
+        // 只拦「仅改名」的 A；「仅勾选」的 B 直通生产同一个 DB 函数。
+        if (input && input.title !== undefined && input.completed === undefined) {
+          await subtaskFailGate
+          throw new Error('冒烟注入：子任务改名失败')
+        }
+        return updateSubtask(input)
+      })
+      let raceParentId: string | null = null
+      try {
+        const raceDue = new Date()
+        raceDue.setHours(23, 59, 0, 0)
+        raceParentId = createTask({ title: '冒烟子任务竞态', dueAt: raceDue.toISOString() }).id
+        // 阶段 1：开详情 → 加一条 → 发起改名 A（停闸）→ 勾选 B（直通成功）。
+        const racePhase1 = await wc.executeJavaScript(`(async () => {
+          ${pageHelpers}
+          const setInput = (input, value) => {
+            const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+            setter.call(input, value);
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+          };
+          window.dispatchEvent(new Event('focus'));
+          if (!(await waitFor(() => findRow('冒烟子任务竞态')))) return { ok: false, step: 'row' };
+          findRow('冒烟子任务竞态').querySelector('.task-title').click();
+          if (!(await waitFor(() => document.querySelector('[data-subtask-add]')))) return { ok: false, step: 'detail' };
+          const add = document.querySelector('[data-subtask-add]');
+          setInput(add, '竞态甲');
+          add.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+          if (!(await waitFor(() => document.querySelectorAll('[data-subtask-id]').length === 1))) return { ok: false, step: 'add' };
+          // 等 focus 触发的 load 落定（连续两次进度读数相同才算稳），避免旧
+          // 快照把乐观计数打回去（同 subtaskUiResult 的稳定模式）。
+          let lastProgress = '';
+          const stable = await waitFor(() => {
+            const now = document.querySelector('[data-subtask-progress]')?.textContent.trim() ?? '';
+            const ok = now === '0/1' && now === lastProgress;
+            lastProgress = now;
+            return ok;
+          });
+          if (!stable) return { ok: false, step: 'progress' };
+          // A：仅改名。Enter 提交链 + 冒泡 focusout 兜底（无焦点窗口里 blur()
+          // 是 no-op，见 subtaskUiResult 的同款注释）；重复提交幂等无害。
+          const titleInput = document.querySelector('.checklist-title');
+          titleInput.focus();
+          setInput(titleInput, '竞态甲改');
+          titleInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+          // 等乐观 title 重渲染进 SubtaskRow 的 item prop（aria-label 由
+          // item.title 派生，是 prop 的可观测代理）再派兜底 focusout：否则
+          // commit 闭包里的 item.title 还是旧值，兜底会再发一次改名调用（同样
+          // 停闸），第二次失败的回滚把乐观 title 又盖回去，断言假红。无焦点
+          // 窗口里 blur() 是 no-op、乐观尚未发生，短超时后 focusout 承担唯一
+          // 一次提交——两种窗口状态下都恰好一个改名调用。
+          await waitFor(() => titleInput.getAttribute('aria-label')?.includes('竞态甲改'), 800);
+          titleInput.dispatchEvent(new FocusEvent('focusout', { bubbles: true }));
+          await sleep(200);
+          // B：仅勾选 → 直通真实 DB 成功，权威行替换 store 行（含并发字段）。
+          document.querySelector('.checklist-check').click();
+          const settled = await waitFor(() =>
+            document.querySelector('[data-subtask-progress]')?.textContent.trim() === '1/1' &&
+            document.querySelector('.checklist-check')?.getAttribute('aria-pressed') === 'true'
+          );
+          // A 还停在闸门上：此刻不得有错误 toast（失败尚未发生）。
+          const noEarlyError = !errorToast();
+          return { ok: Boolean(settled) && noEarlyError, step: 'B' };
+        })()`)
+        // 放行 A：改名调用真实拒绝 → 触发渲染层字段级回滚。
+        if (releaseSubtaskFail) (releaseSubtaskFail as () => void)()
+        const racePhase2 = await wc.executeJavaScript(`(async () => {
+          ${pageHelpers}
+          const toasted = await waitFor(() => errorToast()?.textContent.includes('保存失败，改动未写入本地数据库'));
+          await sleep(250);
+          const row = document.querySelector('[data-subtask-id]');
+          // A 的 title 回到 pre-A 值；B 的 completed 必须存活（判别点：整行
+          // 回滚会把勾选抹掉，而 done 计数不回滚——行与计数还会互相矛盾）。
+          const titleKept = row?.querySelector('.checklist-title')?.value === '竞态甲';
+          const completedKept = row?.querySelector('.checklist-check')?.getAttribute('aria-pressed') === 'true';
+          const progress = document.querySelector('[data-subtask-progress]')?.textContent.trim();
+          const badge = findRow('冒烟子任务竞态')?.querySelector('[data-subtask-badge]')?.textContent.trim();
+          const stored = await window.polaris.subtasks.list(${JSON.stringify(raceParentId)});
+          const dbOk = stored.length === 1 && stored[0].title === '竞态甲' && stored[0].completed === true;
+          // 清掉错误提示，不给后续段留污染。
+          document.querySelector('.toast-error .toast-dismiss')?.click();
+          await waitFor(() => !document.querySelector('.toast-error'));
+          return { ok: Boolean(toasted) && titleKept && completedKept && progress === '1/1' && badge === '1/1' && dbOk,
+            titleKept, completedKept, progress, badge, dbOk };
+        })()`)
+        subtaskFieldRollback = racePhase1?.ok === true && racePhase2?.ok === true
+        if (!subtaskFieldRollback) {
+          console.error('SUBTASK_FIELD_ROLLBACK_FAIL', JSON.stringify({ racePhase1, racePhase2 }))
+        }
+      } finally {
+        resetTaskIpc()
+        if (raceParentId) {
+          deleteTask(raceParentId)
+          deleteTaskForever(raceParentId)
+        }
+        await wc.executeJavaScript(`(async () => {
+          ${pageHelpers}
+          window.dispatchEvent(new Event('focus'));
+          await sleep(350);
+        })()`)
+      }
     }
 
     // 标签：详情建标签贴标签、任务行 chip、侧栏筛选命中、删标签级联清 chip。
@@ -4443,6 +4661,8 @@ export async function runSmokeTest(): Promise<void> {
       subtaskPurged: subtaskPurged === true,
       subtaskRecurrenceWorks: subtaskRecurrenceWorks === true,
       subtaskBackupWorks: subtaskBackupWorks === true,
+      focusRevisionGate: focusRevisionGate === true,
+      subtaskFieldRollback: subtaskFieldRollback === true,
       updateLogicTable: updateLogicTable === true,
       updateFormatTable: updateFormatTable === true,
       updateSettingsCheck: updateSettingsCheck === true,
@@ -4539,6 +4759,8 @@ export async function runSmokeTest(): Promise<void> {
           subtaskPurged,
           subtaskRecurrenceWorks,
           subtaskBackupWorks,
+          focusRevisionGate,
+          subtaskFieldRollback,
           updateLogicTable,
           updateFormatTable,
           updateSettingsCheck,

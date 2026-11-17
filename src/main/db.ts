@@ -227,6 +227,48 @@ function migrate(): void {
     })()
     version = 6
   }
+
+  if (version < 7) {
+    // 写修订号：五张数据表（tasks/subtasks/tags/task_tags/projects）的任何
+    // INSERT/UPDATE/DELETE 都由 AFTER 触发器把 meta.write_revision 加一。
+    // 渲染层 focus 时先廉价比对修订号，变了才全量重拉——外部写入（MCP/CSV
+    // 导入/备份导入/retention 清理）与 UI 写入走同一套 SQL，触发器天然覆盖
+    // 所有写入路径，应用层零埋点。meta 自身不建触发器：主题/语言等应用设置
+    // 不是任务数据，不该触发重拉；也避免触发器写 meta 再触发自身的递归。
+    // 级联删除（删任务连带 subtasks/task_tags）会多跳几次号——修订号只承诺
+    // 单调递增，不承诺恰好等于写入次数，门控只做「变没变」的等值比较。
+    // better-sqlite3 同连接事务内触发器写 meta 与普通写入同生共死（已实测）。
+    db.transaction(() => {
+      db.exec(`
+      INSERT INTO meta (key, value) VALUES ('write_revision', '0')
+        ON CONFLICT(key) DO NOTHING;
+    `)
+      for (const table of ['tasks', 'subtasks', 'tags', 'task_tags', 'projects']) {
+        for (const op of ['INSERT', 'UPDATE', 'DELETE']) {
+          db.exec(`
+          CREATE TRIGGER IF NOT EXISTS trg_write_revision_${table}_${op.toLowerCase()}
+          AFTER ${op} ON ${table}
+          BEGIN
+            UPDATE meta SET value = CAST(value AS INTEGER) + 1 WHERE key = 'write_revision';
+          END;
+        `)
+        }
+      }
+      db.pragma('user_version = 7')
+    })()
+    version = 7
+  }
+}
+
+// 当前写修订号：单行主键 SELECT，focus 门控的廉价探针。键缺失（理论上只有
+// 迁移 7 之前的库）按 0 处理；值损坏（非数字）也按 0——宁可让渲染层多拉一次，
+// 不能抛错把 focus 刷新整条链打断。
+export function getWriteRevision(): number {
+  const row = db.prepare('SELECT value FROM meta WHERE key = ?').get('write_revision') as
+    | { value: string }
+    | undefined
+  const parsed = Number.parseInt(row?.value ?? '0', 10)
+  return Number.isFinite(parsed) ? parsed : 0
 }
 
 function seedIfNeeded(): void {

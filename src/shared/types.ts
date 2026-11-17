@@ -263,6 +263,9 @@ export type PolarisApi = {
     remove: (id: string) => Promise<void>
   }
   data: {
+    /** 当前写修订号（迁移 7 触发器维护，单调递增）。focus 门控的廉价探针：
+     *  与上次同步盖章不同才全量重拉，无变化时省掉整表 IPC。 */
+    getRevision: () => Promise<number>
     export: () => Promise<ExportResult>
     import: () => Promise<ImportResult>
     importCsv: () => Promise<CsvImportResult>
