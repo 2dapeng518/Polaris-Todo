@@ -8,7 +8,7 @@
 
 深色墨黑界面 · 青绿信号色 · 原生窗口控件 · 数据默认只保存在本机
 
-[![版本](https://img.shields.io/badge/version-0.14.1-0F766E?style=flat-square)](https://github.com/2dapeng518/Polaris-Todo/releases/latest)
+[![版本](https://img.shields.io/badge/version-0.16.1-0F766E?style=flat-square)](https://github.com/2dapeng518/Polaris-Todo/releases/latest)
 [![平台](https://img.shields.io/badge/platform-Windows%2011-334155?style=flat-square)](#安装)
 [![许可证](https://img.shields.io/badge/license-MIT-0F766E?style=flat-square)](LICENSE)
 [![下载](https://img.shields.io/github/downloads/2dapeng518/Polaris-Todo/total?style=flat-square&color=0F766E&label=downloads)](https://github.com/2dapeng518/Polaris-Todo/releases)
@@ -39,7 +39,7 @@ Polaris 面向 Windows 11 桌面，用 Electron 构建，数据落在本机 SQLi
 - **八个视图**：今天 / 即将到来 / 日历 / 四象限 / 全部任务 / 已完成 / 统计 / 回收站。侧栏按工作流分组——干活视图在上，统计与回收站用分隔线归入回顾区；支持项目与标签筛选、今日完成进度环。列表里的已完成区默认折叠成「已完成 N 条」一行，点击展开或收起，勾选完成只加计数不打扰当前列表；切换视图后回到折叠。
 - **统计回顾**：今日完成、本周完成（周一起算）、累计完成与按时完成率，7 天 / 30 天完成趋势柱状图、各项目累计完成占比。全部数字在本地从任务列表派生，不额外存库；没有记录完成时刻的老任务计入累计与项目分布，但不计入趋势和按时率，界面会注明数量。
 - **四象限**：按「重要 = 中/高优先级、紧急 = 今天到期或已逾期」把未完成任务派生进立即做 / 计划做 / 快速处理 / 有余力再做，2×2 卡片窄屏自动堆叠；无截止视为不紧急，跨午夜自动重新判定。
-- **日历**：月历按截止时间把任务落到对应日子，周一起始、恒定 42 格翻月不跳高；每天最多直显三条，溢出收敛为 +N，逾期标警示色、已完成弱化划线，中高优先级带信号色圆点。点任务开详情，「今天」一键回本月。
+- **日历**：月历按截止时间把任务落到对应日子，周一起始、恒定 42 格翻月不跳高；每天最多直显三条，溢出收敛为 +N，逾期标警示色、已完成弱化划线，中高优先级带信号色圆点。点任务开详情，「今天」一键回本月。月格完整键盘导航：方向键按日/周移动、Home/End 取本周首尾、PageUp/Down 翻月、Shift 组合翻年、Enter 打开当日首条任务。
 - **项目与标签**：侧栏新建项目，内置六种配色；标签在详情里回车即创建并贴上，建议 chip 一键复用，侧栏按标签筛选（与项目筛选互斥），删除标签级联清理关联。
 
 ### 任务编辑
@@ -56,8 +56,9 @@ Polaris 面向 Windows 11 桌面，用 Electron 构建，数据落在本机 SQLi
 
 - **本地 SQLite**：数据位于 Electron `userData/polaris.db`，WAL 模式，自动保存。侧栏「任务数据仅存本机 · 自动保存 · 点击备份」卡片直达设置备份区——隐私承诺同时是一个出口：随时导出。
 - **JSON 备份**：设置里一键导出 / 导入全量备份（`schemaVersion: 3`，含子任务与标签关联）；v1 / v2 旧备份仍能导入，只是缺少对应数据。
+- **自动备份与灾难恢复**：启动时自动往 `userData/backups/` 写一份 JSON 备份（最新一份不足 24 小时则跳过，原子写，保留最近 7 份）；数据库文件损坏时改名隔离保留（含 WAL 旁车，绝不覆盖删除），重建新库并双语告知，不会静默丢数据死掉。
 - **CSV 搬家**：支持滴答清单 / Todoist 的 CSV 导出，按表头自动识别格式。迁移标题、备注、优先级、截止时间、项目（按名复用或新建）、标签与 Todoist 缩进子任务；已完成任务按完成态导入但不伪造完成时刻。重复规则、提醒、附件与评论不迁移。
-- **本地 MCP 服务**：设置里可开启（默认关），在 `http://127.0.0.1:3737/mcp` 提供 MCP Streamable HTTP 端点，AI 助手可直接列出 / 新建 / 更新 / 完成 / 删除任务、查项目与标签。八个工具直调与界面完全相同的落库逻辑，零逻辑复制。客户端必须携带 `Authorization: Bearer <token>` 请求头——token 首次启用时自动生成（`sk-` 前缀），在 设置 → 本地 MCP 服务 里以头尾可见、中段隐藏的单行掩码展示，只能整串复制（明文不上屏），重启不变；「重新生成」会立即作废旧 token。
+- **本地 MCP 服务**：设置里可开启（默认关），在 `http://127.0.0.1:3737/mcp` 提供 MCP Streamable HTTP 端点，AI 助手可直接列出 / 新建 / 更新 / 完成 / 删除任务、查项目与标签。八个工具直调与界面完全相同的落库逻辑，零逻辑复制。客户端必须携带 `Authorization: Bearer <token>` 请求头——token 首次启用时自动生成（`sk-` 前缀），在 设置 → 本地 MCP 服务 里以头尾可见、中段隐藏的单行掩码展示，只能整串复制（明文不上屏），重启不变；「重新生成」会立即作废旧 token。0.16.1 及以前的无前缀旧 token 升级后继续被接受，已配置的客户端不用重配；只有新生成 / 重新生成的 token 带前缀。
 
 > [!IMPORTANT]
 > MCP 只绑本机回环地址，并要求 bearer token 鉴权：缺失或错误的 token 一律 401，本机其他进程拿不到 token 就读写不了任务。token 仅存本机数据库，数据不出本机，服务随应用运行、退出即停。
@@ -74,7 +75,7 @@ Polaris 面向 Windows 11 桌面，用 Electron 构建，数据落在本机 SQLi
 - **小屏适配**：窗口默认与最小尺寸贴合屏幕工作区，分辨率变化时自动重收；1024×576 级别小屏走紧凑布局，侧栏导航独立滚动，存储卡与设置钉底不丢。
 - **界面语言**：设置「颜色主题」区可在简体中文 / English 之间切换，界面文字、日期格式与托盘菜单立即更新并记住选择；系统通知与原生文件对话框同步使用当前语言。
 - **键盘优先与无障碍**：命令面板（`Ctrl K`）、设置和窄屏详情有焦点陷阱，宽屏详情保持列表可操作；支持 skip link、reduced motion；全应用十处输入框统一柔和聚焦语言（淡边 + 浅光晕），焦点环绝不与填充同色。
-- **设置一屏收纳**：设置面板在默认窗口一屏放下，矮窗口自动两列回流；自定义标题栏保留 Windows 原生最小化 / 最大化 / 关闭按钮。
+- **设置一屏收纳**：设置面板在默认窗口一屏放下，矮窗口自动两列回流；面板高度不随状态跳变——更新状态行常驻占位、令牌行单行掩码，检查结果落槽不抖动；自定义标题栏保留 Windows 原生最小化 / 最大化 / 关闭按钮。
 - **关于与署名**：设置「关于」区显示当前版本与 MIT 许可；完整第三方组件与字体声明随安装包放在 `resources/NOTICE` 与 `resources/licenses/`。
 
 ## 界面预览
@@ -230,6 +231,7 @@ Polaris 面向 Windows 11 桌面，用 Electron 构建，数据落在本机 SQLi
 | 界面 | React / Tailwind CSS / Motion / Zustand | 19.3 / 4.3 / 14.12 / 5.1 |
 | 数据 | better-sqlite3 / rrule / zod | 13.0 / 2.8 / 4.6 |
 | 更新 | electron-updater / DOMPurify | 6.8 / 3.4 |
+| 日志 | electron-log | 5.4 |
 | 打包 | electron-builder（NSIS） | 26.18 |
 | 图标与日期 | lucide-react / date-fns | 1.72 / 4.4 |
 
@@ -321,8 +323,8 @@ build/         应用图标与安装包资源
 1. 改代码，用 `npm run dev` 验证交互。
 2. 运行 `npm run typecheck`。
 3. 运行 `npm run build && npm run smoke`；动过主题加跑 `npm run verify:themes`，动过 `lib/dateTime.ts` 加跑 `npm run verify:datetime`，动过 `shared/quickAddParse.ts` / `shared/retention.ts` 先跑秒级的 `npm run verify:pure` 快速反馈。
-4. 需要看视觉结果时，构建后用 `POLARIS_SHOT=<mode> npx electron .` 截图到仓库根目录（模式清单见下方折叠块）；验证时请加 `--user-data-dir` 隔离，避免改写真实配置目录的主题。
-5. 发布：递增 `package.json` 版本 → 打 git tag → 设好 `GH_TOKEN` 跑 `npm run release:win`。发完核对 Release 资产三件套齐全：`Polaris-Setup-<版本>.exe`、`.blockmap`、`latest.yml`（electron-builder 上传偶有静默漏传，缺啥用 `gh release upload --clobber` 补）。
+4. 需要看视觉结果时，先 `POLARIS_HARNESS=1 npm run build` 带 harness 重建（生产构建会剥离截图代码，直接截会静默无产出），再 `POLARIS_SHOT=<mode> npx electron .` 截图到仓库根目录（模式清单见下方折叠块）；截完跑一次 `npm run build` 恢复生产态；验证时请加 `--user-data-dir` 隔离，避免改写真实配置目录的主题。
+5. 发布：递增 `package.json` 版本 → 提交并打附注 tag → **先 push main 与 tag**（否则 electron-builder 可能抢先把 tag 建在旧 HEAD 上）→ 设好 `GH_TOKEN` 跑 `npm run release:win`。发完核对 Release 资产三件套齐全：`Polaris-Setup-<版本>.exe`、`.blockmap`、`latest.yml`（electron-builder 上传偶有静默漏传，缺啥用 `gh release upload --clobber` 补）；Release 若停在 DRAFT 用 `gh release edit --draft=false` 转正。
 
 <details>
 <summary><b>POLARIS_SHOT 截图模式清单</b></summary>
@@ -333,8 +335,8 @@ build/         应用图标与安装包资源
 
 打包产物：
 
-- `dist/Polaris-Setup-0.14.1.exe`：NSIS 一键安装包，装进当前用户目录，无需管理员权限，装完自动启动。
-- `dist/Polaris-Setup-0.14.1.exe.blockmap` 与 `dist/latest.yml`：在线更新的差量下载与版本元数据，发布时随安装包一起上传。
+- `dist/Polaris-Setup-<版本>.exe`：NSIS 一键安装包，装进当前用户目录，无需管理员权限，装完自动启动。
+- `dist/Polaris-Setup-<版本>.exe.blockmap` 与 `dist/latest.yml`：在线更新的差量下载与版本元数据，发布时随安装包一起上传。
 - `dist/win-unpacked/Polaris.exe`：免安装目录版。
 - 另提供 `npm run build:mac`（macOS 打包配置，图标 `build/icon.icns`）；主要目标平台仍是 Windows 11。
 
@@ -350,12 +352,12 @@ npm run verify:datetime
 npm run verify:pure
 ```
 
-- **冒烟测试**（`scripts/smoke.mjs`）启动真实 Electron，通过 `webContents.executeJavaScript` 驱动界面，140 余条具名断言覆盖从快速添加到在线更新的全链路；使用临时 userData 配置目录，不碰本机数据，失败时以非零退出码结束并单独打印 `POLARIS_SMOKE_FAILED ["断言名", …]`。
+- **冒烟测试**（`scripts/smoke.mjs`）启动真实 Electron，通过 `webContents.executeJavaScript` 驱动界面，156 条具名断言覆盖从快速添加到在线更新的全链路；使用临时 userData 配置目录，不碰本机数据，失败时以非零退出码结束并单独打印 `POLARIS_SMOKE_FAILED ["断言名", …]`。
 - **主题校验**检查六套主题的 WCAG 对比度、注册表不变量与跨家族配对。
 - **日期时间校验**直接 import 渲染层纯函数并注入时钟，用字面量期望表加全天 5760 个真实时刻扫描，再覆盖 7 个时区 2026 年的每一次夏令时跳变（共 17280 个真实时刻），钉死「今天」按钮不落过去这类靠跑 UI 撞概率的边界。
 - **纯函数快速校验**（`npm run verify:pure`，CI 已挂）不启动 Electron，直接在 Node 里 import `shared/quickAddParse.ts` 与 `shared/retention.ts`，秒级跑完与冒烟 harness 同源的中文/英文解析真值表、误报反例、撤销状态机与保留期边界表；两处断言表需同步维护（`src/main/harness/assertions.ts` 的原断言保留，E2E 仍跑）。
 
-期望值全部写成字面量，不经过被测函数自算；跨进程等待一律走条件轮询而非固定延时。高度断言用亚像素矩形，smoke 以 CDP 仿真 125/150/200% 显示缩放与 1024×536 低分辨率视口；段宽、分隔线、小字号中文等细节仍靠手动。视觉检查通过 `POLARIS_SHOT` 截图完成，截图和冒烟测试需在本地运行。
+期望值全部写成字面量，不经过被测函数自算；跨进程等待一律走条件轮询而非固定延时。高度断言用亚像素矩形，smoke 以 CDP 仿真 125/150/200% 显示缩放与 1024×536 低分辨率视口；段宽、分隔线、小字号中文等细节仍靠手动。视觉检查通过 `POLARIS_SHOT` 截图完成（需先带 harness 重建，见开发流程第 4 步），截图和冒烟测试需在本地运行。
 
 <details>
 <summary><b>断言覆盖明细</b></summary>
@@ -372,17 +374,23 @@ npm run verify:pure
 
 **日历**：命令面板直达、42 格、任务按截止落格、无截止不进日历、翻月标签与格数、今天按钮回本月、chip 点开详情。
 
-**本地 MCP**：真实 HTTP 往返（经 IPC 取 bearer token）——initialize / tools/list / 建任务 / 列任务 / 完成任务 / GET 回 405 / 无 token 与错 token 401 / 重新生成后旧 token 401、新 token 200 / 关闭后拒连。
+**本地 MCP**：真实 HTTP 往返（经 IPC 取 bearer token）——initialize / tools/list / 建任务 / 列任务 / 完成任务 / GET 回 405 / 无 token 与错 token 401 / 重新生成后旧 token 401、新 token 200 / 关闭后拒连；token 形状钉死 `sk-` 前缀 + 64 位 hex、重复读取同值。
 
 **在线更新**：纯函数真值表、开发态手动检查答 unsupported 且不弹窗、合成快照驱动发现→进度→就绪→稍后不再弹→跳过后再推保持安静、跳过持久化与页脚重开、HTML 更新说明富文本渲染（注入 `<script>` 被消毒不执行）、开发态安装守卫报错不杀进程。
 
 **托盘与热键**：构建后菜单标签恰为四项、托盘「设置」唤起并开面板、手动检查七态气泡文案真值表、开发态检查不弹窗不唤窗；热键默认开启、设置往返、冲突降级中文提示、隐藏窗口唤起回「今天」并聚焦输入。
 
-**布局与聚焦**：设置面板一屏守卫（默认 840 与紧凑两档，点过检查更新带状态行再量）、低分辨率 1024×536 紧凑档生效且侧栏/主区不溢出、存储卡直达备份区；焦点环扫描覆盖主视图、详情栏、日期弹层、主题菜单展开、回收站确认弹窗五种状态，任何环与自身填充/边框同色即失败。
+**布局与聚焦**：设置面板一屏守卫（默认 840 与紧凑两档，点过检查更新带状态行再量）、低分辨率 1024×536 紧凑档生效且侧栏/主区不溢出、存储卡直达备份区；设置零抖动守卫在实机 1024×576 档量令牌行单行掩码形状（头 7 + … + 末 4）、高度恒一行、按钮恰为复制与重新生成、明文永不上屏，以及检查更新结果落槽前后面板内容高度与页脚顶边零位移；焦点环扫描覆盖主视图、详情栏、日期弹层、主题菜单展开、回收站确认弹窗五种状态，任何环与自身填充/边框同色即失败。
 
 **主题**：配对快切连点两次回到原主题（三对逐一校验）、六套主题矩阵的 `data-theme` / 持久化 / 令牌生效、标题栏主题菜单（六行齐全且顺序固定、打开即聚焦当前行、点选落库、菜单卸载后 `aria-expanded` 归位、焦点回到箭头、Esc 只收菜单），以及命令面板输入「主题」命中六条直达并选中生效。
 
 **数据层**：同一截止时刻按优先级高→低排序、更早的时刻不被优先级打乱；`completedAt` 新建为空、完成时写入、后续编辑标题不改动它（`updated_at` 会变）、取消完成清空、再次完成写入新时刻；重复任务完成实例保留时刻而生成的下一次为空。
+
+**已完成折叠与列表规模化**：已完成区默认折叠成「已完成 N 条」一行（N=0 整区隐藏）、勾选只加计数不自动展开、展开可见 / 收起卸载 / 切视图重置；1200 条种子任务的大列表窗口化渲染（`content-visibility`）、常规与紧凑两档行高字面量、滚动锚点稳定、底行可交互、屏外行勾选与退场动画收敛。
+
+**增量刷新与字段级回滚**：focus 修订号门控——迁移 7 的触发器写修订号，focus 时号不变不拉全量（主进程计数 `tasks:list` 调用作判别器）、外部写入后 focus 必拉、自己写完盖章后 focus 安静；子任务并发竞态下改名失败只回滚改名字段，不抹并发成功的勾选。
+
+**统计与项目**：统计视图直达、今日 / 本周 / 累计 / 按时率与种子数据字面量自洽、7 / 30 天趋势往返切换；项目 UI 改名后任务仍映射、UI 删除（确认弹窗）后任务归「无项目」（外键 SET NULL）。
 
 **日期时间选择器与提醒窗**：弹层内不存在原生 `datetime-local`、月历恒 42 格且只有一个 Tab 位、五种弹层形态都不超过 420px 且零滚动、选日保留时分且秒/毫秒归零、`aria-valuenow` 与落库时刻恒等、上下键回绕、「1830」打字流、±15 跨小时进位与键盘等价、半截数字不会写错值、「今天」不落过去、Esc 只收弹层、清除生效。提醒窗用 `capturePage` 采样真实绘制像素验证单一不透明表面、铺满窗口、无内衬无圆角无描边、长项目名下标题不被压扁，并在提醒窗开着时切换主题验证跨窗同步。首帧颜色断言只等「就绪」不等「颜色正确」，否则先画错再改正也会通过。
 
@@ -441,6 +449,7 @@ npm run verify:pure
 - 完成时刻（`completed_at`）自数据库迁移 4 起记录。在此之前完成的老任务该字段为空——真实时刻当时没存过，不用 `updated_at` 猜补。统计视图会把这些老任务计入累计完成与项目分布，但不计入今日 / 本周、完成趋势和按时完成率，并在趋势下方注明「未记录时刻」的数量。
 - 备份文件自 `schemaVersion: 2` 起包含子任务、自 `schemaVersion: 3` 起包含标签与关联；导入旧版备份仍会成功，只是缺少对应数据。
 - CSV 搬家按表头别名识别滴答清单 / Todoist 导出，竞品改表头时可能需要补别名；重复规则、提醒、附件、评论不迁移，导入的已完成任务没有完成时刻（不计入趋势与按时率）。
+- 自动备份只在启动时触发（24 小时节流），运行期间不周期备份；需要即时快照请手动导出。
 - 示例任务只用于首次启动展示；删除数据可清空 Electron userData 目录下的 `polaris.db`。
 
 **集成与更新**
