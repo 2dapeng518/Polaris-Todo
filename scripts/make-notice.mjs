@@ -39,6 +39,68 @@ async function readLicense(dir) {
   return null
 }
 
+// ── 无原文时的回退 ──────────────────────────────────────────────────────────
+// 个别包（如 lazy-val）发布时漏掉了许可文件，但 package.json 明确声明了 license。
+// 对 MIT / ISC 这类短小且措辞唯一的许可，用 SPDX 标准文本补全，版权行取自 author
+// 字段——不虚构年份，并在 NOTICE 条目里如实标注文本来源。其余许可仍报错交人工处理。
+function authorText(meta) {
+  const a = meta.author
+  if (!a) return ''
+  if (typeof a === 'string') return a.trim()
+  const parts = [a.name]
+  if (a.email) parts.push(`<${a.email}>`)
+  if (a.url) parts.push(`(${a.url})`)
+  return parts.filter(Boolean).join(' ')
+}
+
+const STANDARD_LICENSES = {
+  MIT: (copyright) => `MIT License
+
+${copyright}
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+`,
+  ISC: (copyright) => `ISC License
+
+${copyright}
+
+Permission to use, copy, modify, and/or distribute this software for any
+purpose with or without fee is hereby granted, provided that the above
+copyright notice and this permission notice appear in all copies.
+
+THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH
+REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
+AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT,
+INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
+LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
+OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+PERFORMANCE OF THIS SOFTWARE.
+`
+}
+
+function standardLicense(meta, declared) {
+  const build = STANDARD_LICENSES[declared]
+  const author = authorText(meta)
+  if (!build || !author) return null
+  return { name: 'package.json', text: build(`Copyright (c) ${author}`) }
+}
+
 // ── 版权行识别 ──────────────────────────────────────────────────────────────
 // 必须扫全文：lucide 的 Feather MIT 段、rrule 的 python-dateutil 段都在文件中后部，
 // 只取「头部连续版权行」会把它们整段丢掉。
@@ -46,10 +108,27 @@ async function readLicense(dir) {
 // "copyright notice and this permission notice appear in all copies." 都是条款句子。
 // 判据：行首是 Copyright（大小写敏感，排除全大写的免责段）/(c)/©，
 //       且含四位年份或 (c)/© 标记（React 的 "Copyright (c) Meta Platforms" 无年份）。
+// 例外一：lodash 单包系列的 "Copyright jQuery Foundation and other contributors <…>"
+//         既无年份也无标记——放宽为「Copyright 后接归属主体」，用条款词表排除散文句。
+// 例外二：行中小写 copyright 后接专有名词也是归属声明
+//         （lodash 的 "Based on Underscore.js, copyright Jeremy Ashkenas,"）。
+// copyright 后接这些词的是条款句子而非归属声明：
+// "Copyright and related rights … waived via CC0."（lodash）、
+// "Copyright Holder. This restriction…"（OFL）、"Copyright [yyyy] …"（Apache 附录模板）、
+// "copyright notice/owner/holder …"（各许可正文）。
+// "You" 是 Apache-2.0 的定义术语，条款分项 "(c) You must retain…" 不是版权行。
+const COPYRIGHT_PROSE = /^(and|or|is|are|shall|of|in|to|you|holders?|owners?|notices?|licen[sc]es?|laws?|statements?|interests?|permission|patent|rights?|symbol|\[)/i
+
 function isCopyrightNotice(line) {
   const t = line.trim()
-  if (!/^(Copyright\b|\(c\)|©)/.test(t)) return false
-  return /\b(19|20)\d{2}\b/.test(t) || /\(c\)|©/i.test(t)
+  if (/^(Copyright\b|\(c\)|©)/.test(t)) {
+    const rest = t.replace(/^(Copyright|\(c\)|©)\s*/i, '')
+    if (COPYRIGHT_PROSE.test(rest)) return false
+    if (/\b(19|20)\d{2}\b/.test(t) || /\(c\)|©/i.test(t)) return true
+    return rest.length > 0
+  }
+  const m = t.match(/(?<![A-Za-z])copyright\s+(\S.*)$/)
+  return Boolean(m && /^[A-Z(©]/.test(m[1]) && !COPYRIGHT_PROSE.test(m[1]))
 }
 
 function copyrightLines(text, spdx) {
@@ -60,9 +139,20 @@ function copyrightLines(text, spdx) {
     const head = i >= 0 ? text.slice(0, i) : text
     return head.split(/\r?\n/).map((l) => l.trim()).filter(Boolean)
   }
+  const lines = text.split(/\r?\n/)
   const out = []
-  for (const raw of text.split(/\r?\n/)) {
-    if (isCopyrightNotice(raw)) out.push(raw.trim())
+  for (let i = 0; i < lines.length; i++) {
+    if (!isCopyrightNotice(lines[i])) continue
+    let line = lines[i].trim()
+    // 归属声明可能折行：lodash 的 Underscore 段、rrule 的 python-dateutil 段
+    // 都以逗号结尾续到下一行，合并到句子结束才是完整声明。
+    while (/,$/.test(line) && i + 1 < lines.length) {
+      const next = lines[i + 1].trim()
+      if (!next || isCopyrightNotice(next)) break
+      line += ' ' + next
+      i++
+    }
+    out.push(line)
   }
   return [...new Set(out)]
 }
@@ -76,7 +166,9 @@ const LICENSE_HEADERS = [
   { spdx: 'Apache-2.0', re: /^\s*Apache License\s*$/im },
   { spdx: 'BSD-3-Clause', re: /Redistribution and use in source and binary forms, with or without/i },
   { spdx: 'BSD-2-Clause', re: /^\s*BSD 2-Clause/im },
-  { spdx: '0BSD', re: /^\s*(BSD Zero Clause License|0BSD)/im }
+  { spdx: '0BSD', re: /^\s*(BSD Zero Clause License|0BSD)/im },
+  // sax 1.6+ 改用 Blue Oak Model License（Markdown 标题，正文不含版权行）
+  { spdx: 'BlueOak-1.0.0', re: /^\s*#*\s*Blue Oak Model License/im }
 ]
 
 function detectLicenses(text, declared) {
@@ -112,6 +204,26 @@ function hasReservedFontName(text) {
 
 // ── 生产依赖闭包 ────────────────────────────────────────────────────────────
 // npm ls --omit=dev --all 是权威来源；失败则退回递归遍历 node_modules。
+// 无论哪条路径都要按 Node 解析规则找到依赖的**实际安装目录**：版本冲突时包会
+// 嵌套在父包自己的 node_modules 下（electron-updater 的 semver / builder-util-runtime），
+// 顶层同名目录可能只是 dev 依赖提升的残留，读它会报错版本。
+function resolvePkgDir(fromDir, name) {
+  let d = fromDir
+  for (;;) {
+    const cand = join(d, 'node_modules', name)
+    try {
+      readFileSync(join(cand, 'package.json'))
+      return cand
+    } catch {
+      // 这一层没有，继续向上
+    }
+    if (d === ROOT) return null
+    const up = dirname(d)
+    if (up === d) return null
+    d = up
+  }
+}
+
 function productionClosure() {
   try {
     // 直接用当前 node 跑 npm 的 CLI 入口：不经 shell，避免 .cmd 解析与参数拼接问题。
@@ -122,45 +234,67 @@ function productionClosure() {
       { cwd: ROOT, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, stdio: ['ignore', 'pipe', 'ignore'] }
     )
     const tree = JSON.parse(raw)
-    const names = new Set()
-    const walk = (node) => {
+    const byKey = new Map()
+    const walk = (node, dir) => {
       for (const [name, dep] of Object.entries(node.dependencies ?? {})) {
         if (dep.dev) continue
         // npm ls --all 会列出未安装的可选 peer（zustand 的 immer /
         // use-sync-external-store / remix）：无 version 且无 resolved 即未落盘，
         // 不随包分发，既不进清单也不算错误。
         if (!dep.version && !dep.resolved) continue
-        names.add(name)
-        walk(dep)
+        const childDir = resolvePkgDir(dir, name) ?? join(NM, name)
+        // 同名不同版本都在闭包里（各随其父包分发），按 name@version 去重。
+        // 注意只对「记录」去重，递归不能跳：npm 树里同一包的首次出现可能是
+        // peer 占位节点（无 dependencies 子树，如 framer-motion 下的 react-dom），
+        // 跳过后续真实节点会把它自己的依赖（scheduler）整个丢掉。
+        const key = `${name}@${dep.version ?? childDir}`
+        if (!byKey.has(key)) byKey.set(key, { name, dir: childDir })
+        walk(dep, childDir)
       }
     }
-    walk(tree)
-    return { names: [...names].sort(), source: 'npm ls --omit=dev --all' }
+    walk(tree, ROOT)
+    return { packages: [...byKey.values()], source: 'npm ls --omit=dev --all' }
   } catch {
-    // 退回：从顶层生产依赖出发，按各自 package.json 的 dependencies 递归
-    const seen = new Set()
-    const visit = (name) => {
-      if (seen.has(name)) return
-      seen.add(name)
+    // 退回：从顶层生产依赖出发，按各自 package.json 递归。optionalDependencies
+    // 里已安装的（dompurify 的 @types/trusted-types、jsonfile 的 graceful-fs）
+    // 同样随包分发，必须纳入；未安装的可选依赖跳过，不算错误。
+    // peerDependencies 也要走：npm 7+ 会自动安装 peer（zustand 的 @types/react
+    // 及其 csstype），它们在 npm ls 的生产闭包里；可选 peer 未安装属正常。
+    const byKey = new Map()
+    const visit = (name, fromDir, optional) => {
+      const dir = resolvePkgDir(fromDir, name)
+      if (!dir) {
+        // 必选依赖缺失交由下游 missing 报告；可选依赖缺失属正常
+        if (!optional) byKey.set(name, { name, dir: join(NM, name) })
+        return
+      }
+      let meta
       try {
-        const meta = JSON.parse(readFileSync(join(NM, name, 'package.json'), 'utf8'))
-        for (const child of Object.keys(meta.dependencies ?? {})) visit(child)
+        meta = JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8'))
       } catch {
-        // 包未安装，交由下游 missing 报告
+        return
+      }
+      const key = `${name}@${meta.version}`
+      if (byKey.has(key)) return
+      byKey.set(key, { name, dir })
+      for (const child of Object.keys(meta.dependencies ?? {})) visit(child, dir, false)
+      for (const child of Object.keys(meta.optionalDependencies ?? {})) visit(child, dir, true)
+      for (const child of Object.keys(meta.peerDependencies ?? {})) {
+        visit(child, dir, Boolean(meta.peerDependenciesMeta?.[child]?.optional))
       }
     }
-    for (const name of Object.keys(pkg.dependencies)) visit(name)
-    return { names: [...seen].sort(), source: '递归遍历 node_modules（npm ls 不可用）' }
+    for (const name of Object.keys(pkg.dependencies)) visit(name, ROOT, false)
+    return { packages: [...byKey.values()], source: '递归遍历 node_modules（npm ls 不可用）' }
   }
 }
 
-const { names, source } = productionClosure()
+const { packages, source } = productionClosure()
+packages.sort((a, b) => a.name.localeCompare(b.name) || a.dir.localeCompare(b.dir))
 
 const entries = []
 const missing = []
 
-for (const name of names) {
-  const dir = join(NM, name)
+for (const { name, dir } of packages) {
   let meta
   try {
     meta = JSON.parse(await readFile(join(dir, 'package.json'), 'utf8'))
@@ -168,13 +302,30 @@ for (const name of names) {
     missing.push(`${name}（未安装，跳过）`)
     continue
   }
-  const lic = await readLicense(dir)
+  // 老式 package.json 的 license 可能是 { type, url } 对象
+  const declared = (typeof meta.license === 'string' ? meta.license : meta.license?.type) ?? '(未声明)'
+  let lic = await readLicense(dir)
+  let synthesized = false
+  let note = ''
   if (!lic) {
-    missing.push(`${name}（找不到许可原文）`)
-    continue
+    lic = standardLicense(meta, declared)
+    if (!lic) {
+      missing.push(`${name}（找不到许可原文）`)
+      continue
+    }
+    synthesized = true
+    note = `包内未附许可原文，licenses/ 收录的是标准 ${declared} 许可文本；版权行依 package.json 的 license 与 author 字段构造。`
   }
-  const declared = meta.license ?? '(未声明)'
-  const copyright = copyrightLines(lic.text, declared)
+  let copyright = copyrightLines(lic.text, declared)
+  if (!copyright.length && !synthesized) {
+    // 有的许可正文天然不含版权行（sax 的 Blue Oak Model License）。
+    // 归属信息退回 package.json 的 author 字段，并如实标注来源。
+    const author = authorText(meta)
+    if (author) {
+      copyright = [author]
+      note = '许可原文未含版权行，以上归属取自 package.json 的 author 字段。'
+    }
+  }
   if (!copyright.length) {
     // 抓不到版权行必须报错，不能静默出一份缺声明的 NOTICE
     missing.push(`${name}（未能从 ${lic.name} 提取到版权行，需人工确认）`)
@@ -187,6 +338,8 @@ for (const name of names) {
     spdx: label,
     parts,
     copyright,
+    note,
+    synthesized,
     file: lic.name,
     text: lic.text,
     homepage: meta.homepage ?? '',
@@ -194,7 +347,7 @@ for (const name of names) {
   })
 }
 
-entries.sort((a, b) => a.spdx.localeCompare(b.spdx) || a.name.localeCompare(b.name))
+entries.sort((a, b) => a.spdx.localeCompare(b.spdx) || a.name.localeCompare(b.name) || a.version.localeCompare(b.version))
 
 // ── licenses/ 原文 ──────────────────────────────────────────────────────────
 await mkdir(LICENSE_DIR, { recursive: true })
@@ -209,8 +362,10 @@ const written = []
 for (const [spdx, group] of bySpdx) {
   const safe = spdx.replace(/[^\w.-]+/g, '-')
   const file = `${safe}.txt`
-  // 复合许可（如 ISC AND MIT）保留全文，绝不按单一 SPDX 裁剪
-  const body = spdx.startsWith('OFL') ? oflBody(group[0].text) : licenseBody(group[0].text)
+  // 复合许可（如 ISC AND MIT）保留全文，绝不按单一 SPDX 裁剪。
+  // 代表文本优先取包内真实原文，构造的标准文本只在整组都无原文时兜底。
+  const rep = group.find((e) => !e.synthesized) ?? group[0]
+  const body = spdx.startsWith('OFL') ? oflBody(rep.text) : licenseBody(rep.text)
   const header = spdx.startsWith('OFL') ? '' : `${spdx} 许可原文（版权归属见 NOTICE）\n\n`
   await writeFile(join(LICENSE_DIR, file), header + body + '\n', 'utf8')
   written.push(file)
@@ -246,6 +401,7 @@ for (const [spdx, group] of bySpdx) {
     L.push(`  ${e.name} ${e.version}`)
     if (e.parts.length > 1) L.push(`    复合许可：${e.parts.join(' + ')}（同一份 ${e.file} 内含多段授权）`)
     for (const c of e.copyright) L.push(`    ${c}`)
+    if (e.note) L.push(`    注：${e.note}`)
     if (e.homepage) L.push(`    ${e.homepage}`)
     L.push('')
   }

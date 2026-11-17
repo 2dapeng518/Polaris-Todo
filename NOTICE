@@ -1,11 +1,24 @@
 Polaris — 第三方组件与素材声明
 
-本文件由 scripts/make-notice.mjs 生成（Polaris v0.9.1）。
-采集范围：生产依赖闭包（npm ls --omit=dev --all），共 21 个组件。
+本文件由 scripts/make-notice.mjs 生成（Polaris v0.15.0）。
+采集范围：生产依赖闭包（npm ls --omit=dev --all），共 40 个组件。
 Polaris 以 NSIS 安装包分发，下列组件与字体随包再分发，
 按其许可要求在此保留版权声明与许可指引。许可原文见同目录 licenses/。
 
 本软件自身以 MIT 许可发布，见 LICENSE。
+
+────────────────────────────────────────────────────────────────
+(MPL-2.0 OR Apache-2.0) AND Apache-2.0    许可原文：licenses/-MPL-2.0-OR-Apache-2.0-AND-Apache-2.0.txt
+────────────────────────────────────────────────────────────────
+
+  dompurify 3.4.18
+    复合许可：(MPL-2.0 OR Apache-2.0) + Apache-2.0（同一份 LICENSE 内含多段授权）
+    Dr.-Ing. Mario Heiderich, Cure53 <mario@cure53.de> (https://cure53.de/)
+    注：许可原文未含版权行，以上归属取自 package.json 的 author 字段。
+    https://github.com/cure53/DOMPurify
+
+  复合许可说明：该组件的同一份许可文件内含多段授权，
+  各段的版权与义务均须保留，不可只按其中一种许可处理。
 
 ────────────────────────────────────────────────────────────────
 0BSD    许可原文：licenses/0BSD.txt
@@ -16,6 +29,14 @@ Polaris 以 NSIS 安装包分发，下列组件与字体随包再分发，
     https://www.typescriptlang.org/
 
   0BSD 附加说明：不附加保留条件，此处列出仅为清单完整。
+
+────────────────────────────────────────────────────────────────
+BlueOak-1.0.0    许可原文：licenses/BlueOak-1.0.0.txt
+────────────────────────────────────────────────────────────────
+
+  sax 1.6.1
+    Isaac Z. Schlueter <i@izs.me> (http://blog.izs.me/)
+    注：许可原文未含版权行，以上归属取自 package.json 的 author 字段。
 
 ────────────────────────────────────────────────────────────────
 BSD-3-Clause    许可原文：licenses/BSD-3-Clause.txt
@@ -30,6 +51,16 @@ BSD-3-Clause    许可原文：licenses/BSD-3-Clause.txt
   BSD-3-Clause 附加说明：
   - 再分发须保留上述版权声明、条件列表与免责声明（见 licenses/）。
   - 不得以原作者或贡献者名义为本产品背书或促销。
+
+────────────────────────────────────────────────────────────────
+ISC    许可原文：licenses/ISC.txt
+────────────────────────────────────────────────────────────────
+
+  graceful-fs 4.2.11
+    Copyright (c) 2011-2022 Isaac Z. Schlueter, Ben Noordhuis, and Contributors
+
+  semver 7.7.4
+    Copyright (c) Isaac Z. Schlueter and Contributors
 
 ────────────────────────────────────────────────────────────────
 ISC AND MIT    许可原文：licenses/ISC-AND-MIT.txt
@@ -52,9 +83,17 @@ MIT    许可原文：licenses/MIT.txt
     Copyright (c) Microsoft Corporation.
     https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/react
 
+  @types/trusted-types 2.0.7
+    Copyright (c) Microsoft Corporation.
+    https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/trusted-types
+
   better-sqlite3 13.0.3
     Copyright (c) 2017 Joshua Wise
     http://github.com/WiseLibs/better-sqlite3
+
+  builder-util-runtime 9.7.0
+    Copyright (c) 2015 Loopline Systems
+    https://github.com/electron-userland/electron-builder
 
   csstype 3.2.3
     Copyright (c) 2017-2018 Fredrik Nicol
@@ -62,8 +101,45 @@ MIT    许可原文：licenses/MIT.txt
   date-fns 4.4.0
     Copyright (c) 2021 Sasha Koss and Lesha Koss https://kossnocorp.mit-license.org
 
+  debug 4.4.3
+    Copyright (c) 2014-2017 TJ Holowaychuk <tj@vision-media.ca>
+    Copyright (c) 2018-2021 Josh Junon
+
+  electron-log 5.4.4
+    Copyright (c) 2016 Alexey Prokhorov
+    https://github.com/megahertz/electron-log#readme
+
+  electron-updater 6.8.11
+    Copyright (c) 2015 Loopline Systems
+    https://github.com/electron-userland/electron-builder
+
   framer-motion 14.12.0
     Copyright (c) 2018 Framer B.V.
+
+  fs-extra 10.1.0
+    Copyright (c) 2011-2017 JP Richardson
+    https://github.com/jprichardson/node-fs-extra
+
+  js-yaml 4.3.2
+    Copyright (C) 2011-2015 by Vitaly Puzrin
+
+  jsonfile 6.2.1
+    Copyright (c) 2012-2015, JP Richardson <jprichardson@gmail.com>
+
+  lazy-val 1.0.5
+    Copyright (c) Vladimir Krivosheev
+    注：包内未附许可原文，licenses/ 收录的是标准 MIT 许可文本；版权行依 package.json 的 license 与 author 字段构造。
+    https://github.com/develar/lazy-val
+
+  lodash.escaperegexp 4.1.2
+    Copyright jQuery Foundation and other contributors <https://jquery.org/>
+    Based on Underscore.js, copyright Jeremy Ashkenas, DocumentCloud and Investigative Reporters & Editors <http://underscorejs.org/>
+    https://lodash.com/
+
+  lodash.isequal 4.5.0
+    Copyright JS Foundation and other contributors <https://js.foundation/>
+    Based on Underscore.js, copyright Jeremy Ashkenas, DocumentCloud and Investigative Reporters & Editors <http://underscorejs.org/>
+    https://lodash.com/
 
   motion 14.12.0
     Copyright (c) 2024 [Motion](https://motion.dev) B.V.
@@ -73,6 +149,9 @@ MIT    许可原文：licenses/MIT.txt
 
   motion-utils 14.7.0
     Copyright (c) 2024 [Motion](https://motion.dev) B.V.
+
+  ms 2.1.3
+    Copyright (c) 2020 Vercel, Inc.
 
   node-addon-api 8.9.2
     Copyright (c) 2017 [Node.js API collaborators](https://github.com/nodejs/node-addon-api#collaborators)
@@ -89,6 +168,13 @@ MIT    许可原文：licenses/MIT.txt
   scheduler 0.28.0
     Copyright (c) Meta Platforms, Inc. and affiliates.
     https://react.dev/
+
+  tiny-typed-emitter 2.1.0
+    Copyright (c) 2020 Zurab Benashvili (binier) <zura.bena@gmail.com>
+
+  universalify 2.0.1
+    Copyright (c) 2017, Ryan Zimmerman <opensrc@ryanzim.com>
+    https://github.com/RyanZim/universalify#readme
 
   zod 4.6.7
     Copyright (c) 2025 Colin McDonnell
@@ -125,6 +211,13 @@ OFL-1.1    许可原文：licenses/OFL-1.1.txt
     按 OFL DEFINITIONS，格式转换属 Modified Version。
   - 上述字体的许可头部均未声明 Reserved Font Name，故不触发改名义务。
     若将来引入声明了 RFN 的字体，本说明会自动改为警告。
+
+────────────────────────────────────────────────────────────────
+Python-2.0    许可原文：licenses/Python-2.0.txt
+────────────────────────────────────────────────────────────────
+
+  argparse 2.0.1
+    Copyright (c) 1991 - 1995, Stichting Mathematisch Centrum Amsterdam, The Netherlands.  All rights reserved.
 
 ────────────────────────────────────────────────────────────────
 
