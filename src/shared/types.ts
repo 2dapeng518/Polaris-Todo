@@ -281,6 +281,10 @@ export type PolarisApi = {
     setGlobalHotkey: (enabled: boolean) => Promise<GlobalHotkeyState>
     getMcp: () => Promise<McpState>
     setMcp: (enabled: boolean) => Promise<McpState>
+    /** 读取 MCP bearer token（尚未生成时立即生成并持久化）。 */
+    getMcpToken: () => Promise<string>
+    /** 重新生成 MCP token：旧 token 立即作废，已配置客户端需更新。 */
+    regenerateMcpToken: () => Promise<string>
   }
   update: {
     getState: () => Promise<UpdateState>

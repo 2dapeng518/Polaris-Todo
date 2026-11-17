@@ -69,7 +69,9 @@ const api: PolarisApi = {
     setGlobalHotkey: (enabled: boolean): Promise<GlobalHotkeyState> =>
       ipcRenderer.invoke('app:set-global-hotkey', enabled),
     getMcp: (): Promise<McpState> => ipcRenderer.invoke('app:get-mcp'),
-    setMcp: (enabled: boolean): Promise<McpState> => ipcRenderer.invoke('app:set-mcp', enabled)
+    setMcp: (enabled: boolean): Promise<McpState> => ipcRenderer.invoke('app:set-mcp', enabled),
+    getMcpToken: (): Promise<string> => ipcRenderer.invoke('app:mcp-token-get'),
+    regenerateMcpToken: (): Promise<string> => ipcRenderer.invoke('app:mcp-token-regenerate')
   },
   update: {
     getState: (): Promise<UpdateState> => ipcRenderer.invoke('update:get-state'),

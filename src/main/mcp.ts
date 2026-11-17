@@ -1,4 +1,5 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http'
+import { createHash, randomBytes, timingSafeEqual } from 'node:crypto'
 import { app } from 'electron'
 import log from 'electron-log/main'
 import { z } from 'zod'
@@ -25,14 +26,17 @@ import {
 // （2025-03-26）的无状态子集：POST /mcp 收 JSON-RPC，通知回 202，
 // GET 回 405（不提供 SSE 流）。应用退出服务即停——Polaris 常驻托盘是常态。
 //
-// 网络暴露面防线（无 token，不破坏既有客户端配置）：带 Origin 的请求一律
-// 403（浏览器发起的铁证）；Host 必须是回环字面量（挡 DNS rebinding）；
-// POST 必须 application/json（挡简单请求 CSRF）。入参经 zod 校验，
-// 约束与 ipc.ts 正门一致。信任边界仍是「本机进程」，不假装已鉴权。
+// 网络暴露面防线：带 Origin 的请求一律 403（浏览器发起的铁证）；Host 必须
+// 是回环字面量（挡 DNS rebinding）；POST 必须 application/json（挡简单请求
+// CSRF）；最后校验 Authorization: Bearer <token>——缺失/错误 401，挡住
+// 任意本机进程的直读写。token 首次启用时生成（32 随机字节 hex），存 meta
+// 持久化：重启不变，客户端配置一次长期有效；「重新生成」即作废旧 token。
+// 入参经 zod 校验，约束与 ipc.ts 正门一致。
 
 export const MCP_PORT = 3737
 export const MCP_ENDPOINT = `http://127.0.0.1:${MCP_PORT}/mcp`
 const META_KEY = 'mcp_enabled'
+const TOKEN_META_KEY = 'mcp_token'
 const PROTOCOL_VERSION = '2025-03-26'
 const MAX_BODY = 1024 * 1024
 
@@ -43,6 +47,37 @@ let lastError: string | null = null
 function enabledInMeta(): boolean {
   // 默认关：只有明确写过 '1' 才算用户打开了它。
   return getMeta(META_KEY) === '1'
+}
+
+// token 持久化在 meta（同 theme/locale，零迁移）：首次启用生成一次，之后
+// 重启复用——客户端配置一次长期有效。meta 值被外力改坏（非 64 位 hex）时
+// 视为无 token，重新生成，绝不拿坏值当鉴权凭据。
+function ensureToken(): string {
+  const existing = getMeta(TOKEN_META_KEY)
+  if (existing && /^[0-9a-f]{64}$/.test(existing)) return existing
+  const token = randomBytes(32).toString('hex')
+  setMeta(TOKEN_META_KEY, token)
+  return token
+}
+
+/** 读取当前 token；尚未生成时立即生成并落库（设置页展示用）。 */
+export function getMcpToken(): string {
+  return ensureToken()
+}
+
+/** 重新生成：旧 token 立即作废，已配置的客户端必须换新值。 */
+export function regenerateMcpToken(): string {
+  const token = randomBytes(32).toString('hex')
+  setMeta(TOKEN_META_KEY, token)
+  return token
+}
+
+// Bearer 比对：两侧先取 SHA-256 摘要再 timingSafeEqual——摘要定长，
+// 长度差不会提前短路，防时序侧信道逐字节猜 token。
+function tokenMatches(provided: string): boolean {
+  const expected = createHash('sha256').update(ensureToken()).digest()
+  const actual = createHash('sha256').update(provided).digest()
+  return timingSafeEqual(expected, actual)
 }
 
 function state(): McpState {
@@ -384,6 +419,18 @@ function start(): void {
         res.end('Unsupported Media Type')
         return
       }
+      // 最后一层：Bearer token。三重网络校验挡浏览器，token 挡本机进程。
+      // 缺失/ scheme 不对/值不对统一 401，不读 body；GET/404/405 语义在前，
+      // 与此无关（无数据可泄露）。
+      const authMatch = /^Bearer\s+(.+)$/i.exec(req.headers.authorization ?? '')
+      if (!authMatch || !tokenMatches(authMatch[1].trim())) {
+        res.writeHead(401, {
+          'WWW-Authenticate': 'Bearer',
+          'Content-Type': 'text/plain; charset=utf-8'
+        })
+        res.end('Unauthorized')
+        return
+      }
       let request: JsonRpcRequest
       try {
         request = JSON.parse(await readBody(req)) as JsonRpcRequest
@@ -442,6 +489,8 @@ function apply(): McpState {
     lastError = null
     return state()
   }
+  // 首次启用（含开机自启恢复监听）即保证 token 存在，客户端随时可在设置页取到。
+  ensureToken()
   start()
   return state()
 }

@@ -10,6 +10,7 @@ import { useAppVersion } from '../stores/useAppVersion'
 import { useUpdateStore } from '../stores/useUpdateStore'
 import { useT, useLocale, type Translate } from '../stores/useLocaleStore'
 import { LanguageSelect } from './LanguageSelect'
+import { ConfirmDialog } from './ConfirmDialog'
 import { useFocusTrap } from '../lib/useFocusTrap'
 
 /** 更新状态一行说清；错误细节另有 settings-error，这里不堆长文。 */
@@ -73,6 +74,14 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
     running: false,
     endpoint: 'http://127.0.0.1:3737/mcp'
   })
+  // MCP 访问令牌：仅启用时展示；默认掩码（••••+末 4 位），复制/重新生成
+  // 走主进程 IPC，渲染层不落任何持久化。
+  const [mcpToken, setMcpToken] = useState<string | null>(null)
+  const [mcpTokenVisible, setMcpTokenVisible] = useState(false)
+  const [mcpTokenNotice, setMcpTokenNotice] = useState<{ text: string; error?: boolean } | null>(null)
+  const [mcpRegenConfirm, setMcpRegenConfirm] = useState(false)
+  const [mcpTokenBusy, setMcpTokenBusy] = useState(false)
+  const mcpNoticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const update = useUpdateStore((state) => state.state)
   const checkUpdate = useUpdateStore((state) => state.check)
   const openUpdateDialog = useUpdateStore((state) => state.openDialog)
@@ -141,8 +150,13 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
 
     window.polaris.app
       .getMcp()
-      .then((value) => {
-        if (!cancelled) setMcp(value)
+      .then(async (value) => {
+        if (cancelled) return
+        setMcp(value)
+        if (value.enabled) {
+          const token = await window.polaris.app.getMcpToken()
+          if (!cancelled) setMcpToken(token)
+        }
       })
       .catch((error) => {
         if (!cancelled) {
@@ -152,6 +166,21 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
 
     return () => {
       cancelled = true
+    }
+  }, [open])
+
+  // 关闭面板即收起明文/提示/确认框：下次打开回到掩码态，明文不残留。
+  useEffect(() => {
+    if (!open) {
+      setMcpTokenVisible(false)
+      setMcpTokenNotice(null)
+      setMcpRegenConfirm(false)
+    }
+    return () => {
+      if (mcpNoticeTimer.current) {
+        clearTimeout(mcpNoticeTimer.current)
+        mcpNoticeTimer.current = null
+      }
     }
   }, [open])
 
@@ -203,8 +232,46 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
     setMcp((current) => ({ ...current, enabled: next, error: undefined }))
     try {
       setMcp(await window.polaris.app.setMcp(next))
+      if (next) {
+        // 首次启用主进程已生成 token，这里直接取回展示。
+        setMcpToken(await window.polaris.app.getMcpToken())
+      } else {
+        setMcpToken(null)
+        setMcpTokenVisible(false)
+        setMcpTokenNotice(null)
+      }
     } catch {
       setMcp((current) => ({ ...current, enabled: !next }))
+    }
+  }
+
+  // 复制/重新生成的短暂反馈：沿用备份区 settings-hint 的静默状态行模式。
+  const flashMcpNotice = (text: string, error = false) => {
+    if (mcpNoticeTimer.current) clearTimeout(mcpNoticeTimer.current)
+    setMcpTokenNotice({ text, error })
+    mcpNoticeTimer.current = setTimeout(() => setMcpTokenNotice(null), 2600)
+  }
+
+  const copyMcpToken = async () => {
+    if (!mcpToken) return
+    try {
+      await navigator.clipboard.writeText(mcpToken)
+      flashMcpNotice(t('settings.mcpTokenCopied'))
+    } catch {
+      flashMcpNotice(t('settings.mcpTokenCopyFailed'), true)
+    }
+  }
+
+  const regenerateMcpToken = async () => {
+    setMcpRegenConfirm(false)
+    setMcpTokenBusy(true)
+    try {
+      setMcpToken(await window.polaris.app.regenerateMcpToken())
+      flashMcpNotice(t('settings.mcpTokenRegenerated'))
+    } catch (error) {
+      flashMcpNotice(String(error), true)
+    } finally {
+      setMcpTokenBusy(false)
     }
   }
 
@@ -489,6 +556,57 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
                   {t('settings.mcpError', { error: mcp.error })}
                 </div>
               )}
+              {/* 令牌行留在 MCP section 内部：紧凑两列布局按 header + 7 section
+                  的 nth-child 排布，不新增 section。仅启用时渲染，默认零增高。 */}
+              {mcp.enabled && mcpToken && (
+                <div className="settings-language-row">
+                  <div className="settings-row-title">{t('settings.mcpToken')}</div>
+                  <div className="settings-row-desc">{t('settings.mcpTokenDesc')}</div>
+                  <code
+                    aria-label={t('settings.mcpToken')}
+                    style={{
+                      display: 'block',
+                      marginTop: 8,
+                      padding: '6px 8px',
+                      border: '1px solid var(--line)',
+                      borderRadius: 8,
+                      background: 'var(--surface-1)',
+                      color: 'var(--text-secondary)',
+                      fontFamily: 'var(--font-mono)',
+                      fontSize: 11,
+                      lineHeight: 1.5,
+                      wordBreak: 'break-all'
+                    }}
+                  >
+                    {mcpTokenVisible ? mcpToken : `••••${mcpToken.slice(-4)}`}
+                  </code>
+                  <div className="backup-actions">
+                    <button
+                      className="backup-btn"
+                      aria-pressed={mcpTokenVisible}
+                      onClick={() => setMcpTokenVisible((current) => !current)}
+                    >
+                      {mcpTokenVisible ? t('settings.mcpTokenHide') : t('settings.mcpTokenShow')}
+                    </button>
+                    <button className="backup-btn" onClick={() => void copyMcpToken()}>
+                      {t('settings.mcpTokenCopy')}
+                    </button>
+                    <button
+                      className="backup-btn"
+                      onClick={() => setMcpRegenConfirm(true)}
+                      disabled={mcpTokenBusy}
+                    >
+                      {t('settings.mcpTokenRegenerate')}
+                    </button>
+                  </div>
+                  {mcpTokenNotice &&
+                    (mcpTokenNotice.error ? (
+                      <div className="settings-error" role="alert">{mcpTokenNotice.text}</div>
+                    ) : (
+                      <div className="settings-hint" role="status">{mcpTokenNotice.text}</div>
+                    ))}
+                </div>
+              )}
             </div>
 
             <div className="settings-section">
@@ -582,6 +700,20 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
             {update?.status === 'error' && update.error && (
               <div className="settings-error" role="alert">{update.error}</div>
             )}
+
+            {/* 重新生成令牌的二次确认：旧客户端配置立即失效，属破坏性动作。
+                ConfirmDialog 自带焦点陷阱（压在面板陷阱之上）并在 React 根
+                停掉 Esc，面板的 window 监听不会抢去整面板关闭。 */}
+            <AnimatePresence>
+              {mcpRegenConfirm && (
+                <ConfirmDialog
+                  message={t('settings.mcpTokenRegenConfirm')}
+                  confirmLabel={t('settings.mcpTokenRegenerate')}
+                  onConfirm={() => void regenerateMcpToken()}
+                  onClose={() => setMcpRegenConfirm(false)}
+                />
+              )}
+            </AnimatePresence>
           </motion.div>
         </motion.div>
       )}
