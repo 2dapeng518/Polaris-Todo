@@ -211,6 +211,12 @@ export type UpdateState = {
   latestVersion: string | null
   /** 下载进度 0-100，仅 downloading 期间有意义，其余为 null。 */
   percent: number | null
+  /** 已下载字节数；electron-updater 的 download-progress 透传，其余状态为 null。 */
+  transferred: number | null
+  /** 本次下载的总字节数；未知时为 null，UI 降级为只显示 percent。 */
+  total: number | null
+  /** 主进程做过指数平滑的瞬时速度（字节/秒）；无有效样本时为 null。 */
+  bytesPerSecond: number | null
   /** 更新说明（来自 GitHub Release 正文），无则 null。 */
   releaseNotes: string | null
   /** 用户点过「跳过此版本」的版本号；自动检查命中它时保持安静。 */

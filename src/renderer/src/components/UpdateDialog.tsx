@@ -4,14 +4,16 @@ import DOMPurify from 'dompurify'
 import { Check } from './Icon'
 import { useTaskStore } from '../stores/useTaskStore'
 import { useUpdateStore } from '../stores/useUpdateStore'
-import { useT } from '../stores/useLocaleStore'
+import { useT, useLocale } from '../stores/useLocaleStore'
 import { useFocusTrap } from '../lib/useFocusTrap'
+import { estimateEtaSeconds, formatBytes, formatEta, formatSpeed } from '@shared/update'
 
 // 软件更新弹窗：发现新版本 → 下载进度 → 下载完成三态一体，
 // 底部「跳过此版本 / 稍后 / 立即重启」。快照全部来自主进程推送，
 // 这里只做展示与三个动作，不持有第二份进度。
 export function UpdateDialog() {
   const t = useT()
+  const locale = useLocale()
   const open = useUpdateStore((state) => state.dialogOpen)
   const update = useUpdateStore((state) => state.state)
   const dismissDialog = useUpdateStore((state) => state.dismissDialog)
@@ -32,6 +34,14 @@ export function UpdateDialog() {
   const downloaded = status === 'downloaded'
   const downloading = status === 'downloading' || status === 'available'
   const percent = update?.percent ?? 0
+  // 字节行只在主进程给出 total 时出现；缺字段降级为百分比，
+  // 绝不让 undefined 参与除法（ETA 会变 NaN/Infinity）。
+  const transferred = update?.transferred ?? null
+  const total = update?.total ?? null
+  const bytesDone = formatBytes(transferred)
+  const bytesTotal = formatBytes(total)
+  const speed = formatSpeed(update?.bytesPerSecond ?? null)
+  const eta = formatEta(estimateEtaSeconds(total, transferred, update?.bytesPerSecond ?? null), locale)
 
   return (
     <AnimatePresence>
@@ -101,12 +111,25 @@ export function UpdateDialog() {
                 aria-valuemax={100}
                 aria-label={t('dialog.progress')}
               >
+                <div className="update-progress-head">
+                  <span className="update-progress-label">{t('dialog.downloadingLabel')}</span>
+                  <span className="update-progress-bytes">
+                    {bytesDone && bytesTotal
+                      ? t('dialog.bytes', { done: bytesDone, total: bytesTotal })
+                      : `${percent}%`}
+                  </span>
+                </div>
                 <div className="update-progress-track">
                   <div className="update-progress-fill" style={{ width: `${percent}%` }} />
                 </div>
-                <span className="update-progress-text">
-                  {t('dialog.downloading', { percent })}
-                </span>
+                {speed && (
+                  <div className="update-progress-meta">
+                    <span className="update-progress-speed">{speed}</span>
+                    {eta && (
+                      <span className="update-progress-eta">{t('dialog.eta', { time: eta })}</span>
+                    )}
+                  </div>
+                )}
               </div>
             )}
 

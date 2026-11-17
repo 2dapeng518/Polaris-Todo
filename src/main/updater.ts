@@ -1,7 +1,7 @@
 import { app, ipcMain, type BrowserWindow } from 'electron'
 import { autoUpdater } from 'electron-updater'
 import type { UpdateState, UpdateStatus } from '../shared/types'
-import { normalizeReleaseNotes } from '../shared/update'
+import { normalizeReleaseNotes, smoothSpeed } from '../shared/update'
 import { translate, type Locale } from '../shared/i18n'
 import { getMeta, setMeta } from './db'
 import { getCurrentLocale } from './locale'
@@ -21,6 +21,9 @@ const CHECK_INTERVAL = 4 * 60 * 60 * 1000 // 启动查一次，之后每 4 小�
 let status: UpdateStatus = 'idle'
 let latestVersion: string | null = null
 let percent: number | null = null
+let transferred: number | null = null
+let total: number | null = null
+let bytesPerSecond: number | null = null
 let releaseNotes: string | null = null
 let lastError: string | null = null
 let timer: NodeJS.Timeout | null = null
@@ -37,6 +40,9 @@ function state(): UpdateState {
     currentVersion: app.getVersion(),
     latestVersion,
     percent,
+    transferred,
+    total,
+    bytesPerSecond,
     releaseNotes,
     skippedVersion: getMeta(META_SKIPPED),
     error: lastError
@@ -49,10 +55,22 @@ function push(): void {
   window.webContents.send('update:state', state())
 }
 
-function patch(next: Partial<{ status: UpdateStatus; latestVersion: string | null; percent: number | null; releaseNotes: string | null; error: string | null }>): void {
+function patch(next: Partial<{
+  status: UpdateStatus
+  latestVersion: string | null
+  percent: number | null
+  transferred: number | null
+  total: number | null
+  bytesPerSecond: number | null
+  releaseNotes: string | null
+  error: string | null
+}>): void {
   if (next.status !== undefined) status = next.status
   if (next.latestVersion !== undefined) latestVersion = next.latestVersion
   if (next.percent !== undefined) percent = next.percent
+  if (next.transferred !== undefined) transferred = next.transferred
+  if (next.total !== undefined) total = next.total
+  if (next.bytesPerSecond !== undefined) bytesPerSecond = next.bytesPerSecond
   if (next.releaseNotes !== undefined) releaseNotes = next.releaseNotes
   if (next.error !== undefined) lastError = next.error
   push()
@@ -65,7 +83,14 @@ function patch(next: Partial<{ status: UpdateStatus; latestVersion: string | nul
 async function check(): Promise<UpdateState> {
   if (!supported()) return state()
   if (status === 'checking' || status === 'downloading') return state()
-  patch({ status: 'checking', error: null, percent: null })
+  patch({
+    status: 'checking',
+    error: null,
+    percent: null,
+    transferred: null,
+    total: null,
+    bytesPerSecond: null
+  })
   try {
     // autoDownload 开着：update-available 后紧接着自动下载。
     await autoUpdater.checkForUpdates()
@@ -149,16 +174,37 @@ export function initUpdater(options: {
       latestVersion: info.version,
       releaseNotes: normalizeReleaseNotes(info.releaseNotes),
       percent: 0,
+      transferred: null,
+      total: null,
+      bytesPerSecond: null,
       error: null
     })
   })
 
   autoUpdater.on('update-not-available', () => {
-    patch({ status: 'up-to-date', latestVersion: null, percent: null, releaseNotes: null, error: null })
+    patch({
+      status: 'up-to-date',
+      latestVersion: null,
+      percent: null,
+      transferred: null,
+      total: null,
+      bytesPerSecond: null,
+      releaseNotes: null,
+      error: null
+    })
   })
 
   autoUpdater.on('download-progress', (progress) => {
-    patch({ status: 'downloading', percent: Math.round(progress.percent) })
+    // 逐事件速度抖动会让剩余时间乱跳：主进程先做指数平滑，快照里只放
+    // 平滑后的值，渲染层与冒烟看到的是同一份稳定数字。
+    bytesPerSecond = smoothSpeed(bytesPerSecond, progress.bytesPerSecond)
+    patch({
+      status: 'downloading',
+      percent: Math.round(progress.percent),
+      transferred: progress.transferred,
+      total: progress.total,
+      bytesPerSecond
+    })
   })
 
   autoUpdater.on('update-downloaded', (info) => {
@@ -167,12 +213,21 @@ export function initUpdater(options: {
       latestVersion: info.version,
       releaseNotes: normalizeReleaseNotes(info.releaseNotes) ?? releaseNotes,
       percent: 100,
+      transferred: null,
+      total: null,
+      bytesPerSecond: null,
       error: null
     })
   })
 
   autoUpdater.on('error', (error) => {
-    patch({ status: 'error', error: String(error) })
+    patch({
+      status: 'error',
+      error: String(error),
+      transferred: null,
+      total: null,
+      bytesPerSecond: null
+    })
   })
 
   ipcMain.handle('update:get-state', () => state())
