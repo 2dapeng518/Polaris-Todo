@@ -33,7 +33,12 @@ export const TaskItem = memo(function TaskItem({ task }: { task: Task }) {
 
     await removeTask(task.id)
     requestAnimationFrame(() => {
-      ;(target ?? document.querySelector<HTMLElement>('.quick-add input'))?.focus()
+      // 落点兜底链：邻行 → 快速添加框 → 主区域。已完成视图不挂快速添加，
+      // 展开态删掉最后一条已完成行时整区卸载，没有 .main 兜底焦点会丢到 body。
+      const fallback =
+        document.querySelector<HTMLElement>('.quick-add input') ??
+        document.querySelector<HTMLElement>('.main')
+      ;(target ?? fallback)?.focus()
     })
   }
 

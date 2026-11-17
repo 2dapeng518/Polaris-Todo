@@ -56,6 +56,7 @@ export const en: Messages = {
   'views.section.trash': 'Deleted',
   'views.section.todo': 'To do',
   'views.section.completed': 'Completed',
+  'views.completedToggle': '{count} completed',
   'views.emptyTrash': 'Empty Trash',
   'views.footer.newTask': 'New task',
   'views.footer.palette': 'Command palette',

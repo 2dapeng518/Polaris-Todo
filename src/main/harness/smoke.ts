@@ -174,6 +174,19 @@ export async function runSmokeTest(): Promise<void> {
       const rowAgain = findRow();
       rowAgain.querySelector('.task-check').click();
       await sleep(600);
+      // 已完成区默认折叠：勾选后行移入折叠区且不自动展开，先点开关展开再验行。
+      // 主块的 waitFor 会抛错，这里用有界轮询把失败记成布尔而不是断整轮。
+      let toggleFound = false;
+      for (let i = 0; i < 60 && !toggleFound; i++) {
+        const toggle = document.querySelector('.completed-toggle');
+        if (toggle) {
+          if (toggle.getAttribute('aria-expanded') === 'false') toggle.click();
+          toggleFound = true;
+          break;
+        }
+        await sleep(50);
+      }
+      await sleep(600);
       const doneRows = [...document.querySelectorAll('.task-item')].filter((el) => el.textContent.includes(title));
       const done = doneRows.some((el) => el.classList.contains('done'));
       const persisted = (await window.polaris.tasks.list()).find((task) => task.title === title)?.completed ?? false;
@@ -377,8 +390,25 @@ export async function runSmokeTest(): Promise<void> {
       window.dispatchEvent(new Event('focus'));
       await sleep(400);
 
+      // 上面切去「全部任务」再切回「今天」，展开态已按语义重置为折叠；
+      // 冒烟行此刻在已完成区里，删除前先展开，删完收起再数——afterDelete
+      // 与 initial 同口径（折叠态的活动行数），示例已完成行不掺进来。
+      for (let i = 0; i < 60; i++) {
+        const toggle = document.querySelector('.completed-toggle');
+        if (toggle) {
+          if (toggle.getAttribute('aria-expanded') === 'false') toggle.click();
+          break;
+        }
+        await sleep(50);
+      }
+      await sleep(400);
       findRow().querySelector('.task-delete').click();
       await sleep(700);
+      const toggleAfterDelete = document.querySelector('.completed-toggle');
+      if (toggleAfterDelete && toggleAfterDelete.getAttribute('aria-expanded') === 'true') {
+        toggleAfterDelete.click();
+        await sleep(250);
+      }
       const afterDelete = document.querySelectorAll('.task-title').length;
 
       const recurrenceTitle = '重复冒烟 ' + Date.now();
@@ -1086,6 +1116,16 @@ export async function runSmokeTest(): Promise<void> {
           if (!box) return false;
           box.click();
           await sleep(700);
+          // 已完成区默认折叠：勾选后行卸载，点开关展开恰好强制重新挂载——
+          // reduce 下的入场路径正是靠这次重挂载走到（比旧实现更真实）。
+          let toggle = null;
+          for (let i = 0; i < 60 && !toggle; i++) {
+            toggle = document.querySelector('.completed-toggle');
+            if (!toggle) await sleep(50);
+          }
+          if (!toggle) return false;
+          if (toggle.getAttribute('aria-expanded') === 'false') toggle.click();
+          await sleep(700);
           // 重新取行：React 可能已替换节点，旧引用会指向脱离文档的元素
           const fresh = findRow();
           const path = fresh && fresh.querySelector('.task-check .lucide path');
@@ -1312,6 +1352,25 @@ export async function runSmokeTest(): Promise<void> {
       };
       const findRow = (title) => [...document.querySelectorAll('.task-item')].find((el) => el.textContent.includes(title));
       const errorToast = () => document.querySelector('.toast-error .toast-message');
+      // 已完成区默认折叠：依赖已完成行 DOM 的断言先走这里展开。
+      // 幂等——已展开时不点（再点会收回去），开关缺席（N=0）返回 false。
+      const expandCompleted = async () => {
+        const toggle = await waitFor(() => document.querySelector('.completed-toggle'));
+        if (!toggle) return false;
+        if (toggle.getAttribute('aria-expanded') === 'false') {
+          toggle.click();
+          await sleep(400);
+        }
+        return true;
+      };
+      // 收起已完成区：行卸载后计数类断言才不受展开态影响。同样幂等。
+      const collapseCompleted = async () => {
+        const toggle = document.querySelector('.completed-toggle');
+        if (toggle && toggle.getAttribute('aria-expanded') === 'true') {
+          toggle.click();
+          await sleep(250);
+        }
+      };
     `
     if (mainWindow) {
       const wc = mainWindow.webContents
@@ -1350,6 +1409,8 @@ export async function runSmokeTest(): Promise<void> {
         ${pageHelpers}
         const TITLE = '冒烟写失败 勾选';
         findRow(TITLE).querySelector('.task-check').click();
+        // 重试成功后行进入默认折叠的已完成区：先展开再验 .done 终态。
+        await expandCompleted();
         const done = await waitFor(() => findRow(TITLE)?.classList.contains('done'));
         const cleared = await waitFor(() => !errorToast());
         const stored = (await window.polaris.tasks.list()).find((t) => t.title === TITLE);
@@ -2197,6 +2258,71 @@ export async function runSmokeTest(): Promise<void> {
         return allEmpty && allCta && completedEmpty && completedCta && navigated;
       })()`)) === true
 
+    // 已完成区默认折叠（completedCollapsedByDefault）：紧跟空态断言之后，
+    // 此刻库是空的、视图在「今天」，计数可以从 0 起步钉死字面量。
+    // 链条：N=0 整区隐藏 → 折叠态勾选计数 +1 且不自动展开 → 再勾一条计数 2
+    // 仍折叠 → 展开后两行可见带 .done → 收起后行卸载（非视觉隐藏）→
+    // 展开后切视图再切回，重置为折叠。自建自清：种子任务软删 + 硬删。
+    const completedCollapsedByDefault =
+      (await mainWindow?.webContents.executeJavaScript(`(async () => {
+        ${pageHelpers}
+        const due = new Date(); due.setHours(23, 59, 0, 0);
+        const ids = [];
+        const toggle = () => document.querySelector('.completed-toggle');
+        try {
+          // N=0：整区隐藏，连折叠开关都不挂。
+          const hiddenAtZero = !toggle();
+          const a = await window.polaris.tasks.create({ title: '冒烟折叠 甲', dueAt: due.toISOString(), projectId: null });
+          ids.push(a.id);
+          window.dispatchEvent(new Event('focus'));
+          if (!(await waitFor(() => findRow('冒烟折叠 甲')))) return false;
+          findRow('冒烟折叠 甲').querySelector('.task-check').click();
+          // 等退场弹簧收敛、行真正卸载，再验折叠态（退出中的节点还在 DOM）。
+          if (!(await waitFor(() => !findRow('冒烟折叠 甲')))) return false;
+          const collapsedAfterDone = Boolean(toggle()) &&
+            toggle().getAttribute('aria-expanded') === 'false' &&
+            toggle().textContent.includes('已完成 1 条');
+          const b = await window.polaris.tasks.create({ title: '冒烟折叠 乙', dueAt: due.toISOString(), projectId: null });
+          ids.push(b.id);
+          window.dispatchEvent(new Event('focus'));
+          if (!(await waitFor(() => findRow('冒烟折叠 乙')))) return false;
+          findRow('冒烟折叠 乙').querySelector('.task-check').click();
+          if (!(await waitFor(() => !findRow('冒烟折叠 乙')))) return false;
+          const countTwo = Boolean(await waitFor(() => toggle()?.textContent.includes('已完成 2 条')));
+          const stillCollapsed =
+            toggle().getAttribute('aria-expanded') === 'false' && !findRow('冒烟折叠 甲');
+          // 展开：两条已完成行可见且带 .done，aria-expanded 翻真。
+          toggle().click();
+          const expandedShown = Boolean(await waitFor(() =>
+            ['冒烟折叠 甲', '冒烟折叠 乙'].every((t) => findRow(t)?.classList.contains('done')) &&
+            toggle().getAttribute('aria-expanded') === 'true'));
+          // 收起：行卸载出 DOM，开关回到折叠态。
+          toggle().click();
+          const collapsedUnmounted = Boolean(await waitFor(() =>
+            !findRow('冒烟折叠 甲') && !findRow('冒烟折叠 乙') &&
+            toggle().getAttribute('aria-expanded') === 'false'));
+          // 切视图重置：展开后切「全部任务」再切回「今天」，回到折叠。
+          toggle().click();
+          if (!(await waitFor(() => toggle().getAttribute('aria-expanded') === 'true'))) return false;
+          [...document.querySelectorAll('.nav-item')].find((el) => el.textContent.includes('全部任务')).click();
+          if (!(await waitFor(() => document.querySelector('.view-title')?.textContent.trim() === '全部任务'))) return false;
+          [...document.querySelectorAll('.nav-item')].find((el) => el.textContent.includes('今天')).click();
+          const resetOnViewSwitch = Boolean(await waitFor(() =>
+            document.querySelector('.view-title')?.textContent.trim() === '今天' &&
+            toggle()?.getAttribute('aria-expanded') === 'false'));
+          return hiddenAtZero && collapsedAfterDone && countTwo && stillCollapsed &&
+            expandedShown && collapsedUnmounted && resetOnViewSwitch;
+        } finally {
+          for (const id of ids) {
+            try { await window.polaris.tasks.remove(id); } catch {}
+            try { await window.polaris.tasks.deleteForever(id); } catch {}
+          }
+          window.dispatchEvent(new Event('focus'));
+          await sleep(300);
+        }
+      })()`)) === true
+    if (!completedCollapsedByDefault) console.error('COMPLETED_COLLAPSE_FAIL')
+
     // 统计视图入口：命令面板直达「统计」，空库时先给空态（完成记录为 0）。
     const statsViewOpens =
       (await mainWindow?.webContents.executeJavaScript(`(async () => {
@@ -2348,6 +2474,9 @@ export async function runSmokeTest(): Promise<void> {
         window.dispatchEvent(new Event('focus'));
         [...document.querySelectorAll('.nav-item')].find((el) => el.textContent.includes('已完成')).click();
         window.dispatchEvent(new Event('focus'));
+        // 已完成视图同样默认折叠（completedForView 覆盖的所有视图统一行为）：
+        // 先展开折叠区再验行内「完成于」。
+        await expandCompleted();
         const rowShown = await waitFor(() => {
           const row = findRow('冒烟完成时刻');
           return row && row.querySelector('.meta-completed')?.textContent.includes('完成于');
@@ -3195,6 +3324,9 @@ export async function runSmokeTest(): Promise<void> {
           const toggleRow = seedRows[900];
           out.toggleId = toggleRow.dataset.taskId;
           toggleRow.querySelector('.task-check').click();
+          // 勾选后行移入默认折叠的已完成区（列表尾部）：展开开关再验 .done。
+          // 行挂载在屏外不影响 classList 断言，content-visibility 只省绘制。
+          await expandCompleted();
           const toggled = await waitFor(() => {
             const node = document.querySelector('[data-task-id="' + CSS.escape(out.toggleId) + '"]');
             return node && node.classList.contains('done');
@@ -4265,6 +4397,9 @@ export async function runSmokeTest(): Promise<void> {
       reminderSurfaceTested: reminderSurfaceTested === true,
       paletteEscWorks: paletteEscWorks === true,
       emptyStateWorks: emptyStateWorks === true,
+      // 已完成区默认折叠：N=0 隐藏 / 折叠勾选计数 +1 不自动展开 / 展开可见 /
+      // 收起卸载 / 切视图重置，全链一条具名断言。
+      completedCollapsedByDefault: completedCollapsedByDefault === true,
       statsViewOpens: statsViewOpens === true,
       statsNumbersCorrect: statsNumbersCorrect === true,
       statsRangeToggle: statsRangeToggle === true,
@@ -4360,6 +4495,7 @@ export async function runSmokeTest(): Promise<void> {
           recurrenceClampTable: recurrenceOk,
           paletteEscWorks,
           emptyStateWorks,
+          completedCollapsedByDefault,
           statsViewOpens,
           statsNumbersCorrect,
           statsRangeToggle,
