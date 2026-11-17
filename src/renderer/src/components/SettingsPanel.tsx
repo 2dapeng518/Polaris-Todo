@@ -74,10 +74,9 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
     running: false,
     endpoint: 'http://127.0.0.1:3737/mcp'
   })
-  // MCP 访问令牌：仅启用时展示；默认掩码（••••+末 4 位），复制/重新生成
-  // 走主进程 IPC，渲染层不落任何持久化。
+  // MCP 访问令牌：仅启用时展示；单行掩码头尾可见中段隐藏（sk-1234…c1d9），
+  // 明文永不上屏；复制/重新生成走主进程 IPC，渲染层不落任何持久化。
   const [mcpToken, setMcpToken] = useState<string | null>(null)
-  const [mcpTokenVisible, setMcpTokenVisible] = useState(false)
   const [mcpTokenNotice, setMcpTokenNotice] = useState<{ text: string; error?: boolean } | null>(null)
   const [mcpRegenConfirm, setMcpRegenConfirm] = useState(false)
   const [mcpTokenBusy, setMcpTokenBusy] = useState(false)
@@ -177,10 +176,9 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
     }
   }, [open])
 
-  // 关闭面板即收起明文/提示/确认框：下次打开回到掩码态，明文不残留。
+  // 关闭面板即收起提示/确认框：下次打开干净状态。
   useEffect(() => {
     if (!open) {
-      setMcpTokenVisible(false)
       setMcpTokenNotice(null)
       setMcpRegenConfirm(false)
     }
@@ -245,7 +243,6 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
         setMcpToken(await window.polaris.app.getMcpToken())
       } else {
         setMcpToken(null)
-        setMcpTokenVisible(false)
         setMcpTokenNotice(null)
       }
     } catch {
@@ -583,26 +580,17 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
                       fontFamily: 'var(--font-mono)',
                       fontSize: 11,
                       lineHeight: 1.5,
-                      wordBreak: 'break-all',
-                      // 掩码与明文等字符数（逐字打码），换行点一致；高度再锁死
-                      // 两行（2×16.5 + 12 内边距 + 2 描边），显示/隐藏零回流。
-                      // 极窄窗口明文若折到三行，盒内滚动而不是撑高面板。
-                      height: 47,
-                      overflowY: 'auto'
+                      // 单行掩码：头 7 字符（sk- + 前 4 位）+ … + 末 4 位，中段隐藏。
+                      // 定长 12 字符任何档位都放得下；nowrap + ellipsis 兜底极窄窗口，
+                      // 高度恒定一行，面板零回流。明文永不渲染，只能整串复制。
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis'
                     }}
                   >
-                    {mcpTokenVisible
-                      ? mcpToken
-                      : '•'.repeat(Math.max(0, mcpToken.length - 4)) + mcpToken.slice(-4)}
+                    {`${mcpToken.slice(0, 7)}…${mcpToken.slice(-4)}`}
                   </code>
                   <div className="backup-actions">
-                    <button
-                      className="backup-btn"
-                      aria-pressed={mcpTokenVisible}
-                      onClick={() => setMcpTokenVisible((current) => !current)}
-                    >
-                      {mcpTokenVisible ? t('settings.mcpTokenHide') : t('settings.mcpTokenShow')}
-                    </button>
                     <button className="backup-btn" onClick={() => void copyMcpToken()}>
                       {t('settings.mcpTokenCopy')}
                     </button>
