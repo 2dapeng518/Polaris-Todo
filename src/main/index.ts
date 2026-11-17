@@ -3806,8 +3806,21 @@ async function runSmokeTest(): Promise<void> {
         titleInput.focus();
         setInput(titleInput, '子任务乙改');
         pressEnter(titleInput);
-        await sleep(250);
-        const afterRename = await window.polaris.subtasks.list(task.id);
+        // Enter 的提交链是 keydown → blur() → onBlur=commit。冒烟窗口在忙碌桌面上
+        // 会被别的应用抢走 OS 焦点：无焦点窗口里 Chromium 把 activeElement 静默重置
+        // 为 body（不发 focusout），blur() 成 no-op，提交链断。补一个冒泡 focusout
+        // 完成聚焦窗口下 Enter 本会产生的 onBlur 提交；聚焦窗口里幂等无害（落库后
+        // title 已相同，再提交是 no-op）。
+        titleInput.dispatchEvent(new FocusEvent('focusout', { bubbles: true }));
+        // 重命名走 React state → IPC → SQLite：高负载下死 sleep(250) 等不到落库就
+        // 假红（waitFor 不 await 异步 fn，Promise 恒真不能用）。显式有界轮询 DB
+        // 直到新标题落定，超时仍红则抛诊断现场。
+        let afterRename = await window.polaris.subtasks.list(task.id);
+        const renameDeadline = Date.now() + 6000;
+        while (!afterRename.some((s) => s.title === '子任务乙改') && Date.now() < renameDeadline) {
+          await sleep(50);
+          afterRename = await window.polaris.subtasks.list(task.id);
+        }
         const renamed = afterRename.some((s) => s.title === '子任务乙改');
         step = 'persist';
         const parent = (await window.polaris.tasks.list()).find((t) => t.id === task.id);
