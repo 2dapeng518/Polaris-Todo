@@ -36,6 +36,7 @@ import {
   formatEta,
   formatSpeed,
   normalizeReleaseNotes,
+  shouldAutoCheck,
   shouldSurfaceUpdate,
   smoothSpeed
 } from '../../shared/update'
@@ -4332,7 +4333,13 @@ export async function runSmokeTest(): Promise<void> {
       shouldSurfaceUpdate('1.2.3', null, false) === true &&
       shouldSurfaceUpdate('1.2.3', '1.2.3', false) === false &&
       shouldSurfaceUpdate('1.2.3', '1.2.3', true) === true &&
-      shouldSurfaceUpdate('1.2.4', '1.2.3', false) === true
+      shouldSurfaceUpdate('1.2.4', '1.2.3', false) === true &&
+      // 焦点/唤醒补查节流闸：恰好到点放行、差 1ms 挡住、时钟回拨放行。
+      shouldAutoCheck(null, 1_000_000, 1_800_000) === true &&
+      shouldAutoCheck(1_000_000, 2_800_000, 1_800_000) === true &&
+      shouldAutoCheck(1_000_000, 2_799_999, 1_800_000) === false &&
+      shouldAutoCheck(1_000_000, 999_999, 1_800_000) === true &&
+      shouldAutoCheck(Number.NaN, 1_000_000, 1_800_000) === true
     // 下载进度格式化与速度平滑：期望值全部写死字面量，不经过被测函数反算。
     const UPDATE_MB = 1024 * 1024
     const updateFormatTable =

@@ -1,8 +1,8 @@
-import { app, ipcMain, type BrowserWindow } from 'electron'
+import { app, ipcMain, powerMonitor, type BrowserWindow } from 'electron'
 import { autoUpdater } from 'electron-updater'
 import log from 'electron-log/main'
 import type { UpdateState, UpdateStatus } from '../shared/types'
-import { normalizeReleaseNotes, smoothSpeed } from '../shared/update'
+import { normalizeReleaseNotes, shouldAutoCheck, smoothSpeed } from '../shared/update'
 import { translate, type Locale } from '../shared/i18n'
 import { getMeta, setMeta } from './db'
 import { getCurrentLocale } from './locale'
@@ -17,7 +17,8 @@ import { getCurrentLocale } from './locale'
 // 冒烟与截图模式因此完全确定。
 
 const META_SKIPPED = 'update_skipped_version'
-const CHECK_INTERVAL = 4 * 60 * 60 * 1000 // 启动查一次，之后每 4 小时
+const CHECK_INTERVAL = 4 * 60 * 60 * 1000 // 兜底轮询：每 4 小时
+const WAKE_CHECK_MIN_GAP = 30 * 60 * 1000 // 焦点/唤醒补查的节流下限
 
 let status: UpdateStatus = 'idle'
 let latestVersion: string | null = null
@@ -28,6 +29,7 @@ let bytesPerSecond: number | null = null
 let releaseNotes: string | null = null
 let lastError: string | null = null
 let timer: NodeJS.Timeout | null = null
+let lastCheckAt: number | null = null
 let getWindow: (() => BrowserWindow | null) | null = null
 let initialized = false
 
@@ -84,6 +86,9 @@ function patch(next: Partial<{
 async function check(): Promise<UpdateState> {
   if (!supported()) return state()
   if (status === 'checking' || status === 'downloading') return state()
+  // 发起即记时（含失败）：节流闸按「上次发起」算，网络坏了也不至于
+  // 每次焦点切换都重试打网。手动检查同样盖章，30 分钟内不重复补查。
+  lastCheckAt = Date.now()
   patch({
     status: 'checking',
     error: null,
@@ -154,6 +159,14 @@ export function describeTrayCheck(state: UpdateState, locale: Locale = 'zh-CN'):
     default:
       return { balloon: translate(locale, 'updater.unknown'), surface: false }
   }
+}
+
+/** 窗口聚焦 / 系统唤醒时的补查：应用常驻托盘，4 小时兜底轮询太粗，
+ *  发版后用户一打开窗口就该尽快发现新版本；休眠期间 setInterval 不走，
+ *  唤醒也必须补一次。30 分钟节流，频繁切焦点不会打爆 GitHub。 */
+function wakeCheck(): void {
+  if (!supported()) return
+  if (shouldAutoCheck(lastCheckAt, Date.now(), WAKE_CHECK_MIN_GAP)) void check()
 }
 
 export function initUpdater(options: {
@@ -271,6 +284,9 @@ export function initUpdater(options: {
   // 启动后缓 10 秒再查：让主窗口、数据库、托盘先就位，更新检查不抢首屏。
   setTimeout(() => void check(), 10_000)
   timer = setInterval(() => void check(), CHECK_INTERVAL)
+  // 焦点用 app 级事件：不依赖某个窗口实例存活，启动页聚焦也天然被节流挡住。
+  app.on('browser-window-focus', wakeCheck)
+  powerMonitor.on('resume', wakeCheck)
 }
 
 export function disposeUpdater(): void {
@@ -278,4 +294,6 @@ export function disposeUpdater(): void {
     clearInterval(timer)
     timer = null
   }
+  app.removeListener('browser-window-focus', wakeCheck)
+  powerMonitor.removeListener('resume', wakeCheck)
 }
