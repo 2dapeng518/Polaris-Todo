@@ -3667,7 +3667,9 @@ export async function runSmokeTest(): Promise<void> {
         const panel = await waitFor(() => document.querySelector('.settings-panel'));
         if (!panel) return false;
         await sleep(300);
-        const credits = document.querySelector('.about-credits');
+        // 关于收进页脚折叠：先展开再验署名（OFL 可见署名义务，展开可达即满足）。
+        panel.querySelector('.settings-about-toggle')?.click();
+        const credits = await waitFor(() => document.querySelector('.about-credits'));
         const text = credits ? credits.textContent : '';
         const ok = text.includes('Lucide') && text.includes('OFL') && text.includes('Inter');
         document.querySelector('.settings-panel .detail-close')?.click();
@@ -3846,6 +3848,50 @@ export async function runSmokeTest(): Promise<void> {
         if (!settingsNoShift) console.error('SETTINGS_NO_SHIFT_FAIL', JSON.stringify(noShift))
       } finally {
         setMcpEnabled(false)
+        mainWindow.setSize(originalSize[0], originalSize[1])
+        await settledFrames(mainWindow.webContents)
+      }
+    }
+
+    // 设置页 v2 布局（1024×576 实机档）：命名两列左行为/右数据进出、
+    // 语言下拉上移主题标题行、关于页脚折叠展开挂载/收起卸载。
+    let settingsLayoutV2 = false
+    if (mainWindow) {
+      const originalSize = mainWindow.getSize()
+      mainWindow.setSize(1024, 576)
+      await settledFrames(mainWindow.webContents)
+      try {
+        const layout = await mainWindow.webContents.executeJavaScript(`(async () => {
+          ${pageHelpers}
+          document.querySelector('.settings-item').click();
+          const panel = await waitFor(() => document.querySelector('.settings-panel'));
+          if (!panel) return { found: false };
+          await sleep(400);
+          const behavior = panel.querySelector('.settings-section--behavior');
+          const mcp = panel.querySelector('.settings-section--mcp');
+          const head = panel.querySelector('.settings-theme-head');
+          const langInHead = Boolean(head && head.querySelector('.settings-language-select'));
+          const cols = behavior && mcp
+            ? behavior.getBoundingClientRect().right <= mcp.getBoundingClientRect().left + 1
+            : false;
+          const toggle = panel.querySelector('.settings-about-toggle');
+          toggle?.click();
+          const expanded = await waitFor(() => panel.querySelector('.about-credits'));
+          const expandedOk = Boolean(expanded) && toggle?.getAttribute('aria-expanded') === 'true';
+          toggle?.click();
+          const collapsed = await waitFor(() => !panel.querySelector('.about-credits'));
+          document.querySelector('.settings-panel .detail-close')?.click();
+          await sleep(250);
+          return { found: true, langInHead, cols, expandedOk, collapsed };
+        })()`)
+        settingsLayoutV2 =
+          layout?.found === true &&
+          layout?.langInHead === true &&
+          layout?.cols === true &&
+          layout?.expandedOk === true &&
+          layout?.collapsed === true
+        if (!settingsLayoutV2) console.error('SETTINGS_LAYOUT_V2_FAIL', JSON.stringify(layout))
+      } finally {
         mainWindow.setSize(originalSize[0], originalSize[1])
         await settledFrames(mainWindow.webContents)
       }
@@ -4700,6 +4746,7 @@ export async function runSmokeTest(): Promise<void> {
       settingsFitsDefault: settingsFitsDefault === true,
       settingsFitsCompact: settingsFitsCompact === true,
       settingsNoShift: settingsNoShift === true,
+      settingsLayoutV2: settingsLayoutV2 === true,
       trayToggleWorks: trayToggleWorks === true,
       trayMenuEntries: trayMenuEntries === true,
       traySettingsOpens: traySettingsOpens === true,
@@ -4799,6 +4846,7 @@ export async function runSmokeTest(): Promise<void> {
           settingsFitsDefault,
           settingsFitsCompact,
           settingsNoShift,
+          settingsLayoutV2,
           trayToggleWorks,
           trayMenuEntries,
           traySettingsOpens,
