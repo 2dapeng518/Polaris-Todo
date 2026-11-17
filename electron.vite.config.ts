@@ -5,6 +5,14 @@ import tailwindcss from '@tailwindcss/vite'
 
 export default defineConfig({
   main: {
+    // 构建期剥离测试 harness：__POLARIS_HARNESS__ 在编译期定死为字面量，
+    // 生产构建（不带 POLARIS_HARNESS=1）里所有 `if (__POLARIS_HARNESS__)`
+    // 分支连同 harness 的动态 import 一起被 DCE 消除——删库级冒烟代码
+    // 不再靠运行时 env 判断隔离，而是根本不进生产包。
+    // dev 同理：要在 dev 里跑冒烟/截图，用 POLARIS_HARNESS=1 npm run dev。
+    define: {
+      __POLARIS_HARNESS__: process.env.POLARIS_HARNESS === '1' ? 'true' : 'false'
+    },
     plugins: [externalizeDepsPlugin()],
     resolve: {
       alias: {
