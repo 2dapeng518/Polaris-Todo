@@ -110,6 +110,8 @@ export function registerIpc(): void {
 
   registerTaskCreate()
 
+  // 返回形状 { task: Task, spawned: Task | null }：spawned 是完成重复任务时
+  // DB 在同一事务里生成的下一次实例（权威完整行），渲染层据此乐观插入。
   ipcMain.handle('tasks:update', (_event, input) => {
     return updateTask(updateTaskSchema.parse(input))
   })

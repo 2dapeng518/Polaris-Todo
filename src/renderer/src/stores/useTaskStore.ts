@@ -6,7 +6,8 @@ import type {
   Tag,
   Task,
   UpdateSubtaskInput,
-  UpdateTaskInput
+  UpdateTaskInput,
+  UpdateTaskResult
 } from '@shared/types'
 import type { MessageKey } from '@shared/i18n'
 
@@ -116,8 +117,11 @@ type TaskState = {
     projectId: string | null,
     priority?: number
   ) => Promise<void>
-  updateTask: (id: string, patch: TaskPatch) => Promise<void>
-  toggleTask: (id: string) => Promise<void>
+  // 成功返回更新后的权威任务行；目标任务不在本地列表时返回 null。失败照旧抛错。
+  updateTask: (id: string, patch: TaskPatch) => Promise<Task | null>
+  // 接口契约：成功 ok:true，spawned 原样透传 DB 返回（无生成则 null）；
+  // 失败 ok:false spawned:null（回滚与错误提示已在内部完成）。
+  toggleTask: (id: string) => Promise<{ ok: boolean; spawned: Task | null }>
   removeTask: (id: string) => Promise<void>
   undoDelete: () => Promise<void>
   restoreFromTrash: (id: string) => Promise<void>
@@ -131,7 +135,54 @@ type TaskState = {
   deleteProject: (id: string) => Promise<void>
 }
 
-export const useTaskStore = create<TaskState>((set, get) => ({
+export const useTaskStore = create<TaskState>((set, get) => {
+  // 共享更新管线：乐观替换 → IPC → 权威落定（含 spawned 插入）→ 失败回滚。
+  // updateTask 与 toggleTask 都走这里，错误归属集合机制（writeFailed/clearError）
+  // 与原来完全一致。spawned 由 DB 权威返回，直接插入本地列表，不再全量 load()，
+  // 也不再靠「同标题+同规则」启发式猜新生任务。
+  const runUpdate = async (id: string, patch: TaskPatch): Promise<UpdateTaskResult | null> => {
+    const current = get().tasks.find((task) => task.id === id)
+    if (!current) return null
+
+    // tagIds 是替换式写入，不是 Task 字段：乐观行上的 tags 要从全局字典
+    // 映射出来，否则 chip 要等 IPC 回来才变。省略时保持原关联不动。
+    const { tagIds, ...rest } = patch
+    const optimistic: Task = {
+      ...current,
+      ...rest,
+      ...(tagIds !== undefined
+        ? { tags: tagIds.flatMap((tagId) => get().tags.find((tag) => tag.id === tagId) ?? []) }
+        : {}),
+      updatedAt: new Date().toISOString()
+    }
+
+    set((state) => ({
+      tasks: state.tasks.map((task) => (task.id === id ? optimistic : task))
+    }))
+
+    try {
+      const result = await window.polaris.tasks.update({ id, ...patch })
+      set((state) => ({
+        tasks: [
+          // 完成重复任务时 DB 生成的下一次实例：权威行直接插入（去重防重复插入）。
+          ...(result.spawned ? [result.spawned] : []),
+          ...state.tasks
+            .map((task) => (task.id === id ? result.task : task))
+            .filter((task) => task.id !== result.spawned?.id)
+        ],
+        ...clearError()
+      }))
+      return result
+    } catch (error) {
+      set((state) => ({
+        tasks: state.tasks.map((task) => (task.id === id ? current : task)),
+        ...writeFailed()
+      }))
+      throw error
+    }
+  }
+
+  return {
   tasks: [],
   trashedTasks: [],
   subtasksByTask: {},
@@ -452,68 +503,34 @@ export const useTaskStore = create<TaskState>((set, get) => ({
   },
 
   updateTask: async (id, patch) => {
-    const current = get().tasks.find((task) => task.id === id)
-    if (!current) return
-
-    // tagIds 是替换式写入，不是 Task 字段：乐观行上的 tags 要从全局字典
-    // 映射出来，否则 chip 要等 IPC 回来才变。省略时保持原关联不动。
-    const { tagIds, ...rest } = patch
-    const optimistic: Task = {
-      ...current,
-      ...rest,
-      ...(tagIds !== undefined
-        ? { tags: tagIds.flatMap((tagId) => get().tags.find((tag) => tag.id === tagId) ?? []) }
-        : {}),
-      updatedAt: new Date().toISOString()
-    }
-
-    set((state) => ({
-      tasks: state.tasks.map((task) => (task.id === id ? optimistic : task))
-    }))
-
-    try {
-      const updated = await window.polaris.tasks.update({ id, ...patch })
-      set((state) => ({
-        tasks: state.tasks.map((task) => (task.id === id ? updated : task)),
-        ...clearError()
-      }))
-    } catch (error) {
-      set((state) => ({
-        tasks: state.tasks.map((task) => (task.id === id ? current : task)),
-        ...writeFailed()
-      }))
-      throw error
-    }
+    // 对外返回更新后的权威任务行（失败仍抛错，保持既有调用点兼容）；
+    // spawned 的插入已在 runUpdate 里完成。
+    const result = await runUpdate(id, patch)
+    return result ? result.task : null
   },
 
   toggleTask: async (id) => {
     const current = get().tasks.find((task) => task.id === id)
-    if (!current) return
+    if (!current) return { ok: false, spawned: null }
 
+    const completing = !current.completed && Boolean(current.recurrenceRule && current.dueAt)
     try {
-      const completing = !current.completed && Boolean(current.recurrenceRule && current.dueAt)
-      await get().updateTask(id, { completed: !current.completed })
+      const result = await runUpdate(id, { completed: !current.completed })
+      if (!result) return { ok: false, spawned: null }
 
-      if (current.recurrenceRule) {
-        await get().load()
-
-        if (completing) {
-          const spawned = get()
-            .tasks.filter(
-              (task) =>
-                task.id !== id &&
-                !task.completed &&
-                task.recurrenceRule === current.recurrenceRule &&
-                task.title === current.title
-            )
-            .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0]
-
-          if (spawned?.dueAt) set({ notice: { dueAt: spawned.dueAt } })
-        }
+      // 重复提示只在「完成」方向弹出，dueAt 取 DB 权威 spawned，不再猜。
+      if (completing && result.spawned?.dueAt) {
+        set({ notice: { dueAt: result.spawned.dueAt } })
       }
+      // 取消完成方向：核对过 db.ts——DB 不删除已生成的 spawned 行
+      // （completed_at 清空、规则不恢复，下一次实例独立存在），
+      // 所以本地也不移除任何行，无需全量 reload。
+      return { ok: true, spawned: result.spawned }
     } catch (error) {
       console.error('Failed to toggle task:', error)
-      set(writeFailed())
+      // 回滚与 writeFailed 已在 runUpdate 内完成；这里不再吞成假成功，
+      // 而是把失败如实报告给调用方（TaskDetail 等）。
+      return { ok: false, spawned: null }
     }
   },
 
@@ -716,4 +733,5 @@ export const useTaskStore = create<TaskState>((set, get) => ({
       throw error
     }
   }
-}))
+  }
+})

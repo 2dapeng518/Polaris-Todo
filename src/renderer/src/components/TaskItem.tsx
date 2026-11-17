@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { memo, useRef } from 'react'
 import { motion } from 'motion/react'
 import { Bell, Check, Flag, ListChecks, Repeat2, Trash2 } from './Icon'
 import type { Task } from '@shared/types'
@@ -7,20 +7,23 @@ import { useTaskStore } from '../stores/useTaskStore'
 import { formatCompletedAt, formatDue, isOverdue } from '../lib/dates'
 import { useLocale, useT } from '../stores/useLocaleStore'
 
-export function TaskItem({ task }: { task: Task }) {
+// memo：列表里任何一行的乐观更新都会替换 tasks 数组，但 store 只替换被改的
+// 那个任务对象，其余行引用不变——memo 让无关行跳过重渲染。
+// 唯一 prop 是 task 对象；行内回调不进 props，无需 useCallback。
+export const TaskItem = memo(function TaskItem({ task }: { task: Task }) {
   const t = useT()
   const locale = useLocale()
   const toggleTask = useTaskStore((state) => state.toggleTask)
   const removeTask = useTaskStore((state) => state.removeTask)
   const selectTask = useTaskStore((state) => state.selectTask)
-  const selectedTaskId = useTaskStore((state) => state.selectedTaskId)
-  const projects = useTaskStore((state) => state.projects)
-
-  const project = task.projectId
-    ? projects.find((candidate) => candidate.id === task.projectId)
-    : undefined
+  // 布尔 selector：订阅 selectedTaskId 整值会让每次选中切换重渲染所有行；
+  // 只有「本行是否被选中」翻转的那两行需要重渲染。
+  const selected = useTaskStore((state) => state.selectedTaskId === task.id)
+  // 只取本行需要的项目对象：订阅整个 projects 数组会让项目编辑波及每一行。
+  const project = useTaskStore((state) =>
+    task.projectId ? state.projects.find((candidate) => candidate.id === task.projectId) : undefined
+  )
   const overdue = !task.completed && isOverdue(task.dueAt)
-  const selected = selectedTaskId === task.id
   const rowRef = useRef<HTMLDivElement | null>(null)
 
   const handleDelete = async () => {
@@ -151,4 +154,4 @@ export function TaskItem({ task }: { task: Task }) {
       </button>
     </motion.div>
   )
-}
+})

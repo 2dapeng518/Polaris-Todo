@@ -1,6 +1,7 @@
 import { app, BrowserWindow, dialog, globalShortcut, ipcMain, nativeImage, screen, shell, type NativeImage, type WebContents } from 'electron'
 import { join } from 'node:path'
-import { mkdtemp, readFile, readdir, rename, rm, unlink, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, readdir, rename, rm, stat, unlink, writeFile } from 'node:fs/promises'
+import { fileURLToPath } from 'node:url'
 import { randomUUID } from 'node:crypto'
 import { z } from 'zod'
 import { getAutoStartState, setAutoStartState } from './autostart'
@@ -49,7 +50,8 @@ import {
 } from './hotkey'
 import { getCurrentTheme, initAppTheme, setCurrentTheme, themeBackgroundColor } from './theme'
 import { getCurrentLocale, initAppLocale, setCurrentLocale } from './locale'
-import { translate } from '../shared/i18n'
+import { translate, type Locale } from '../shared/i18n'
+import type { BackupData } from '../shared/types'
 import { createSplashWindow, hasSplashWindow, openSplashWindow, revealMainWindow } from './splash'
 import { isAppTheme, THEME_ORDER, THEME_SYMBOL_COLOR, themeFamily } from '../shared/themes'
 import {
@@ -141,6 +143,121 @@ async function writeFileAtomic(filePath: string, content: string): Promise<void>
   }
 }
 
+// 导入读取上限：备份 JSON 50MB、CSV 20MB。readFile 前先 stat，超限明确报错，
+// 绝不把超大文件整个读进内存。
+const IMPORT_JSON_MAX_BYTES = 50 * 1024 * 1024
+const IMPORT_CSV_MAX_BYTES = 20 * 1024 * 1024
+
+// ---------- 导航守卫 ----------
+// 外链白名单：只放行 https/http/mailto，其余协议（file:/javascript:/自定义协议等）
+// 一律拒绝，不交给系统打开。
+const EXTERNAL_PROTOCOLS = new Set(['https:', 'http:', 'mailto:'])
+
+function openExternalSafe(url: string): void {
+  try {
+    if (EXTERNAL_PROTOCOLS.has(new URL(url).protocol)) void shell.openExternal(url)
+  } catch {
+    // 非法 URL 直接拒绝。
+  }
+}
+
+// 应用自身页面：dev server 同源 URL，或打包后 renderer 目录内的本地文件
+// （主窗口 index.html 与启动页 splash.html 都在这个目录里，query/hash 不限）。
+function isAppUrl(url: string): boolean {
+  try {
+    const target = new URL(url)
+    const devBase = process.env['ELECTRON_RENDERER_URL']
+    if (devBase) return target.origin === new URL(devBase).origin
+    if (target.protocol !== 'file:') return false
+    const rendererDir = join(__dirname, '../renderer').replace(/\\/g, '/').toLowerCase()
+    const filePath = fileURLToPath(target).replace(/\\/g, '/').toLowerCase()
+    return filePath.startsWith(`${rendererDir}/`)
+  } catch {
+    return false
+  }
+}
+
+// 所有窗口（主窗口/提醒窗/启动页）共用一套守卫：
+// - setWindowOpenHandler：新窗一律拒绝，外链走白名单 openExternal；
+// - will-navigate：放行应用自身 URL，其余拦截后走同一份白名单——
+//   更新说明里 DOMPurify 后的 <a href> 不再把整个应用同窗导航走。
+function guardWebContents(contents: WebContents): void {
+  contents.setWindowOpenHandler(({ url }) => {
+    openExternalSafe(url)
+    return { action: 'deny' }
+  })
+  contents.on('will-navigate', (event, url) => {
+    if (isAppUrl(url)) return
+    event.preventDefault()
+    openExternalSafe(url)
+  })
+}
+
+// web-contents-created 在每个窗口的 webContents 诞生时触发（早于任何加载），
+// 因此提醒窗与启动页无需各自重复设置，天然被同一份守卫覆盖。
+app.on('web-contents-created', (_event, contents) => {
+  guardWebContents(contents)
+})
+
+// 进程级兜底留痕：未处理的 Promise 拒绝与未捕获异常只记日志，不让主进程
+// 静默崩溃（启动链本身的失败由 whenReady 的 catch 负责报错退出）。
+process.on('unhandledRejection', (reason) => {
+  console.error('Polaris unhandled rejection:', reason)
+})
+process.on('uncaughtException', (error) => {
+  console.error('Polaris uncaught exception:', error)
+})
+
+// data:export 与启动自动备份共用的同一份序列化逻辑，不新造格式。
+function buildBackupPayload(): BackupData {
+  const { projects, tasks, tags, taskTags, subtasks } = exportBackup()
+  return {
+    schemaVersion: 3,
+    app: 'polaris',
+    exportedAt: new Date().toISOString(),
+    projects,
+    tasks,
+    tags,
+    taskTags,
+    subtasks
+  }
+}
+
+// 启动自动备份：userData/backups/ 里最新一份超过 24h（或不存在）才写一份，
+// 复用导出序列化 + 原子写，保留最近 7 份。失败只留痕，不阻塞启动。
+const AUTO_BACKUP_PREFIX = 'polaris-auto-'
+const AUTO_BACKUP_KEEP = 7
+const AUTO_BACKUP_INTERVAL_MS = 24 * 60 * 60 * 1000
+
+async function runAutoBackup(): Promise<void> {
+  try {
+    const dir = join(app.getPath('userData'), 'backups')
+    await mkdir(dir, { recursive: true })
+    const listBackups = async (): Promise<string[]> =>
+      (await readdir(dir))
+        .filter((name) => name.startsWith(AUTO_BACKUP_PREFIX) && name.endsWith('.json'))
+        .sort()
+    const existing = await listBackups()
+    const latest = existing[existing.length - 1]
+    if (latest) {
+      const info = await stat(join(dir, latest))
+      if (Date.now() - info.mtimeMs < AUTO_BACKUP_INTERVAL_MS) return
+    }
+    // 文件名用 ISO 时间戳（冒号/点换成连字符，Windows 合法），字典序即时间序。
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-')
+    await writeFileAtomic(
+      join(dir, `${AUTO_BACKUP_PREFIX}${stamp}.json`),
+      JSON.stringify(buildBackupPayload(), null, 2)
+    )
+    const after = await listBackups()
+    for (const name of after.slice(0, Math.max(0, after.length - AUTO_BACKUP_KEEP))) {
+      await unlink(join(dir, name)).catch(() => {})
+    }
+  } catch (error) {
+    console.error('Polaris auto backup failed:', error)
+  }
+}
+
 let mainWindow: BrowserWindow | null = null
 let isQuitting = false
 
@@ -226,10 +343,8 @@ function createWindow(): void {
     }
   })
 
-  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    void shell.openExternal(url)
-    return { action: 'deny' }
-  })
+  // 新窗拦截与同窗导航守卫统一在 web-contents-created 里注册（guardWebContents），
+  // 主窗口/提醒窗/启动页共用同一份外链白名单，这里不再单独设置。
 
   // 界面语言随地址传给渲染层：主进程的 meta 记录是权威值，渲染层首帧据此
   // 初始化（冒烟/截图模式下 initAppLocale 已强制 zh-CN，因此具有确定性）。
@@ -2284,18 +2399,20 @@ async function runSmokeTest(): Promise<void> {
 
       const fresh = await mk('冒烟数据 完成时刻', sameInstant, 0);
       const completedAtNullAtCreate = fresh.completedAt === null;
-      const done1 = await window.polaris.tasks.update({ id: fresh.id, completed: true });
+      // tasks:update 返回形状改为 { task, spawned }（spawned 权威透传）：
+      // 断言取 .task，字段与语义与原来完全一致，覆盖不缩水。
+      const done1 = (await window.polaris.tasks.update({ id: fresh.id, completed: true })).task;
       const stampSet = typeof done1.completedAt === 'string' && done1.completedAt.length > 0;
       await sleep(60);
-      const edited = await window.polaris.tasks.update({ id: fresh.id, title: '冒烟数据 完成时刻 改' });
+      const edited = (await window.polaris.tasks.update({ id: fresh.id, title: '冒烟数据 完成时刻 改' })).task;
       // The whole point of the column: a later edit moves updated_at but must
       // not move completed_at.
       const stampSurvivesEdit =
         edited.completedAt === done1.completedAt && edited.updatedAt !== done1.updatedAt;
-      const undone = await window.polaris.tasks.update({ id: fresh.id, completed: false });
+      const undone = (await window.polaris.tasks.update({ id: fresh.id, completed: false })).task;
       const stampClearedOnUndo = undone.completedAt === null;
       await sleep(60);
-      const done2 = await window.polaris.tasks.update({ id: fresh.id, completed: true });
+      const done2 = (await window.polaris.tasks.update({ id: fresh.id, completed: true })).task;
       const stampRenewed =
         typeof done2.completedAt === 'string' && done2.completedAt !== done1.completedAt;
       const completedAtTested =
@@ -2313,7 +2430,8 @@ async function runSmokeTest(): Promise<void> {
         recurrenceRule: 'FREQ=DAILY'
       });
       dataIds.push(recur.id);
-      const recurDone = await window.polaris.tasks.update({ id: recur.id, completed: true });
+      // 同上：tasks:update 新返回形状取 .task，断言语义不变。
+      const recurDone = (await window.polaris.tasks.update({ id: recur.id, completed: true })).task;
       const spawnedList = (await window.polaris.tasks.list()).filter(
         (t) => t.title === '冒烟数据 重复' && t.id !== recur.id
       );
@@ -5686,10 +5804,29 @@ app.on('second-instance', () => {
   }
 })
 
+// 文件对话框的父窗安全包装：mainWindow 可能为 null（已销毁/尚未创建），
+// 此时走无父窗重载，不用非空断言。
+function showOpenDialogSafe(
+  options: Electron.OpenDialogOptions
+): Promise<Electron.OpenDialogReturnValue> {
+  return mainWindow && !mainWindow.isDestroyed()
+    ? dialog.showOpenDialog(mainWindow, options)
+    : dialog.showOpenDialog(options)
+}
+
+function showSaveDialogSafe(
+  options: Electron.SaveDialogOptions
+): Promise<Electron.SaveDialogReturnValue> {
+  return mainWindow && !mainWindow.isDestroyed()
+    ? dialog.showSaveDialog(mainWindow, options)
+    : dialog.showSaveDialog(options)
+}
+
 app.whenReady().then(() => {
   if (!gotSingleInstanceLock) return
 
-  initDatabase()
+  // 损坏库会被改名隔离并重建空库；quarantinedPath 非空时启动后告知用户。
+  const { quarantinedPath } = initDatabase()
   // Missed retention windows are caught up on launch, same as missed reminders.
   purgeExpiredDeleted(new Date().toISOString())
   initAppTheme()
@@ -5727,7 +5864,7 @@ app.whenReady().then(() => {
 
   ipcMain.handle('data:import-csv', async () => {
     try {
-      const source = await dialog.showOpenDialog(mainWindow!, {
+      const source = await showOpenDialogSafe({
         title: translate(getCurrentLocale(), 'native.csvTitle'),
         properties: ['openFile'],
         filters: [
@@ -5735,6 +5872,16 @@ app.whenReady().then(() => {
         ]
       })
       if (source.canceled || !source.filePaths[0]) return { ok: false, canceled: true }
+      // readFile 前先查大小：超过 20MB 明确拒绝，不整文件读进内存。
+      const info = await stat(source.filePaths[0])
+      if (info.size > IMPORT_CSV_MAX_BYTES) {
+        return {
+          ok: false,
+          error: translate(getCurrentLocale(), 'native.csvTooLarge', {
+            limit: IMPORT_CSV_MAX_BYTES / (1024 * 1024)
+          })
+        }
+      }
       const raw = await readFile(source.filePaths[0], 'utf8')
       return importCsvText(raw)
     } catch (error) {
@@ -5748,22 +5895,26 @@ app.whenReady().then(() => {
 
   ipcMain.handle('app:get-autostart', () => getAutoStartState())
 
-  ipcMain.handle('app:set-autostart', (_event, enabled: boolean) => {
-    return setAutoStartState(Boolean(enabled))
+  // 以下三个开关照 app:set-mcp 的正确写法做 typeof 校验：
+  // Boolean('false') 为 true，字符串陷阱会把非法载荷当成「开」。
+  ipcMain.handle('app:set-autostart', (_event, enabled: unknown) => {
+    if (typeof enabled !== 'boolean') return getAutoStartState()
+    return setAutoStartState(enabled)
   })
 
   ipcMain.handle('app:get-close-to-tray', () => closeToTrayEnabled())
 
-  ipcMain.handle('app:set-close-to-tray', (_event, enabled: boolean) => {
-    const value = Boolean(enabled)
-    setMeta('close_to_tray', value ? '1' : '0')
-    return value
+  ipcMain.handle('app:set-close-to-tray', (_event, enabled: unknown) => {
+    if (typeof enabled !== 'boolean') return closeToTrayEnabled()
+    setMeta('close_to_tray', enabled ? '1' : '0')
+    return enabled
   })
 
   ipcMain.handle('app:get-global-hotkey', () => getGlobalHotkeyState())
 
-  ipcMain.handle('app:set-global-hotkey', (_event, enabled: boolean) => {
-    return setGlobalHotkeyEnabled(Boolean(enabled))
+  ipcMain.handle('app:set-global-hotkey', (_event, enabled: unknown) => {
+    if (typeof enabled !== 'boolean') return getGlobalHotkeyState()
+    return setGlobalHotkeyEnabled(enabled)
   })
 
   // Read-only, no payload to validate. The renderer must never hardcode a version
@@ -5782,19 +5933,10 @@ app.whenReady().then(() => {
 
   ipcMain.handle('data:export', async () => {
     try {
-      const { projects, tasks, tags, taskTags, subtasks } = exportBackup()
-      const backup = {
-        schemaVersion: 3,
-        app: 'polaris',
-        exportedAt: new Date().toISOString(),
-        projects,
-        tasks,
-        tags,
-        taskTags,
-        subtasks
-      }
+      // 与启动自动备份共用同一份序列化（buildBackupPayload），不新造格式。
+      const backup = buildBackupPayload()
       const stamp = new Date().toISOString().slice(0, 10).replace(/-/g, '')
-      const target = await dialog.showSaveDialog(mainWindow!, {
+      const target = await showSaveDialogSafe({
         title: translate(getCurrentLocale(), 'native.exportTitle'),
         defaultPath: `polaris-backup-${stamp}.json`,
         filters: [
@@ -5811,7 +5953,7 @@ app.whenReady().then(() => {
 
   ipcMain.handle('data:import', async () => {
     try {
-      const source = await dialog.showOpenDialog(mainWindow!, {
+      const source = await showOpenDialogSafe({
         title: translate(getCurrentLocale(), 'native.importTitle'),
         properties: ['openFile'],
         filters: [
@@ -5819,6 +5961,16 @@ app.whenReady().then(() => {
         ]
       })
       if (source.canceled || !source.filePaths[0]) return { ok: false, canceled: true }
+      // readFile 前先查大小：超过 50MB 明确拒绝，不整文件读进内存。
+      const info = await stat(source.filePaths[0])
+      if (info.size > IMPORT_JSON_MAX_BYTES) {
+        return {
+          ok: false,
+          error: translate(getCurrentLocale(), 'native.importTooLarge', {
+            limit: IMPORT_JSON_MAX_BYTES / (1024 * 1024)
+          })
+        }
+      }
       const raw = await readFile(source.filePaths[0], 'utf8')
       const parsed = backupSchema.parse(JSON.parse(raw))
       const counts = importBackup(parsed)
@@ -5861,9 +6013,38 @@ app.whenReady().then(() => {
     void revealQuickCapture()
   })
 
+  // 灾难恢复告知：原库已损坏并被改名隔离，当前运行的是重建空库。
+  // locale 记录随旧库丢失，initAppLocale 只能按系统语言兜底，所以正文
+  // 双语并列（zh+en），确保任何语言的用户都读得懂；标题按当前 locale。
+  if (quarantinedPath) {
+    const corruptDetail = (locale: Locale): string =>
+      translate(locale, 'native.dbCorruptDetail', { path: quarantinedPath })
+    void dialog.showMessageBox({
+      type: 'warning',
+      title: translate(getCurrentLocale(), 'native.dbCorruptTitle'),
+      message: translate(getCurrentLocale(), 'native.dbCorruptTitle'),
+      detail: `${corruptDetail('zh-CN')}\n\n${corruptDetail('en')}`
+    })
+  }
+
+  // 启动自动备份：超过 24h 才写，失败只留痕。测试模式跳过，保持 harness
+  // 的临时 profile 确定性（与 splash/updater 的惰性约定一致）。
+  if (!harness) void runAutoBackup()
+
   app.on('activate', () => {
     showMainWindow()
   })
+}).catch((error: unknown) => {
+  // 启动链任何一步失败都不能静默死亡：留痕 + 双语报错 + 退出。
+  // locale 可能尚未初始化（initAppLocale 之前就抛错），双语兜底。
+  console.error('Polaris startup failed:', error)
+  const startupDetail = (locale: Locale): string =>
+    translate(locale, 'native.startupFailedDetail', { error: String(error) })
+  dialog.showErrorBox(
+    `${translate('zh-CN', 'native.startupFailedTitle')} / ${translate('en', 'native.startupFailedTitle')}`,
+    `${startupDetail('zh-CN')}\n\n${startupDetail('en')}`
+  )
+  app.quit()
 })
 
 app.on('before-quit', () => {

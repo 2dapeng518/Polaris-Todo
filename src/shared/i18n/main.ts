@@ -18,5 +18,14 @@ export const main = {
   'native.importTitle': '导入备份',
   'native.csvTitle': '导入 CSV（滴答清单 / Todoist）',
   'native.csvFilter': 'CSV 文件',
-  'native.jsonFilter': 'Polaris 备份'
+  'native.jsonFilter': 'Polaris 备份',
+  // 启动灾难恢复与启动失败兜底（主进程原生对话框，locale 可能未就绪，双语并列展示）。
+  'native.dbCorruptTitle': '数据库文件损坏，已隔离',
+  'native.dbCorruptDetail':
+    '原数据库文件已损坏，已改名隔离保留为：\n{path}\n\n应用已从空库启动，原文件未被删除，可供取证或人工恢复。如有备份，可在「设置 → 数据备份」中导入恢复。',
+  'native.startupFailedTitle': 'Polaris 启动失败',
+  'native.startupFailedDetail': '应用初始化时发生错误，即将退出：\n{error}',
+  // 导入文件大小上限（readFile 前的 stat 检查）。
+  'native.importTooLarge': '备份文件超过 {limit} MB 上限，已拒绝读取。',
+  'native.csvTooLarge': 'CSV 文件超过 {limit} MB 上限，已拒绝读取。'
 }

@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useState, type FormEvent } from 'react'
+import { Fragment, useEffect, useMemo, useState, type FormEvent } from 'react'
 import { BarChart3, CalendarClock, CalendarDays, CheckCircle2, Grid2x2, HardDrive, ListTodo, Pencil, Plus, Settings2, Sun, Tag, Trash2 } from './Icon'
 import { AnimatePresence, motion } from 'motion/react'
 import type { AppView, Project } from '@shared/types'
@@ -68,17 +68,39 @@ export function Sidebar() {
     }
   }, [])
 
-  const activeTasks = tasks.filter((task) => !task.completed)
-  const counts: Record<AppView, number> = {
-    today: activeTasks.filter((task) => isTodayOrOverdue(task.dueAt)).length,
-    upcoming: activeTasks.filter((task) => isUpcoming(task.dueAt)).length,
-    calendar: activeTasks.filter((task) => task.dueAt).length,
-    all: activeTasks.length,
-    completed: tasks.filter((task) => task.completed).length,
-    stats: tasks.filter((task) => task.completed).length,
-    matrix: activeTasks.length,
-    trash: trashedTasks.length
-  }
+  // 计数只在 tasks/trashedTasks 变化时重算：侧栏每次渲染（切视图、开设置、
+  // 编辑项目表单的每次击键）都跑 8 次全表 filter 是白烧 CPU。
+  const activeTasks = useMemo(() => tasks.filter((task) => !task.completed), [tasks])
+  const counts = useMemo<Record<AppView, number>>(() => {
+    const completedCount = tasks.length - activeTasks.length
+    return {
+      today: activeTasks.filter((task) => isTodayOrOverdue(task.dueAt)).length,
+      upcoming: activeTasks.filter((task) => isUpcoming(task.dueAt)).length,
+      calendar: activeTasks.filter((task) => task.dueAt).length,
+      all: activeTasks.length,
+      completed: completedCount,
+      stats: completedCount,
+      matrix: activeTasks.length,
+      trash: trashedTasks.length
+    }
+  }, [tasks, activeTasks, trashedTasks])
+
+  // 项目/标签计数各一趟遍历建 Map：原来是每个项目、每个标签各扫一遍全表，
+  // 标签计数是 O(tags×tasks)，任务多时侧栏渲染被拖慢。
+  const projectCounts = useMemo(() => {
+    const map = new Map<string, number>()
+    for (const task of activeTasks) {
+      if (task.projectId) map.set(task.projectId, (map.get(task.projectId) ?? 0) + 1)
+    }
+    return map
+  }, [activeTasks])
+  const tagCounts = useMemo(() => {
+    const map = new Map<string, number>()
+    for (const task of activeTasks) {
+      for (const tag of task.tags) map.set(tag.id, (map.get(tag.id) ?? 0) + 1)
+    }
+    return map
+  }, [activeTasks])
 
   const submitProject = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -229,7 +251,7 @@ export function Sidebar() {
         )}
 
         {projects.map((project) => {
-          const count = activeTasks.filter((task) => task.projectId === project.id).length
+          const count = projectCounts.get(project.id) ?? 0
           const active = projectFilter === project.id
 
           if (editingProject?.id === project.id) {
@@ -324,7 +346,7 @@ export function Sidebar() {
             <span className="nav-label-count">{tags.length}</span>
           </div>
           {tags.map((tag) => {
-            const count = activeTasks.filter((task) => task.tags.some((item) => item.id === tag.id)).length
+            const count = tagCounts.get(tag.id) ?? 0
             const active = tagFilter === tag.id
             return (
               <div key={tag.id} className={`nav-item project-item tag-item ${active ? 'active' : ''}`}>

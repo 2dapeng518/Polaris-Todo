@@ -28,6 +28,7 @@ import { useTaskStore } from '../stores/useTaskStore'
 import { formatCompletedAt, formatDue, todayAt, tomorrowAt } from '../lib/dates'
 import { useFocusTrap } from '../lib/useFocusTrap'
 import { useMediaQuery } from '../lib/useMediaQuery'
+import { useTaskDraft } from '../lib/useTaskDraft'
 import { useLocale, useT, type Translate } from '../stores/useLocaleStore'
 import type { Locale, MessageKey } from '@shared/i18n'
 import { DateTimePicker } from './DateTimePicker'
@@ -176,14 +177,17 @@ function popoverLabel(kind: ScheduleKind, t: Translate): string {
 
 export function TaskDetail() {
   const selectedTaskId = useTaskStore((state) => state.selectedTaskId)
-  const tasks = useTaskStore((state) => state.tasks)
+  // 单任务 selector：订阅整个 tasks 数组会让任何一行的变动都重渲染详情面板；
+  // find 返回的是数组里的同一个对象引用，无关行变化时 selector 结果稳定。
+  const task = useTaskStore(
+    (state) => state.tasks.find((candidate) => candidate.id === state.selectedTaskId) ?? null
+  )
   const selectTask = useTaskStore((state) => state.selectTask)
   const paletteOpen = useTaskStore((state) => state.paletteOpen)
   const wide = useMediaQuery('(min-width: 1180px)')
   const paneRef = useRef<HTMLElement | null>(null)
   const titleRef = useRef<HTMLTextAreaElement | null>(null)
   const closeRef = useRef<() => void>(() => {})
-  const task = tasks.find((candidate) => candidate.id === selectedTaskId) ?? null
 
   useFocusTrap(paneRef, !wide && Boolean(task) && !paletteOpen, titleRef)
 
@@ -239,8 +243,6 @@ function TaskDetailBody({ task, titleRef, closeRef }: BodyProps) {
   const removeTask = useTaskStore((state) => state.removeTask)
   const paletteOpen = useTaskStore((state) => state.paletteOpen)
 
-  const [title, setTitle] = useState(task.title)
-  const [notes, setNotes] = useState(task.notes)
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle')
   const [popover, setPopover] = useState<PopoverState>(null)
   // Effects below key on the KIND, not the object: repositioning produces a new
@@ -248,8 +250,6 @@ function TaskDetailBody({ task, titleRef, closeRef }: BodyProps) {
   // the minute field or the confirm-clear cancel button.
   const popoverKind = popover?.kind ?? null
   const [completedNext, setCompletedNext] = useState<string | null>(null)
-  const [titleComposing, setTitleComposing] = useState(false)
-  const [notesComposing, setNotesComposing] = useState(false)
   const [tagDraft, setTagDraft] = useState('')
   const notesRef = useRef<HTMLTextAreaElement | null>(null)
   const popoverRef = useRef<HTMLDivElement | null>(null)
@@ -292,6 +292,18 @@ function TaskDetailBody({ task, titleRef, closeRef }: BodyProps) {
     [markSaved, task.id, updateTask]
   )
 
+  // 草稿 + dirty + 防抖 + 外部同步都在 useTaskDraft 里：只有用户编辑才写回，
+  // 外部修改（MCP 写入/备份导入/focus 重载）不再被旧草稿回声覆盖。
+  const {
+    title,
+    notes,
+    changeTitle,
+    changeNotes,
+    setTitleComposing,
+    setNotesComposing,
+    flushAll
+  } = useTaskDraft({ title: task.title, notes: task.notes, persist })
+
   // 标签的每次编辑都提交完整集合（替换式）。从 store 现读任务，避免连续操作
   // 时用上一帧的 task.tags 把刚移除的标签又写回去。
   const applyTagIds = useCallback(
@@ -324,43 +336,9 @@ function TaskDetailBody({ task, titleRef, closeRef }: BodyProps) {
     (tag) => !task.tags.some((attached) => attached.id === tag.id)
   )
 
-  const flushAll = useCallback(async (): Promise<boolean> => {
-    const cleanTitle = title.replace(/\r?\n/g, ' ').trim()
-    const jobs: Array<Promise<boolean>> = []
-
-    if (!cleanTitle) {
-      setTitle(task.title)
-    } else if (cleanTitle !== task.title) {
-      jobs.push(persist({ title: cleanTitle }))
-    }
-
-    if (notes !== task.notes) jobs.push(persist({ notes }))
-    if (jobs.length === 0) return true
-
-    const results = await Promise.all(jobs)
-    return results.every(Boolean)
-  }, [notes, persist, task.notes, task.title, title])
-
   useEffect(() => {
     flushRef.current = flushAll
   }, [flushAll])
-
-  useEffect(() => {
-    const value = title.replace(/\r?\n/g, ' ').trim()
-    if (!value || value === task.title || titleComposing) return
-    const timer = window.setTimeout(() => {
-      void persist({ title: value })
-    }, 500)
-    return () => window.clearTimeout(timer)
-  }, [persist, task.title, title, titleComposing])
-
-  useEffect(() => {
-    if (notes === task.notes || notesComposing) return
-    const timer = window.setTimeout(() => {
-      void persist({ notes })
-    }, 500)
-    return () => window.clearTimeout(timer)
-  }, [notes, notesComposing, persist, task.notes])
 
   useEffect(() => {
     return () => {
@@ -512,16 +490,16 @@ function TaskDetailBody({ task, titleRef, closeRef }: BodyProps) {
 
   const handleToggle = async () => {
     const wasRecurring = !task.completed && Boolean(task.recurrenceRule && task.dueAt)
-    const next =
-      wasRecurring && task.recurrenceRule && task.dueAt
-        ? nextOccurrence(task.dueAt, task.recurrenceRule)
-        : null
+    // 契约：ok = 写入是否成功；spawned = DB 权威返回的新生重复任务（无则 null）。
+    const { ok, spawned } = await toggleTask(task.id)
+    // 写入失败时 store 已回滚并弹错误 toast，这里不能再显示「已创建下次重复」的假成功。
+    if (!ok) return
 
-    await toggleTask(task.id)
-
-    if (wasRecurring && next) {
-      setCompletedNext(formatDue(next.toISOString()))
-    } else if (!wasRecurring) {
+    if (wasRecurring) {
+      // 只有真的生成了新任务才提示下次到期，日期用 DB 权威的 spawned.dueAt，
+      // 不再用 nextOccurrence 本地推算（规则可能已到尽头，推算会撒谎）。
+      setCompletedNext(spawned?.dueAt ? formatDue(spawned.dueAt, locale) : null)
+    } else {
       setCompletedNext(null)
     }
   }
@@ -597,7 +575,7 @@ function TaskDetailBody({ task, titleRef, closeRef }: BodyProps) {
           value={title}
           placeholder={t('detail.titlePlaceholder')}
           aria-label={t('detail.titleLabel')}
-          onChange={(event) => setTitle(event.target.value)}
+          onChange={(event) => changeTitle(event.target.value)}
           onBlur={() => {
             void flushAll()
           }}
@@ -669,7 +647,7 @@ function TaskDetailBody({ task, titleRef, closeRef }: BodyProps) {
             value={notes}
             placeholder={t('detail.notesPlaceholder')}
             aria-label={t('detail.notesLabel')}
-            onChange={(event) => setNotes(event.target.value)}
+            onChange={(event) => changeNotes(event.target.value)}
             onBlur={() => {
               void flushAll()
             }}
