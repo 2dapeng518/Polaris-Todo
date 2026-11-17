@@ -1,10 +1,12 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http'
 import { app } from 'electron'
+import { z } from 'zod'
 import type { McpState, Task } from '../shared/types'
 import {
   createTask,
   deleteTask,
   getMeta,
+  getTask,
   listProjects,
   listTags,
   listTasks,
@@ -21,6 +23,11 @@ import {
 // 零逻辑复制，也不引入第二个 SQLite 连接。协议是 MCP Streamable HTTP
 // （2025-03-26）的无状态子集：POST /mcp 收 JSON-RPC，通知回 202，
 // GET 回 405（不提供 SSE 流）。应用退出服务即停——Polaris 常驻托盘是常态。
+//
+// 网络暴露面防线（无 token，不破坏既有客户端配置）：带 Origin 的请求一律
+// 403（浏览器发起的铁证）；Host 必须是回环字面量（挡 DNS rebinding）；
+// POST 必须 application/json（挡简单请求 CSRF）。入参经 zod 校验，
+// 约束与 ipc.ts 正门一致。信任边界仍是「本机进程」，不假装已鉴权。
 
 export const MCP_PORT = 3737
 export const MCP_ENDPOINT = `http://127.0.0.1:${MCP_PORT}/mcp`
@@ -62,13 +69,55 @@ type ToolDef = {
 
 const str = (value: unknown): string | undefined =>
   typeof value === 'string' && value.trim() !== '' ? value : undefined
-const num = (value: unknown): number | undefined =>
-  typeof value === 'number' && Number.isFinite(value) ? value : undefined
-const bool = (value: unknown): boolean | undefined =>
-  typeof value === 'boolean' ? value : undefined
 
+// 入参校验对齐 IPC 正门（ipc.ts 的 zod 标准）：两条写入路径同一套约束——
+// title 非空且 ≤500、notes ≤20000、dueAt 必须 Date.parse 有效、priority 0-3
+// 整数、tagIds ≤50 个非空字符串。非法入参拒绝（isError 工具结果），不静默
+// 截断/夹取——与 tasks:create / tasks:update 的拒绝语义一致。
+const dateTimeSchema = z
+  .string()
+  .refine((value) => !Number.isNaN(Date.parse(value)), '日期无效')
+
+const createTaskArgs = z.object({
+  title: z.string().min(1).max(500),
+  notes: z.string().max(20000).optional(),
+  dueAt: dateTimeSchema.nullable().optional(),
+  projectId: z.string().nullable().optional(),
+  priority: z.number().int().min(0).max(3).optional()
+})
+
+const updateTaskArgs = z.object({
+  id: z.string().min(1),
+  title: z.string().min(1).max(500).optional(),
+  notes: z.string().max(20000).optional(),
+  dueAt: dateTimeSchema.nullable().optional(),
+  priority: z.number().int().min(0).max(3).optional(),
+  tagIds: z.array(z.string().min(1)).max(50).optional()
+})
+
+const taskIdArgs = z.object({ id: z.string().min(1) })
+
+const completeTaskArgs = z.object({
+  id: z.string().min(1),
+  completed: z.boolean().optional()
+})
+
+function parseArgs<T>(schema: z.ZodType<T>, args: Record<string, unknown>): T {
+  const result = schema.safeParse(args)
+  if (!result.success) {
+    throw new Error(
+      result.error.issues
+        .map((issue) => `${issue.path.join('.') || 'args'}: ${issue.message}`)
+        .join('; ')
+    )
+  }
+  return result.data
+}
+
+// 按 id 直查（db.getTask 过滤软删行，与旧 listTasks().find 同语义），
+// 不再每次全表扫描。
 function findTask(id: string): Task {
-  const task = listTasks().find((candidate) => candidate.id === id)
+  const task = getTask(id)
   if (!task) throw new Error(`任务不存在：${id}`)
   return task
 }
@@ -105,7 +154,7 @@ const TOOLS: ToolDef[] = [
       properties: { id: { type: 'string' } },
       required: ['id']
     },
-    run: (args) => findTask(str(args.id) ?? '')
+    run: (args) => findTask(parseArgs(taskIdArgs, args).id)
   },
   {
     name: 'create_task',
@@ -122,16 +171,16 @@ const TOOLS: ToolDef[] = [
       required: ['title']
     },
     run: (args) => {
-      const title = str(args.title)
-      if (!title) throw new Error('title 不能为空')
+      const input = parseArgs(createTaskArgs, args)
       const task = createTask({
-        title: title.slice(0, 500),
-        dueAt: str(args.dueAt) ?? null,
-        projectId: str(args.projectId) ?? null,
-        priority: num(args.priority) ?? 0
+        title: input.title,
+        dueAt: input.dueAt ?? null,
+        projectId: input.projectId ?? null,
+        priority: input.priority ?? 0
       })
-      const notes = str(args.notes)
-      return notes ? updateTask({ id: task.id, notes }) : task
+      // updateTask 返回 { task, spawned }：这里只取 Task，保证 create_task
+      // 带不带 notes 的返回形状一致（旧实现带 notes 时会漏出内部结构）。
+      return input.notes ? updateTask({ id: task.id, notes: input.notes }).task : task
     }
   },
   {
@@ -150,18 +199,10 @@ const TOOLS: ToolDef[] = [
       required: ['id']
     },
     run: (args) => {
-      const id = str(args.id)
-      if (!id) throw new Error('id 不能为空')
-      findTask(id)
-      const patch: Record<string, unknown> = { id }
-      const title = str(args.title)
-      if (title) patch.title = title.slice(0, 500)
-      if (typeof args.notes === 'string') patch.notes = args.notes
-      if (args.dueAt === null || typeof args.dueAt === 'string') patch.dueAt = args.dueAt
-      const priority = num(args.priority)
-      if (priority !== undefined) patch.priority = priority
-      if (Array.isArray(args.tagIds)) patch.tagIds = args.tagIds.filter((item): item is string => typeof item === 'string')
-      return updateTask(patch as Parameters<typeof updateTask>[0])
+      const input = parseArgs(updateTaskArgs, args)
+      findTask(input.id)
+      // zod object 默认剥掉未知键：与 IPC 一样只接受声明过的字段。
+      return updateTask(input)
     }
   },
   {
@@ -176,10 +217,9 @@ const TOOLS: ToolDef[] = [
       required: ['id']
     },
     run: (args) => {
-      const id = str(args.id)
-      if (!id) throw new Error('id 不能为空')
-      findTask(id)
-      return toggleTask(id, bool(args.completed) ?? true)
+      const input = parseArgs(completeTaskArgs, args)
+      findTask(input.id)
+      return toggleTask(input.id, input.completed ?? true)
     }
   },
   {
@@ -191,8 +231,7 @@ const TOOLS: ToolDef[] = [
       required: ['id']
     },
     run: (args) => {
-      const id = str(args.id)
-      if (!id) throw new Error('id 不能为空')
+      const { id } = parseArgs(taskIdArgs, args)
       findTask(id)
       deleteTask(id)
       return { deleted: id }
@@ -293,10 +332,32 @@ function readBody(req: IncomingMessage): Promise<string> {
   })
 }
 
+// DNS rebinding 防线：Host 必须是本机回环字面量（端口以实际监听为准）。
+// 攻击者把 evil.example 解析到 127.0.0.1 时，浏览器发出的 Host 仍是
+// evil.example:3737——在这里被拒，读不到任何任务数据。
+const ALLOWED_HOSTS = [
+  `127.0.0.1:${MCP_PORT}`,
+  `localhost:${MCP_PORT}`,
+  `[::1]:${MCP_PORT}`
+]
+
 function start(): void {
   if (server) return
   const instance = createServer((req: IncomingMessage, res: ServerResponse) => {
     void (async () => {
+      // 浏览器发起的铁证：合法 MCP 客户端（CLI/桌面进程）不发 Origin，
+      // 带 Origin 的一律 403——恶意网页的简单请求在这里被挡下。
+      if (req.headers.origin !== undefined) {
+        res.writeHead(403, { 'Content-Type': 'text/plain; charset=utf-8' })
+        res.end('Forbidden')
+        return
+      }
+      const host = (req.headers.host ?? '').toLowerCase()
+      if (!ALLOWED_HOSTS.includes(host)) {
+        res.writeHead(403, { 'Content-Type': 'text/plain; charset=utf-8' })
+        res.end('Forbidden')
+        return
+      }
       const url = (req.url ?? '').split('?')[0]
       if (url !== '/mcp') {
         res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' })
@@ -312,6 +373,14 @@ function start(): void {
       if (req.method !== 'POST') {
         res.writeHead(405, { Allow: 'POST', 'Content-Type': 'text/plain; charset=utf-8' })
         res.end('Method Not Allowed')
+        return
+      }
+      // POST 必须显式 application/json：text/plain 等「简单请求」不触发
+      // CORS 预检，是网页盲写（CSRF）的唯一通道——415 拒绝，且不读 body。
+      const contentType = (req.headers['content-type'] ?? '').split(';')[0].trim().toLowerCase()
+      if (contentType !== 'application/json') {
+        res.writeHead(415, { 'Content-Type': 'text/plain; charset=utf-8' })
+        res.end('Unsupported Media Type')
         return
       }
       let request: JsonRpcRequest
@@ -338,6 +407,10 @@ function start(): void {
   instance.on('error', (error: NodeJS.ErrnoException) => {
     running = false
     server = null
+    // 出错即关：只置空引用不 close 会泄漏底层句柄（监听中的 server 出错时
+    // 仍持有端口/连接）。带回调的 close 吞掉「未在监听」类错误，不会二次
+    // 触发 error 事件。
+    instance.close(() => {})
     lastError =
       error.code === 'EADDRINUSE'
         ? `端口 ${MCP_PORT} 被其他程序占用`

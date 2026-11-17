@@ -78,6 +78,9 @@ function fromWallTime(date: Date): Date {
 }
 
 export function nextMonthlyClamped(due: Date, now: Date): Date | null {
+  // 非法日期直接拒绝：没有这道守卫，下面的无上限循环在 NaN 输入下不会终止。
+  if (Number.isNaN(due.getTime()) || Number.isNaN(now.getTime())) return null
+
   const day = due.getDate()
   const hours = due.getHours()
   const minutes = due.getMinutes()
@@ -89,7 +92,10 @@ export function nextMonthlyClamped(due: Date, now: Date): Date | null {
   let month = anchor.getMonth()
   if (anchor === due) month += 1
 
-  for (let i = 0; i < 60; i += 1) {
+  // 锚点取 due/now 的较晚者所在月，答案至多在锚点月或下一个月：
+  // 锚点月的钳制日若不晚于 now，下个月的钳制日必然晚于 now（now 就在锚点月里）。
+  // 循环天然在一两步内终止，无需迭代上限——旧的 60 次上限是防御性冗余。
+  for (;;) {
     if (month > 11) {
       month = 0
       year += 1
@@ -112,23 +118,23 @@ export function nextMonthlyClamped(due: Date, now: Date): Date | null {
 
     month += 1
   }
-
-  return null
 }
 
+// now 可注入（默认取当前时刻）：真值表用固定时钟钉死逾期多年的场景。
 export function nextOccurrence(
   dueAt: string | null,
-  ruleString: string | null
+  ruleString: string | null,
+  now: Date = new Date()
 ): Date | null {
   if (!dueAt || !ruleString) return null
 
   const due = new Date(dueAt)
   if (Number.isNaN(due.getTime())) return null
 
-  const now = new Date()
-
-  // The "每月" preset clamps to the last day of short months instead of
-  // skipping February, April, June, September and November for a 29-31 due date.
+  // 「每月」预设把 29–31 日钳到短月最后一天，而不是跳过 2/4/6/9/11 月。
+  // 现状标注（产品决策，本轮不改）：预设 FREQ=MONTHLY 走上面的钳制路径，
+  // 自定义规则（如 FREQ=MONTHLY;INTERVAL=2）走下面的 rrule 路径——短月被
+  // 整月跳过。两种月末语义目前分叉，保持现状，待产品决策后再统一。
   if (ruleString === 'FREQ=MONTHLY') {
     return nextMonthlyClamped(due, now)
   }
@@ -139,18 +145,21 @@ export function nextOccurrence(
     options.dtstart = wallStart
     const rule = new RRule(options)
 
-    let nextWall = rule.after(wallStart, false)
-    let attempts = 0
+    // 锚点取 due 与 now 在墙钟空间的较晚者：下一次实例必须严格晚于 due
+    // （完成当前实例不会再生成它自己），也必须晚于 now。rule.after 直接
+    // 跳到锚点之后的第一个候选，不再从 due 起逐个迭代逾期区间——
+    // 每天重复逾期三年（>1000 天）也不会断链。
+    const nowWall = toWallTime(now)
+    const anchor = nowWall.getTime() > wallStart.getTime() ? nowWall : wallStart
+    let nextWall = rule.after(anchor, false)
 
-    while (nextWall && attempts < 1000) {
+    // 墙钟 → 真实瞬间的回读在 DST 回拨时可能落在 now 之前（同一墙钟小时
+    // 出现两次，fromWallTime 取较早的一次），此时沿规则再推进一格。
+    // 上限只覆盖 DST 歧义（至多一两步），与逾期时长完全无关。
+    for (let i = 0; nextWall && i < 3; i += 1) {
       const next = fromWallTime(nextWall)
       if (next.getTime() > now.getTime()) return next
-
-      const following = rule.after(nextWall, false)
-      if (!following || following.getTime() <= nextWall.getTime()) return null
-
-      nextWall = following
-      attempts += 1
+      nextWall = rule.after(nextWall, false)
     }
 
     return null

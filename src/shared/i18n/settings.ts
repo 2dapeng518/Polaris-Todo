@@ -43,6 +43,14 @@ export const settings = {
   'settings.importFailed': '导入失败：{error}',
   'settings.csvDone': '{source} 导入完成：任务 +{tasks}（跳过 {tasksSkipped}），项目 +{projects}，子任务 +{subtasks}，标签 +{tags}',
   'settings.ticktick': '滴答清单',
+  // CSV 导入错误：shared/csvImport.ts 只回机器可识别的 code+params，
+  // db 层按当前界面语言经 translate() 翻成文案（英文界面必须看到英文报错）。
+  'csv.empty': 'CSV 内容为空或缺少数据行',
+  'csv.unknownFormat': '无法识别的 CSV 格式：需要 Todoist 项目导出或滴答清单备份导出的表头',
+  'csv.noTasks': 'CSV 里没有可导入的任务',
+  'csv.unclosedQuote': '第 {row} 行的引号未闭合，CSV 已整体拒绝导入',
+  'csv.invalidDate': '第 {row} 行的日期「{value}」无效（月/日超出范围），已整体拒绝导入',
+  'csv.notesTooLong': '第 {row} 行的备注超过 {limit} 字上限，CSV 已整体拒绝导入',
   'settings.update.idle': '从 GitHub Releases 获取新版本',
   'settings.update.unsupported': '当前环境不提供在线更新，打包安装后生效',
   'settings.update.checking': '正在检查更新…',

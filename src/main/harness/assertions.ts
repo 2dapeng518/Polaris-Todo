@@ -13,12 +13,13 @@ import {
   listTags,
   listTasks
 } from '../db'
-import { parseCsvImport } from '../../shared/csvImport'
+import { csvErrorMessage, parseCsvImport } from '../../shared/csvImport'
 import { dismissKeys, formatParsedDue, parseQuickAdd, pruneDismissed } from '../../shared/quickAddParse'
 import { isPurgeable } from '../../shared/retention'
 import {
   buildCustomRecurrence,
   nextMonthlyClamped,
+  nextOccurrence,
   parseCustomRecurrence,
   type CustomRecurrence
 } from '../../shared/recurrence'
@@ -591,6 +592,42 @@ export function runRecurrenceAssertions(): boolean {
       console.error('RECURRENCE_CASE_FAIL', JSON.stringify({ due: key(due), now: key(now), got, want }))
     }
   }
+
+  // nextOccurrence 注入时钟的确定性真值表：核心是「逾期很久不断链」——
+  // 旧实现从 due 起逐个迭代、1000 次封顶，每天重复逾期约 2.7 年就静默返回
+  // null。新实现 rule.after 直接跳到锚点之后，逾期时长与迭代次数无关。
+  // [due（本地墙钟）, rule, now, 期望]
+  const occurrenceTable: Array<[Date, string, Date, string]> = [
+    // 每天重复逾期 3 年（2023-01-01 → 2026-01-01 共 1096 天 > 旧上限 1000）
+    [at(2023, 0, 1, 9), 'FREQ=DAILY', at(2026, 0, 1, 8), '2026-1-1 9:0:0.0'],
+    // 逾期 3 年且今天的时段已过 → 明天
+    [at(2023, 0, 1, 9), 'FREQ=DAILY', at(2026, 0, 1, 10), '2026-1-2 9:0:0.0'],
+    // 每周重复逾期 3 年：2023-01-02 是周一，2026-01-01（周四）之后是 01-05 周一
+    [at(2023, 0, 2, 9), 'FREQ=WEEKLY', at(2026, 0, 1, 8), '2026-1-5 9:0:0.0'],
+    // 每年 2 月 29 日：rrule 跳过非闰年（既有语义保留），2026 之后是 2028
+    [at(2020, 1, 29, 9), 'FREQ=YEARLY', at(2026, 0, 1, 8), '2028-2-29 9:0:0.0'],
+    // 每月预设逾期 3 年：钳制路径锚在 now 所在月，31 日不钳
+    [at(2023, 0, 31, 9), 'FREQ=MONTHLY', at(2026, 0, 15, 8), '2026-1-31 9:0:0.0'],
+    // 每月预设：now 在 2 月 → 钳到 28（预设 clamp 语义保留）
+    [at(2023, 0, 31, 9), 'FREQ=MONTHLY', at(2026, 1, 15, 8), '2026-2-28 9:0:0.0'],
+    // 自定义 INTERVAL=2：走 rrule，序列月为 1/3/5/7/9/11，2 月整月跳过
+    //（与预设的月末语义分叉是现状，此处钉死而非修改）
+    [at(2023, 0, 31, 9), 'FREQ=MONTHLY;INTERVAL=2', at(2026, 1, 15, 8), '2026-3-31 9:0:0.0'],
+    // due 在未来：下一次实例严格晚于 due（完成当前实例不再生成它自己）
+    [at(2026, 10, 20, 9), 'FREQ=DAILY', at(2026, 10, 12, 10), '2026-11-21 9:0:0.0'],
+    // COUNT 耗尽：链合法终结，返回 null（UI 层拒绝 COUNT，这里是防御语义）
+    [at(2023, 0, 1, 9), 'FREQ=DAILY;COUNT=5', at(2026, 0, 1, 8), 'null']
+  ]
+  for (const [due, rule, now, want] of occurrenceTable) {
+    const got = key(nextOccurrence(due.toISOString(), rule, now))
+    if (got !== want) {
+      ok = false
+      console.error('RECURRENCE_OCCURRENCE_FAIL', JSON.stringify({ due: key(due), rule, now: key(now), got, want }))
+    }
+  }
+  // 空入参 → null，不抛错。
+  if (nextOccurrence(null, 'FREQ=DAILY', at(2026, 0, 1)) !== null) ok = false
+  if (nextOccurrence(at(2026, 0, 1).toISOString(), null, at(2026, 0, 1)) !== null) ok = false
   return ok
 }
 
@@ -664,14 +701,28 @@ export function runCsvImportAssertions(): { table: boolean; roundTrip: boolean }
     '冒烟CSV丁,,,,低,,已完成\r\n' +
     ',空标题跳过,,,,,\r\n'
 
+  // 硬化用例：未闭合引号 / 日期溢出 / 备注超长都必须整体拒绝，
+  // 错误是 code+params（带物理行号），不再静默吞内容或滚成次年。
+  const unclosedCsv = '任务名称,任务内容\r\n"未闭合,备注\r\n'
+  const overflowCsv = '任务名称,截止日期\r\n冒烟CSV溢出,2026-13-40\r\n'
+  const feb30Csv = '任务名称,截止日期\r\n冒烟CSV溢出,2026-02-30\r\n'
+  const longNotesCsv = `任务名称,任务内容\r\n冒烟CSV超长,${'x'.repeat(20001)}\r\n`
+  const leapOkCsv = '任务名称,截止日期\r\n冒烟CSV闰日,2028-02-29\r\n'
+
   let table = false
   try {
     const t = parseCsvImport(todoistCsv)
     const d = parseCsvImport(didaCsv)
     const bad = parseCsvImport('a,b\r\n1,2\r\n')
     const empty = parseCsvImport('')
+    const unclosed = parseCsvImport(unclosedCsv)
+    const overflow = parseCsvImport(overflowCsv)
+    const feb30 = parseCsvImport(feb30Csv)
+    const longNotes = parseCsvImport(longNotesCsv)
+    const leapOk = parseCsvImport(leapOkCsv)
     const expectedDue = new Date(2026, 10, 20, 23, 59, 0).toISOString()
     const expectedDidaDue = new Date(2026, 10, 21, 15, 0, 0).toISOString()
+    const expectedLeapDue = new Date(2028, 1, 29, 23, 59, 0).toISOString()
     table =
       t.ok && t.format === 'todoist' &&
       t.tasks.length === 2 && t.skipped === 3 &&
@@ -691,8 +742,35 @@ export function runCsvImportAssertions(): { table: boolean; roundTrip: boolean }
       d.tasks[0].tags.join('|') === '工作|紧急' &&
       d.tasks[0].projectName === '冒烟CSV清单' &&
       d.tasks[1].completed === true && d.tasks[1].priority === 1 &&
-      !bad.ok && !empty.ok
-    if (!table) console.error('CSV_TABLE_FAIL', JSON.stringify({ t, d, bad: bad.error, empty: empty.error }))
+      !bad.ok && bad.error?.code === 'unknownFormat' &&
+      !empty.ok && empty.error?.code === 'empty' &&
+      // 未闭合引号：拒绝并给出引号起始的物理行号（第 2 行）
+      !unclosed.ok && unclosed.tasks.length === 0 &&
+      unclosed.error?.code === 'unclosedQuote' && unclosed.error?.params?.row === 2 &&
+      // 13 月 40 日 / 2 月 30 日：拒绝而非滚成次年/下月，带行号与原值
+      !overflow.ok && overflow.error?.code === 'invalidDate' &&
+      overflow.error?.params?.row === 2 && overflow.error?.params?.value === '2026-13-40' &&
+      !feb30.ok && feb30.error?.code === 'invalidDate' && feb30.error?.params?.row === 2 &&
+      // 备注超 20000：对齐 IPC zod 上限，整体拒绝带行号
+      !longNotes.ok && longNotes.error?.code === 'notesTooLong' &&
+      longNotes.error?.params?.row === 2 && longNotes.error?.params?.limit === 20000 &&
+      // 合法闰日不受回读校验误伤
+      leapOk.ok && leapOk.tasks.length === 1 && leapOk.tasks[0].dueAt === expectedLeapDue
+    if (!table) {
+      console.error('CSV_TABLE_FAIL', JSON.stringify({
+        t, d, bad: bad.error, empty: empty.error,
+        unclosed: unclosed.error, overflow: overflow.error, feb30: feb30.error,
+        longNotes: longNotes.error, leapOk
+      }))
+    }
+    // 错误文案在展示边界按语言翻译：英文界面必须看到英文（纯函数校验，
+    // 不动主进程语言状态）。期望写字面量片段，不经被测函数回算。
+    const enQuote = csvErrorMessage('en', { code: 'unclosedQuote', params: { row: 2 } })
+    const zhQuote = csvErrorMessage('zh-CN', { code: 'unclosedQuote', params: { row: 2 } })
+    if (!enQuote.includes('Unclosed quote on row 2') || !zhQuote.includes('第 2 行')) {
+      table = false
+      console.error('CSV_I18N_FAIL', JSON.stringify({ enQuote, zhQuote }))
+    }
   } catch (error) {
     console.error('CSV_TABLE_ERROR', error)
   }

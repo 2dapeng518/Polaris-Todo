@@ -3,6 +3,11 @@
 // 备份导出（任务名称/截止日期…）按表头签名识别。竞品导出格式没有稳定契约，
 // 别名表容忍列名漂移；认不出的表头明确报错，绝不猜。
 // 刻意不迁移：重复规则、提醒、附件、评论（语义无法可靠对应，文档明示）。
+//
+// 错误是机器可识别的 code+params（本模块不做翻译）：展示边界（db 层）经
+// csvErrorMessage(locale, error) 按当前界面语言翻译，英文界面看到英文报错。
+
+import { translate, type Locale, type MessageKey } from './i18n'
 
 export type CsvFormat = 'todoist' | 'dida'
 
@@ -17,20 +22,70 @@ export type CsvTask = {
   subtasks: string[]
 }
 
+// 错误码 → i18n 键：新增错误必须同时补 zh母本与 en 词典（Messages 类型约束）。
+export type CsvImportErrorCode =
+  | 'empty'
+  | 'unknownFormat'
+  | 'noTasks'
+  | 'unclosedQuote'
+  | 'invalidDate'
+  | 'notesTooLong'
+
+export type CsvImportError = {
+  code: CsvImportErrorCode
+  params?: Record<string, string | number>
+}
+
+const CSV_ERROR_KEYS: Record<CsvImportErrorCode, MessageKey> = {
+  empty: 'csv.empty',
+  unknownFormat: 'csv.unknownFormat',
+  noTasks: 'csv.noTasks',
+  unclosedQuote: 'csv.unclosedQuote',
+  invalidDate: 'csv.invalidDate',
+  notesTooLong: 'csv.notesTooLong'
+}
+
+/** 展示边界用：把 code+params 翻成当前语言的文案。 */
+export function csvErrorMessage(locale: Locale, error: CsvImportError): string {
+  return translate(locale, CSV_ERROR_KEYS[error.code], error.params)
+}
+
+// 词法/日期层用异常携带 code+params，parseCsvImport 统一接住转成结果对象。
+export class CsvImportFailure extends Error {
+  readonly code: CsvImportErrorCode
+  readonly params?: Record<string, string | number>
+
+  constructor(code: CsvImportErrorCode, params?: Record<string, string | number>) {
+    super(`CSV import failed: ${code}`)
+    this.code = code
+    this.params = params
+  }
+}
+
 export type CsvParseResult = {
   ok: boolean
   format?: CsvFormat
   tasks: CsvTask[]
   skipped: number
-  error?: string
+  error?: CsvImportError
 }
 
+// 备注上限对齐 IPC 正门（ipc.ts updateTaskSchema 的 notes.max(20000)）。
+const NOTES_MAX = 20000
+
+type CsvRow = { cells: string[]; line: number }
+
 // 标准 CSV 词法：引号内逗号/换行原样保留，"" 是转义引号，CRLF 与 LF 都认，BOM 剥掉。
-export function tokenizeCsv(text: string): string[][] {
-  const rows: string[][] = []
+// 行号是物理行（表头为第 1 行），供错误定位；未闭合引号明确报错——
+// 静默吞掉剩余全部内容会把半份数据当成完整导入。
+function tokenizeCsvRows(text: string): CsvRow[] {
+  const rows: CsvRow[] = []
   let row: string[] = []
   let field = ''
   let inQuotes = false
+  let line = 1
+  let rowLine = 1
+  let quoteLine = 1
   const src = text.replace(/^\uFEFF/, '')
   for (let i = 0; i < src.length; i++) {
     const ch = src[i]
@@ -43,28 +98,45 @@ export function tokenizeCsv(text: string): string[][] {
           inQuotes = false
         }
       } else {
+        // 引号内换行原样保留，但物理行号照常前进。
+        if (ch === '\n') {
+          line += 1
+        } else if (ch === '\r') {
+          if (src[i + 1] === '\n') i++
+          line += 1
+        }
         field += ch
       }
     } else if (ch === '"') {
       inQuotes = true
+      quoteLine = line
     } else if (ch === ',') {
       row.push(field)
       field = ''
     } else if (ch === '\n' || ch === '\r') {
       if (ch === '\r' && src[i + 1] === '\n') i++
+      line += 1
       row.push(field)
       field = ''
-      rows.push(row)
+      rows.push({ cells: row, line: rowLine })
       row = []
+      rowLine = line
     } else {
       field += ch
     }
   }
+  if (inQuotes) {
+    throw new CsvImportFailure('unclosedQuote', { row: quoteLine })
+  }
   if (field !== '' || row.length > 0) {
     row.push(field)
-    rows.push(row)
+    rows.push({ cells: row, line: rowLine })
   }
-  return rows.filter((cells) => cells.some((cell) => cell.trim() !== ''))
+  return rows.filter((entry) => entry.cells.some((cell) => cell.trim() !== ''))
+}
+
+export function tokenizeCsv(text: string): string[][] {
+  return tokenizeCsvRows(text).map((entry) => entry.cells)
 }
 
 const normalizeHeader = (value: string): string => value.trim().toLowerCase()
@@ -108,6 +180,8 @@ function mapPriority(raw: string, format: CsvFormat): number {
 // 截止解析：带时区偏移/Z 的按真实瞬间；裸日期时间按本地墙钟（与应用一致），
 // 只写日期补 23:59（与快速添加的日粒度默认一致）。重复描述（every day / 每天…）
 // 无法可靠映射到具体瞬间，返回 null 而不是猜。
+// 月/日溢出（13 月 40 日、2 月 30 日）抛 CsvImportFailure：new Date 会滚成
+// 次年/下月，静默滚动等于篡改用户数据；回读校验照 quickAddParse 的既有模式。
 export function parseCsvDue(raw: string): string | null {
   const value = raw.trim()
   if (!value) return null
@@ -119,15 +193,27 @@ export function parseCsvDue(raw: string): string | null {
   const match = value.match(/^(\d{4})-(\d{1,2})-(\d{1,2})(?:[T ](\d{1,2}):(\d{2})(?::(\d{2}))?)?/)
   if (match) {
     const [, y, mo, d, h, mi, s] = match
+    const year = Number(y)
+    const month = Number(mo)
+    const day = Number(d)
     const date = new Date(
-      Number(y),
-      Number(mo) - 1,
-      Number(d),
+      year,
+      month - 1,
+      day,
       h !== undefined ? Number(h) : 23,
       mi !== undefined ? Number(mi) : 59,
       s !== undefined ? Number(s) : 0
     )
-    return Number.isNaN(date.getTime()) ? null : date.toISOString()
+    // 只回读年/月/日（与 quickAddParse 一致）：时分秒在 DST 缺口会被墙钟
+    // 映射合法挪动，回读它们会误拒真实存在的本地时间。
+    if (
+      date.getFullYear() !== year ||
+      date.getMonth() !== month - 1 ||
+      date.getDate() !== day
+    ) {
+      throw new CsvImportFailure('invalidDate', { value })
+    }
+    return date.toISOString()
   }
   const instant = Date.parse(value)
   return Number.isNaN(instant) ? null : new Date(instant).toISOString()
@@ -145,23 +231,26 @@ function splitTags(raw: string): string[] {
 const isTruthy = (raw: string): boolean => /^(true|1|yes|是)$/i.test(raw.trim())
 
 export function parseCsvImport(text: string): CsvParseResult {
-  const rows = tokenizeCsv(text)
-  if (rows.length < 2) {
-    return { ok: false, tasks: [], skipped: 0, error: 'CSV 内容为空或缺少数据行' }
+  let rows: CsvRow[]
+  try {
+    rows = tokenizeCsvRows(text)
+  } catch (error) {
+    if (error instanceof CsvImportFailure) {
+      return { ok: false, tasks: [], skipped: 0, error: { code: error.code, params: error.params } }
+    }
+    throw error
   }
-  const headers = rows[0].map(normalizeHeader)
+  if (rows.length < 2) {
+    return { ok: false, tasks: [], skipped: 0, error: { code: 'empty' } }
+  }
+  const headers = rows[0].cells.map(normalizeHeader)
   const has = (names: string[]) => names.every((name) => headers.includes(name))
 
   let format: CsvFormat
   if (has(['type', 'content', 'indent'])) format = 'todoist'
   else if (headers.includes('任务名称') || headers.includes('task name')) format = 'dida'
   else {
-    return {
-      ok: false,
-      tasks: [],
-      skipped: 0,
-      error: '无法识别的 CSV 格式：需要 Todoist 项目导出或滴答清单备份导出的表头'
-    }
+    return { ok: false, tasks: [], skipped: 0, error: { code: 'unknownFormat' } }
   }
 
   const col = {
@@ -186,7 +275,7 @@ export function parseCsvImport(text: string): CsvParseResult {
   let lastParent: CsvTask | null = null
   let lastIndent = 0
 
-  for (const row of rows.slice(1)) {
+  for (const { cells: row, line } of rows.slice(1)) {
     if (format === 'todoist') {
       const type = cell(row, col.type).trim().toLowerCase()
       if (type !== 'task') {
@@ -208,12 +297,39 @@ export function parseCsvImport(text: string): CsvParseResult {
       lastParent.subtasks.push(title)
       continue
     }
+    // 备注超长整体拒绝（对齐 IPC zod 的 notes.max(20000)），带物理行号。
+    const notes = cell(row, col.notes).trim()
+    if (notes.length > NOTES_MAX) {
+      return {
+        ok: false,
+        format,
+        tasks: [],
+        skipped,
+        error: { code: 'notesTooLong', params: { row: line, limit: NOTES_MAX } }
+      }
+    }
+    // 日期溢出整体拒绝而非滚成次年；行号在展示边界拼进错误文案。
+    let dueAt: string | null
+    try {
+      dueAt = parseCsvDue(cell(row, col.due))
+    } catch (error) {
+      if (error instanceof CsvImportFailure) {
+        return {
+          ok: false,
+          format,
+          tasks: [],
+          skipped,
+          error: { code: error.code, params: { ...error.params, row: line } }
+        }
+      }
+      throw error
+    }
     const status = cell(row, col.status).trim().toLowerCase()
     const task: CsvTask = {
       title,
-      notes: cell(row, col.notes).trim(),
+      notes,
       priority: mapPriority(cell(row, col.priority), format),
-      dueAt: parseCsvDue(cell(row, col.due)),
+      dueAt,
       completed: status.includes('已完成') || status === 'completed' || status === 'done',
       projectName: cell(row, col.project).trim() || null,
       tags: splitTags(cell(row, col.tags)),
@@ -225,7 +341,7 @@ export function parseCsvImport(text: string): CsvParseResult {
   }
 
   if (tasks.length === 0) {
-    return { ok: false, format, tasks: [], skipped, error: 'CSV 里没有可导入的任务' }
+    return { ok: false, format, tasks: [], skipped, error: { code: 'noTasks' } }
   }
   return { ok: true, format, tasks, skipped }
 }
