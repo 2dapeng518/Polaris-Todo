@@ -1,7 +1,7 @@
 import Database from 'better-sqlite3'
 import { app } from 'electron'
 import { randomUUID } from 'node:crypto'
-import { mkdirSync } from 'node:fs'
+import { existsSync, mkdirSync, renameSync } from 'node:fs'
 import { join } from 'node:path'
 import { nextOccurrence } from '../shared/recurrence'
 import { isPurgeable } from '../shared/retention'
@@ -16,19 +16,59 @@ import type {
   Task,
   TaskTag,
   UpdateSubtaskInput,
-  UpdateTaskInput
+  UpdateTaskInput,
+  UpdateTaskResult
 } from '../shared/types'
 
 let db: Database.Database
 
-export function initDatabase(): void {
-  const directory = app.getPath('userData')
-  mkdirSync(directory, { recursive: true })
-  db = new Database(join(directory, 'polaris.db'))
+/** initDatabase 的结果：quarantinedPath 非空表示原库已损坏并被改名隔离，
+ *  当前运行的是重建的空库——调用方（whenReady 链）据此在启动后告知用户。 */
+export type InitDatabaseResult = { quarantinedPath: string | null }
+
+function openAndMigrate(dbPath: string): void {
+  db = new Database(dbPath)
   db.pragma('journal_mode = WAL')
   db.pragma('foreign_keys = ON')
   migrate()
   seedIfNeeded()
+}
+
+export function initDatabase(): InitDatabaseResult {
+  const directory = app.getPath('userData')
+  mkdirSync(directory, { recursive: true })
+  const dbPath = join(directory, 'polaris.db')
+  try {
+    openAndMigrate(dbPath)
+    return { quarantinedPath: null }
+  } catch (error) {
+    // 灾难恢复：损坏库（连同 -wal/-shm 旁车）改名隔离保留取证，绝不覆盖删除。
+    console.error('Polaris database init failed, quarantining corrupt file:', error)
+    try {
+      // Windows 上打开的句柄会挡住改名：先尽力关掉可能半开的连接。
+      db?.close()
+    } catch {
+      // 关闭失败不阻断隔离尝试；隔离本身失败才致命。
+    }
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-')
+    const corruptPath = `${dbPath}.corrupt-${stamp}`
+    try {
+      renameSync(dbPath, corruptPath)
+      for (const suffix of ['-wal', '-shm']) {
+        if (existsSync(`${dbPath}${suffix}`)) {
+          renameSync(`${dbPath}${suffix}`, `${corruptPath}${suffix}`)
+        }
+      }
+    } catch (quarantineError) {
+      // 隔离失败（文件被占用等）：抛错交给启动链兜底退出，不得静默覆盖用户数据。
+      throw new Error(
+        `数据库损坏且隔离失败（${String(quarantineError)}）；原始错误：${String(error)}`
+      )
+    }
+    // 重建空库走正常迁移与首启种子；再失败就抛给 whenReady 的 catch。
+    openAndMigrate(dbPath)
+    return { quarantinedPath: corruptPath }
+  }
 }
 
 // Small key/value reads on the meta table created by migration 1. No new
@@ -49,8 +89,14 @@ export function setMeta(key: string, value: string): void {
 function migrate(): void {
   let version = db.pragma('user_version', { simple: true }) as number
 
+  // 每个版本段一个事务：DDL 与 user_version 盖章同生共死，崩溃不会留半套迁移。
+  // SQLite 支持事务内 DDL，user_version 也可在事务内写并随事务回滚
+  // （已用 better-sqlite3 实测：提交生效、抛错整体回滚）。
+  // 幂等检查（IF NOT EXISTS / 列探测）保留作双保险。migrate 抛错由
+  // initDatabase 的灾难恢复接住。
   if (version < 1) {
-    db.exec(`
+    db.transaction(() => {
+      db.exec(`
       CREATE TABLE IF NOT EXISTS projects (
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
@@ -84,45 +130,55 @@ function migrate(): void {
         key TEXT PRIMARY KEY,
         value TEXT NOT NULL
       );
-
-      PRAGMA user_version = 1;
     `)
+      db.pragma('user_version = 1')
+    })()
     version = 1
   }
 
   if (version < 2) {
-    const columns = db.prepare('PRAGMA table_info(tasks)').all() as Array<{ name: string }>
-    if (!columns.some((column) => column.name === 'reminded_at')) {
-      db.exec('ALTER TABLE tasks ADD COLUMN reminded_at TEXT')
-    }
-    db.pragma('user_version = 2')
+    db.transaction(() => {
+      const columns = db.prepare('PRAGMA table_info(tasks)').all() as Array<{ name: string }>
+      if (!columns.some((column) => column.name === 'reminded_at')) {
+        db.exec('ALTER TABLE tasks ADD COLUMN reminded_at TEXT')
+      }
+      db.pragma('user_version = 2')
+    })()
+    version = 2
   }
 
   if (version < 3) {
-    const columns = db.prepare('PRAGMA table_info(tasks)').all() as Array<{ name: string }>
-    if (!columns.some((column) => column.name === 'recurrence_rule')) {
-      db.exec('ALTER TABLE tasks ADD COLUMN recurrence_rule TEXT')
-    }
-    db.pragma('user_version = 3')
+    db.transaction(() => {
+      const columns = db.prepare('PRAGMA table_info(tasks)').all() as Array<{ name: string }>
+      if (!columns.some((column) => column.name === 'recurrence_rule')) {
+        db.exec('ALTER TABLE tasks ADD COLUMN recurrence_rule TEXT')
+      }
+      db.pragma('user_version = 3')
+    })()
+    version = 3
   }
 
   if (version < 4) {
-    const columns = db.prepare('PRAGMA table_info(tasks)').all() as Array<{ name: string }>
-    if (!columns.some((column) => column.name === 'completed_at')) {
-      // updated_at is overwritten by every later edit, so it cannot answer
-      // "when was this finished". Rows completed before this migration stay
-      // NULL: the real instant is unknown and guessing it would poison any
-      // completion statistics built on top.
-      db.exec('ALTER TABLE tasks ADD COLUMN completed_at TEXT')
-    }
-    db.pragma('user_version = 4')
+    db.transaction(() => {
+      const columns = db.prepare('PRAGMA table_info(tasks)').all() as Array<{ name: string }>
+      if (!columns.some((column) => column.name === 'completed_at')) {
+        // updated_at is overwritten by every later edit, so it cannot answer
+        // "when was this finished". Rows completed before this migration stay
+        // NULL: the real instant is unknown and guessing it would poison any
+        // completion statistics built on top.
+        db.exec('ALTER TABLE tasks ADD COLUMN completed_at TEXT')
+      }
+      db.pragma('user_version = 4')
+    })()
+    version = 4
   }
 
   if (version < 5) {
     // 轻量检查清单：子任务只属于一个任务，不参与截止/提醒/重复/项目/优先级。
     // task_id 的级联删除是「彻底删除 / 清空回收站 / 过期清理」清掉子任务的唯一路径；
     // 软删父任务不动这张表，恢复后勾选状态原样保留。
-    db.exec(`
+    db.transaction(() => {
+      db.exec(`
       CREATE TABLE IF NOT EXISTS subtasks (
         id TEXT PRIMARY KEY,
         task_id TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
@@ -133,16 +189,18 @@ function migrate(): void {
       );
 
       CREATE INDEX IF NOT EXISTS idx_subtasks_task_id ON subtasks(task_id);
-
-      PRAGMA user_version = 5;
     `)
+      db.pragma('user_version = 5')
+    })()
+    version = 5
   }
 
   if (version < 6) {
     // 标签是项目之外的第二个组织维度：一条任务可以贴多个标签。
     // 名称大小写不敏感去重（COLLATE NOCASE）；两侧外键都级联删除——
     // 彻底删任务清关联，删标签清关联，软删/恢复不碰这张表。
-    db.exec(`
+    db.transaction(() => {
+      db.exec(`
       CREATE TABLE IF NOT EXISTS tags (
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL COLLATE NOCASE UNIQUE,
@@ -156,9 +214,10 @@ function migrate(): void {
       );
 
       CREATE INDEX IF NOT EXISTS idx_task_tags_tag_id ON task_tags(tag_id);
-
-      PRAGMA user_version = 6;
     `)
+      db.pragma('user_version = 6')
+    })()
+    version = 6
   }
 }
 
@@ -803,7 +862,9 @@ export function createTask(input: CreateTaskInput): Task {
   return task
 }
 
-export function updateTask(input: UpdateTaskInput): Task {
+// 返回 { task, spawned }：完成重复任务时，下一次实例由 DB 在同一事务里生成，
+// spawned 是权威完整 Task 行（含派生计数与 attachTags），渲染层不再靠标题猜。
+export function updateTask(input: UpdateTaskInput): UpdateTaskResult {
   const existing = getTask(input.id)
   if (!existing) throw new Error('任务不存在')
 
@@ -862,6 +923,9 @@ export function updateTask(input: UpdateTaskInput): Task {
       ? existing.completedAt
       : now
 
+  // 提升到事务外：事务提交后按这个 id 读回权威 spawned 行。
+  let spawnedId: string | null = null
+
   const write = db.transaction(() => {
     db.prepare(`
       UPDATE tasks
@@ -890,7 +954,7 @@ export function updateTask(input: UpdateTaskInput): Task {
     }
 
     if (nextDate) {
-      const spawnedId = randomUUID()
+      spawnedId = randomUUID()
       db.prepare(`
         INSERT INTO tasks (id, title, notes, completed, due_at, remind_at, recurrence_rule, project_id, priority, created_at, updated_at, deleted_at)
         VALUES (?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, NULL)
@@ -941,11 +1005,15 @@ export function updateTask(input: UpdateTaskInput): Task {
 
   const updated = getTask(input.id)
   if (!updated) throw new Error('任务更新失败')
-  return updated
+  // 权威 spawned：事务提交后读回完整行（派生计数 + 标签），没生成则为 null。
+  const spawned = spawnedId ? (getTask(spawnedId) ?? null) : null
+  return { task: updated, spawned }
 }
 
+// tasks:toggle IPC 与 MCP complete_task 继续拿纯 Task：形状不变，
+// 需要 spawned 的调用方走 updateTask 的 { task, spawned } 返回。
 export function toggleTask(id: string, completed: boolean): Task {
-  return updateTask({ id, completed })
+  return updateTask({ id, completed }).task
 }
 
 export function deleteTask(id: string): void {

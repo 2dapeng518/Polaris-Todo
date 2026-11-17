@@ -344,6 +344,13 @@ export const en: Messages = {
   'native.csvTitle': 'Import CSV (mainstream to-do app / Csv)',
   'native.csvFilter': 'CSV files',
   'native.jsonFilter': 'Polaris backup',
+  'native.dbCorruptTitle': 'Database corrupted — quarantined',
+  'native.dbCorruptDetail':
+    'The database file was corrupted and has been quarantined as:\n{path}\n\nPolaris started from a fresh empty database. The original file was kept for forensics or manual recovery. If you have a backup, import it via Settings → Data backup.',
+  'native.startupFailedTitle': 'Polaris failed to start',
+  'native.startupFailedDetail': 'An error occurred during initialization and the app will quit:\n{error}',
+  'native.importTooLarge': 'The backup file exceeds the {limit} MB limit and was not read.',
+  'native.csvTooLarge': 'The CSV file exceeds the {limit} MB limit and was not read.',
 
   'stats.kpis': 'Key numbers',
   'stats.today': 'Completed today',

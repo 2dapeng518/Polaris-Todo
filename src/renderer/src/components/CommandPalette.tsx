@@ -51,6 +51,12 @@ type TaskItem = {
 
 type PaletteItem = CommandItem | TaskItem
 
+// 选项 id 用 kind+id 而非索引：搜索词变化时列表会增删，索引会漂移，
+// aria-activedescendant 指向的节点必须稳定。id 都是 UUID/固定命令名，可安全入 DOM。
+function optionId(item: PaletteItem): string {
+  return `command-option-${item.kind}-${item.id}`
+}
+
 export function CommandPalette() {
   const t = useT()
   const locale = useLocale()
@@ -276,12 +282,27 @@ export function CommandPalette() {
                 onKeyDown={onKeyDown}
                 placeholder={t('palette.placeholder')}
                 aria-label={t('palette.title')}
+                // combobox 语义照 LanguageSelect 的 listbox 模式：焦点留在输入框，
+                // 方向键高亮通过 aria-activedescendant 播报，而不是移动 DOM 焦点。
+                role="combobox"
+                aria-expanded={open}
+                aria-controls="command-palette-list"
+                aria-autocomplete="list"
+                aria-activedescendant={active >= 0 ? optionId(items[active]) : undefined}
               />
               <kbd>Esc</kbd>
             </div>
 
-            <div className="command-list" ref={listRef}>
-              {items.length === 0 && <div className="command-empty">{t('palette.empty')}</div>}
+            <div
+              className="command-list"
+              ref={listRef}
+              role="listbox"
+              id="command-palette-list"
+              aria-label={t('palette.title')}
+            >
+              {items.length === 0 && (
+                <div className="command-empty" role="presentation">{t('palette.empty')}</div>
+              )}
               {items.map((item, index) => {
                 const Icon =
                   item.kind === 'command'
@@ -290,13 +311,20 @@ export function CommandPalette() {
                       ? CheckCircle2
                       : Circle
                 return (
-                  <div key={`${item.kind}-${item.id}`}>
+                  // 包装层与分组标题用 presentation：listbox 的 owned 元素必须是
+                  // option，去掉中间层语义（文本内容仍会被读屏读到）。
+                  <div key={`${item.kind}-${item.id}`} role="presentation">
                     {index === 0 && item.kind === 'command' && (
-                      <div className="command-section">{t('palette.actions')}</div>
+                      <div className="command-section" role="presentation">{t('palette.actions')}</div>
                     )}
-                    {index === firstTaskIndex && <div className="command-section">{t('palette.tasks')}</div>}
+                    {index === firstTaskIndex && (
+                      <div className="command-section" role="presentation">{t('palette.tasks')}</div>
+                    )}
                     <button
                       data-index={index}
+                      id={optionId(item)}
+                      role="option"
+                      aria-selected={index === active}
                       className={`command-item ${index === active ? 'active' : ''}`}
                       onMouseEnter={() => setActiveIndex(index)}
                       onClick={item.run}

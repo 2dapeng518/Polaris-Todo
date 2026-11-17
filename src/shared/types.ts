@@ -97,6 +97,14 @@ export type UpdateTaskInput = {
   tagIds?: string[]
 }
 
+/** tasks:update 的返回形状：更新后的任务 + 完成重复任务时 DB 权威生成的
+ *  下一次实例（完整 Task 行，含派生计数与标签）；未生成时为 null。
+ *  渲染层据此乐观插入 spawned，不再靠「同标题+同规则」启发式猜任务。 */
+export type UpdateTaskResult = {
+  task: Task
+  spawned: Task | null
+}
+
 export type CreateProjectInput = {
   name: string
   color: string
@@ -228,7 +236,8 @@ export type PolarisApi = {
   tasks: {
     list: () => Promise<Task[]>
     create: (input: CreateTaskInput) => Promise<Task>
-    update: (input: UpdateTaskInput) => Promise<Task>
+    /** 返回更新后的任务与权威 spawned（完成重复任务时 DB 生成的下一次实例）。 */
+    update: (input: UpdateTaskInput) => Promise<UpdateTaskResult>
     toggle: (id: string, completed: boolean) => Promise<Task>
     remove: (id: string) => Promise<void>
     restore: (id: string) => Promise<Task>
