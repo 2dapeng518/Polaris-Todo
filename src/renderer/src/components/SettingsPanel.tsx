@@ -676,11 +676,8 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
             {/* 关于与许可折叠内容：展开才挂载，收起即卸载，默认零增高。 */}
             {aboutOpen && (
               <div className="settings-about">
-                <div className="settings-row-desc">
-                  {version
-                    ? t('settings.versionLine', { version })
-                    : t('settings.versionOnly')}
-                </div>
+                {/* 版本号常驻页脚，展开区只留许可署名，不重复报版本。 */}
+                <div className="settings-row-desc">{t('settings.versionOnly')}</div>
                 <div className="about-credits">
                   <div className="about-credit-row">
                     <span className="about-credit-label">{t('settings.fonts')}</span>

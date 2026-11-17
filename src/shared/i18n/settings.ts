@@ -39,7 +39,6 @@ export const settings = {
   'settings.aboutToggle': '关于与许可',
   'settings.behaviorGroup': '常规行为',
   'settings.mcpEnable': '启用服务',
-  'settings.versionLine': 'Polaris · 版本 {version} · MIT 许可',
   'settings.versionOnly': 'Polaris · MIT 许可',
   'settings.fonts': '字体',
   'settings.icons': '图标',
