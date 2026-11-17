@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
-import { Check, X } from './Icon'
+import { Check, ChevronDown, X } from './Icon'
 import type { AutoStartState, GlobalHotkeyState, McpState, UpdateState } from '@shared/types'
 import { THEME_META, THEME_ORDER } from '@shared/themes'
 import { themeDesc, themeLabel } from '@shared/i18n'
@@ -79,6 +79,12 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
   const [mcpToken, setMcpToken] = useState<string | null>(null)
   const [mcpTokenNotice, setMcpTokenNotice] = useState<{ text: string; error?: boolean } | null>(null)
   const [mcpRegenConfirm, setMcpRegenConfirm] = useState(false)
+  // 关于与许可：低频署名信息收进页脚折叠，默认不挂载零增高。
+  // 不持久化：每次关面板重置，下次打开回到收起态（高度预算按收起态算）。
+  const [aboutOpen, setAboutOpen] = useState(false)
+  useEffect(() => {
+    if (!open) setAboutOpen(false)
+  }, [open])
   const [mcpTokenBusy, setMcpTokenBusy] = useState(false)
   const mcpNoticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const update = useUpdateStore((state) => state.state)
@@ -406,8 +412,13 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
               </button>
             </div>
 
-            <div className="settings-section">
-              <div className="settings-row-title">{t('settings.theme')}</div>
+            <div className="settings-section settings-section--theme">
+              <div className="settings-theme-head">
+                <div className="settings-row-title">{t('settings.theme')}</div>
+                <span title={t('settings.languageDesc')}>
+                  <LanguageSelect />
+                </span>
+              </div>
               <div className="settings-row-desc theme-section-desc">
                 {t('settings.themeDesc')}
               </div>
@@ -449,18 +460,10 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
                 })}
               </div>
 
-              {/* 语言行留在主题 section 内：设置面板的紧凑两列布局按
-                  header + 7 section + footer 的 nth-child 排布，多一个 section 会错位。 */}
-              <div className="settings-row settings-language-row">
-                <div>
-                  <div className="settings-row-title">{t('settings.language')}</div>
-                  <div className="settings-row-desc">{t('settings.languageDesc')}</div>
-                </div>
-                <LanguageSelect />
-              </div>
             </div>
 
-            <div className="settings-section">
+            <div className="settings-section settings-section--behavior">
+              <div className="settings-group-label">{t('settings.behaviorGroup')}</div>
               <div className="settings-row">
                 <div>
                   <div className="settings-row-title">{t('settings.autoStart')}</div>
@@ -489,9 +492,6 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
                   {t('settings.autoStartUnsupported')}
                 </div>
               )}
-            </div>
-
-            <div className="settings-section">
               <div className="settings-row">
                 <div>
                   <div className="settings-row-title">{t('settings.tray')}</div>
@@ -509,9 +509,6 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
                   <span className="switch-thumb" />
                 </button>
               </div>
-            </div>
-
-            <div className="settings-section">
               <div className="settings-row">
                 <div>
                   <div className="settings-row-title">{t('settings.hotkey')}</div>
@@ -538,10 +535,12 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
               )}
             </div>
 
-            <div className="settings-section">
+            <div className="settings-side">
+            <div className="settings-section settings-section--mcp">
+              <div className="settings-group-label">{t('settings.mcp')}</div>
               <div className="settings-row">
                 <div>
-                  <div className="settings-row-title">{t('settings.mcp')}</div>
+                  <div className="settings-row-title">{t('settings.mcpEnable')}</div>
                   <div className="settings-row-desc">
                     {mcp.enabled ? mcp.endpoint : t('settings.mcpOff')}
                   </div>
@@ -561,41 +560,21 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
                   {t('settings.mcpError', { error: mcp.error })}
                 </div>
               )}
-              {/* 令牌行留在 MCP section 内部：紧凑两列布局按 header + 7 section
-                  的 nth-child 排布，不新增 section。仅启用时渲染，默认零增高。 */}
+              {/* 令牌单行：掩码盒 + 复制 + 重新生成横排，仅启用时渲染，默认零增高。
+                  掩码头 7 + … + 末 4，中段隐藏；nowrap + ellipsis 兜底极窄窗口，
+                  高度恒定一行，面板零回流。明文永不渲染，只能整串复制。 */}
               {mcp.enabled && mcpToken && (
-                <div className="settings-language-row">
-                  <div className="settings-row-title">{t('settings.mcpToken')}</div>
+                <div className="mcp-token">
                   <div className="settings-row-desc">{t('settings.mcpTokenDesc')}</div>
-                  <code
-                    aria-label={t('settings.mcpToken')}
-                    style={{
-                      display: 'block',
-                      marginTop: 8,
-                      padding: '6px 8px',
-                      border: '1px solid var(--line)',
-                      borderRadius: 8,
-                      background: 'var(--surface-1)',
-                      color: 'var(--text-secondary)',
-                      fontFamily: 'var(--font-mono)',
-                      fontSize: 11,
-                      lineHeight: 1.5,
-                      // 单行掩码：头 7 字符（sk- + 前 4 位）+ … + 末 4 位，中段隐藏。
-                      // 定长 12 字符任何档位都放得下；nowrap + ellipsis 兜底极窄窗口，
-                      // 高度恒定一行，面板零回流。明文永不渲染，只能整串复制。
-                      whiteSpace: 'nowrap',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis'
-                    }}
-                  >
-                    {`${mcpToken.slice(0, 7)}…${mcpToken.slice(-4)}`}
-                  </code>
-                  <div className="backup-actions">
+                  <div className="mcp-token-row">
+                    <code className="mcp-token-box" aria-label={t('settings.mcpToken')}>
+                      {`${mcpToken.slice(0, 7)}…${mcpToken.slice(-4)}`}
+                    </code>
                     <button className="backup-btn" onClick={() => void copyMcpToken()}>
                       {t('settings.mcpTokenCopy')}
                     </button>
                     <button
-                      className="backup-btn"
+                      className="backup-btn backup-btn--danger"
                       onClick={() => setMcpRegenConfirm(true)}
                       disabled={mcpTokenBusy}
                     >
@@ -615,13 +594,13 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
               )}
             </div>
 
-            <div className="settings-section">
-              <div className="settings-row-title">{t('settings.backup')}</div>
+            <div className="settings-section settings-section--backup">
+              <div className="settings-group-label">{t('settings.backup')}</div>
               <div className="settings-row-desc">
                 {t('settings.backupDesc')}
               </div>
               <div className="backup-actions">
-                <button className="backup-btn" onClick={() => void handleExport()} disabled={backupBusy}>
+                <button className="backup-btn backup-btn--primary" onClick={() => void handleExport()} disabled={backupBusy}>
                   {t('settings.export')}
                 </button>
                 <button className="backup-btn" onClick={() => void handleImport()} disabled={backupBusy}>
@@ -643,27 +622,6 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
                 <div className="settings-error" role="alert">{backupError}</div>
               )}
             </div>
-
-            <div className="settings-section">
-              <div className="settings-row-title">{t('settings.about')}</div>
-              <div className="settings-row-desc">
-                {version
-                  ? t('settings.versionLine', { version })
-                  : t('settings.versionOnly')}
-              </div>
-              <div className="about-credits">
-                <div className="about-credit-row">
-                  <span className="about-credit-label">{t('settings.fonts')}</span>
-                  <span className="about-credit-value">Inter · Manrope · Noto Sans SC · Geist Mono (SIL OFL 1.1)</span>
-                </div>
-                <div className="about-credit-row">
-                  <span className="about-credit-label">{t('settings.icons')}</span>
-                  <span className="about-credit-value">Lucide (ISC / MIT)</span>
-                </div>
-                <div className="about-credit-note">
-                  {t('settings.creditsNote')}
-                </div>
-              </div>
             </div>
 
             {/* 更新入口收进页脚：状态行常驻占位一行，检查过或有动静才落字，
@@ -693,6 +651,20 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
                   {t('settings.checkUpdate')}
                 </button>
               )}
+              {version ? ' · ' : ''}
+              <button
+                className="update-footer-btn settings-about-toggle"
+                aria-expanded={aboutOpen}
+                onClick={() => setAboutOpen((v) => !v)}
+              >
+                {t('settings.aboutToggle')}
+                <ChevronDown
+                  size={12}
+                  strokeWidth={1.8}
+                  aria-hidden="true"
+                  className={`settings-about-chev${aboutOpen ? ' open' : ''}`}
+                />
+              </button>
             </div>
             <div
               className={`settings-hint update-footer-status${updateErrorDetail ? ' is-error' : ''}`}
@@ -700,6 +672,30 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
             >
               {updateErrorDetail ?? (updateStatusVisible && update ? updateStatusText(update, t) : '')}
             </div>
+
+            {/* 关于与许可折叠内容：展开才挂载，收起即卸载，默认零增高。 */}
+            {aboutOpen && (
+              <div className="settings-about">
+                <div className="settings-row-desc">
+                  {version
+                    ? t('settings.versionLine', { version })
+                    : t('settings.versionOnly')}
+                </div>
+                <div className="about-credits">
+                  <div className="about-credit-row">
+                    <span className="about-credit-label">{t('settings.fonts')}</span>
+                    <span className="about-credit-value">Inter · Manrope · Noto Sans SC · Geist Mono (SIL OFL 1.1)</span>
+                  </div>
+                  <div className="about-credit-row">
+                    <span className="about-credit-label">{t('settings.icons')}</span>
+                    <span className="about-credit-value">Lucide (ISC / MIT)</span>
+                  </div>
+                  <div className="about-credit-note">
+                    {t('settings.creditsNote')}
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* 重新生成令牌的二次确认：旧客户端配置立即失效，属破坏性动作。
                 ConfirmDialog 自带焦点陷阱（压在面板陷阱之上）并在 React 根

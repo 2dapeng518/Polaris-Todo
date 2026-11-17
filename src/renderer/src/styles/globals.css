@@ -4435,7 +4435,6 @@ textarea {
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
-  margin-bottom: 4px;
 }
 
 .settings-eyebrow {
@@ -4455,9 +4454,49 @@ textarea {
   text-wrap: balance;
 }
 
+/* 分组节奏：组内紧（行距 8）、组间松（16）。单列靠 margin，两列靠 grid gap。
+   紧凑档定位走命名 grid-area，不再依赖 nth-child——加节挪节不再静默错乱。 */
 .settings-section {
-  padding: 3px 0;
-  border-top: 1px solid var(--line);
+  min-width: 0;
+  margin-top: 16px;
+}
+
+.settings-group-label {
+  margin-bottom: 8px;
+  color: var(--text-tertiary);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+}
+
+.settings-section--behavior .settings-group-label {
+  margin-bottom: 0;
+}
+
+.settings-section--behavior .settings-row {
+  margin-top: 8px;
+}
+
+/* side 内部组间靠 gap，section 自身的单列 margin 不叠加。 */
+.settings-side .settings-section {
+  margin-top: 0;
+}
+
+/* 语言下拉上移到主题标题行右侧，省一整行高度。 */
+.settings-theme-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+/* 右列「数据进出」：MCP + 备份包成一个 grid 单元，内部组间 16。 */
+.settings-side {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+  margin-top: 16px;
 }
 
 .settings-row {
@@ -4486,11 +4525,7 @@ textarea {
   margin-bottom: 5px;
 }
 
-/* 语言选择留在主题 section 内：紧凑两列布局按 nth-child 定位 section，
-   新增 section 会打乱排布。下拉沿用文本字段的柔和聚焦（淡边 + 浅光晕）。 */
-.settings-language-row {
-  margin-top: 7px;
-}
+/* 语言下拉沿用文本字段的柔和聚焦（淡边 + 浅光晕）。 */
 
 /* 语言下拉整族：触发器 + 自绘菜单。原生 select 的弹出层由系统绘制，
    深色主题下仍是白底蓝高亮；自绘后背景/描边/悬停全走主题令牌。 */
@@ -4866,6 +4901,57 @@ textarea {
   opacity: 0.4;
 }
 
+/* 按钮分级：导出实心（安全高频）、导入描边、重新生成危险色描边。 */
+.backup-btn--primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+}
+
+.backup-btn--primary:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--on-accent);
+  opacity: 0.9;
+}
+
+.backup-btn--danger {
+  color: var(--danger);
+}
+
+.backup-btn--danger:hover:not(:disabled) {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+/* 令牌单行：掩码盒弹性占满 + 两按钮横排；明文永不渲染。 */
+.mcp-token {
+  margin-top: 8px;
+}
+
+.mcp-token-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.mcp-token-box {
+  flex: 1;
+  min-width: 0;
+  display: block;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-1);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  lineHeight: 1.5;
+  whiteSpace: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .about-credits {
   display: flex;
   flex-direction: column;
@@ -4897,6 +4983,26 @@ textarea {
   line-height: 1.5;
 }
 
+/* 关于与许可：页脚折叠入口 + 展开内容，默认不挂载零增高。 */
+.settings-about {
+  margin-top: 8px;
+}
+
+.settings-about-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.settings-about-chev {
+  transform: rotate(-90deg);
+  transition: transform 0.16s;
+}
+
+.settings-about-chev.open {
+  transform: rotate(0deg);
+}
+
 .settings-footer {
   padding-top: 10px;
   border-top: 1px solid var(--line);
@@ -4912,98 +5018,95 @@ textarea {
 }
 
 /* 低窗口（≤860px）单列放不下全部设置：面板加宽、两列回流，内容全显不滚动，
-   不靠压字号换高度。主题网格改三列两行横跨整幅；四个开关行叠左列，
-   备份与关于叠右列；页脚与状态行回到整幅。子元素顺序固定（header + 7 section
-   + footer），nth-child 定位稳定；状态/错误行是条件追加的末位子元素，按类名兜底。
-   高度预算 ≈ header 55 + 主题 132 + max(开关 184, 备份+关于 236) + 页脚 56
-   + 内边距 24 ≈ 500px，加热键冲突错误行 25px 也远小于最小窗口 640-96=543px。
+   不靠压字号换高度。主题网格三列两行横跨整幅；左列「应用行为」（三开关一组），
+   右列「数据进出」（MCP + 备份，settings-side 包裹）；页脚/状态/关于折叠横跨整幅。
+   命名 grid-area 定位，DOM 顺序 = 视觉顺序 = 焦点顺序，加节挪节不再打乱排布。
+   关于折叠不占常驻行（挂载才生隐式行），收起态高度预算 ≈ header 53 + 主题 156
+   + max(行为 152, MCP+备份 175) + 页脚/状态 44 + 四道 gap 64 + 内边距 24 ≈ 516px，
+   加热键冲突错误行 25px 也小于最小窗口 640-96=544px。
    断点取 860 而非 830：默认 840 窗口也走两列，留足余量吞掉任何条件行；
-   单列只留给 >860 的高窗口（756px 全条件内容在 861-96=765px 里仍放得下）。 */
+   单列只留给 >860 的高窗口（关于折叠后全条件内容更矮，765px 里放得下）。 */
 @media (max-height: 860px) {
   .settings-panel {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-areas:
+      'header header'
+      'theme theme'
+      'behavior side'
+      'footer footer'
+      'status status';
     column-gap: 24px;
+    row-gap: 16px;
     align-items: start;
     width: min(760px, calc(100vw - 48px));
   }
 
   .settings-header {
-    grid-column: 1 / -1;
+    grid-area: header;
   }
 
-  .settings-panel > .settings-section:nth-child(2) {
-    grid-column: 1 / -1;
+  .settings-section,
+  .settings-side {
+    margin-top: 0;
   }
 
-  .settings-panel > .settings-section:nth-child(2) .theme-picker {
+  .settings-section--theme {
+    grid-area: theme;
+  }
+
+  .settings-section--theme .theme-picker {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   /* 三列时上排三深、下排三浅，列列成对（夜阑/昼白、暮蓝/天蓝、松墨/暖砂）；
      两列默认序已逐对成行，无需重排。 */
-  .settings-panel > .settings-section:nth-child(2) .theme-option:nth-child(1) {
+  .settings-section--theme .theme-option:nth-child(1) {
     order: 1;
   }
 
-  .settings-panel > .settings-section:nth-child(2) .theme-option:nth-child(2) {
+  .settings-section--theme .theme-option:nth-child(2) {
     order: 4;
   }
 
-  .settings-panel > .settings-section:nth-child(2) .theme-option:nth-child(3) {
+  .settings-section--theme .theme-option:nth-child(3) {
     order: 2;
   }
 
-  .settings-panel > .settings-section:nth-child(2) .theme-option:nth-child(4) {
+  .settings-section--theme .theme-option:nth-child(4) {
     order: 5;
   }
 
-  .settings-panel > .settings-section:nth-child(2) .theme-option:nth-child(5) {
+  .settings-section--theme .theme-option:nth-child(5) {
     order: 3;
   }
 
-  .settings-panel > .settings-section:nth-child(2) .theme-option:nth-child(6) {
+  .settings-section--theme .theme-option:nth-child(6) {
     order: 6;
   }
 
-  .settings-panel > .settings-section:nth-child(3) {
-    grid-column: 1;
-    grid-row: 3;
+  .settings-section--behavior {
+    grid-area: behavior;
   }
 
-  .settings-panel > .settings-section:nth-child(4) {
-    grid-column: 1;
-    grid-row: 4;
-  }
-
-  .settings-panel > .settings-section:nth-child(5) {
-    grid-column: 1;
-    grid-row: 5;
-  }
-
-  .settings-panel > .settings-section:nth-child(6) {
-    grid-column: 1;
-    grid-row: 6;
-  }
-
-  .settings-panel > .settings-section:nth-child(7) {
-    grid-column: 2;
-    grid-row: 3 / span 2;
-  }
-
-  .settings-panel > .settings-section:nth-child(8) {
-    grid-column: 2;
-    grid-row: 5 / span 2;
+  .settings-side {
+    grid-area: side;
   }
 
   .settings-footer {
-    grid-column: 1 / -1;
-    grid-row: 7;
+    grid-area: footer;
   }
 
-  .settings-panel > .settings-hint,
-  .settings-panel > .settings-error {
+  /* 基础 .update-footer-status 规则在本媒体块之后，提一级特异性压住它的 margin。 */
+  .settings-panel > .update-footer-status {
+    grid-area: status;
+    margin-top: 0;
+  }
+
+  /* 关于折叠：挂载才生隐式整幅行，收起态不白占 gap。 */
+  .settings-about {
     grid-column: 1 / -1;
+    margin-top: 0;
   }
 }
 
