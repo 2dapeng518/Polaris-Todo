@@ -72,6 +72,15 @@ const withSubtaskCounts = (
       : task
   )
 
+// 字段级回滚用的类型安全摘取：只拷贝 keys 指定的字段（泛型 K 保证键值同型，
+// 不用 as any 逐个断言）。供 runUpdate 从 pre-call 整行里摘出本次 patch 涉及
+// 的字段快照。
+function pickTaskFields<K extends keyof Task>(source: Task, keys: readonly K[]): Pick<Task, K> {
+  const out = {} as Pick<Task, K>
+  for (const key of keys) out[key] = source[key]
+  return out
+}
+
 type TaskState = {
   tasks: Task[]
   // 回收站独立存放，绝不并入 tasks：否则软删行会泄漏进侧栏计数、进度环、
@@ -136,7 +145,7 @@ type TaskState = {
 }
 
 export const useTaskStore = create<TaskState>((set, get) => {
-  // 共享更新管线：乐观替换 → IPC → 权威落定（含 spawned 插入）→ 失败回滚。
+  // 共享更新管线：乐观替换 → IPC → 权威落定（含 spawned 插入）→ 失败字段级回滚。
   // updateTask 与 toggleTask 都走这里，错误归属集合机制（writeFailed/clearError）
   // 与原来完全一致。spawned 由 DB 权威返回，直接插入本地列表，不再全量 load()，
   // 也不再靠「同标题+同规则」启发式猜新生任务。
@@ -147,6 +156,19 @@ export const useTaskStore = create<TaskState>((set, get) => {
     // tagIds 是替换式写入，不是 Task 字段：乐观行上的 tags 要从全局字典
     // 映射出来，否则 chip 要等 IPC 回来才变。省略时保持原关联不动。
     const { tagIds, ...rest } = patch
+
+    // 字段级回滚快照（并发竞态防护）：A(乐观)→B(乐观,含 A 的改动)→B 成功落库
+    // →A 失败——若整行恢复成 pre-A 快照，B 已落库的字段会在 UI 被抹掉
+    //（DB 正确 UI 错，直到下一次 load() 才纠正）。所以失败时只还原本次调用
+    // 实际尝试修改的字段：patch 的键（rest 与 Task 字段同名同型）、tagIds
+    // 派生的 tags、以及乐观盖章的 updatedAt；其余字段保留 store 当前值，
+    // 其中可能包含并发成功写入的权威数据。
+    const preCall: Partial<Task> = {
+      ...pickTaskFields(current, Object.keys(rest) as Array<keyof typeof rest>),
+      ...(tagIds !== undefined ? { tags: current.tags } : {}),
+      updatedAt: current.updatedAt
+    }
+
     const optimistic: Task = {
       ...current,
       ...rest,
@@ -174,8 +196,11 @@ export const useTaskStore = create<TaskState>((set, get) => {
       }))
       return result
     } catch (error) {
+      // 只覆盖 preCall 快照里的字段（本次 patch 的键 + 派生 tags + 乐观
+      // updatedAt），不整行替换——并发成功写入的其他字段原样保留。
+      // spawned 不受影响：它只在成功分支插入，失败路径从未插入过生成行。
       set((state) => ({
-        tasks: state.tasks.map((task) => (task.id === id ? current : task)),
+        tasks: state.tasks.map((task) => (task.id === id ? { ...task, ...preCall } : task)),
         ...writeFailed()
       }))
       throw error
