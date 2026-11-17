@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import DOMPurify from 'dompurify'
 import { Check } from './Icon'
@@ -42,6 +42,21 @@ export function UpdateDialog() {
   const bytesTotal = formatBytes(total)
   const speed = formatSpeed(update?.bytesPerSecond ?? null)
   const eta = formatEta(estimateEtaSeconds(total, transferred, update?.bytesPerSecond ?? null), locale)
+  // 下载满 100% 后主进程还要校验安装包 sha512（大包秒级）：这段间隙在占位槽里
+  // 落「校验安装包」文案，不让界面停在 100% 无字装死。
+  const verifying =
+    status === 'downloading' &&
+    (percent >= 100 || (transferred !== null && total !== null && transferred >= total))
+  // 重启反馈必须先于进程退出被看见：点击先换文案，400ms 后才通知主进程 quit，
+  // 否则点击瞬间窗口消失，用户以为没响应。守卫报错或状态离开 downloaded 即重置。
+  const [installing, setInstalling] = useState(false)
+  useEffect(() => {
+    if (update?.error || status !== 'downloaded') setInstalling(false)
+  }, [update?.error, status])
+  const handleInstall = () => {
+    setInstalling(true)
+    setTimeout(() => void install(), 400)
+  }
 
   return (
     <AnimatePresence>
@@ -122,21 +137,25 @@ export function UpdateDialog() {
                 <div className="update-progress-track">
                   <div className="update-progress-fill" style={{ width: `${percent}%` }} />
                 </div>
-                {speed && (
-                  <div className="update-progress-meta">
-                    <span className="update-progress-speed">{speed}</span>
-                    {eta && (
-                      <span className="update-progress-eta">{t('dialog.eta', { time: eta })}</span>
-                    )}
-                  </div>
-                )}
+                {/* 速度/ETA 行常驻占位：速度 EMA 归零/恢复不再挂载卸载整行，
+                    居中浮层高度恒定零抖动；空值落空串，槽高由 CSS 保住。 */}
+                <div className="update-progress-meta">
+                  {verifying ? (
+                    <span className="update-progress-speed">{t('dialog.verifying')}</span>
+                  ) : (
+                    <>
+                      <span className="update-progress-speed">{speed ?? ''}</span>
+                      <span className="update-progress-eta">{eta ? t('dialog.eta', { time: eta }) : ''}</span>
+                    </>
+                  )}
+                </div>
               </div>
             )}
 
             {downloaded && (
               <div className="update-ready" role="status">
                 <Check size={15} strokeWidth={2} aria-hidden="true" />
-                {t('dialog.ready')}
+                {installing ? t('dialog.installing') : t('dialog.ready')}
               </div>
             )}
 
@@ -154,10 +173,10 @@ export function UpdateDialog() {
               </button>
               <button
                 className="detail-popover-action detail-action-primary update-install"
-                onClick={() => void install()}
-                disabled={!downloaded}
+                onClick={handleInstall}
+                disabled={!downloaded || installing}
               >
-                {t('dialog.restart')}
+                {installing ? t('dialog.restarting') : t('dialog.restart')}
               </button>
             </div>
           </motion.div>

@@ -5384,6 +5384,9 @@ textarea {
 
 .update-progress-meta {
   color: var(--text-tertiary);
+  /* 常驻占位槽：空串也占一行高，速度/ETA 忽隐忽现不撑缩面板。 */
+  min-height: 1.5em;
+  line-height: 1.5;
 }
 
 .update-progress-track {
