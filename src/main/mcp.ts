@@ -1,5 +1,6 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http'
 import { app } from 'electron'
+import log from 'electron-log/main'
 import { z } from 'zod'
 import type { McpState, Task } from '../shared/types'
 import {
@@ -415,10 +416,14 @@ function start(): void {
       error.code === 'EADDRINUSE'
         ? `端口 ${MCP_PORT} 被其他程序占用`
         : `MCP 服务启动失败：${error.message}`
+    // 监听失败留痕：设置页只见中文短语，端口冲突的具体 errno 靠日志取证。
+    log.warn('Polaris MCP listen failed:', error.code ?? '', error.message)
   })
   instance.listen(MCP_PORT, '127.0.0.1', () => {
     running = true
     lastError = null
+    // 里程碑：只在真正开始监听时记一条（默认关，不启用不产生日志）。
+    log.info(`Polaris MCP listening on 127.0.0.1:${MCP_PORT}`)
   })
   server = instance
 }

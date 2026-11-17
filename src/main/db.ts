@@ -1,5 +1,6 @@
 import Database from 'better-sqlite3'
 import { app } from 'electron'
+import log from 'electron-log/main'
 import { randomUUID } from 'node:crypto'
 import { existsSync, mkdirSync, renameSync } from 'node:fs'
 import { join } from 'node:path'
@@ -48,7 +49,7 @@ export function initDatabase(): InitDatabaseResult {
     return { quarantinedPath: null }
   } catch (error) {
     // 灾难恢复：损坏库（连同 -wal/-shm 旁车）改名隔离保留取证，绝不覆盖删除。
-    console.error('Polaris database init failed, quarantining corrupt file:', error)
+    log.error('Polaris database init failed, quarantining corrupt file:', error)
     try {
       // Windows 上打开的句柄会挡住改名：先尽力关掉可能半开的连接。
       db?.close()
@@ -72,6 +73,8 @@ export function initDatabase(): InitDatabaseResult {
     }
     // 重建空库走正常迁移与首启种子；再失败就抛给 whenReady 的 catch。
     openAndMigrate(dbPath)
+    // 隔离位置写进日志：用户报告「数据没了」时按这份路径找回原库。
+    log.error('Polaris database quarantined to:', corruptPath)
     return { quarantinedPath: corruptPath }
   }
 }
