@@ -8,10 +8,10 @@
 
 深色墨黑界面 · 青绿信号色 · 原生窗口控件 · 数据默认只保存在本机
 
-[![版本](https://img.shields.io/badge/version-0.12.1-0F766E?style=flat-square)](https://github.com/daboluo20/Polaris-Todo/releases/latest)
+[![版本](https://img.shields.io/badge/version-0.14.1-0F766E?style=flat-square)](https://github.com/2dapeng518/Polaris-Todo/releases/latest)
 [![平台](https://img.shields.io/badge/platform-Windows%2011-334155?style=flat-square)](#安装)
 [![许可证](https://img.shields.io/badge/license-MIT-0F766E?style=flat-square)](LICENSE)
-[![下载](https://img.shields.io/github/downloads/daboluo20/Polaris-Todo/total?style=flat-square&color=0F766E&label=downloads)](https://github.com/daboluo20/Polaris-Todo/releases)
+[![下载](https://img.shields.io/github/downloads/2dapeng518/Polaris-Todo/total?style=flat-square&color=0F766E&label=downloads)](https://github.com/2dapeng518/Polaris-Todo/releases)
 
 </div>
 
@@ -23,7 +23,7 @@ Polaris 面向 Windows 11 桌面，用 Electron 构建，数据落在本机 SQLi
 
 ## 安装
 
-从 [GitHub Releases](https://github.com/daboluo20/Polaris-Todo/releases/latest) 下载 `Polaris-Setup-<版本>.exe`：一键安装，双击即装进当前用户目录（`%LOCALAPPDATA%\Programs`），无需管理员权限，不选安装路径、不问确认，装完自动启动；安装提示为简体中文。
+从 [GitHub Releases](https://github.com/2dapeng518/Polaris-Todo/releases/latest) 下载 `Polaris-Setup-<版本>.exe`：一键安装，双击即装进当前用户目录（`%LOCALAPPDATA%\Programs`），无需管理员权限，不选安装路径、不问确认，装完自动启动；安装提示为简体中文。
 
 装好后应用会自己保持最新：启动后与每 4 小时检查一次更新，后台差量下载，点「立即重启」即静默安装并自动拉起新版，全程不弹安装向导；不点也没关系，下次正常退出时自动装上。也可以跳过某个版本（只是不再自动弹窗，更新仍会在退出时安装），或随时从托盘 / 设置页脚手动检查。
 
@@ -284,6 +284,7 @@ npm run dev
 | `npm run smoke` | 启动真实应用跑冒烟测试（需先 `npm run build`） |
 | `npm run verify:themes` | 主题对比度与注册表不变量校验 |
 | `npm run verify:datetime` | 日期时间纯函数不变量校验（「今天」不落过去等） |
+| `npm run verify:pure` | 快速添加解析 + 回收站保留期真值表校验（纯 Node，不启动 Electron） |
 | `npm run preview` | 预览生产构建 |
 | `npm run build:win` | 构建并生成 NSIS 安装包（`--publish never`，不上传） |
 | `npm run build:mac` | 构建并生成 macOS 安装包 |
@@ -307,18 +308,18 @@ src/
       lib/         日期格式化、统计派生、焦点陷阱
       stores/      Zustand 状态
       styles/      单一样式表 globals.css
-scripts/       冒烟测试启动器、主题/日期校验脚本、图标生成脚本
+scripts/       冒烟测试启动器、主题/日期/纯函数校验脚本、图标生成脚本
 design-system/ Polaris 品牌系统、token、组件规范
 build/         应用图标与安装包资源
 ```
 
 ## 开发流程
 
-当前仓库以 `main` 为主分支，已配置基础 CI（typecheck + 主题/日期校验，见 `.github/workflows/ci.yml`）。推荐的本地流程：
+当前仓库以 `main` 为主分支，已配置基础 CI（typecheck + 主题/日期/纯函数校验，见 `.github/workflows/ci.yml`）。推荐的本地流程：
 
 1. 改代码，用 `npm run dev` 验证交互。
 2. 运行 `npm run typecheck`。
-3. 运行 `npm run build && npm run smoke`；动过主题加跑 `npm run verify:themes`，动过 `lib/dateTime.ts` 加跑 `npm run verify:datetime`。
+3. 运行 `npm run build && npm run smoke`；动过主题加跑 `npm run verify:themes`，动过 `lib/dateTime.ts` 加跑 `npm run verify:datetime`，动过 `shared/quickAddParse.ts` / `shared/retention.ts` 先跑秒级的 `npm run verify:pure` 快速反馈。
 4. 需要看视觉结果时，构建后用 `POLARIS_SHOT=<mode> npx electron .` 截图到仓库根目录（模式清单见下方折叠块）；验证时请加 `--user-data-dir` 隔离，避免改写真实配置目录的主题。
 5. 发布：递增 `package.json` 版本 → 打 git tag → 设好 `GH_TOKEN` 跑 `npm run release:win`。发完核对 Release 资产三件套齐全：`Polaris-Setup-<版本>.exe`、`.blockmap`、`latest.yml`（electron-builder 上传偶有静默漏传，缺啥用 `gh release upload --clobber` 补）。
 
@@ -331,25 +332,27 @@ build/         应用图标与安装包资源
 
 打包产物：
 
-- `dist/Polaris-Setup-0.12.1.exe`：NSIS 一键安装包，装进当前用户目录，无需管理员权限，装完自动启动。
-- `dist/Polaris-Setup-0.12.1.exe.blockmap` 与 `dist/latest.yml`：在线更新的差量下载与版本元数据，发布时随安装包一起上传。
+- `dist/Polaris-Setup-0.14.1.exe`：NSIS 一键安装包，装进当前用户目录，无需管理员权限，装完自动启动。
+- `dist/Polaris-Setup-0.14.1.exe.blockmap` 与 `dist/latest.yml`：在线更新的差量下载与版本元数据，发布时随安装包一起上传。
 - `dist/win-unpacked/Polaris.exe`：免安装目录版。
 - 另提供 `npm run build:mac`（macOS 打包配置，图标 `build/icon.icns`）；主要目标平台仍是 Windows 11。
 
 ## 测试
 
-仓库没有单元测试框架，也没有 lint 脚本。自动化检查是冒烟测试、主题校验与日期时间校验：
+仓库没有 vitest/jest 之类的单元测试框架，也没有 lint 脚本。自动化检查是冒烟测试、主题校验、日期时间校验与纯函数快速校验：
 
 ```bash
 npm run build
 npm run smoke
 npm run verify:themes
 npm run verify:datetime
+npm run verify:pure
 ```
 
-- **冒烟测试**（`scripts/smoke.mjs`）启动真实 Electron，通过 `webContents.executeJavaScript` 驱动界面，一百三十余条具名断言覆盖从快速添加到在线更新的全链路；使用临时 userData 配置目录，不碰本机数据，失败时以非零退出码结束并单独打印 `POLARIS_SMOKE_FAILED ["断言名", …]`。
+- **冒烟测试**（`scripts/smoke.mjs`）启动真实 Electron，通过 `webContents.executeJavaScript` 驱动界面，140 余条具名断言覆盖从快速添加到在线更新的全链路；使用临时 userData 配置目录，不碰本机数据，失败时以非零退出码结束并单独打印 `POLARIS_SMOKE_FAILED ["断言名", …]`。
 - **主题校验**检查六套主题的 WCAG 对比度、注册表不变量与跨家族配对。
 - **日期时间校验**直接 import 渲染层纯函数并注入时钟，用字面量期望表加全天 5760 个真实时刻扫描，再覆盖 7 个时区 2026 年的每一次夏令时跳变（共 17280 个真实时刻），钉死「今天」按钮不落过去这类靠跑 UI 撞概率的边界。
+- **纯函数快速校验**（`npm run verify:pure`，CI 已挂）不启动 Electron，直接在 Node 里 import `shared/quickAddParse.ts` 与 `shared/retention.ts`，秒级跑完与冒烟 harness 同源的中文/英文解析真值表、误报反例、撤销状态机与保留期边界表；两处断言表需同步维护（`src/main/harness/assertions.ts` 的原断言保留，E2E 仍跑）。
 
 期望值全部写成字面量，不经过被测函数自算；跨进程等待一律走条件轮询而非固定延时。高度断言用亚像素矩形，smoke 以 CDP 仿真 125/150/200% 显示缩放与 1024×536 低分辨率视口；段宽、分隔线、小字号中文等细节仍靠手动。视觉检查通过 `POLARIS_SHOT` 截图完成，截图和冒烟测试需在本地运行。
 

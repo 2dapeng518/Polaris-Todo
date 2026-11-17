@@ -15,3 +15,9 @@ docs/asset-atlas/fonts/
 build/Polaris.iconset/
 build/icon-canva-preview-*.png
 .alma-snapshots
+
+# 别家 AI 编码工具的本机工作目录与指引文件，不属于仓库内容。
+# .kilo/ 此前只靠 .git/info/exclude 本机忽略，进了 .gitignore 才随仓库分发。
+.zcode/
+.kilo/
+AGENTS.md
