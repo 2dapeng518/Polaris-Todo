@@ -7,7 +7,11 @@
 // 按小时扫 getTimezoneOffset() 自动定位 2026 年每一次夏令时跳变，对跳变窗口按 epoch
 // 步进扫描，并钉死纽约重复小时与圣地亚哥午夜回拨两个反例。laterToday 以「读回真实瞬间
 // 严格晚于 now」为判据沿真实时间轴推进，已修复墙钟回填在重复小时里解析到较早瞬间的问题。
-import { laterToday, shiftMinutes, isComplete, draftToIso } from '../src/renderer/src/lib/dateTime.ts'
+// dateTime.ts 经 `@shared/i18n` 别名引用词典，plain Node 解析不了别名与目录式
+// import；先注册解析钩子再动态 import（静态 import 会被提升到 register 之前）。
+import { register } from 'node:module'
+register('./ts-resolve-hooks.mjs', import.meta.url)
+const { laterToday, shiftMinutes, isComplete, draftToIso } = await import('../src/renderer/src/lib/dateTime.ts')
 
 let fail = 0
 const assert = (cond, msg) => { if (!cond) { fail++; console.log('  FAIL ' + msg) } else console.log('  PASS ' + msg) }

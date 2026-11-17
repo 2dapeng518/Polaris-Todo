@@ -7,7 +7,7 @@ on:
 
 jobs:
   checks:
-    # 纯 Node 关口：typecheck 与两个 verify 脚本都不需要 Electron/显示器。
+    # 纯 Node 关口：typecheck 与三个 verify 脚本都不需要 Electron/显示器。
     # 冒烟测试（需 Windows + Electron + 真实 UI）仍在本地跑，见 README「测试」。
     runs-on: ubuntu-latest
     steps:
@@ -21,3 +21,5 @@ jobs:
       - run: npm run typecheck
       - run: npm run verify:themes
       - run: npm run verify:datetime
+      # 纯函数快速校验层：quick-add 解析 + 回收站保留期真值表（与 harness 断言表同步维护）
+      - run: npm run verify:pure
