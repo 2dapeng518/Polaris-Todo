@@ -5197,6 +5197,28 @@ textarea {
   gap: 6px;
 }
 
+/* 进度条上下各一行：上「下载中… / 已下载 / 总量」，下「速度 / 剩余时间」。
+   等宽 + tabular-nums 让每秒跳动的数字不推动布局。 */
+.update-progress-head,
+.update-progress-meta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.update-progress-label,
+.update-progress-bytes {
+  color: var(--text-secondary);
+}
+
+.update-progress-meta {
+  color: var(--text-tertiary);
+}
+
 .update-progress-track {
   height: 6px;
   border-radius: 3px;
@@ -5210,12 +5232,6 @@ textarea {
   border-radius: 3px;
   background: var(--accent);
   transition: width 0.2s ease;
-}
-
-.update-progress-text {
-  color: var(--text-secondary);
-  font-size: 11px;
-  font-family: var(--font-mono);
 }
 
 /* 「下载完成」沿用全 app 的 accent tint 语言，不引入第二种绿。 */

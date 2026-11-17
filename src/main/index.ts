@@ -31,7 +31,15 @@ import { registerIpc, registerTaskCreate } from './ipc'
 import { parseCsvImport } from '../shared/csvImport'
 import { disposeMcp, getMcpState, initMcp, MCP_ENDPOINT, setMcpEnabled } from './mcp'
 import { describeTrayCheck, disposeUpdater, initUpdater, manualCheckForUpdates } from './updater'
-import { normalizeReleaseNotes, shouldSurfaceUpdate } from '../shared/update'
+import {
+  estimateEtaSeconds,
+  formatBytes,
+  formatEta,
+  formatSpeed,
+  normalizeReleaseNotes,
+  shouldSurfaceUpdate,
+  smoothSpeed
+} from '../shared/update'
 import {
   disposeGlobalHotkey,
   getGlobalHotkeyState,
@@ -4683,6 +4691,9 @@ async function runSmokeTest(): Promise<void> {
         currentVersion: '0.0.1',
         latestVersion: null,
         percent: null,
+        transferred: null,
+        total: null,
+        bytesPerSecond: null,
         releaseNotes: null,
         skippedVersion: null,
         error: null
@@ -5026,8 +5037,38 @@ async function runSmokeTest(): Promise<void> {
       shouldSurfaceUpdate('1.2.3', '1.2.3', false) === false &&
       shouldSurfaceUpdate('1.2.3', '1.2.3', true) === true &&
       shouldSurfaceUpdate('1.2.4', '1.2.3', false) === true
+    // 下载进度格式化与速度平滑：期望值全部写死字面量，不经过被测函数反算。
+    const UPDATE_MB = 1024 * 1024
+    const updateFormatTable =
+      formatBytes(0) === '0 KB' &&
+      formatBytes(18.1 * UPDATE_MB) === '18.1 MB' &&
+      formatBytes(172 * UPDATE_MB) === '172.0 MB' &&
+      formatBytes(-1) === null &&
+      formatBytes(null) === null &&
+      formatSpeed(2.8 * UPDATE_MB) === '2.8 MB/s' &&
+      formatSpeed(512 * 1024) === '512 KB/s' &&
+      formatSpeed(0) === '0 KB/s' &&
+      formatSpeed(Number.NaN) === null &&
+      estimateEtaSeconds(172 * UPDATE_MB, 18.1 * UPDATE_MB, 2.8 * UPDATE_MB) === 55 &&
+      estimateEtaSeconds(100, 100, 2) === 0 &&
+      estimateEtaSeconds(100, 50, 0) === null &&
+      estimateEtaSeconds(null, 50, 2) === null &&
+      estimateEtaSeconds(100, null, 2) === null &&
+      estimateEtaSeconds(100, 50, null) === null &&
+      formatEta(56, 'zh-CN') === '56 秒' &&
+      formatEta(56, 'en') === '56s' &&
+      formatEta(120, 'zh-CN') === '约 2 分钟' &&
+      formatEta(120, 'en') === '~2 min' &&
+      formatEta(0, 'zh-CN') === '1 秒' &&
+      formatEta(null) === null &&
+      smoothSpeed(null, 100) === 100 &&
+      smoothSpeed(null, 0) === null &&
+      smoothSpeed(100, 200) === 130 &&
+      Math.abs((smoothSpeed(130, 0) ?? 0) - 91) < 1e-9 &&
+      smoothSpeed(100, Number.NaN) === 100
     let updateSettingsCheck = false
     let updateDialogFlow = false
+    let updateProgressDetails = false
     let updateSkipPersists = false
     let updateNotesRendered = false
     let updateInstallGuard = false
@@ -5039,6 +5080,9 @@ async function runSmokeTest(): Promise<void> {
           currentVersion: app.getVersion(),
           latestVersion: '99.0.0',
           percent: 0,
+          transferred: null,
+          total: null,
+          bytesPerSecond: null,
           releaseNotes: '修复若干问题\n提升稳定性',
           skippedVersion: getMeta('update_skipped_version'),
           error: null,
@@ -5095,6 +5139,61 @@ async function runSmokeTest(): Promise<void> {
         if (!bar) return false;
         return bar.getAttribute('aria-valuenow') === '42' && bar.textContent.includes('42%');
       })()`)
+      // 带完整字节字段的下载快照：上排「下载中… / 已下载 / 总量」，
+      // 下排「速度 / 预计剩余」。ETA 由纯函数按 (total-transferred)/speed 算。
+      pushUpdate({
+        status: 'downloading',
+        percent: 11,
+        transferred: 18.1 * UPDATE_MB,
+        total: 172 * UPDATE_MB,
+        bytesPerSecond: 2.8 * UPDATE_MB
+      })
+      const progressDetails = await wc.executeJavaScript(`(async () => {
+        ${pageHelpers}
+        const bar = await waitFor(() => {
+          const el = document.querySelector('.update-progress[role="progressbar"]');
+          return el && el.textContent.includes('18.1 MB / 172.0 MB') ? el : null;
+        });
+        if (!bar) return { found: false };
+        const eta = await waitFor(() => bar.querySelector('.update-progress-eta'));
+        return {
+          found: true,
+          label: bar.textContent.includes('下载中…'),
+          bytes: bar.textContent.includes('18.1 MB / 172.0 MB'),
+          speed: bar.textContent.includes('2.8 MB/s'),
+          eta: eta ? eta.textContent.includes('预计 55 秒') : false
+        };
+      })()`)
+      // 速度为 0：ETA 隐藏，但速度仍可读，且不允许 NaN/Infinity 漏进界面。
+      pushUpdate({
+        status: 'downloading',
+        percent: 11,
+        transferred: 18.1 * UPDATE_MB,
+        total: 172 * UPDATE_MB,
+        bytesPerSecond: 0
+      })
+      const progressNoEta = await wc.executeJavaScript(`(async () => {
+        ${pageHelpers}
+        const bar = await waitFor(() => {
+          const el = document.querySelector('.update-progress[role="progressbar"]');
+          return el && el.textContent.includes('0 KB/s') ? el : null;
+        });
+        if (!bar) return { found: false };
+        return {
+          found: true,
+          noEta: !bar.querySelector('.update-progress-eta'),
+          noBadValue: !bar.textContent.includes('NaN') && !bar.textContent.includes('Infinity')
+        };
+      })()`)
+      updateProgressDetails =
+        progressDetails?.found === true &&
+        progressDetails?.label === true &&
+        progressDetails?.bytes === true &&
+        progressDetails?.speed === true &&
+        progressDetails?.eta === true &&
+        progressNoEta?.found === true &&
+        progressNoEta?.noEta === true &&
+        progressNoEta?.noBadValue === true
       pushUpdate({ status: 'downloaded', percent: 100 })
       const readyAndLater = await wc.executeJavaScript(`(async () => {
         ${pageHelpers}
@@ -5214,7 +5313,9 @@ async function runSmokeTest(): Promise<void> {
         typeof guardState?.error === 'string' &&
         guardState.error.includes('无法安装')
       if (!updateLogicTable) console.error('UPDATE_LOGIC_FAIL')
+      if (!updateFormatTable) console.error('UPDATE_FORMAT_FAIL')
       if (!updateDialogFlow) console.error('UPDATE_DIALOG_FAIL', JSON.stringify({ dialogShown, progressShown, readyAndLater, staysDismissed, skipStaysSilent }))
+      if (!updateProgressDetails) console.error('UPDATE_PROGRESS_DETAILS_FAIL', JSON.stringify({ progressDetails, progressNoEta }))
       if (!updateSkipPersists) console.error('UPDATE_SKIP_FAIL', JSON.stringify({ skipViaSettings, skippedState }))
       if (!updateSettingsCheck) console.error('UPDATE_SETTINGS_FAIL', JSON.stringify(manualCheck))
       if (!updateInstallGuard) console.error('UPDATE_GUARD_FAIL', JSON.stringify({ installAttempt, guardState }))
@@ -5364,8 +5465,10 @@ async function runSmokeTest(): Promise<void> {
       subtaskRecurrenceWorks: subtaskRecurrenceWorks === true,
       subtaskBackupWorks: subtaskBackupWorks === true,
       updateLogicTable: updateLogicTable === true,
+      updateFormatTable: updateFormatTable === true,
       updateSettingsCheck: updateSettingsCheck === true,
       updateDialogFlow: updateDialogFlow === true,
+      updateProgressDetails: updateProgressDetails === true,
       updateSkipPersists: updateSkipPersists === true,
       updateNotesRendered: updateNotesRendered === true,
       updateInstallGuard: updateInstallGuard === true
@@ -5447,8 +5550,10 @@ async function runSmokeTest(): Promise<void> {
           subtaskRecurrenceWorks,
           subtaskBackupWorks,
           updateLogicTable,
+          updateFormatTable,
           updateSettingsCheck,
           updateDialogFlow,
+          updateProgressDetails,
           updateSkipPersists,
           updateNotesRendered,
           updateInstallGuard,
