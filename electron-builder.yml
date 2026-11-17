@@ -54,9 +54,14 @@ win:
       arch:
         - x64
 nsis:
-  oneClick: false
+  # 一键安装：双击直接装进当前用户目录（%LOCALAPPDATA%\Programs），
+  # 不弹「为哪位用户安装 / 选择目录」向导页，装完自动运行。
+  # 配合 updater.ts 的 quitAndInstall(true, true)：更新 /S 静默 + 装完拉起新版。
+  # 注意：老的「所有用户」副本（Program Files）会让更新仍弹一次 UAC，
+  # 需先卸载旧副本再装新包才能全程无感。
+  oneClick: true
   perMachine: false
-  allowToChangeInstallationDirectory: true
+  runAfterFinish: true
   createDesktopShortcut: true
   createStartMenuShortcut: true
   installerIcon: build/icon.ico

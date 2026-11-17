@@ -23,9 +23,11 @@ Polaris 面向 Windows 11 桌面，用 Electron 构建，数据落在本机 SQLi
 
 ## 安装
 
-从 [GitHub Releases](https://github.com/daboluo20/Polaris-Todo/releases/latest) 下载 `Polaris-Setup-<版本>.exe`：按用户安装，无需管理员权限，安装界面为简体中文。
+从 [GitHub Releases](https://github.com/daboluo20/Polaris-Todo/releases/latest) 下载 `Polaris-Setup-<版本>.exe`：一键安装，双击即装进当前用户目录（`%LOCALAPPDATA%\Programs`），无需管理员权限，不选安装路径、不问确认，装完自动启动；安装提示为简体中文。
 
-装好后应用会自己保持最新：启动后与每 4 小时检查一次更新，后台差量下载，点「立即重启」即装；不点也没关系，下次正常退出时自动装上。也可以跳过某个版本（只是不再自动弹窗，更新仍会在退出时安装），或随时从托盘 / 设置页脚手动检查。
+装好后应用会自己保持最新：启动后与每 4 小时检查一次更新，后台差量下载，点「立即重启」即静默安装并自动拉起新版，全程不弹安装向导；不点也没关系，下次正常退出时自动装上。也可以跳过某个版本（只是不再自动弹窗，更新仍会在退出时安装），或随时从托盘 / 设置页脚手动检查。
+
+如果以前装过「所有用户」版本（位于 `C:\Program Files`），建议先在系统「设置 > 应用」里卸载旧副本再装新包：旧安装位置会让更新仍弹一次 UAC 确认，卸载迁移后才能全程无感。
 
 > [!NOTE]
 > 安装包未做代码签名，首次运行可能触发 SmartScreen 或杀毒软件扫描提示。应用图标来自 `build/icon.ico`，可用 `npm run make:icon` 重新生成。
@@ -329,7 +331,7 @@ build/         应用图标与安装包资源
 
 打包产物：
 
-- `dist/Polaris-Setup-0.12.1.exe`：NSIS 安装包，按用户安装，无需管理员权限，安装界面为简体中文。
+- `dist/Polaris-Setup-0.12.1.exe`：NSIS 一键安装包，装进当前用户目录，无需管理员权限，装完自动启动。
 - `dist/Polaris-Setup-0.12.1.exe.blockmap` 与 `dist/latest.yml`：在线更新的差量下载与版本元数据，发布时随安装包一起上传。
 - `dist/win-unpacked/Polaris.exe`：免安装目录版。
 - 另提供 `npm run build:mac`（macOS 打包配置，图标 `build/icon.icns`）；主要目标平台仍是 Windows 11。
