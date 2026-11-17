@@ -77,9 +77,14 @@ function fromWallTime(date: Date): Date {
   )
 }
 
-export function nextMonthlyClamped(due: Date, now: Date): Date | null {
+// interval 为月步进（预设「每月」=1，自定义「每 N 月」=N）：序列月锚定在
+// due 所在月 + k*interval，与 rrule 的 dtstart 锚定一致；目标月没有该日号时
+// 钳到月末（1/31 → 2/28），绝不整月跳过。
+export function nextMonthlyClamped(due: Date, now: Date, interval = 1): Date | null {
   // 非法日期直接拒绝：没有这道守卫，下面的无上限循环在 NaN 输入下不会终止。
   if (Number.isNaN(due.getTime()) || Number.isNaN(now.getTime())) return null
+  // 间隔防御：只接受 ≥1 的整数，其余退回 1（调用方来自受限的规则解析）。
+  const step = Number.isInteger(interval) && interval >= 1 ? interval : 1
 
   const day = due.getDate()
   const hours = due.getHours()
@@ -88,18 +93,20 @@ export function nextMonthlyClamped(due: Date, now: Date): Date | null {
   const milliseconds = due.getMilliseconds()
 
   const anchor = now.getTime() > due.getTime() ? now : due
-  let year = anchor.getFullYear()
-  let month = anchor.getMonth()
-  if (anchor === due) month += 1
+  // 取第一个不早于锚点月（due/now 较晚者所在月）的序列月：更早的序列月
+  // 整月都在 now 之前，必然无解。k 至少为 1——due 当月的钳制候选恰好等于
+  // due 本身，永远不满足「严格晚于 due」。
+  const monthsFromDue =
+    (anchor.getFullYear() - due.getFullYear()) * 12 + (anchor.getMonth() - due.getMonth())
+  let k = Math.max(1, Math.ceil(monthsFromDue / step))
 
-  // 锚点取 due/now 的较晚者所在月，答案至多在锚点月或下一个月：
-  // 锚点月的钳制日若不晚于 now，下个月的钳制日必然晚于 now（now 就在锚点月里）。
+  // 答案至多在首个对齐序列月或再下一格：对齐月的钳制日若不晚于 now，
+  // 下一格序列月整月晚于锚点月（now 就在锚点月里），必然晚于 now。
   // 循环天然在一两步内终止，无需迭代上限——旧的 60 次上限是防御性冗余。
   for (;;) {
-    if (month > 11) {
-      month = 0
-      year += 1
-    }
+    const total = due.getFullYear() * 12 + due.getMonth() + k * step
+    const year = Math.floor(total / 12)
+    const month = total % 12
 
     const lastDay = new Date(year, month + 1, 0).getDate()
     const candidate = new Date(
@@ -116,7 +123,7 @@ export function nextMonthlyClamped(due: Date, now: Date): Date | null {
       return candidate
     }
 
-    month += 1
+    k += 1
   }
 }
 
@@ -131,12 +138,15 @@ export function nextOccurrence(
   const due = new Date(dueAt)
   if (Number.isNaN(due.getTime())) return null
 
-  // 「每月」预设把 29–31 日钳到短月最后一天，而不是跳过 2/4/6/9/11 月。
-  // 现状标注（产品决策，本轮不改）：预设 FREQ=MONTHLY 走上面的钳制路径，
-  // 自定义规则（如 FREQ=MONTHLY;INTERVAL=2）走下面的 rrule 路径——短月被
-  // 整月跳过。两种月末语义目前分叉，保持现状，待产品决策后再统一。
-  if (ruleString === 'FREQ=MONTHLY') {
-    return nextMonthlyClamped(due, now)
+  // 月末语义统一（产品已拍板）：只含 FREQ[+INTERVAL] 的 MONTHLY 规则——预设
+  // 「每月」与自定义编辑器能产出的全部月频形态——一律走钳制路径，把 29–31 日
+  // 钳到短月最后一天而不是整月跳过。用户从「每月」切到「每 2 月」不会再遭遇
+  // 不同的月末行为。含 BYMONTHDAY/BYSETPOS 等复杂子句（或子句乱序）的
+  // MONTHLY 规则不匹配此形态，仍走下方 rrule 路径：钳制算法表达不了这些
+  // 子句，自定义编辑器也不支持它们。DAILY/WEEKLY/YEARLY 保持 rrule 不变。
+  const monthly = /^FREQ=MONTHLY(?:;INTERVAL=(\d+))?$/i.exec(ruleString)
+  if (monthly) {
+    return nextMonthlyClamped(due, now, monthly[1] ? parseInt(monthly[1], 10) : 1)
   }
 
   try {
