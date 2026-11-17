@@ -40,6 +40,20 @@ export function shouldSurfaceUpdate(
   return latestVersion !== skippedVersion
 }
 
+/** 焦点/唤醒触发的自动检查节流：距上次检查（启动查、周期查、手动查都算）
+ *  至少 minGapMs 才放行。lastCheckAt 为 null（从未查过）或非有限值直接放行；
+ *  时钟回拨（now < lastCheckAt）也放行——宁可多查一次，不让时钟异常把
+ *  自动检查永久锁死。 */
+export function shouldAutoCheck(
+  lastCheckAt: number | null,
+  now: number,
+  minGapMs: number
+): boolean {
+  if (lastCheckAt === null || !Number.isFinite(lastCheckAt)) return true
+  if (!Number.isFinite(now) || !Number.isFinite(minGapMs) || minGapMs < 0) return true
+  return now - lastCheckAt >= minGapMs || now < lastCheckAt
+}
+
 /* ---------- 下载进度展示 ---------- */
 
 const KB = 1024
