@@ -1,8 +1,6 @@
 import {
   useCallback,
   useEffect,
-  useLayoutEffect,
-  useRef,
   useState,
   type KeyboardEvent as ReactKeyboardEvent,
   type RefObject
@@ -10,6 +8,7 @@ import {
 import { Check } from './Icon'
 import { THEME_META, THEME_ORDER, partnerTheme, themeFamily, type AppTheme } from '@shared/themes'
 import { themeLabel } from '@shared/i18n'
+import { useAnchoredPopover } from '../lib/useAnchoredPopover'
 import { useThemeStore } from '../stores/useThemeStore'
 import { useTaskStore } from '../stores/useTaskStore'
 import { useT, useLocale } from '../stores/useLocaleStore'
@@ -31,18 +30,6 @@ export function ThemeMenu({ anchorRef, onClose }: ThemeMenuProps) {
   const setTheme = useThemeStore((state) => state.setTheme)
   const paletteOpen = useTaskStore((state) => state.paletteOpen)
 
-  const menuRef = useRef<HTMLDivElement>(null)
-  // 首帧就给出位置，绝不用 visibility:hidden 占位：隐藏的节点不可聚焦，而
-  // useLayoutEffect 里 setState 会让 React 先 flush 上一轮的 passive effect，
-  // 于是「聚焦当前行」会打在还隐藏着的行上静默失败，Esc 就落到箭头而不是菜单里。
-  const [place, setPlace] = useState(() => {
-    const rect = anchorRef.current?.getBoundingClientRect()
-    if (!rect) return { top: 0, left: 0 }
-    return {
-      top: rect.bottom + 6,
-      left: Math.max(12, Math.min(rect.left, window.innerWidth - MENU_WIDTH - 12))
-    }
-  })
   const [activeIndex, setActiveIndex] = useState(() => Math.max(0, THEME_ORDER.indexOf(theme)))
 
   const choose = useCallback(
@@ -53,55 +40,19 @@ export function ThemeMenu({ anchorRef, onClose }: ThemeMenuProps) {
     [setTheme, onClose]
   )
 
-  // 锚定数学与 TaskDetail.tsx 的 openPopover / 重定位 effect 同源：先按锚点左对齐
-  // 并夹在视口内，再用真实高度决定朝上还是朝下。offsetHeight 而非 rect —— pop-in
-  // 的 scale 会污染 rect。这里复制而不抽公共 lib：日期选择器那套冒烟覆盖很密，
-  // 等第三个浮层出现再抽。
-  useLayoutEffect(() => {
-    const anchor = anchorRef.current
-    const element = menuRef.current
-    if (!anchor || !element) return
-
-    const rect = anchor.getBoundingClientRect()
-    const left = Math.max(12, Math.min(rect.left, window.innerWidth - MENU_WIDTH - 12))
-    const reposition = (): void => {
-      const height = element.offsetHeight
-      const below = rect.bottom + 6
-      const above = rect.top - height - 6
-      const preferred = below + height <= window.innerHeight - 12 ? below : above
-      const top = Math.max(12, Math.min(preferred, window.innerHeight - 12 - height))
-      setPlace((prev) =>
-        Math.abs(prev.top - top) < 0.5 && Math.abs(prev.left - left) < 0.5 ? prev : { top, left }
-      )
-    }
-    reposition()
-    const observer = new ResizeObserver(reposition)
-    observer.observe(element)
-    return () => observer.disconnect()
-  }, [anchorRef])
-
-  useEffect(() => {
-    const onPointerDown = (event: PointerEvent) => {
-      const target = event.target as HTMLElement | null
-      if (menuRef.current?.contains(target)) return
-      if (target?.closest('.theme-switch')) return
-      onClose(false)
-    }
-    const onResize = () => onClose(false)
-    const onScroll = (event: Event) => {
-      if (menuRef.current?.contains(event.target as Node)) return
-      onClose(false)
-    }
-
-    document.addEventListener('pointerdown', onPointerDown)
-    window.addEventListener('resize', onResize)
-    window.addEventListener('scroll', onScroll, true)
-    return () => {
-      document.removeEventListener('pointerdown', onPointerDown)
-      window.removeEventListener('resize', onResize)
-      window.removeEventListener('scroll', onScroll, true)
-    }
-  }, [onClose])
+  // 锚定数学与外点/滚动/resize 收起已抽进 useAnchoredPopover（与 TaskDetail
+  // 同源）：先按锚点左对齐并夹在视口内，再用真实高度决定朝上还是朝下。
+  // 首帧就给出位置、绝不用 visibility:hidden 占位的规矩在 hook 里保持。
+  // Esc 留在下面的 onKeyDown：必须 stopPropagation，否则 TaskDetail 的
+  // window 监听会关掉详情栏而不是这张菜单。
+  const dismiss = useCallback(() => onClose(false), [onClose])
+  const { place, popoverRef: menuRef } = useAnchoredPopover({
+    active: true,
+    anchorRef,
+    width: MENU_WIDTH,
+    outsideIgnoreSelector: '.theme-switch',
+    onDismiss: dismiss
+  })
 
   // Ctrl K 不经过指针事件，外点监听拦不住；命令面板一开就主动收起，
   // 免得一次 Esc 收两层。

@@ -1,8 +1,6 @@
 import {
   useCallback,
   useEffect,
-  useLayoutEffect,
-  useMemo,
   useRef,
   useState,
   type MouseEvent as ReactMouseEvent,
@@ -12,168 +10,32 @@ import {
   Bell,
   CalendarDays,
   Check,
-  ChevronRight,
-  Plus,
   Repeat2,
   RotateCcw,
-  Tag,
   Trash2,
   X
 } from './Icon'
-import { formatDistanceToNowStrict } from 'date-fns'
-import { zhCN, enUS } from 'date-fns/locale'
 import type { Task } from '@shared/types'
-import { RECURRENCE_PRESETS, buildCustomRecurrence, isCustomRecurrence, nextOccurrence, parseCustomRecurrence, recurrenceLabel, type CustomRecurrence } from '@shared/recurrence'
+import { nextOccurrence, recurrenceLabel } from '@shared/recurrence'
 import { useTaskStore } from '../stores/useTaskStore'
-import { formatCompletedAt, formatDue, todayAt, tomorrowAt } from '../lib/dates'
+import { formatCompletedAt, formatDue } from '../lib/dates'
+import { useAnchoredPopover } from '../lib/useAnchoredPopover'
 import { useFocusTrap } from '../lib/useFocusTrap'
 import { useMediaQuery } from '../lib/useMediaQuery'
 import { useTaskDraft } from '../lib/useTaskDraft'
-import { useLocale, useT, type Translate } from '../stores/useLocaleStore'
-import type { Locale, MessageKey } from '@shared/i18n'
-import { DateTimePicker } from './DateTimePicker'
+import { useLocale, useT } from '../stores/useLocaleStore'
+import type { MessageKey } from '@shared/i18n'
 import { SubtaskList } from './SubtaskList'
+import { DuePopover, DUE_ESTIMATED_HEIGHT } from './detail/DuePopover'
+import { ReminderPopover, REMINDER_ESTIMATED_HEIGHT } from './detail/ReminderPopover'
+import { RepeatPopover, REPEAT_ESTIMATED_HEIGHT } from './detail/RepeatPopover'
+import { ScheduleRow } from './detail/ScheduleRow'
+import { TagEditor } from './detail/TagEditor'
+import { defaultReminderAt, quickDuePreset } from './detail/presets'
+import { PRIORITIES, popoverLabel, priorityLabel, relativeTime, reminderSummary } from './detail/summary'
+import type { ScheduleKind, TaskPatch } from './detail/types'
 
-type TaskPatch = Partial<
-  Pick<
-    Task,
-    'title' | 'notes' | 'completed' | 'dueAt' | 'remindAt' | 'recurrenceRule' | 'projectId' | 'priority'
-  >
-> & {
-  // 替换式：完整的目标标签集合；省略则不动关联。tags 本身是 DB 派生字段，
-  // 不能直接写，写入走 tagIds。
-  tagIds?: string[]
-}
-
-type ScheduleKind = 'due' | 'reminder' | 'repeat'
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error'
-type PopoverState = {
-  kind: ScheduleKind
-  top: number
-  left: number
-  anchorTop: number
-  anchorBottom: number
-} | null
-
-const PRIORITIES = [0, 1, 2, 3] as const
-
-function priorityLabel(value: number, t: Translate): string {
-  return t(`detail.priority.${value}` as MessageKey)
-}
-
-function relativeTime(value: string | null, locale: Locale): string {
-  if (!value) return ''
-  try {
-    return formatDistanceToNowStrict(new Date(value), {
-      locale: locale === 'en' ? enUS : zhCN,
-      addSuffix: true
-    })
-  } catch {
-    return ''
-  }
-}
-
-function defaultReminderAt(task: Task): string {
-  const now = Date.now()
-  if (task.dueAt) {
-    const due = new Date(task.dueAt).getTime()
-    const before = due - 10 * 60 * 1000
-    if (before > now + 60 * 1000) return new Date(before).toISOString()
-    if (due > now + 60 * 1000) {
-      return new Date(Math.min(now + 60 * 1000, due - 60 * 1000)).toISOString()
-    }
-  }
-  return new Date(now + 60 * 60 * 1000).toISOString()
-}
-
-function reminderSummary(task: Task, t: Translate, locale: Locale): string {
-  if (!task.remindAt) return ''
-  if (!task.dueAt) return formatDue(task.remindAt, locale)
-  const minutes = Math.round(
-    (new Date(task.dueAt).getTime() - new Date(task.remindAt).getTime()) / 60000
-  )
-  if (minutes === 0) return t('detail.dueAt')
-  // Beyond the inheritance window a relative offset is meaningless to read.
-  if (minutes > 7 * 24 * 60) return formatDue(task.remindAt, locale)
-  if (minutes > 0 && minutes % 60 === 0) return t('detail.advanceHours', { count: minutes / 60 })
-  if (minutes > 0) return t('detail.advanceMinutes', { count: minutes })
-  return formatDue(task.remindAt, locale)
-}
-
-function quickDuePreset(t: Translate): { label: string; value: string } {
-  const now = Date.now()
-  const minLead = 15 * 60 * 1000
-
-  const evening = todayAt(18, 0)
-  if (new Date(evening).getTime() >= now + minLead) {
-    return { label: t('detail.todayAt', { time: '18:00' }), value: evening }
-  }
-
-  const tonight = todayAt(20, 0)
-  if (new Date(tonight).getTime() >= now + minLead) {
-    return { label: t('detail.tonightAt', { time: '20:00' }), value: tonight }
-  }
-
-  return { label: t('detail.tomorrowAt', { time: '09:00' }), value: tomorrowAt(9, 0) }
-}
-
-function duePresets(t: Translate): Array<{ label: string; value: string }> {
-  const items = [
-    { label: t('detail.hourLater'), value: new Date(Date.now() + 60 * 60 * 1000).toISOString() },
-    quickDuePreset(t),
-    { label: t('detail.tomorrowAt', { time: '09:00' }), value: tomorrowAt(9, 0) }
-  ]
-  const seen = new Set<string>()
-  return items
-    .filter((item) => {
-      if (seen.has(item.value)) return false
-      seen.add(item.value)
-      return true
-    })
-    .sort((a, b) => new Date(a.value).getTime() - new Date(b.value).getTime())
-}
-
-function reminderPresets(task: Task, t: Translate): Array<{ label: string; value: string }> {
-  const now = Date.now()
-  const items: Array<{ label: string; value: string }> = []
-
-  if (task.dueAt) {
-    const due = new Date(task.dueAt).getTime()
-    if (due > now + 60 * 1000) {
-      items.push({ label: t('detail.dueAt'), value: task.dueAt })
-    }
-    const before10 = due - 10 * 60 * 1000
-    if (before10 > now + 60 * 1000) {
-      items.push({ label: t('detail.advance10'), value: new Date(before10).toISOString() })
-    }
-    const before60 = due - 60 * 60 * 1000
-    if (before60 > now + 60 * 1000) {
-      items.push({ label: t('detail.advance1h'), value: new Date(before60).toISOString() })
-    }
-  }
-
-  items.push({ label: t('detail.hourLater'), value: new Date(now + 60 * 60 * 1000).toISOString() })
-
-  const tomorrow = tomorrowAt(9, 0)
-  if (new Date(tomorrow).getTime() > now + 60 * 1000) {
-    items.push({ label: t('detail.tomorrowAt', { time: '09:00' }), value: tomorrow })
-  }
-
-  const seen = new Set<string>()
-  return items
-    .filter((item) => {
-      if (seen.has(item.value)) return false
-      seen.add(item.value)
-      return true
-    })
-    .sort((a, b) => new Date(a.value).getTime() - new Date(b.value).getTime())
-}
-
-function popoverLabel(kind: ScheduleKind, t: Translate): string {
-  if (kind === 'due') return t('detail.popover.due')
-  if (kind === 'reminder') return t('detail.popover.reminder')
-  return t('detail.popover.repeat')
-}
 
 export function TaskDetail() {
   const selectedTaskId = useTaskStore((state) => state.selectedTaskId)
@@ -235,8 +97,6 @@ function TaskDetailBody({ task, titleRef, closeRef }: BodyProps) {
   const t = useT()
   const locale = useLocale()
   const projects = useTaskStore((state) => state.projects)
-  const allTags = useTaskStore((state) => state.tags)
-  const createTag = useTaskStore((state) => state.createTag)
   const selectTask = useTaskStore((state) => state.selectTask)
   const updateTask = useTaskStore((state) => state.updateTask)
   const toggleTask = useTaskStore((state) => state.toggleTask)
@@ -244,15 +104,13 @@ function TaskDetailBody({ task, titleRef, closeRef }: BodyProps) {
   const paletteOpen = useTaskStore((state) => state.paletteOpen)
 
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle')
-  const [popover, setPopover] = useState<PopoverState>(null)
-  // Effects below key on the KIND, not the object: repositioning produces a new
-  // object, and re-arming the initial-focus timer would steal focus back from
-  // the minute field or the confirm-clear cancel button.
-  const popoverKind = popover?.kind ?? null
+  // 弹层状态只存 kind；定位交给 useAnchoredPopover。Effects below key on the
+  // KIND, not any position object: repositioning must never re-arm the
+  // initial-focus timer, or it would steal focus back from the minute field
+  // or the confirm-clear cancel button.
+  const [popoverKind, setPopoverKind] = useState<ScheduleKind | null>(null)
   const [completedNext, setCompletedNext] = useState<string | null>(null)
-  const [tagDraft, setTagDraft] = useState('')
   const notesRef = useRef<HTMLTextAreaElement | null>(null)
-  const popoverRef = useRef<HTMLDivElement | null>(null)
   const triggerRef = useRef<HTMLButtonElement | null>(null)
   const idleTimer = useRef<number | null>(null)
   const saveQueue = useRef<Promise<void>>(Promise.resolve())
@@ -304,38 +162,6 @@ function TaskDetailBody({ task, titleRef, closeRef }: BodyProps) {
     flushAll
   } = useTaskDraft({ title: task.title, notes: task.notes, persist })
 
-  // 标签的每次编辑都提交完整集合（替换式）。从 store 现读任务，避免连续操作
-  // 时用上一帧的 task.tags 把刚移除的标签又写回去。
-  const applyTagIds = useCallback(
-    (mutate: (ids: string[]) => string[]) => {
-      const latest = useTaskStore.getState().tasks.find((item) => item.id === task.id)
-      const ids = (latest?.tags ?? task.tags).map((tag) => tag.id)
-      void persist({ tagIds: mutate(ids) })
-    },
-    [persist, task.id, task.tags]
-  )
-
-  const commitTagDraft = useCallback(async () => {
-    const name = tagDraft.trim()
-    if (!name) return
-    setTagDraft('')
-    try {
-      const tag = await createTag(name)
-      const latest = useTaskStore.getState().tasks.find((item) => item.id === task.id)
-      const ids = (latest?.tags ?? task.tags).map((item) => item.id)
-      if (!ids.includes(tag.id)) void persist({ tagIds: [...ids, tag.id] })
-    } catch (error) {
-      // store 已写 storageError toast；把文字还回输入框，方便重试。
-      console.error('Failed to create tag:', error)
-      setTagDraft(name)
-    }
-  }, [createTag, persist, tagDraft, task.id, task.tags])
-
-  // 已有但还没贴到本任务上的标签；点一下即贴，输入框负责新建。
-  const tagSuggestions = allTags.filter(
-    (tag) => !task.tags.some((attached) => attached.id === tag.id)
-  )
-
   useEffect(() => {
     flushRef.current = flushAll
   }, [flushAll])
@@ -382,7 +208,7 @@ function TaskDetailBody({ task, titleRef, closeRef }: BodyProps) {
   }, [close, closeRef])
 
   const closePopover = useCallback((restoreFocus = false) => {
-    setPopover(null)
+    setPopoverKind(null)
     if (restoreFocus) {
       requestAnimationFrame(() => triggerRef.current?.focus())
     }
@@ -390,74 +216,37 @@ function TaskDetailBody({ task, titleRef, closeRef }: BodyProps) {
 
   const openPopover = useCallback(
     (kind: ScheduleKind, event: ReactMouseEvent<HTMLButtonElement>) => {
-      if (popover?.kind === kind) {
+      if (popoverKind === kind) {
         closePopover(true)
         return
       }
 
       triggerRef.current = event.currentTarget
-      const rect = event.currentTarget.getBoundingClientRect()
-      const width = 280
-      const left = Math.max(12, Math.min(rect.left, window.innerWidth - width - 12))
-      const estimated = kind === 'due' ? 372 : kind === 'reminder' ? 406 : 220
-      const below = rect.bottom + 6
-      const top =
-        below + estimated > window.innerHeight - 12
-          ? Math.max(56, rect.top - estimated - 6)
-          : below
-
-      setPopover({ kind, top, left, anchorTop: rect.top, anchorBottom: rect.bottom })
+      setPopoverKind(kind)
     },
-    [closePopover, popover]
+    [closePopover, popoverKind]
   )
 
-  // Re-place the popover once its real height is known, and keep it placed when
-  // the confirm-clear panel changes that height. offsetHeight, not the rect:
-  // the pop-in scale would otherwise pollute the measurement.
-  useLayoutEffect(() => {
-    if (!popover) return
-    const element = popoverRef.current
-    if (!element) return
-    const { anchorTop, anchorBottom } = popover
-    const place = (): void => {
-      const height = element.offsetHeight
-      const below = anchorBottom + 6
-      const above = anchorTop - height - 6
-      const preferred = below + height <= window.innerHeight - 12 ? below : above
-      const next = Math.max(56, Math.min(preferred, window.innerHeight - 12 - height))
-      setPopover((prev) => (prev && Math.abs(prev.top - next) > 0.5 ? { ...prev, top: next } : prev))
-    }
-    place()
-    const observer = new ResizeObserver(place)
-    observer.observe(element)
-    return () => observer.disconnect()
-  }, [popover?.kind, popover?.anchorTop, popover?.anchorBottom])
-
-  useEffect(() => {
-    if (!popoverKind) return
-
-    const onPointerDown = (event: PointerEvent) => {
-      const target = event.target as HTMLElement | null
-      if (popoverRef.current?.contains(target)) return
-      if (target?.closest('[data-detail-row]')) return
-      closePopover()
-    }
-    const onResize = () => closePopover()
-    const onScroll = (event: Event) => {
-      if (popoverRef.current?.contains(event.target as Node)) return
-      closePopover()
-    }
-
-    document.addEventListener('pointerdown', onPointerDown)
-    window.addEventListener('resize', onResize)
-    window.addEventListener('scroll', onScroll, true)
-
-    return () => {
-      document.removeEventListener('pointerdown', onPointerDown)
-      window.removeEventListener('resize', onResize)
-      window.removeEventListener('scroll', onScroll, true)
-    }
-  }, [closePopover, popoverKind])
+  // 定位 / 外点 / 滚动 / resize 收起都在公共 hook 里（与 ThemeMenu 同源）。
+  // 280 = .detail-popover 宽度；56 = 顶部下界，避开标题栏；预估高度由各弹层
+  // 文件导出（372/406/220 的魔法数随弹层搬走）。Esc 路由与 30ms 初始聚焦留在
+  // 本组件：前者要看 paletteOpen 并决定收弹层还是收详情栏，后者不能被重定位
+  // 重新武装（见 hook 头注释）。
+  const { place: popoverPlace, popoverRef } = useAnchoredPopover({
+    active: popoverKind !== null,
+    anchorRef: triggerRef,
+    width: 280,
+    minTop: 56,
+    estimatedHeight:
+      popoverKind === 'due'
+        ? DUE_ESTIMATED_HEIGHT
+        : popoverKind === 'reminder'
+          ? REMINDER_ESTIMATED_HEIGHT
+          : REPEAT_ESTIMATED_HEIGHT,
+    outsideIgnoreSelector: '[data-detail-row]',
+    onDismiss: closePopover,
+    resetKey: popoverKind
+  })
 
   useEffect(() => {
     if (!popoverKind) return
@@ -616,7 +405,7 @@ function TaskDetailBody({ task, titleRef, closeRef }: BodyProps) {
           <button
             className="detail-action"
             aria-haspopup={task.remindAt ? 'dialog' : undefined}
-            aria-expanded={task.remindAt ? popover?.kind === 'reminder' : undefined}
+            aria-expanded={task.remindAt ? popoverKind === 'reminder' : undefined}
             onClick={(event) => {
               if (task.remindAt) {
                 openPopover('reminder', event)
@@ -658,66 +447,7 @@ function TaskDetailBody({ task, titleRef, closeRef }: BodyProps) {
 
         <SubtaskList taskId={task.id} total={task.subtaskTotal} done={task.subtaskDone} />
 
-        <div className="detail-tags">
-          <div className="detail-group-label">{t('detail.tags')}</div>
-          {task.tags.length > 0 && (
-            <div className="detail-chips" role="group" aria-label={t('detail.tagsAdded')}>
-              {task.tags.map((tag) => (
-                <button
-                  key={tag.id}
-                  type="button"
-                  className="detail-chip detail-tag-chip"
-                  data-detail-tag={tag.name}
-                  aria-label={t('detail.removeTag', { name: tag.name })}
-                  onClick={() => applyTagIds((ids) => ids.filter((id) => id !== tag.id))}
-                >
-                  <Tag size={11} strokeWidth={1.8} aria-hidden="true" />
-                  {tag.name}
-                  <X size={10} strokeWidth={2} aria-hidden="true" />
-                </button>
-              ))}
-            </div>
-          )}
-          <input
-            className="detail-tag-input"
-            value={tagDraft}
-            maxLength={40}
-            placeholder={t('detail.tagPlaceholder')}
-            aria-label={t('detail.tagLabel')}
-            onChange={(event) => setTagDraft(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.nativeEvent.isComposing) return
-              if (event.key === 'Enter') {
-                event.preventDefault()
-                void commitTagDraft()
-              } else if (event.key === 'Escape' && tagDraft) {
-                // 只有草稿非空时才拦 Esc；空草稿的 Esc 仍是「保存并收起」。
-                event.stopPropagation()
-                setTagDraft('')
-              }
-            }}
-          />
-          {tagSuggestions.length > 0 && (
-            <div
-              className="detail-chips detail-tag-suggestions"
-              role="group"
-              aria-label={t('detail.tagSuggestions')}
-            >
-              {tagSuggestions.map((tag) => (
-                <button
-                  key={tag.id}
-                  type="button"
-                  className="detail-chip"
-                  aria-label={t('detail.addTagNamed', { name: tag.name })}
-                  onClick={() => applyTagIds((ids) => [...ids, tag.id])}
-                >
-                  <Plus size={10} strokeWidth={2} aria-hidden="true" />
-                  {tag.name}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
+        <TagEditor task={task} persist={persist} />
 
         <div className="detail-schedule">
           <ScheduleRow
@@ -725,7 +455,7 @@ function TaskDetailBody({ task, titleRef, closeRef }: BodyProps) {
             value={task.dueAt ? formatDue(task.dueAt, locale) : t('detail.addDue')}
             relative={task.dueAt ? relativeTime(task.dueAt, locale) : undefined}
             muted={!task.dueAt}
-            expanded={popover?.kind === 'due'}
+            expanded={popoverKind === 'due'}
             onOpen={(event) => openPopover('due', event)}
           />
           <ScheduleRow
@@ -733,7 +463,7 @@ function TaskDetailBody({ task, titleRef, closeRef }: BodyProps) {
             value={task.remindAt ? reminderSummary(task, t, locale) : t('detail.addReminder')}
             relative={task.remindAt ? relativeTime(task.remindAt, locale) : undefined}
             muted={!task.remindAt}
-            expanded={popover?.kind === 'reminder'}
+            expanded={popoverKind === 'reminder'}
             onOpen={(event) => openPopover('reminder', event)}
           />
           <ScheduleRow
@@ -745,7 +475,7 @@ function TaskDetailBody({ task, titleRef, closeRef }: BodyProps) {
                 : undefined
             }
             muted={!task.recurrenceRule}
-            expanded={popover?.kind === 'repeat'}
+            expanded={popoverKind === 'repeat'}
             onOpen={(event) => openPopover('repeat', event)}
           />
         </div>
@@ -819,15 +549,15 @@ function TaskDetailBody({ task, titleRef, closeRef }: BodyProps) {
         </span>
       </div>
 
-      {popover && (
+      {popoverKind && (
         <div
           ref={popoverRef}
           className="detail-popover"
-          style={{ top: popover.top, left: popover.left }}
+          style={{ top: popoverPlace.top, left: popoverPlace.left }}
           role="dialog"
-          aria-label={popoverLabel(popover.kind, t)}
+          aria-label={popoverLabel(popoverKind, t)}
         >
-          {popover.kind === 'due' && (
+          {popoverKind === 'due' && (
             <DuePopover
               task={task}
               onPatch={(patch) => {
@@ -836,7 +566,7 @@ function TaskDetailBody({ task, titleRef, closeRef }: BodyProps) {
               onClose={() => closePopover(true)}
             />
           )}
-          {popover.kind === 'reminder' && (
+          {popoverKind === 'reminder' && (
             <ReminderPopover
               task={task}
               onPatch={(patch) => {
@@ -845,7 +575,7 @@ function TaskDetailBody({ task, titleRef, closeRef }: BodyProps) {
               onClose={() => closePopover(true)}
             />
           )}
-          {popover.kind === 'repeat' && (
+          {popoverKind === 'repeat' && (
             <RepeatPopover
               task={task}
               nextRecurrence={nextRecurrence}
@@ -860,395 +590,3 @@ function TaskDetailBody({ task, titleRef, closeRef }: BodyProps) {
   )
 }
 
-type ScheduleRowProps = {
-  label: string
-  value: string
-  relative?: string
-  muted?: boolean
-  expanded: boolean
-  onOpen: (event: ReactMouseEvent<HTMLButtonElement>) => void
-}
-
-function ScheduleRow({ label, value, relative, muted, expanded, onOpen }: ScheduleRowProps) {
-  return (
-    <button
-      type="button"
-      className="detail-row"
-      data-detail-row
-      onClick={onOpen}
-      aria-haspopup="dialog"
-      aria-expanded={expanded}
-      title={relative ? `${value} · ${relative}` : value}
-    >
-      <span className="detail-row-label">{label}</span>
-      <span className={`detail-row-value ${muted ? 'muted' : ''}`}>
-        <span className="detail-row-main">{value}</span>
-        {relative && <span className="detail-row-relative">{relative}</span>}
-      </span>
-      <ChevronRight
-        size={12}
-        strokeWidth={1.8}
-        className="detail-row-chevron"
-        aria-hidden="true"
-      />
-    </button>
-  )
-}
-
-type PopoverProps = {
-  task: Task
-  onPatch: (patch: TaskPatch) => void
-  onClose: () => void
-}
-
-function DuePopover({ task, onPatch, onClose }: PopoverProps) {
-  const t = useT()
-  const locale = useLocale()
-  const [confirmClear, setConfirmClear] = useState(false)
-  // Only the seed is frozen; the presets themselves keep recomputing so the
-  // relative ones stay honest.
-  const [fallback] = useState(() => quickDuePreset(t).value)
-  const presets = duePresets(t)
-  const clearRef = useRef<HTMLButtonElement | null>(null)
-  const cancelRef = useRef<HTMLButtonElement | null>(null)
-  const wasConfirming = useRef(false)
-
-  useEffect(() => {
-    if (confirmClear) {
-      wasConfirming.current = true
-      cancelRef.current?.focus()
-      return
-    }
-    if (wasConfirming.current) {
-      wasConfirming.current = false
-      clearRef.current?.focus()
-    }
-  }, [confirmClear])
-
-  // Move the reminder with the deadline, keeping its offset. Otherwise a due
-  // date pushed far out silently drops the reminder on the next recurrence.
-  const patchDue = (iso: string): void => {
-    if (task.dueAt && task.remindAt) {
-      const offset = new Date(task.dueAt).getTime() - new Date(task.remindAt).getTime()
-      if (offset >= 0) {
-        onPatch({
-          dueAt: iso,
-          remindAt: new Date(new Date(iso).getTime() - offset).toISOString()
-        })
-        return
-      }
-    }
-    onPatch({ dueAt: iso })
-  }
-
-  return (
-    <>
-      <div className="detail-popover-title detail-popover-head">
-        <span>{t('detail.popover.due')}</span>
-        <span className="detail-popover-readout">
-          {task.dueAt ? formatDue(task.dueAt, locale) : t('detail.notSet')}
-        </span>
-      </div>
-      <div className="detail-chips detail-popover-quick" role="group" aria-label={t('detail.quickDue')}>
-        {presets.map((preset) => (
-          <button
-            key={preset.label}
-            type="button"
-            className={`detail-chip ${task.dueAt === preset.value ? 'active' : ''}`}
-            onClick={() => {
-              patchDue(preset.value)
-              onClose()
-            }}
-          >
-            {preset.label}
-            {task.dueAt === preset.value && <Check size={12} strokeWidth={2} aria-hidden="true" />}
-          </button>
-        ))}
-      </div>
-
-      <DateTimePicker
-        value={task.dueAt}
-        fallback={fallback}
-        label={t('detail.popover.due')}
-        onChange={patchDue}
-        onDone={onClose}
-      />
-
-      {confirmClear ? (
-        <div
-          className="detail-clear-warning"
-          onKeyDown={(event) => {
-            if (event.key !== 'Escape') return
-            // React dispatches at the root, ahead of the window listener, so
-            // this unwinds one level instead of closing the whole inspector.
-            event.preventDefault()
-            event.stopPropagation()
-            setConfirmClear(false)
-          }}
-        >
-          {t('detail.clearWarning')}
-          <div className="detail-popover-actions">
-            <button
-              className="detail-popover-action detail-popover-danger"
-              onClick={() => {
-                onPatch({ dueAt: null, recurrenceRule: null })
-                onClose()
-              }}
-            >
-              {t('detail.clearBoth')}
-            </button>
-            <button
-              ref={cancelRef}
-              className="detail-popover-action"
-              onClick={() => setConfirmClear(false)}
-            >
-              {t('common.cancel')}
-            </button>
-          </div>
-        </div>
-      ) : (
-        <button
-          ref={clearRef}
-          className="detail-popover-clear"
-          onClick={() => {
-            if (task.recurrenceRule) {
-              setConfirmClear(true)
-              return
-            }
-            onPatch({ dueAt: null })
-            onClose()
-          }}
-        >
-          {t('detail.clearDue')}
-        </button>
-      )}
-    </>
-  )
-}
-
-function ReminderPopover({ task, onPatch, onClose }: PopoverProps) {
-  const t = useT()
-  const locale = useLocale()
-  const [fallback] = useState(() => defaultReminderAt(task))
-  const presets = reminderPresets(task, t)
-
-  return (
-    <>
-      <div className="detail-popover-title detail-popover-head">
-        <span>{t('detail.popover.reminder')}</span>
-        <span className="detail-popover-readout">
-          {task.remindAt ? formatDue(task.remindAt, locale) : t('detail.notSet')}
-        </span>
-      </div>
-      <div className="detail-chips detail-popover-quick" role="group" aria-label={t('detail.quickReminder')}>
-        {presets.map((preset) => (
-          // Key on the label: relative presets change value every render, and
-          // keying on it would remount the button and drop focus to <body>.
-          <button
-            key={preset.label}
-            type="button"
-            className={`detail-chip ${task.remindAt === preset.value ? 'active' : ''}`}
-            onClick={() => {
-              onPatch({ remindAt: preset.value })
-              onClose()
-            }}
-          >
-            {preset.label}
-            {task.remindAt === preset.value && (
-              <Check size={12} strokeWidth={2} aria-hidden="true" />
-            )}
-          </button>
-        ))}
-      </div>
-
-      <DateTimePicker
-        value={task.remindAt}
-        fallback={fallback}
-        label={t('detail.reminderLabel')}
-        onChange={(iso) => onPatch({ remindAt: iso })}
-        onDone={onClose}
-      />
-
-      <div className="detail-popover-foot">
-        <div className="detail-popover-note">{t('detail.reminderRunning')}</div>
-        {task.remindAt && (
-          <button
-            className="detail-popover-clear"
-            onClick={() => {
-              onPatch({ remindAt: null })
-              onClose()
-            }}
-          >
-            {t('detail.removeReminder')}
-          </button>
-        )}
-      </div>
-    </>
-  )
-}
-
-type RepeatPopoverProps = {
-  task: Task
-  nextRecurrence: Date | null
-  onPatch: (patch: TaskPatch) => void
-}
-
-const FREQ_OPTIONS: Array<{ freq: CustomRecurrence['freq']; key: MessageKey }> = [
-  { freq: 'DAILY', key: 'detail.unit.day' },
-  { freq: 'WEEKLY', key: 'detail.unit.week' },
-  { freq: 'MONTHLY', key: 'detail.unit.month' },
-  { freq: 'YEARLY', key: 'detail.unit.year' }
-]
-
-const WEEKDAY_OPTIONS: Array<{ code: string; key: MessageKey }> = [
-  { code: 'MO', key: 'detail.week.1' },
-  { code: 'TU', key: 'detail.week.2' },
-  { code: 'WE', key: 'detail.week.3' },
-  { code: 'TH', key: 'detail.week.4' },
-  { code: 'FR', key: 'detail.week.5' },
-  { code: 'SA', key: 'detail.week.6' },
-  { code: 'SU', key: 'detail.week.7' }
-]
-
-function RepeatPopover({ task, nextRecurrence, onPatch }: RepeatPopoverProps) {
-  const t = useT()
-  const locale = useLocale()
-  const isCustomRule = isCustomRecurrence(task.recurrenceRule)
-  const [customEditing, setCustomEditing] = useState(isCustomRule)
-  const parsed = parseCustomRecurrence(task.recurrenceRule)
-  const showEditor = customEditing || isCustomRule
-  const freq = parsed?.freq ?? 'DAILY'
-  const interval = parsed?.interval ?? 2
-  const weekdays = parsed?.weekdays ?? []
-  const unit = t(FREQ_OPTIONS.find((option) => option.freq === freq)?.key ?? 'detail.unit.day')
-
-  // 规则是唯一真源：控件改动即时构建 RRULE 落库，回显再从规则解析，避免双状态失同步。
-  const applyCustom = (next: Partial<CustomRecurrence>) => {
-    onPatch({
-      recurrenceRule: buildCustomRecurrence({
-        freq: next.freq ?? freq,
-        interval: next.interval ?? interval,
-        weekdays: next.weekdays ?? weekdays
-      })
-    })
-  }
-
-  const toggleWeekday = (code: string) => {
-    applyCustom({
-      weekdays: weekdays.includes(code)
-        ? weekdays.filter((day) => day !== code)
-        : [...weekdays, code]
-    })
-  }
-
-  return (
-    <>
-      <div className="detail-popover-title detail-popover-head">
-        <span>{t('detail.popover.repeat')}</span>
-        <span className="detail-popover-readout">
-          {task.recurrenceRule ? recurrenceLabel(task.recurrenceRule, locale) : t('detail.noRepeat')}
-        </span>
-      </div>
-      <div className="detail-chips" role="group" aria-label={t('detail.repeatAria')}>
-        {RECURRENCE_PRESETS.map((preset) => (
-          <button
-            key={preset.rule ?? 'none'}
-            className={`detail-chip ${task.recurrenceRule === preset.rule && !customEditing ? 'active' : ''}`}
-            data-popover-focus={task.recurrenceRule === preset.rule && !customEditing}
-            disabled={!task.dueAt && preset.rule !== null}
-            aria-pressed={task.recurrenceRule === preset.rule && !customEditing}
-            onClick={() => {
-              setCustomEditing(false)
-              onPatch({ recurrenceRule: preset.rule })
-            }}
-          >
-            {recurrenceLabel(preset.rule, locale)}
-          </button>
-        ))}
-        <button
-          className={`detail-chip ${showEditor ? 'active' : ''}`}
-          disabled={!task.dueAt}
-          aria-pressed={showEditor}
-          onClick={() => {
-            setCustomEditing(true)
-            if (!task.recurrenceRule) onPatch({ recurrenceRule: 'FREQ=DAILY;INTERVAL=2' })
-          }}
-        >
-          {t('detail.custom')}
-        </button>
-      </div>
-
-      {showEditor && task.dueAt && (
-        <div className="repeat-custom">
-          <div className="repeat-field">
-            <span className="repeat-field-label">{t('detail.freq')}</span>
-            <div className="detail-chips" role="group" aria-label={t('detail.freqAria')}>
-              {FREQ_OPTIONS.map((option) => (
-                <button
-                  key={option.freq}
-                  className={`detail-chip ${freq === option.freq ? 'active' : ''}`}
-                  aria-pressed={freq === option.freq}
-                  onClick={() => applyCustom({ freq: option.freq })}
-                >
-                  {t(option.key)}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div className="repeat-field">
-            <span className="repeat-field-label">{t('detail.interval')}</span>
-            <div className="repeat-interval">
-              <span className="repeat-field-label">{t('detail.every')}</span>
-              <button
-                className="repeat-step"
-                onClick={() => applyCustom({ interval: Math.max(1, interval - 1) })}
-                disabled={interval <= 1}
-                aria-label={t('detail.decreaseInterval')}
-              >
-                −
-              </button>
-              <span className="repeat-interval-value" aria-live="polite">{interval}</span>
-              <button
-                className="repeat-step"
-                onClick={() => applyCustom({ interval: Math.min(99, interval + 1) })}
-                disabled={interval >= 99}
-                aria-label={t('detail.increaseInterval')}
-              >
-                +
-              </button>
-              <span className="repeat-field-label">{unit}</span>
-            </div>
-          </div>
-          {freq === 'WEEKLY' && (
-            <div className="repeat-field">
-              <span className="repeat-field-label">{t('detail.weekday')}</span>
-              <div className="detail-chips" role="group" aria-label={t('detail.weekdayAria')}>
-                {WEEKDAY_OPTIONS.map((option) => (
-                  <button
-                    key={option.code}
-                    className={`detail-chip ${weekdays.includes(option.code) ? 'active' : ''}`}
-                    aria-pressed={weekdays.includes(option.code)}
-                    onClick={() => toggleWeekday(option.code)}
-                  >
-                    {t(option.key)}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {task.recurrenceRule && (
-        <div className="detail-popover-note">
-          {nextRecurrence
-            ? t('detail.nextAt', { date: formatDue(nextRecurrence.toISOString(), locale) })
-            : t('detail.noNext')}
-        </div>
-      )}
-      {!task.dueAt && (
-        <div className="detail-popover-note">{t('detail.dueRequired')}</div>
-      )}
-    </>
-  )
-}
