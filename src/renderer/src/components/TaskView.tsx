@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence } from 'motion/react'
-import { Search, Trash2 } from './Icon'
+import { ChevronRight, Search, Trash2 } from './Icon'
 import type { AppView, Task } from '@shared/types'
 import type { MessageKey } from '@shared/i18n'
 import { TRASH_RETENTION_DAYS } from '@shared/retention'
@@ -61,10 +61,20 @@ export function TaskView() {
   // 页脚常驻，挂载即取；与设置面板共用同一份版本号。
   const version = useAppVersion()
 
+  // 已完成区默认折叠：组件内状态，不持久化——每次启动回到折叠。
+  // 勾选完成不自动展开（防抢焦点）：行从活动区退场，只有计数 +1。
+  const [completedExpanded, setCompletedExpanded] = useState(false)
+
   const quickAddRef = useRef<HTMLInputElement>(null)
   // 确认后的焦点落点：undefined = 取消（trap 自己还焦点），null = 主区域，
   // 元素 = 邻行。等对话框退场完成再落，避免和 trap 的清理抢焦点。
   const focusAfterExit = useRef<HTMLElement | null | undefined>(undefined)
+
+  // 切视图 / 切项目或标签筛选时重置为折叠：展开是「当下想翻旧账」的临时
+  // 意图，换个上下文就收回，避免带着上一个视图的展开态进入新列表。
+  useEffect(() => {
+    setCompletedExpanded(false)
+  }, [view, projectFilter, tagFilter])
 
   useEffect(() => {
     const focusQuickAdd = (event: Event) => {
@@ -290,16 +300,30 @@ export function TaskView() {
 
             {completed.length > 0 && (
               <section className="task-section completed-section">
-                <div className="section-label">
-                  <span>{t('views.section.completed')}</span>
-                  <span className="section-count">{completed.length}</span>
-                </div>
-                <div className="task-list">
-                  <AnimatePresence initial={false}>
-                    {completed.map((task) => (
-                      <TaskItem key={task.id} task={task} />
-                    ))}
-                  </AnimatePresence>
+                {/* 折叠开关沿用区头视觉（.section-label），原生 button 自带
+                    Enter/空格语义；chevron 随 aria-expanded 旋转指示方向。 */}
+                <button
+                  type="button"
+                  className="section-label completed-toggle"
+                  aria-expanded={completedExpanded}
+                  aria-controls="completed-task-list"
+                  onClick={() => setCompletedExpanded((value) => !value)}
+                >
+                  <ChevronRight size={12} className="completed-chevron" aria-hidden="true" />
+                  <span className="completed-toggle-label">
+                    {t('views.completedToggle', { count: completed.length })}
+                  </span>
+                </button>
+                {/* 容器常驻（aria-controls 始终有落点），行随展开态条件挂载：
+                    收起即卸载而非视觉隐藏，展开态下单行进出仍走 AnimatePresence。 */}
+                <div className="task-list" id="completed-task-list" hidden={!completedExpanded}>
+                  {completedExpanded && (
+                    <AnimatePresence initial={false}>
+                      {completed.map((task) => (
+                        <TaskItem key={task.id} task={task} />
+                      ))}
+                    </AnimatePresence>
+                  )}
                 </div>
               </section>
             )}

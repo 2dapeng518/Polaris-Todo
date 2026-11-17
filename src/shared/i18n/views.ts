@@ -13,6 +13,7 @@ export const views = {
   'views.section.trash': '已删除',
   'views.section.todo': '待办',
   'views.section.completed': '已完成',
+  'views.completedToggle': '已完成 {count} 条',
   'views.emptyTrash': '清空回收站',
   'views.footer.newTask': '新建任务',
   'views.footer.palette': '命令面板',

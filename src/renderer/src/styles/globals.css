@@ -1505,6 +1505,40 @@ textarea {
   text-transform: uppercase;
 }
 
+/* 已完成区折叠开关：整行可点的区头按钮，视觉沿用 .section-label。
+   计数 tabular-nums 防数字位数变化时宽度跳动；chevron 随展开态旋转。 */
+.completed-toggle {
+  width: 100%;
+  border: 0;
+  background: none;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.completed-toggle:hover {
+  color: var(--text-secondary);
+}
+
+.completed-toggle-label {
+  font-variant-numeric: tabular-nums;
+}
+
+.completed-chevron {
+  flex-shrink: 0;
+  transition: transform 160ms var(--ease-out);
+}
+
+.completed-toggle[aria-expanded='true'] .completed-chevron {
+  transform: rotate(90deg);
+}
+
+/* .task-list 的 display:flex 会盖掉 hidden 属性的 UA 默认 display:none，
+   折叠容器必须显式压回去，否则空容器仍参与布局。 */
+.task-list[hidden] {
+  display: none;
+}
+
 .section-count {
   display: inline-grid;
   place-items: center;
