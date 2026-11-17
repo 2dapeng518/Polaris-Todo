@@ -4365,6 +4365,7 @@ export async function runSmokeTest(): Promise<void> {
     let updateSettingsCheck = false
     let updateDialogFlow = false
     let updateProgressDetails = false
+    let updateMetaStable = false
     let updateSkipPersists = false
     let updateNotesRendered = false
     let updateInstallGuard = false
@@ -4460,7 +4461,7 @@ export async function runSmokeTest(): Promise<void> {
           eta: eta ? eta.textContent.includes('预计 55 秒') : false
         };
       })()`)
-      // 速度为 0：ETA 隐藏，但速度仍可读，且不允许 NaN/Infinity 漏进界面。
+      // 速度为 0：ETA 槽常驻但落空串（语义隐藏），速度仍可读，且不允许 NaN/Infinity 漏进界面。
       pushUpdate({
         status: 'downloading',
         percent: 11,
@@ -4475,9 +4476,10 @@ export async function runSmokeTest(): Promise<void> {
           return el && el.textContent.includes('0 KB/s') ? el : null;
         });
         if (!bar) return { found: false };
+        const etaEl = bar.querySelector('.update-progress-eta');
         return {
           found: true,
-          noEta: !bar.querySelector('.update-progress-eta'),
+          noEta: !etaEl || etaEl.textContent === '',
           noBadValue: !bar.textContent.includes('NaN') && !bar.textContent.includes('Infinity')
         };
       })()`)
@@ -4608,6 +4610,70 @@ export async function runSmokeTest(): Promise<void> {
         !wc.isDestroyed() &&
         typeof guardState?.error === 'string' &&
         guardState.error.includes('无法安装')
+      // 更新弹窗零抖动与完成/重启反馈：速度/ETA 行常驻占位槽，四档快照
+      // （速度 null→有值→null→100% 校验）面板顶边与高度零位移；校验文案落槽；
+      // 点重启先落「正在重启」反馈再被守卫报错重置（dev 不 quit 进程）。
+      const pause = (ms: number) => new Promise((r) => setTimeout(r, ms))
+      pushUpdate({ status: 'downloading', percent: 40, transferred: 26700000, total: 66800000, bytesPerSecond: null, latestVersion: '99.0.3' })
+      const metaMeasure = () => wc.executeJavaScript(`(async () => {
+        ${pageHelpers}
+        const dlg = document.querySelector('.update-panel');
+        if (!dlg) return null;
+        const r = dlg.getBoundingClientRect();
+        return { top: r.top, h: r.height, meta: dlg.querySelector('.update-progress-meta')?.textContent ?? null };
+      })()`)
+      await pause(250)
+      const m1 = await metaMeasure()
+      pushUpdate({ status: 'downloading', percent: 60, transferred: 40000000, total: 66800000, bytesPerSecond: 1400000, latestVersion: '99.0.3' })
+      await pause(250)
+      const m2 = await metaMeasure()
+      pushUpdate({ status: 'downloading', percent: 60, transferred: 40000000, total: 66800000, bytesPerSecond: null, latestVersion: '99.0.3' })
+      await pause(250)
+      const m3 = await metaMeasure()
+      pushUpdate({ status: 'downloading', percent: 100, transferred: 66800000, total: 66800000, bytesPerSecond: null, latestVersion: '99.0.3' })
+      await pause(250)
+      const m4 = await metaMeasure()
+      const metaStable = [m1, m2, m3, m4].every((m) => m && Math.abs(m.top - m1.top) <= 1 && Math.abs(m.h - m1.h) <= 1)
+      const metaAlways = [m1, m2, m3, m4].every((m) => m && m.meta !== null)
+      const speedShown = (m2?.meta ?? '').includes('MB/s')
+      const verifyingShown = (m4?.meta ?? '').includes('校验安装包')
+      pushUpdate({ status: 'downloaded', percent: 100, transferred: 66800000, total: 66800000, latestVersion: '99.0.3' })
+      await pause(250)
+      const installFeedback = await wc.executeJavaScript(`(async () => {
+        ${pageHelpers}
+        const dlg = document.querySelector('.update-panel');
+        const btn = dlg?.querySelector('.update-install');
+        if (!btn || btn.disabled) return { found: false };
+        btn.click();
+        const labeled = await waitFor(() => btn.textContent.includes('正在重启'));
+        // dev 守卫报错推回的是主进程自身快照（unsupported/无版本号），合成态被洗、
+        // 弹窗整体卸载属预期；真实生产快照带版本号，错误会落在弹窗里。
+        await sleep(600);
+        const mainError = (await window.polaris.update.getState())?.error ?? null;
+        return { found: true, labeled: Boolean(labeled), mainError };
+      })()`)
+      // 重置语义单独钉：推带 error 的就绪快照，installing 必须被效应重置回可点。
+      pushUpdate({ status: 'downloaded', percent: 100, latestVersion: '99.0.4', error: '合成守卫错误' })
+      await pause(250)
+      const installReset = await wc.executeJavaScript(`(async () => {
+        ${pageHelpers}
+        const dlg = await waitFor(() => document.querySelector('.update-panel'));
+        if (!dlg) return { found: false };
+        const btn = dlg.querySelector('.update-install');
+        const errDiv = dlg.querySelector('.settings-error');
+        const reset = btn?.textContent.includes('立即重启') === true && btn?.disabled === false;
+        const later = [...dlg.querySelectorAll('button')].find((b) => b.textContent === '稍后');
+        later?.click();
+        await waitFor(() => !document.querySelector('.update-panel'));
+        return { found: true, reset, errored: Boolean(errDiv) };
+      })()`)
+      updateMetaStable =
+        metaStable === true && metaAlways === true && speedShown === true && verifyingShown === true &&
+        installFeedback?.found === true && installFeedback?.labeled === true &&
+        typeof installFeedback?.mainError === 'string' && installFeedback.mainError.includes('无法安装') &&
+        !wc.isDestroyed() &&
+        installReset?.found === true && installReset?.reset === true && installReset?.errored === true
+      if (!updateMetaStable) console.error('UPDATE_META_STABLE_FAIL', JSON.stringify({ m1, m2, m3, m4, metaStable, metaAlways, speedShown, verifyingShown, installFeedback, installReset }))
       if (!updateLogicTable) console.error('UPDATE_LOGIC_FAIL')
       if (!updateFormatTable) console.error('UPDATE_FORMAT_FAIL')
       if (!updateDialogFlow) console.error('UPDATE_DIALOG_FAIL', JSON.stringify({ dialogShown, progressShown, readyAndLater, staysDismissed, skipStaysSilent }))
@@ -4782,6 +4848,7 @@ export async function runSmokeTest(): Promise<void> {
       updateSettingsCheck: updateSettingsCheck === true,
       updateDialogFlow: updateDialogFlow === true,
       updateProgressDetails: updateProgressDetails === true,
+      updateMetaStable: updateMetaStable === true,
       updateSkipPersists: updateSkipPersists === true,
       updateNotesRendered: updateNotesRendered === true,
       updateInstallGuard: updateInstallGuard === true
@@ -4882,6 +4949,7 @@ export async function runSmokeTest(): Promise<void> {
           updateSettingsCheck,
           updateDialogFlow,
           updateProgressDetails,
+          updateMetaStable,
           updateSkipPersists,
           updateNotesRendered,
           updateInstallGuard,
