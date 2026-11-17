@@ -3820,6 +3820,8 @@ export async function runSmokeTest(): Promise<void> {
           const maskText = tokenBox.textContent ?? '';
           const fullToken = await window.polaris.app.getMcpToken();
           const rowButtons = [...tokenBox.parentElement.querySelectorAll('.backup-btn')].map((b) => b.textContent);
+          const btnWidths = [...tokenBox.parentElement.querySelectorAll('.backup-btn')].map((b) => b.getBoundingClientRect().width);
+          const maskDominant = tokenBox.getBoundingClientRect().width > btnWidths[0] * 1.4;
           const beforeCheck = contentH(); const beforeFooter = footerTop();
           panel.querySelector('.update-footer-btn')?.click();
           const answered = await waitFor(() => (panel.querySelector('.update-footer-status')?.textContent ?? '').length > 0);
@@ -3833,6 +3835,7 @@ export async function runSmokeTest(): Promise<void> {
             maskShape: /^.{7}….{4}$/.test(maskText),
             maskNeverFull: maskText !== fullToken,
             singleLine: tokenBox.scrollHeight <= tokenBox.clientHeight + 1 && tokenBox.getBoundingClientRect().height <= 32,
+            maskDominant,
             buttonsExact: rowButtons.length === 2 && rowButtons[0] === '复制' && rowButtons[1] === '重新生成',
             updateStable: Boolean(answered) && beforeCheck === afterCheck && beforeFooter === afterFooter
           };
@@ -3843,6 +3846,7 @@ export async function runSmokeTest(): Promise<void> {
           noShift?.maskShape === true &&
           noShift?.maskNeverFull === true &&
           noShift?.singleLine === true &&
+          noShift?.maskDominant === true &&
           noShift?.buttonsExact === true &&
           noShift?.updateStable === true
         if (!settingsNoShift) console.error('SETTINGS_NO_SHIFT_FAIL', JSON.stringify(noShift))
@@ -3874,6 +3878,10 @@ export async function runSmokeTest(): Promise<void> {
           const cols = behavior && mcp
             ? behavior.getBoundingClientRect().right <= mcp.getBoundingClientRect().left + 1
             : false;
+          const side = panel.querySelector('.settings-side');
+          const balanced = behavior && side
+            ? Math.abs(behavior.getBoundingClientRect().height - side.getBoundingClientRect().height) <= 2
+            : false;
           const toggle = panel.querySelector('.settings-about-toggle');
           toggle?.click();
           const expanded = await waitFor(() => panel.querySelector('.about-credits'));
@@ -3882,12 +3890,13 @@ export async function runSmokeTest(): Promise<void> {
           const collapsed = await waitFor(() => !panel.querySelector('.about-credits'));
           document.querySelector('.settings-panel .detail-close')?.click();
           await sleep(250);
-          return { found: true, langInHead, cols, expandedOk, collapsed };
+          return { found: true, langInHead, cols, balanced, expandedOk, collapsed };
         })()`)
         settingsLayoutV2 =
           layout?.found === true &&
           layout?.langInHead === true &&
           layout?.cols === true &&
+          layout?.balanced === true &&
           layout?.expandedOk === true &&
           layout?.collapsed === true
         if (!settingsLayoutV2) console.error('SETTINGS_LAYOUT_V2_FAIL', JSON.stringify(layout))

@@ -277,7 +277,6 @@ export const en: Messages = {
   'settings.aboutToggle': 'About & licenses',
   'settings.behaviorGroup': 'General behavior',
   'settings.mcpEnable': 'Enable service',
-  'settings.versionLine': 'Polaris · Version {version} · MIT License',
   'settings.versionOnly': 'Polaris · MIT License',
   'settings.fonts': 'Fonts',
   'settings.icons': 'Icons',

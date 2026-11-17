@@ -4935,6 +4935,11 @@ textarea {
   margin-top: 8px;
 }
 
+/* 备份按钮行的 flex:1 不该传进令牌横排：掩码盒占大头，按钮贴文字收窄。 */
+.mcp-token-row .backup-btn {
+  flex: none;
+}
+
 .mcp-token-box {
   flex: 1;
   min-width: 0;
@@ -5085,8 +5090,19 @@ textarea {
     order: 6;
   }
 
+  /* 左列拉伸到与右列同高：MCP 启用态右列长高时，开关行间距自适应呼吸，
+     不留左下大洞；行距下限 8 由 gap 保住，多余空间 space-between 分摊。 */
   .settings-section--behavior {
     grid-area: behavior;
+    align-self: stretch;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    justify-content: space-between;
+  }
+
+  .settings-section--behavior .settings-row {
+    margin-top: 0;
   }
 
   .settings-side {
