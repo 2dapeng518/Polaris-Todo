@@ -17,6 +17,7 @@ import {
   deleteTaskForever,
   exportBackup,
   getMeta,
+  getTask,
   importBackup,
   listSubtasks,
   listTasks,
@@ -3100,6 +3101,214 @@ export async function runSmokeTest(): Promise<void> {
       }
     }
 
+    // 大列表窗口化（content-visibility:auto）：种子 1200 条同构任务直写主进程
+    // SQLite（不走 1200 次 IPC），断言屏外行跳过渲染但占位尺寸生效、滚动锚定
+    // 稳定、屏外行可勾选且落库、AnimatePresence 退场在屏外行上照常收敛卸载、
+    // 紧凑档占位随媒体查询切换。性能预算一律用有界 waitFor（渲染等待放宽到
+    // 20s 容忍机器偶发卡顿），不设硬毫秒阈值——硬阈值在用户活跃时段会假红。
+    // 清场纪律：finally 里逐条软删 + 硬删（只软删会堆进回收站污染后续断言），
+    // 渲染层拉回小列表并路由回「今天」。
+    let largeListRenders = false
+    let largeListWindowed = false
+    let largeListRowHeight = false
+    let largeListAnchorStable = false
+    let largeListBottomInteractive = false
+    let largeListOffscreenToggle = false
+    let largeListExitSettles = false
+    let largeListCompactTier = false
+    const largeSeedIds: string[] = []
+    const LARGE_SEED_COUNT = 1200
+    try {
+      const seedDue = new Date()
+      seedDue.setHours(23, 59, 0, 0)
+      for (let i = 0; i < LARGE_SEED_COUNT; i++) {
+        largeSeedIds.push(
+          createTask({ title: '冒烟大列表 ' + String(i).padStart(4, '0'), dueAt: seedDue.toISOString() }).id
+        )
+      }
+      const big = await mainWindow?.webContents.executeJavaScript(`(async () => {
+        ${pageHelpers}
+        const out = { step: 'route' };
+        const pageErrors = [];
+        const onError = (event) => pageErrors.push(String(event.message || 'error'));
+        window.addEventListener('error', onError);
+        try {
+          const nav = [...document.querySelectorAll('.nav-item')].find((el) => el.textContent.includes('全部任务'));
+          if (!nav) { out.error = 'nav missing'; return out; }
+          nav.click();
+          window.dispatchEvent(new Event('focus'));
+          out.step = 'render';
+          const rendered = await waitFor(
+            () => document.querySelectorAll('.task-section .task-list .task-item').length >= ${LARGE_SEED_COUNT},
+            20000
+          );
+          out.renders = Boolean(rendered);
+          if (!rendered) return out;
+          await sleep(500); // 等入场 spring 沉降；入场只动 opacity/y，不改行高
+          const main = document.querySelector('.main');
+          main.scrollTop = 0;
+          await sleep(200);
+          const rows = [...document.querySelectorAll('.task-section .task-list .task-item')];
+          // 只量自种行（无项目/标签/优先级，行高纯由骨架决定）；示例任务
+          // 可能带标签 chip 或高优先级插队，不能拿 rows[0] 当标尺。
+          const seedRows = rows.filter((el) => el.textContent.includes('冒烟大列表'));
+          out.seedCount = seedRows.length;
+          const mainRect = main.getBoundingClientRect();
+          const near = seedRows[0];
+          const far = seedRows[900];
+          out.nearHeight = near.getBoundingClientRect().height;
+          out.farTop = far.getBoundingClientRect().top;
+          out.farHeight = far.getBoundingClientRect().height;
+          out.pitch = seedRows[901].getBoundingClientRect().top - out.farTop;
+          out.rowCount = rows.length;
+          out.dpr = window.devicePixelRatio;
+          out.farPadding = getComputedStyle(far).paddingTop;
+          out.mainBottom = mainRect.bottom;
+          out.farOffscreen = out.farTop > mainRect.bottom;
+          out.farCv = getComputedStyle(far).contentVisibility;
+          out.farContain = getComputedStyle(far).getPropertyValue('contain-intrinsic-block-size');
+          out.scrollBefore = main.scrollHeight;
+          // 滚动高度合理：1200 × (67.5 + 2 gap) ≈ 83400。下限证明屏外行
+          // 没塌成 0（占位生效），上限证明占位没被放大。
+          out.heightSane = main.scrollHeight > ${LARGE_SEED_COUNT} * 60 && main.scrollHeight < ${LARGE_SEED_COUNT} * 85;
+          out.step = 'bottom';
+          main.scrollTop = main.scrollHeight;
+          await sleep(400);
+          out.scrollAfter = main.scrollHeight;
+          // 锚定稳定：占位与实测只差分数缩放的物理像素吸附（<1px/行），
+          // 滚到底后总高只允许新渲染行的这类小幅修正，不允许量级跳变。
+          out.anchorDelta = Math.abs(out.scrollAfter - out.scrollBefore);
+          const last = rows[rows.length - 1];
+          const lastVisible = await waitFor(() => {
+            const r = last.getBoundingClientRect();
+            return r.top >= mainRect.top - 1 && r.bottom <= mainRect.bottom + 1;
+          });
+          out.lastTitle = last.querySelector('.task-title').textContent;
+          last.querySelector('.task-open').click();
+          const detail = await waitFor(() => document.querySelector('.detail-title'));
+          out.bottomInteractive = Boolean(lastVisible && detail && detail.value === out.lastTitle);
+          window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+          await waitFor(() => !document.querySelector('.detail-title'));
+          out.step = 'toggle';
+          main.scrollTop = 0;
+          await sleep(300);
+          const toggleRow = seedRows[900];
+          out.toggleId = toggleRow.dataset.taskId;
+          toggleRow.querySelector('.task-check').click();
+          const toggled = await waitFor(() => {
+            const node = document.querySelector('[data-task-id="' + CSS.escape(out.toggleId) + '"]');
+            return node && node.classList.contains('done');
+          });
+          out.toggled = Boolean(toggled);
+          out.step = 'exit';
+          // 屏外行删除：AnimatePresence 退场 spring 必须照常收敛并卸载，
+          // 页面无未捕获错误（motion 的 layout 测量打在占位盒上不应报错）。
+          const exitRow = seedRows[1000];
+          out.exitId = exitRow.dataset.taskId;
+          out.exitOffscreen = exitRow.getBoundingClientRect().top > mainRect.bottom;
+          exitRow.querySelector('.task-delete').click();
+          const exited = await waitFor(
+            () => !document.querySelector('[data-task-id="' + CSS.escape(out.exitId) + '"]'),
+            8000
+          );
+          out.exited = Boolean(exited);
+          out.pageErrors = pageErrors;
+          out.step = 'done';
+          return out;
+        } catch (error) {
+          out.error = String(error);
+          out.pageErrors = pageErrors;
+          return out;
+        } finally {
+          window.removeEventListener('error', onError);
+        }
+      })()`)
+      // 紧凑档：CDP 仿真 1024×536，padding 收紧后整行占位自动 59.5px。
+      // 量顶部的已渲染行（真实布局）；屏外探针取中段行——滚到底/退场聚焦
+      // 渲染过的行会被 auto 记住常规档尺寸，不能拿来验证紧凑档占位。
+      let compact: { compact?: boolean; nearHeight?: number; farHeight?: number; farCv?: string; farContain?: string; scrollHeight?: number } | null = null
+      if (mainWindow && big?.renders === true) {
+        const dbg = mainWindow.webContents.debugger
+        const attachedHere = !dbg.isAttached()
+        if (attachedHere) dbg.attach('1.3')
+        try {
+          await dbg.sendCommand('Emulation.setDeviceMetricsOverride', { width: 1024, height: 536, deviceScaleFactor: 1, mobile: false })
+          await settledFrames(mainWindow.webContents)
+          compact = await mainWindow.webContents.executeJavaScript(`(async () => {
+            ${pageHelpers}
+            const main = document.querySelector('.main');
+            main.scrollTop = 0;
+            await sleep(300);
+            const seedRows = [...document.querySelectorAll('.task-section .task-list .task-item')].filter((el) => el.textContent.includes('冒烟大列表'));
+            const near = seedRows[0];
+            const far = seedRows[600];
+            return {
+              compact: matchMedia('(max-height: 620px)').matches,
+              nearHeight: near ? near.getBoundingClientRect().height : -1,
+              farHeight: far ? far.getBoundingClientRect().height : -1,
+              farCv: far ? getComputedStyle(far).contentVisibility : '',
+              farContain: far ? getComputedStyle(far).getPropertyValue('contain-intrinsic-block-size') : '',
+              scrollHeight: main.scrollHeight
+            };
+          })()`)
+        } finally {
+          await dbg.sendCommand('Emulation.clearDeviceMetricsOverride', {})
+          if (attachedHere) dbg.detach()
+        }
+      }
+      largeListRenders = big?.renders === true
+      // 占位是内容盒估计（41.5px），padding 24 + 边框 2 由盒模型另加 →
+      // 屏外行整行占位 67.5px，与渲染行实测同高（±1.5 容忍分数缩放的
+      // 物理像素吸附）。farHeight 直接证明占位没有膨胀成 93.5px。
+      largeListWindowed =
+        big?.farOffscreen === true &&
+        big?.farCv === 'auto' &&
+        big?.farContain === 'auto 41.5px' &&
+        typeof big?.farHeight === 'number' && Math.abs(big.farHeight - 67.5) <= 1.5 &&
+        big?.heightSane === true
+      largeListRowHeight = typeof big?.nearHeight === 'number' && Math.abs(big.nearHeight - 67.5) <= 1
+      largeListAnchorStable = typeof big?.anchorDelta === 'number' && big.anchorDelta <= 200
+      largeListBottomInteractive = big?.bottomInteractive === true
+      // 落库走主进程直读 SQLite，不经渲染层 store 反算。
+      const togglePersisted = typeof big?.toggleId === 'string' && getTask(big.toggleId)?.completed === true
+      largeListOffscreenToggle = big?.toggled === true && togglePersisted
+      largeListExitSettles =
+        big?.exitOffscreen === true &&
+        big?.exited === true &&
+        Array.isArray(big?.pageErrors) && big.pageErrors.length === 0 &&
+        (typeof big?.exitId === 'string' && getTask(big.exitId) === undefined)
+      largeListCompactTier =
+        compact?.compact === true &&
+        typeof compact?.nearHeight === 'number' && Math.abs(compact.nearHeight - 59.5) <= 1 &&
+        compact?.farCv === 'auto' &&
+        compact?.farContain === 'auto 41.5px' &&
+        typeof compact?.farHeight === 'number' && Math.abs(compact.farHeight - 59.5) <= 1.5 &&
+        typeof compact?.scrollHeight === 'number' &&
+        compact.scrollHeight > LARGE_SEED_COUNT * 55 && compact.scrollHeight < LARGE_SEED_COUNT * 75
+      if (!largeListRenders || !largeListWindowed || !largeListRowHeight || !largeListAnchorStable ||
+          !largeListBottomInteractive || !largeListOffscreenToggle || !largeListExitSettles || !largeListCompactTier) {
+        console.error('LARGE_LIST_FAIL', JSON.stringify({ big, compact, togglePersisted }))
+      }
+    } catch (error) {
+      console.error('LARGE_LIST_ERROR', error)
+    } finally {
+      for (const id of largeSeedIds) {
+        deleteTask(id)
+        deleteTaskForever(id)
+      }
+      // 渲染层拉回小列表并路由回「今天」，后续断言不受 1200 行影响。
+      await mainWindow?.webContents.executeJavaScript(`(async () => {
+        ${pageHelpers}
+        window.dispatchEvent(new Event('focus'));
+        await waitFor(() => document.querySelectorAll('.task-item').length < 100, 10000);
+        const nav = [...document.querySelectorAll('.nav-item')].find((el) => el.textContent.includes('今天'));
+        nav?.click();
+        const main = document.querySelector('.main');
+        if (main) main.scrollTop = 0;
+        await sleep(300);
+      })()`).catch(() => {})
+    }
+
     // 关于署名区：设置面板展示字体/图标许可（OFL 可见署名义务）。
     const aboutCreditsShown =
       (await mainWindow?.webContents.executeJavaScript(`(async () => {
@@ -4068,6 +4277,14 @@ export async function runSmokeTest(): Promise<void> {
       atomicWriteWorks: atomicWriteWorks === true,
       scalingFrameWorks: scalingFrameWorks === true,
       lowResFits: lowResFits === true,
+      largeListRenders: largeListRenders === true,
+      largeListWindowed: largeListWindowed === true,
+      largeListRowHeight: largeListRowHeight === true,
+      largeListAnchorStable: largeListAnchorStable === true,
+      largeListBottomInteractive: largeListBottomInteractive === true,
+      largeListOffscreenToggle: largeListOffscreenToggle === true,
+      largeListExitSettles: largeListExitSettles === true,
+      largeListCompactTier: largeListCompactTier === true,
       aboutCreditsShown: aboutCreditsShown === true,
       storageCardWorks: storageCardWorks === true,
       settingsFitsDefault: settingsFitsDefault === true,
@@ -4155,6 +4372,14 @@ export async function runSmokeTest(): Promise<void> {
           atomicWriteWorks,
           scalingFrameWorks,
           lowResFits,
+          largeListRenders,
+          largeListWindowed,
+          largeListRowHeight,
+          largeListAnchorStable,
+          largeListBottomInteractive,
+          largeListOffscreenToggle,
+          largeListExitSettles,
+          largeListCompactTier,
           aboutCreditsShown,
           storageCardWorks,
           settingsFitsDefault,

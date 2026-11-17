@@ -1536,6 +1536,18 @@ textarea {
   transition:
     background 0.18s var(--ease-out),
     border-color 0.18s var(--ease-out);
+  /* 浏览器级窗口化：屏外行跳过渲染与 layout 测量（几千条任务时 motion 的
+     layout 动画不再逐行量全表）。DOM 结构不变，焦点/查询语义保持原样。
+     contain-intrinsic-block-size 是「内容盒」的占位估计（实测确认 padding
+     与边框由盒模型另加，不占估计额度）：标题行 21（14px × 1.5）+ meta
+     间距 4 + meta 行 16.5（11px × 1.5）= 41.5px。常规档加 padding 24 +
+     边框 2 → 整行占位 67.5px；紧凑档（≤620px）padding 16 + 边框 2 →
+     整行自动 59.5px——同一个估计两档都对，无需媒体查询另给值。
+     带标签 chip（+2px 内边距）或标题折行的行会更高——auto 关键字让浏览器
+     记住每行上次实测尺寸，渲染一次后占位即被真实值取代，滚动锚定不跳。
+     宽度由 flex 拉伸决定，所以只给块轴估计，不给宽度。 */
+  content-visibility: auto;
+  contain-intrinsic-block-size: auto 41.5px;
 }
 
 .task-item:hover {
@@ -3971,6 +3983,8 @@ textarea {
   }
 
   .task-item {
+    /* 窗口化占位（基态 41.5px）是内容盒估计，这里的 padding 收紧后
+       整行占位自动从 67.5px 变 59.5px，无需另给 contain-intrinsic 值。 */
     padding: 8px 10px;
   }
 
