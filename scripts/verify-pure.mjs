@@ -1,15 +1,16 @@
-// 纯函数快速校验层：quick-add 解析真值表 + 回收站保留期真值表。
+// 纯函数快速校验层：quick-add 解析 / 回收站保留期 / 重复规则 / CSV 搬家真值表。
 // 与 verify-datetime 同一套路 —— Node type-stripping 直接 import shared 纯函数、
 // 注入固定时钟，不启动 Electron，秒级反馈；CI（.github/workflows/ci.yml）已挂。
 // 用法：node scripts/verify-pure.mjs
 //
 // ⚠️ 同步维护：本脚本的表逐字移植自 src/main/harness/assertions.ts 的
-// runParseAssertions()（中文语法表 / 英文语法表 / 误报反例 / 撤销与不变量 / 格式表）
-// 与 runRetentionAssertions()（保留期边界表）。harness 里的原断言保留不动（E2E 仍跑），
-// 两处任何一处改表，另一处必须跟着改，否则快速层与 E2E 层会各自为政。
-//
-// 本轮只移植 parse + retention 两类；recurrence / csv 的真值表正由并行工作改动，
-// 落地后下一波再补（见文件末尾的结构预留位）。
+// runParseAssertions()（中文语法表 / 英文语法表 / 误报反例 / 撤销与不变量 / 格式表）、
+// runRetentionAssertions()（保留期边界表）、runRecurrenceAssertions()（月度钳制表 +
+// nextOccurrence 注入时钟表，含逾期 3 年不断链用例）、runCustomRecurrenceAssertions()
+// （parse/build 往返表）与 runCsvImportAssertions() 的纯函数半区（parseCsvImport
+// 字面量表 + 错误文案 zh/en 断言；真实落库往返依赖 better-sqlite3，留在 E2E 层）。
+// harness 里的原断言保留不动（E2E 仍跑），两处任何一处改表，另一处必须跟着改，
+// 否则快速层与 E2E 层会各自为政。
 //
 // 时区钉死 Asia/Shanghai：中文格式表（formatParsedDue）的期望字面量按 UTC+8 墙钟
 // 书写（与 harness 运行机一致）；解析表两侧都是本地墙钟，本与时区无关，钉死后
@@ -22,6 +23,10 @@ import { register } from 'node:module'
 register('./ts-resolve-hooks.mjs', import.meta.url)
 const { dismissKeys, formatParsedDue, parseQuickAdd, pruneDismissed } = await import('../src/shared/quickAddParse.ts')
 const { isPurgeable } = await import('../src/shared/retention.ts')
+// recurrence / csvImport 经同一套 ts-resolve-hooks 解析（csvImport 的 './i18n'
+// 目录式 import 与 recurrence 的 'rrule' 包依赖都由钩子/Node 默认解析接住）。
+const { buildCustomRecurrence, nextMonthlyClamped, nextOccurrence, parseCustomRecurrence } = await import('../src/shared/recurrence.ts')
+const { csvErrorMessage, parseCsvImport } = await import('../src/shared/csvImport.ts')
 
 let fail = 0
 const assert = (cond, msg) => { if (!cond) { fail++; console.log('  FAIL ' + msg) } else console.log('  PASS ' + msg) }
@@ -468,17 +473,207 @@ for (const [deletedAt, nowIso, want] of retentionTable) {
   assert(got === want, `isPurgeable(${JSON.stringify(deletedAt)}, ${nowIso}) = ${want}` + (got === want ? '' : `（实得 ${got}）`))
 }
 
-// ---- 结构预留位（下一波补齐，勿删） ----
-// === 重复规则真值表 ===
-// 待并行改动落地后，从 harness assertions.ts 的 runRecurrenceAssertions()
-// （nextMonthlyClamped 月度钳制表）与 runCustomRecurrenceAssertions()
-// （parseCustomRecurrence / buildCustomRecurrence 往返表）逐字移植到此处。
-// import 方式同上：await import('../src/shared/recurrence.ts')。
-//
-// === CSV 搬家真值表 ===
-// 从 runCsvImportAssertions() 的纯函数半区（parseCsvImport 字面量表）移植；
-// 真实落库往返（importCsvText → SQLite）依赖 better-sqlite3 原生模块，
-// 属于 E2E 层，留在 harness，不进本脚本。
+console.log('=== 重复规则：月度钳制真值表（本地墙钟，期望字面量） ===')
+// 逐字移植 runRecurrenceAssertions()：nextMonthlyClamped 把 29–31 日钳到短月
+// 最后一天而非跳月，保留时分秒毫秒，候选必须严格晚于 due 与 now。
+{
+  const at = (y, mo, d, h = 9, mi = 0, s = 0, ms = 0) => new Date(y, mo, d, h, mi, s, ms)
+  const key = (d) =>
+    d
+      ? `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()} ${d.getHours()}:${d.getMinutes()}:${d.getSeconds()}.${d.getMilliseconds()}`
+      : 'null'
+  // [due, now, 期望]
+  const recurrenceClampTable = [
+    // 31 日 → 平年 2 月钳到 28
+    [at(2026, 0, 31), at(2026, 0, 31), '2026-2-28 9:0:0.0'],
+    // 30 日 → 2 月同样钳到 28
+    [at(2026, 0, 30, 8), at(2026, 0, 30, 8), '2026-2-28 8:0:0.0'],
+    // 29 日 → 平年 2 月钳到 28
+    [at(2026, 0, 29), at(2026, 0, 29), '2026-2-28 9:0:0.0'],
+    // 闰年 2 月：31 日钳到 29
+    [at(2028, 0, 31, 10), at(2028, 0, 31, 10), '2028-2-29 10:0:0.0'],
+    // 31 日 → 4 月（30 天）钳到 30
+    [at(2026, 2, 31), at(2026, 2, 31), '2026-4-30 9:0:0.0'],
+    // 31 日 → 8 月（31 天）不钳
+    [at(2026, 6, 31), at(2026, 6, 31), '2026-8-31 9:0:0.0'],
+    // 跨年：12 月 31 → 次年 1 月 31
+    [at(2026, 11, 31, 23, 59), at(2026, 11, 31, 23, 59), '2027-1-31 23:59:0.0'],
+    // now 已过 due 落在月中：从 now 所在月取钳制日
+    [at(2026, 0, 31), at(2026, 2, 15, 12), '2026-3-31 9:0:0.0'],
+    // now 在 2 月且 due 是 31：2 月 28 仍晚于 now → 取 2 月 28
+    [at(2026, 0, 31), at(2026, 1, 10, 12), '2026-2-28 9:0:0.0'],
+    // 保留时分秒毫秒
+    [at(2026, 0, 31, 18, 30, 45, 500), at(2026, 0, 31, 18, 30, 45, 500), '2026-2-28 18:30:45.500']
+  ]
+  for (const [due, clampNow, want] of recurrenceClampTable) {
+    const got = key(nextMonthlyClamped(due, clampNow))
+    assert(got === want, `nextMonthlyClamped(${key(due)}, ${key(clampNow)}) = ${want}` + (got === want ? '' : `（实得 ${got}）`))
+  }
+
+  console.log('=== 重复规则：nextOccurrence 注入时钟真值表（逾期 3 年不断链） ===')
+  // 核心是「逾期很久不断链」：旧实现从 due 起逐个迭代、1000 次封顶，每天重复
+  // 逾期约 2.7 年就静默返回 null。新实现 rule.after 直接跳到锚点之后。
+  // [due（本地墙钟）, rule, now, 期望]
+  const occurrenceTable = [
+    // 每天重复逾期 3 年（2023-01-01 → 2026-01-01 共 1096 天 > 旧上限 1000）
+    [at(2023, 0, 1, 9), 'FREQ=DAILY', at(2026, 0, 1, 8), '2026-1-1 9:0:0.0'],
+    // 逾期 3 年且今天的时段已过 → 明天
+    [at(2023, 0, 1, 9), 'FREQ=DAILY', at(2026, 0, 1, 10), '2026-1-2 9:0:0.0'],
+    // 每周重复逾期 3 年：2023-01-02 是周一，2026-01-01（周四）之后是 01-05 周一
+    [at(2023, 0, 2, 9), 'FREQ=WEEKLY', at(2026, 0, 1, 8), '2026-1-5 9:0:0.0'],
+    // 每年 2 月 29 日：rrule 跳过非闰年（既有语义保留），2026 之后是 2028
+    [at(2020, 1, 29, 9), 'FREQ=YEARLY', at(2026, 0, 1, 8), '2028-2-29 9:0:0.0'],
+    // 每月预设逾期 3 年：钳制路径锚在 now 所在月，31 日不钳
+    [at(2023, 0, 31, 9), 'FREQ=MONTHLY', at(2026, 0, 15, 8), '2026-1-31 9:0:0.0'],
+    // 每月预设：now 在 2 月 → 钳到 28（预设 clamp 语义保留）
+    [at(2023, 0, 31, 9), 'FREQ=MONTHLY', at(2026, 1, 15, 8), '2026-2-28 9:0:0.0'],
+    // 自定义 INTERVAL=2：走 rrule，序列月为 1/3/5/7/9/11，2 月整月跳过
+    //（与预设的月末语义分叉是现状，此处钉死而非修改）
+    [at(2023, 0, 31, 9), 'FREQ=MONTHLY;INTERVAL=2', at(2026, 1, 15, 8), '2026-3-31 9:0:0.0'],
+    // due 在未来：下一次实例严格晚于 due（完成当前实例不再生成它自己）
+    [at(2026, 10, 20, 9), 'FREQ=DAILY', at(2026, 10, 12, 10), '2026-11-21 9:0:0.0'],
+    // COUNT 耗尽：链合法终结，返回 null（UI 层拒绝 COUNT，这里是防御语义）
+    [at(2023, 0, 1, 9), 'FREQ=DAILY;COUNT=5', at(2026, 0, 1, 8), 'null']
+  ]
+  for (const [due, rule, occNow, want] of occurrenceTable) {
+    const got = key(nextOccurrence(due.toISOString(), rule, occNow))
+    assert(got === want, `nextOccurrence(${key(due)}, ${rule}, ${key(occNow)}) = ${want}` + (got === want ? '' : `（实得 ${got}）`))
+  }
+  // 空入参 → null，不抛错。
+  assert(nextOccurrence(null, 'FREQ=DAILY', at(2026, 0, 1)) === null, 'nextOccurrence(null due) = null')
+  assert(nextOccurrence(at(2026, 0, 1).toISOString(), null, at(2026, 0, 1)) === null, 'nextOccurrence(null rule) = null')
+}
+
+console.log('=== 自定义重复：parse/build 往返真值表 ===')
+// 逐字移植 runCustomRecurrenceAssertions()：星期规范化排序与复杂子句拒绝。
+{
+  const parseCases = [
+    ['FREQ=DAILY', 'DAILY', 1, []],
+    ['FREQ=DAILY;INTERVAL=3', 'DAILY', 3, []],
+    ['FREQ=WEEKLY;INTERVAL=2;BYDAY=MO,WE,FR', 'WEEKLY', 2, ['MO', 'WE', 'FR']],
+    ['FREQ=MONTHLY;INTERVAL=2', 'MONTHLY', 2, []],
+    ['FREQ=YEARLY', 'YEARLY', 1, []],
+    [null, '', 0, []]
+  ]
+  for (const [rule, freq, interval, weekdays] of parseCases) {
+    const parsed = parseCustomRecurrence(rule)
+    if (rule === null) {
+      assert(parsed === null, 'parseCustomRecurrence(null) = null' + (parsed === null ? '' : `（实得 ${JSON.stringify(parsed)}）`))
+      continue
+    }
+    const ok =
+      parsed &&
+      parsed.freq === freq &&
+      parsed.interval === interval &&
+      JSON.stringify(parsed.weekdays) === JSON.stringify(weekdays)
+    assert(ok, `parseCustomRecurrence(${rule}) = ${JSON.stringify({ freq, interval, weekdays })}` + (ok ? '' : `（实得 ${JSON.stringify(parsed)}）`))
+  }
+  const buildCases = [
+    [{ freq: 'DAILY', interval: 1, weekdays: [] }, 'FREQ=DAILY'],
+    [{ freq: 'DAILY', interval: 3, weekdays: [] }, 'FREQ=DAILY;INTERVAL=3'],
+    [{ freq: 'WEEKLY', interval: 2, weekdays: ['FR', 'MO', 'WE'] }, 'FREQ=WEEKLY;INTERVAL=2;BYDAY=MO,WE,FR'],
+    [{ freq: 'WEEKLY', interval: 1, weekdays: [] }, 'FREQ=WEEKLY'],
+    [{ freq: 'MONTHLY', interval: 2, weekdays: ['MO'] }, 'FREQ=MONTHLY;INTERVAL=2']
+  ]
+  for (const [input, want] of buildCases) {
+    const got = buildCustomRecurrence(input)
+    assert(got === want, `buildCustomRecurrence(${JSON.stringify(input)}) = ${want}` + (got === want ? '' : `（实得 ${got}）`))
+  }
+  for (const complex of ['FREQ=MONTHLY;BYMONTHDAY=15', 'FREQ=DAILY;COUNT=5', 'FREQ=WEEKLY;BYSETPOS=1']) {
+    const got = parseCustomRecurrence(complex)
+    assert(got === null, `复杂子句拒绝：${complex}` + (got === null ? '' : `（实得 ${JSON.stringify(got)}）`))
+  }
+}
+
+console.log('=== CSV 搬家：纯函数真值表（落库往返留在 E2E 层） ===')
+// 逐字移植 runCsvImportAssertions() 的纯函数半区：两种格式签名、引号/转义/
+// BOM/CRLF、indent 子任务、优先级映射、重复描述不猜截止、删除/分区/笔记行跳过，
+// 以及硬化用例（未闭合引号 / 日期溢出 / 备注超长整体拒绝，闰日不误伤）。
+// 错误是 code+params 结构，期望照 harness 字面量。
+{
+  const standardCsv = [
+    'TYPE,CONTENT,DESCRIPTION,PRIORITY,INDENT,DATE,IS_DELETED,IS_ARCHIVED,PROJECT_NAME',
+    'task,"冒烟CSV甲,带逗号","备注甲",4,0,2026-11-20,false,false,冒烟CSV项目',
+    'task,冒烟CSV子步骤,,1,1,,false,false,',
+    'section,冒烟CSV分区,,1,0,,false,false,',
+    'task,冒烟CSV已删,,1,0,,true,false,',
+    'task,冒烟CSV乙,,2,0,every day,false,false,',
+    'note,冒烟CSV笔记,,1,0,,false,false,'
+  ].join('\r\n')
+  const didaCsv = '\uFEFF任务名称,任务内容,清单名称,标签,优先级,截止日期,完成状态\r\n' +
+    '冒烟CSV丙,备注丙,冒烟CSV清单,"工作,紧急",高,2026-11-21 15:00,未完成\r\n' +
+    '冒烟CSV丁,,,,低,,已完成\r\n' +
+    ',空标题跳过,,,,,\r\n'
+
+  const unclosedCsv = '任务名称,任务内容\r\n"未闭合,备注\r\n'
+  const overflowCsv = '任务名称,截止日期\r\n冒烟CSV溢出,2026-13-40\r\n'
+  const feb30Csv = '任务名称,截止日期\r\n冒烟CSV溢出,2026-02-30\r\n'
+  const longNotesCsv = `任务名称,任务内容\r\n冒烟CSV超长,${'x'.repeat(20001)}\r\n`
+  const leapOkCsv = '任务名称,截止日期\r\n冒烟CSV闰日,2028-02-29\r\n'
+
+  const t = parseCsvImport(standardCsv)
+  const d = parseCsvImport(didaCsv)
+  const bad = parseCsvImport('a,b\r\n1,2\r\n')
+  const empty = parseCsvImport('')
+  const unclosed = parseCsvImport(unclosedCsv)
+  const overflow = parseCsvImport(overflowCsv)
+  const feb30 = parseCsvImport(feb30Csv)
+  const longNotes = parseCsvImport(longNotesCsv)
+  const leapOk = parseCsvImport(leapOkCsv)
+  const expectedDue = new Date(2026, 10, 20, 23, 59, 0).toISOString()
+  const expectedDidaDue = new Date(2026, 10, 21, 15, 0, 0).toISOString()
+  const expectedLeapDue = new Date(2028, 1, 29, 23, 59, 0).toISOString()
+
+  const standardOk =
+    t.ok && t.format === 'standard' &&
+    t.tasks.length === 2 && t.skipped === 3 &&
+    t.tasks[0].title === '冒烟CSV甲,带逗号' &&
+    t.tasks[0].notes === '备注甲' &&
+    t.tasks[0].priority === 3 &&
+    t.tasks[0].dueAt === expectedDue &&
+    t.tasks[0].projectName === '冒烟CSV项目' &&
+    t.tasks[0].subtasks.join('|') === '冒烟CSV子步骤' &&
+    t.tasks[1].title === '冒烟CSV乙' &&
+    t.tasks[1].priority === 1 &&
+    t.tasks[1].dueAt === null
+  assert(standardOk, 'Csv 签名：引号逗号/优先级映射/indent 子任务/every day 不猜截止/跳过 3 行' + (standardOk ? '' : `（实得 ${JSON.stringify(t)}）`))
+  const didaOk =
+    d.ok && d.format === 'legacy' &&
+    d.tasks.length === 2 && d.skipped === 1 &&
+    d.tasks[0].priority === 3 &&
+    d.tasks[0].dueAt === expectedDidaDue &&
+    d.tasks[0].tags.join('|') === '工作|紧急' &&
+    d.tasks[0].projectName === '冒烟CSV清单' &&
+    d.tasks[1].completed === true && d.tasks[1].priority === 1
+  assert(didaOk, '主流待办应用签名：BOM+CRLF/标签列表/高→3 低→1/已完成/空标题跳过' + (didaOk ? '' : `（实得 ${JSON.stringify(d)}）`))
+  assert(!bad.ok && bad.error?.code === 'unknownFormat', '未知表头拒绝：unknownFormat' + (!bad.ok && bad.error?.code === 'unknownFormat' ? '' : `（实得 ${JSON.stringify(bad.error)}）`))
+  assert(!empty.ok && empty.error?.code === 'empty', '空文件拒绝：empty' + (!empty.ok && empty.error?.code === 'empty' ? '' : `（实得 ${JSON.stringify(empty.error)}）`))
+  // 未闭合引号：拒绝并给出引号起始的物理行号（第 2 行）
+  const unclosedOk =
+    !unclosed.ok && unclosed.tasks.length === 0 &&
+    unclosed.error?.code === 'unclosedQuote' && unclosed.error?.params?.row === 2
+  assert(unclosedOk, '未闭合引号整体拒绝：unclosedQuote row=2' + (unclosedOk ? '' : `（实得 ${JSON.stringify(unclosed.error)}）`))
+  // 13 月 40 日 / 2 月 30 日：拒绝而非滚成次年/下月，带行号与原值
+  const overflowOk =
+    !overflow.ok && overflow.error?.code === 'invalidDate' &&
+    overflow.error?.params?.row === 2 && overflow.error?.params?.value === '2026-13-40'
+  assert(overflowOk, '日期溢出拒绝：invalidDate row=2 value=2026-13-40' + (overflowOk ? '' : `（实得 ${JSON.stringify(overflow.error)}）`))
+  const feb30Ok = !feb30.ok && feb30.error?.code === 'invalidDate' && feb30.error?.params?.row === 2
+  assert(feb30Ok, '2 月 30 日拒绝：invalidDate row=2' + (feb30Ok ? '' : `（实得 ${JSON.stringify(feb30.error)}）`))
+  // 备注超 20000：对齐 IPC zod 上限，整体拒绝带行号
+  const longNotesOk =
+    !longNotes.ok && longNotes.error?.code === 'notesTooLong' &&
+    longNotes.error?.params?.row === 2 && longNotes.error?.params?.limit === 20000
+  assert(longNotesOk, '备注超长拒绝：notesTooLong row=2 limit=20000' + (longNotesOk ? '' : `（实得 ${JSON.stringify(longNotes.error)}）`))
+  // 合法闰日不受回读校验误伤
+  const leapOkOk = leapOk.ok && leapOk.tasks.length === 1 && leapOk.tasks[0].dueAt === expectedLeapDue
+  assert(leapOkOk, '闰日 2028-02-29 不误伤' + (leapOkOk ? '' : `（实得 ${JSON.stringify(leapOk)}）`))
+  // 错误文案在展示边界按语言翻译：英文界面必须看到英文。期望写字面量片段。
+  const enQuote = csvErrorMessage('en', { code: 'unclosedQuote', params: { row: 2 } })
+  const zhQuote = csvErrorMessage('zh-CN', { code: 'unclosedQuote', params: { row: 2 } })
+  const i18nOk = enQuote.includes('Unclosed quote on row 2') && zhQuote.includes('第 2 行')
+  assert(i18nOk, '错误文案 zh+en：unclosedQuote 双语字面量' + (i18nOk ? '' : `（实得 ${JSON.stringify({ enQuote, zhQuote })}）`))
+}
 
 console.log('\n' + (fail === 0 ? '纯函数真值表全部成立 ✓' : fail + ' 项失败 ✗'))
 process.exit(fail === 0 ? 0 : 1)

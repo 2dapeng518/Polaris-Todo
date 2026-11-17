@@ -1,5 +1,6 @@
 import { app, ipcMain, type BrowserWindow } from 'electron'
 import { autoUpdater } from 'electron-updater'
+import log from 'electron-log/main'
 import type { UpdateState, UpdateStatus } from '../shared/types'
 import { normalizeReleaseNotes, smoothSpeed } from '../shared/update'
 import { translate, type Locale } from '../shared/i18n'
@@ -95,6 +96,8 @@ async function check(): Promise<UpdateState> {
     // autoDownload 开着：update-available 后紧接着自动下载。
     await autoUpdater.checkForUpdates()
   } catch (error) {
+    // 检查失败留痕：用户机器上「更新一直不动」靠日志取证（气泡只给截断文案）。
+    log.error('Polaris update check failed:', error)
     patch({ status: 'error', error: String(error) })
   }
   return state()
@@ -166,8 +169,13 @@ export function initUpdater(options: {
   // 用户没点「立即重启」也没关系：下次正常退出时静默装上。
   autoUpdater.autoInstallOnAppQuit = true
   autoUpdater.disableWebInstaller = true
+  // electron-updater 内部日志（检查/下载/校验各步）一并落文件：
+  // 打包后更新失败的唯一取证来源。每次检查只几行，不刷屏。
+  autoUpdater.logger = log
 
   autoUpdater.on('update-available', (info) => {
+    // 里程碑：发现新版本（下载随之自动开始）。
+    log.info('Polaris update available:', info.version)
     // 跳过过的版本也照常下载（退出时静默安装），只是渲染层不为它弹窗。
     patch({
       status: 'available',
@@ -208,6 +216,8 @@ export function initUpdater(options: {
   })
 
   autoUpdater.on('update-downloaded', (info) => {
+    // 里程碑：下载完成，等用户重启或下次退出静默安装。
+    log.info('Polaris update downloaded:', info.version)
     patch({
       status: 'downloaded',
       latestVersion: info.version,
@@ -221,6 +231,8 @@ export function initUpdater(options: {
   })
 
   autoUpdater.on('error', (error) => {
+    // 下载/校验阶段的失败留痕（检查阶段的拒绝在 check() 的 catch 里记）。
+    log.error('Polaris updater error:', error)
     patch({
       status: 'error',
       error: String(error),

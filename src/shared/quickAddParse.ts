@@ -928,14 +928,18 @@ export function parseQuickAdd(raw: string, ctx: ParseContext): QuickAddParse {
     const value = Number(match[1])
     const unit = match[2].toLowerCase()
     if (!(value >= 1 && value <= 999)) continue
-    const ms = unit.startsWith('hour')
-      ? value * 3_600_000
-      : unit.startsWith('min')
-        ? value * 60_000
-        : unit.startsWith('day')
-          ? value * 86_400_000
-          : value * 604_800_000
-    pushEn('offsetEn', match.index, match.index + match[0].length, { ms })
+    if (unit.startsWith('hour') || unit.startsWith('min')) {
+      // hour/minute 是「此刻之后精确 N 小时/分钟」的瞬间语义：固定毫秒偏移
+      // 是正确的——DST 切换时 in 2 hours 就该恰好是 7200 秒之后。
+      const ms = unit.startsWith('hour') ? value * 3_600_000 : value * 60_000
+      pushEn('offsetEn', match.index, match.index + match[0].length, { ms })
+    } else {
+      // day/week 是「N 天后同一墙钟时刻」的墙钟语义，与中文「后天」一致：
+      // 走 addDays 墙钟加天（week = 7 × day）。固定 86_400_000ms 在 DST
+      // 切换周会漂一小时（那天实际长 23h 或 25h），两种单位算法刻意不同。
+      const days = unit.startsWith('day') ? value : value * 7
+      pushEn('offsetEn', match.index, match.index + match[0].length, { off: days })
+    }
   }
 
   for (const match of masked.matchAll(EN_MONTH_FIRST)) {
@@ -1128,9 +1132,14 @@ export function parseQuickAdd(raw: string, ctx: ParseContext): QuickAddParse {
   let past = false
 
   if (offsetTok) {
-    // 英文 'in N units' 是相对当前瞬间的精确偏移，直接产出瞬间，不进入
-    // 日期/时段的分层逻辑，也不做「已过就顺延一天」的补正。
-    const result = new Date(now.getTime() + (offsetTok.ms ?? 0))
+    // 英文 'in N units' 相对当前时刻直接产出结果，不进入日期/时段的分层
+    // 逻辑，也不做「已过就顺延一天」的补正。hour/minute 走精确毫秒偏移
+    // （瞬间语义）；day/week 走 addDays 墙钟加天（与中文「后天」同一算法，
+    // DST 切换周不漂时刻），见 Step 2b 的 EN_OFFSET 注释。
+    const result =
+      offsetTok.ms !== undefined
+        ? new Date(now.getTime() + offsetTok.ms)
+        : addDays(now, offsetTok.off ?? 0)
     dueAt = result.toISOString()
     timeExplicit = true
     past = result < now

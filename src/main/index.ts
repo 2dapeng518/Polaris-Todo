@@ -1,4 +1,5 @@
 import { app, BrowserWindow, dialog, ipcMain, nativeImage, screen, shell, type WebContents } from 'electron'
+import log from 'electron-log/main'
 import { join } from 'node:path'
 import { mkdir, readFile, readdir, rename, stat, unlink, writeFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
@@ -32,6 +33,14 @@ import { isAppTheme, THEME_SYMBOL_COLOR, themeFamily } from '../shared/themes'
 import { dismissReminder, startReminderScheduler } from './reminders'
 import { createTray, showTrayBalloon, updateTrayLocale } from './tray'
 import { TRAY_ICON_DATA_URL } from './tray-icon'
+
+// 持久化日志尽早初始化：文件落 userData/logs/main.log（electron-log 默认路径），
+// 单文件 1MB 上限，写满轮转为 main.old.log（默认保留一份旧档，最多占 ~2MB）。
+// 生产与开发都写文件——打包后 stdout 无处可去，更新失败/DB 异常靠文件取证；
+// console 传输保留（开发体验不变）。生产主进程模块一律用 log.*，不再裸 console；
+// harness/ 目录的 console 是冒烟输出协议（POLARIS_SMOKE_*）的一部分，不在此列。
+log.initialize()
+log.transports.file.maxSize = 1024 * 1024
 
 // 仅类型导出：harness 的 HarnessContext 要引用同一份 schema 类型（safeParse
 // 检查 v1/v2 缺省字段）。类型在编译期擦除，不产生任何运行时反向依赖。
@@ -173,10 +182,10 @@ app.on('web-contents-created', (_event, contents) => {
 // 进程级兜底留痕：未处理的 Promise 拒绝与未捕获异常只记日志，不让主进程
 // 静默崩溃（启动链本身的失败由 whenReady 的 catch 负责报错退出）。
 process.on('unhandledRejection', (reason) => {
-  console.error('Polaris unhandled rejection:', reason)
+  log.error('Polaris unhandled rejection:', reason)
 })
 process.on('uncaughtException', (error) => {
-  console.error('Polaris uncaught exception:', error)
+  log.error('Polaris uncaught exception:', error)
 })
 
 // data:export 与启动自动备份共用的同一份序列化逻辑，不新造格式。
@@ -216,16 +225,16 @@ async function runAutoBackup(): Promise<void> {
     }
     // 文件名用 ISO 时间戳（冒号/点换成连字符，Windows 合法），字典序即时间序。
     const stamp = new Date().toISOString().replace(/[:.]/g, '-')
-    await writeFileAtomic(
-      join(dir, `${AUTO_BACKUP_PREFIX}${stamp}.json`),
-      JSON.stringify(buildBackupPayload(), null, 2)
-    )
+    const backupName = `${AUTO_BACKUP_PREFIX}${stamp}.json`
+    await writeFileAtomic(join(dir, backupName), JSON.stringify(buildBackupPayload(), null, 2))
+    // 里程碑留痕：备份写成才记一条，跳过（24h 内已有）不记，不刷屏。
+    log.info('Polaris auto backup written:', backupName)
     const after = await listBackups()
     for (const name of after.slice(0, Math.max(0, after.length - AUTO_BACKUP_KEEP))) {
       await unlink(join(dir, name)).catch(() => {})
     }
   } catch (error) {
-    console.error('Polaris auto backup failed:', error)
+    log.error('Polaris auto backup failed:', error)
   }
 }
 
@@ -350,7 +359,7 @@ function createWindow(): void {
         })
       })
       .catch((error: unknown) => {
-        console.error('Polaris harness attach failed:', error)
+        log.error('Polaris harness attach failed:', error)
       })
   }
 }
@@ -454,6 +463,9 @@ function showSaveDialogSafe(
 
 app.whenReady().then(() => {
   if (!gotSingleInstanceLock) return
+
+  // 启动里程碑：版本 + 是否打包 + userData 位置，一条定位用户机器环境。
+  log.info(`Polaris ${app.getVersion()} starting (packaged: ${app.isPackaged}, userData: ${app.getPath('userData')})`)
 
   // 损坏库会被改名隔离并重建空库；quarantinedPath 非空时启动后告知用户。
   const { quarantinedPath } = initDatabase()
@@ -672,7 +684,7 @@ app.whenReady().then(() => {
 }).catch((error: unknown) => {
   // 启动链任何一步失败都不能静默死亡：留痕 + 双语报错 + 退出。
   // locale 可能尚未初始化（initAppLocale 之前就抛错），双语兜底。
-  console.error('Polaris startup failed:', error)
+  log.error('Polaris startup failed:', error)
   const startupDetail = (locale: Locale): string =>
     translate(locale, 'native.startupFailedDetail', { error: String(error) })
   dialog.showErrorBox(

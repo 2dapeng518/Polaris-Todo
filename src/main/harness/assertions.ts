@@ -1,6 +1,11 @@
 // 真值表断言：quick-add 解析 / 回收站保留期 / 重复规则 / CSV 搬家导入。
 // 期望值全部写字面量，绝不经过被测代码重算——否则是拿实现测实现。
 // 只在 harness 构建里存在；shared 纯函数照常 import，不依赖窗口。
+//
+// ⚠️ 同步维护：parse / retention / recurrence（含自定义往返）/ csv 纯函数半区
+// 的表已逐字镜像到 scripts/verify-pure.mjs（plain Node 秒级快速层，CI 已挂）。
+// 这里的原断言保留（E2E 仍跑）；任何一处改表，另一处必须跟着改。
+// csv 的真实落库往返（importCsvText → SQLite）只在 E2E 层，不进快速层。
 
 import {
   deleteProject,
