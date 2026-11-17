@@ -17,6 +17,7 @@ export default function App() {
   const t = useT()
   const load = useTaskStore((state) => state.load)
   const loadTrash = useTaskStore((state) => state.loadTrash)
+  const refreshOnFocus = useTaskStore((state) => state.refreshOnFocus)
   const loading = useTaskStore((state) => state.loading)
   const inspectorOpen = useTaskStore((state) =>
     state.tasks.some((task) => task.id === state.selectedTaskId)
@@ -29,14 +30,16 @@ export default function App() {
     void loadTrash()
   }, [load, loadTrash])
 
+  // focus 刷新走修订号门控（迁移 7 触发器 + data:revision 探针）：号没变就
+  // 跳过全量重拉，频繁 alt-tab 不再让 tasks 数组整体换引用、全员重渲染。
+  // 号变了（含 MCP/导入等外部写入）仍全量 load()+loadTrash()，可见性不降级。
   useEffect(() => {
     const onFocus = () => {
-      void load()
-      void loadTrash()
+      void refreshOnFocus()
     }
     window.addEventListener('focus', onFocus)
     return () => window.removeEventListener('focus', onFocus)
-  }, [load, loadTrash])
+  }, [refreshOnFocus])
 
   // 更新状态订阅只挂主窗口：提醒窗口不该弹更新框。
   useEffect(() => subscribeUpdateStore(), [])

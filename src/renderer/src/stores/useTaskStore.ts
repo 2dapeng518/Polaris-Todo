@@ -102,12 +102,19 @@ type TaskState = {
   selectedTaskId: string | null
   paletteOpen: boolean
   loading: boolean
+  // 最近一次成功全量 load 的写修订号盖章（迁移 7 触发器维护）。null = 从未
+  // 同步过，focus 必拉。load() 用「读 list 之前」取的号盖章；自有写入成功落定
+  // 后 fire-and-forget 刷新（见 stampRevision），失败路径不盖。
+  lastSyncedRevision: number | null
   pendingDeletion: Task | null
   trashConfirm: TrashConfirm | null
   notice: { dueAt: string } | null
   storageError: MessageKey | null
   load: () => Promise<void>
   loadTrash: () => Promise<void>
+  // focus 刷新门控：修订号与盖章相同则跳过全量重拉；不同（或取号失败）照旧
+  // load()+loadTrash()。外部变更可见性不降级，只省「无变化时的空拉」。
+  refreshOnFocus: () => Promise<void>
   loadSubtasks: (taskId: string) => Promise<void>
   addSubtask: (taskId: string, title: string) => Promise<void>
   updateSubtask: (id: string, patch: SubtaskPatch) => Promise<void>
@@ -145,6 +152,27 @@ type TaskState = {
 }
 
 export const useTaskStore = create<TaskState>((set, get) => {
+  // 自有写入成功落定后的盖章刷新（fire-and-forget）：避免「自己刚写完 → 下次
+  // focus 必然多拉一次」。失败路径不调用——盖章留在旧值，号不同必拉。漏盖
+  // （取号失败/进程忙）最多多拉一次，正确性由门控的「号不同必拉」保证。
+  // 固有边界（与 runUpdate 的同字段并发残余同类）：写提交与本次取号之间有
+  // 毫秒级间隙，外部写入（MCP）恰好落在间隙里时，取回的号已包含它而 store
+  // 尚未见到那一行——该外部变更会推迟到下一次任何变更后的 focus 才可见。
+  // 彻底消除需要每个写通道回传落定修订号，本轮按选定方案接受此边界。
+  const stampRevision = async (): Promise<void> => {
+    try {
+      const revision = await window.polaris.data.getRevision()
+      set({ lastSyncedRevision: revision })
+    } catch {
+      // 取号失败不盖：旧盖章 + 新修订号 → 下次 focus 多拉一次，安全方向。
+    }
+  }
+
+  // load 序号：mount 与 focus（或设置页导入后的刷新）可能并发触发 load，只允许
+  // 最新一次落数据与盖章——晚到的旧快照若覆盖新数据还盖上新号，门控会漏拉。
+  // 过期的成功/失败都直接丢弃，由最新一次给出权威结果。
+  let loadSeq = 0
+
   // 共享更新管线：乐观替换 → IPC → 权威落定（含 spawned 插入）→ 失败字段级回滚。
   // updateTask 与 toggleTask 都走这里，错误归属集合机制（writeFailed/clearError）
   // 与原来完全一致。spawned 由 DB 权威返回，直接插入本地列表，不再全量 load()，
@@ -194,6 +222,8 @@ export const useTaskStore = create<TaskState>((set, get) => {
         ],
         ...clearError()
       }))
+      // 自有写入已落定：刷新盖章，下次 focus 不为自己的写入多拉一次。
+      void stampRevision()
       return result
     } catch (error) {
       // 只覆盖 preCall 快照里的字段（本次 patch 的键 + 派生 tags + 乐观
@@ -219,32 +249,57 @@ export const useTaskStore = create<TaskState>((set, get) => {
   selectedTaskId: null,
   paletteOpen: false,
   loading: true,
+  lastSyncedRevision: null,
   pendingDeletion: null,
   trashConfirm: null,
   notice: null,
   storageError: null,
 
   load: async () => {
+    const seq = ++loadSeq
     try {
+      // 取号在读 list 之前（方向承重）：取号之后、list 落地之前的间隙写入会让
+      // 「当前号 > 盖章」，下次 focus 多拉一次——宁可多拉不可漏拉。反过来
+      // （先 list 后取号）会把含间隙写入的新号盖在不含它的旧快照上，门控从此
+      // 漏拉。取号失败按 null（从未同步）处理，同样是「下次必拉」的安全方向。
+      const revision = await window.polaris.data.getRevision().catch(() => null)
       const [tasks, projects, tags] = await Promise.all([
         window.polaris.tasks.list(),
         window.polaris.projects.list(),
         window.polaris.tags.list()
       ])
+      // 过期读取：更晚发起的 load 已接管，旧快照不得覆盖数据与盖章。
+      if (seq !== loadSeq) return
       set((state) => ({
         tasks,
         projects,
         tags,
         loading: false,
+        lastSyncedRevision: revision,
         storageError: readSucceeded('load', state.storageError),
         selectedTaskId: tasks.some((task) => task.id === state.selectedTaskId)
           ? state.selectedTaskId
           : null
       }))
     } catch (error) {
+      if (seq !== loadSeq) return
       console.error('Failed to load Polaris data:', error)
       set({ loading: false, ...readFailed('load') })
     }
+  },
+
+  refreshOnFocus: async () => {
+    // focus 门控：修订号没变说明五张数据表没变（迁移 7 触发器覆盖所有写入
+    // 路径），跳过全量重拉——tasks 数组引用不变，全部订阅者零重渲染。变了
+    // （或从未同步/取号失败）照旧全量 load()+loadTrash()，外部变更（MCP/CSV
+    // 导入/备份导入/retention 清理）可见性不降级。
+    try {
+      const revision = await window.polaris.data.getRevision()
+      if (revision === get().lastSyncedRevision) return
+    } catch {
+      // 取号失败：宁可多拉不可漏拉，退回无条件全量刷新（旧语义）。
+    }
+    await Promise.all([get().load(), get().loadTrash()])
   },
 
   loadTrash: async () => {
@@ -306,8 +361,12 @@ export const useTaskStore = create<TaskState>((set, get) => {
         },
         ...clearError()
       }))
+      void stampRevision()
     } catch (error) {
       console.error('Failed to add subtask:', error)
+      // add 类回滚不需要字段级快照：回滚对象是「独立行的插入」，不是字段竞态。
+      // draft 按 id 精确移除，并发 add 追加的其他行原样保留；total 减一只冲销
+      // 本次插入的那一行，done 不动（新行未完成），计数口径与行集合一致。
       set((state) => ({
         subtasksByTask: {
           ...state.subtasksByTask,
@@ -334,6 +393,16 @@ export const useTaskStore = create<TaskState>((set, get) => {
     const title = patch.title?.trim()
     if (patch.title !== undefined && !title) return
 
+    // 字段级回滚快照（与 runUpdate 的 pickTaskFields 模式同构）：只记本次 patch
+    // 实际尝试修改的键。A(改名)乐观 → B(勾选)乐观含 A 改动 → B 成功落库 →
+    // A 失败——整行恢复成 before 会把 B 已落库的 completed 在 UI 抹掉（DB 正确
+    // UI 错，直到下一次读取才纠正）。已知固有边界（与 runUpdate 一致）：同字段
+    // 并发时后失败者退回 pre-A 值，可能覆盖先成功者的值，由下一次读取纠正。
+    const preCall: Partial<Subtask> = {
+      ...(title !== undefined ? { title: before.title } : {}),
+      ...(patch.completed !== undefined ? { completed: before.completed } : {})
+    }
+
     const optimistic: Subtask = {
       ...before,
       title: title ?? before.title,
@@ -357,29 +426,46 @@ export const useTaskStore = create<TaskState>((set, get) => {
         ...(title !== undefined ? { title } : {}),
         ...(patch.completed !== undefined ? { completed: patch.completed } : {})
       })
-      const settledDelta = Number(updated.completed) - Number(optimistic.completed)
-      set((state) => ({
-        subtasksByTask: {
-          ...state.subtasksByTask,
-          [taskId]: (state.subtasksByTask[taskId] ?? []).map((item) =>
-            item.id === id ? updated : item
-          )
-        },
-        tasks: withSubtaskCounts(state.tasks, taskId, 0, settledDelta),
-        ...clearError()
-      }))
+      set((state) => {
+        const items = state.subtasksByTask[taskId] ?? []
+        const currentRow = items.find((item) => item.id === id)
+        // 落定记账按「store 当前行」算差：并发下当前行可能已被另一次成功写入
+        // 替换，按它算差保持计数与行集合一致；单线程下当前行就是 optimistic，
+        // 与旧 settledDelta 语义完全相同。行已被并发移除则不记账（移除方已冲销）。
+        const settledDelta = currentRow
+          ? Number(updated.completed) - Number(currentRow.completed)
+          : 0
+        return {
+          subtasksByTask: {
+            ...state.subtasksByTask,
+            [taskId]: items.map((item) => (item.id === id ? updated : item))
+          },
+          tasks: withSubtaskCounts(state.tasks, taskId, 0, settledDelta),
+          ...clearError()
+        }
+      })
+      void stampRevision()
     } catch (error) {
       console.error('Failed to update subtask:', error)
-      set((state) => ({
-        subtasksByTask: {
-          ...state.subtasksByTask,
-          [taskId]: (state.subtasksByTask[taskId] ?? []).map((item) =>
-            item.id === id ? before : item
-          )
-        },
-        tasks: withSubtaskCounts(state.tasks, taskId, 0, -doneDelta),
-        ...writeFailed()
-      }))
+      set((state) => {
+        const items = state.subtasksByTask[taskId] ?? []
+        const currentRow = items.find((item) => item.id === id)
+        // 回滚只覆盖 preCall 的键，其余字段保留 store 当前值（可能含并发成功
+        // 写入的权威数据）。done 计数回滚同样按当前行算差：单线程下当前行就是
+        // optimistic，差值即旧语义的 -doneDelta；本次没碰 completed 则不记账。
+        const rollbackDelta =
+          currentRow && preCall.completed !== undefined
+            ? Number(preCall.completed) - Number(currentRow.completed)
+            : 0
+        return {
+          subtasksByTask: {
+            ...state.subtasksByTask,
+            [taskId]: items.map((item) => (item.id === id ? { ...item, ...preCall } : item))
+          },
+          tasks: withSubtaskCounts(state.tasks, taskId, 0, rollbackDelta),
+          ...writeFailed()
+        }
+      })
     }
   },
 
@@ -406,8 +492,13 @@ export const useTaskStore = create<TaskState>((set, get) => {
     try {
       await window.polaris.subtasks.remove(id)
       set(clearError())
+      void stampRevision()
     } catch (error) {
       console.error('Failed to remove subtask:', error)
+      // remove 类回滚不需要字段级快照：回滚对象是「独立行的存在性」。行缺席
+      // store 期间，并发 updateSubtask 找不到 entry 直接返回，没有字段竞态窗口；
+      // 原位回插保留 sortOrder，并发 add 的其他行不受影响。total/done 记账按
+      // 回插行自身的 completed 冲销，与行集合一致。
       set((state) => {
         const restored = [...(state.subtasksByTask[taskId] ?? [])]
         restored.splice(Math.min(index, restored.length), 0, before)
@@ -658,6 +749,7 @@ export const useTaskStore = create<TaskState>((set, get) => {
         delete subtasksByTask[id]
         return { subtasksByTask, ...clearError() }
       })
+      void stampRevision()
     } catch (error) {
       console.error('Failed to delete task forever:', error)
       set((state) => {
@@ -683,6 +775,7 @@ export const useTaskStore = create<TaskState>((set, get) => {
         for (const task of current) delete subtasksByTask[task.id]
         return { subtasksByTask, ...clearError() }
       })
+      void stampRevision()
     } catch (error) {
       console.error('Failed to empty trash:', error)
       // 完整回滚：撤销槽也还原，否则失败后用户丢失原本可用的撤销。

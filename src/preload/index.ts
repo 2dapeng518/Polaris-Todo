@@ -49,6 +49,7 @@ const api: PolarisApi = {
     remove: (id: string) => ipcRenderer.invoke('tags:remove', { id })
   },
   data: {
+    getRevision: (): Promise<number> => ipcRenderer.invoke('data:revision'),
     export: (): Promise<ExportResult> => ipcRenderer.invoke('data:export'),
     import: (): Promise<ImportResult> => ipcRenderer.invoke('data:import'),
     importCsv: (): Promise<CsvImportResult> => ipcRenderer.invoke('data:import-csv')
