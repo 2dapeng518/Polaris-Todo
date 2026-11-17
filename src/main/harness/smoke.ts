@@ -3794,6 +3794,69 @@ export async function runSmokeTest(): Promise<void> {
       await settledFrames(mainWindow.webContents)
     }
 
+    // 设置页零抖动：用户实机低分辨率档（1024×576）下，令牌显示/隐藏与检查更新
+    // 结果落槽都不得改变面板内容高度。掩码与明文等字符数 + 码盒锁两行高；
+    // 状态行常驻占位，检查前空槽。scrollHeight/页脚顶边是内容位移判别器
+    // （面板被 max-height 封顶时外框不变，只看外框会漏判）。
+    let settingsNoShift = false
+    if (mainWindow) {
+      const originalSize = mainWindow.getSize()
+      mainWindow.setSize(1024, 576)
+      await settledFrames(mainWindow.webContents)
+      setMcpEnabled(true)
+      try {
+        const noShift = await mainWindow.webContents.executeJavaScript(`(async () => {
+          ${pageHelpers}
+          document.querySelector('.settings-item').click();
+          const panel = await waitFor(() => document.querySelector('.settings-panel'));
+          if (!panel) return { found: false };
+          await sleep(400);
+          const tokenBox = await waitFor(() => panel.querySelector('code[aria-label="访问令牌"]'));
+          if (!tokenBox) return { found: true, token: false };
+          const contentH = () => panel.scrollHeight;
+          const boxH = () => tokenBox.getBoundingClientRect().height;
+          const footerTop = () => panel.querySelector('.settings-footer').getBoundingClientRect().top;
+          const maskedH = contentH(); const maskedBox = boxH(); const maskedFooter = footerTop();
+          const showBtn = [...panel.querySelectorAll('.backup-btn')].find((b) => b.textContent === '显示');
+          showBtn?.click();
+          await sleep(150);
+          const shownText = tokenBox.textContent ?? '';
+          const shownH = contentH(); const shownBox = boxH(); const shownFooter = footerTop();
+          const hideBtn = [...panel.querySelectorAll('.backup-btn')].find((b) => b.textContent === '隐藏');
+          hideBtn?.click();
+          await sleep(150);
+          const reH = contentH(); const reBox = boxH();
+          const beforeCheck = contentH(); const beforeFooter = footerTop();
+          panel.querySelector('.update-footer-btn')?.click();
+          const answered = await waitFor(() => (panel.querySelector('.update-footer-status')?.textContent ?? '').length > 0);
+          await sleep(150);
+          const afterCheck = contentH(); const afterFooter = footerTop();
+          document.querySelector('.settings-panel .detail-close')?.click();
+          await sleep(250);
+          return {
+            found: true,
+            token: true,
+            shownIsToken: /^[0-9a-f]{64}$/.test(shownText),
+            tokenStable: maskedH === shownH && shownH === reH && maskedBox === shownBox && shownBox === reBox && maskedFooter === shownFooter,
+            boxNoScroll: tokenBox.scrollHeight <= tokenBox.clientHeight + 1,
+            updateStable: Boolean(answered) && beforeCheck === afterCheck && beforeFooter === afterFooter
+          };
+        })()`)
+        settingsNoShift =
+          noShift?.found === true &&
+          noShift?.token === true &&
+          noShift?.shownIsToken === true &&
+          noShift?.tokenStable === true &&
+          noShift?.boxNoScroll === true &&
+          noShift?.updateStable === true
+        if (!settingsNoShift) console.error('SETTINGS_NO_SHIFT_FAIL', JSON.stringify(noShift))
+      } finally {
+        setMcpEnabled(false)
+        mainWindow.setSize(originalSize[0], originalSize[1])
+        await settledFrames(mainWindow.webContents)
+      }
+    }
+
     // 托盘驻留开关：默认开；UI 往返持久化；开启时关窗=隐藏而非退出。
     let trayToggleWorks = false
     try {
@@ -4642,6 +4705,7 @@ export async function runSmokeTest(): Promise<void> {
       storageCardWorks: storageCardWorks === true,
       settingsFitsDefault: settingsFitsDefault === true,
       settingsFitsCompact: settingsFitsCompact === true,
+      settingsNoShift: settingsNoShift === true,
       trayToggleWorks: trayToggleWorks === true,
       trayMenuEntries: trayMenuEntries === true,
       traySettingsOpens: traySettingsOpens === true,
@@ -4740,6 +4804,7 @@ export async function runSmokeTest(): Promise<void> {
           storageCardWorks,
           settingsFitsDefault,
           settingsFitsCompact,
+          settingsNoShift,
           trayToggleWorks,
           trayMenuEntries,
           traySettingsOpens,

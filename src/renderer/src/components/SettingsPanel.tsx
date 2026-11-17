@@ -86,10 +86,18 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
   const checkUpdate = useUpdateStore((state) => state.check)
   const openUpdateDialog = useUpdateStore((state) => state.openDialog)
   const [updateChecking, setUpdateChecking] = useState(false)
-  // 手动点过检查才展示状态行：dev 的 unsupported 默认不占面板高度。
+  // 手动点过检查才展示状态文案：dev 的 unsupported 默认不落字（占位槽仍在）。
   const [updateAsked, setUpdateAsked] = useState(false)
 
   const updateDialogOpen = useUpdateStore((state) => state.dialogOpen)
+
+  // 更新状态行常驻占位：检查前空槽占一行，检查后文案落槽，面板高度全程不变。
+  // 错误细节复用同一槽（替换通用文案），不追加新行。
+  const updateErrorDetail = update?.status === 'error' && update.error ? update.error : null
+  const updateStatusVisible =
+    !!update &&
+    (updateAsked ||
+      ['checking', 'available', 'downloading', 'downloaded', 'up-to-date', 'error'].includes(update.status))
 
   // 更新弹窗可能叠在设置面板上（「查看更新」）：焦点陷阱让位，别互相抢。
   useFocusTrap(panelRef, open && !paletteOpen && !updateDialogOpen, panelRef)
@@ -575,10 +583,17 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
                       fontFamily: 'var(--font-mono)',
                       fontSize: 11,
                       lineHeight: 1.5,
-                      wordBreak: 'break-all'
+                      wordBreak: 'break-all',
+                      // 掩码与明文等字符数（逐字打码），换行点一致；高度再锁死
+                      // 两行（2×16.5 + 12 内边距 + 2 描边），显示/隐藏零回流。
+                      // 极窄窗口明文若折到三行，盒内滚动而不是撑高面板。
+                      height: 47,
+                      overflowY: 'auto'
                     }}
                   >
-                    {mcpTokenVisible ? mcpToken : `••••${mcpToken.slice(-4)}`}
+                    {mcpTokenVisible
+                      ? mcpToken
+                      : '•'.repeat(Math.max(0, mcpToken.length - 4)) + mcpToken.slice(-4)}
                   </code>
                   <div className="backup-actions">
                     <button
@@ -599,12 +614,15 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
                       {t('settings.mcpTokenRegenerate')}
                     </button>
                   </div>
-                  {mcpTokenNotice &&
-                    (mcpTokenNotice.error ? (
-                      <div className="settings-error" role="alert">{mcpTokenNotice.text}</div>
-                    ) : (
-                      <div className="settings-hint" role="status">{mcpTokenNotice.text}</div>
-                    ))}
+                  {/* 反馈行常驻占位：复制/重新生成的 2.6s 提示落进槽里再消失，
+                      不来回撑面板高度。 */}
+                  <div
+                    className={mcpTokenNotice?.error ? 'settings-error' : 'settings-hint'}
+                    role={mcpTokenNotice?.error ? 'alert' : 'status'}
+                    style={{ minHeight: '1.5em' }}
+                  >
+                    {mcpTokenNotice?.text ?? ''}
+                  </div>
                 </div>
               )}
             </div>
@@ -660,8 +678,8 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
               </div>
             </div>
 
-            {/* 更新入口收进页脚：默认零增高，保住设置面板一屏；
-                状态/错误行只在检查过或有动静时出现。 */}
+            {/* 更新入口收进页脚：状态行常驻占位一行，检查过或有动静才落字，
+                高度不随状态变化，面板不重新居中抖动。 */}
             <div className="settings-footer">
               {version && (
                 <>
@@ -688,18 +706,12 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
                 </button>
               )}
             </div>
-            {update &&
-              (updateAsked ||
-                ['checking', 'available', 'downloading', 'downloaded', 'up-to-date', 'error'].includes(
-                  update.status
-                )) && (
-                <div className="settings-hint update-footer-status" role="status">
-                  {updateStatusText(update, t)}
-                </div>
-              )}
-            {update?.status === 'error' && update.error && (
-              <div className="settings-error" role="alert">{update.error}</div>
-            )}
+            <div
+              className={`settings-hint update-footer-status${updateErrorDetail ? ' is-error' : ''}`}
+              role={updateErrorDetail ? 'alert' : 'status'}
+            >
+              {updateErrorDetail ?? (updateStatusVisible && update ? updateStatusText(update, t) : '')}
+            </div>
 
             {/* 重新生成令牌的二次确认：旧客户端配置立即失效，属破坏性动作。
                 ConfirmDialog 自带焦点陷阱（压在面板陷阱之上）并在 React 根

@@ -5350,8 +5350,15 @@ textarea {
   color: var(--accent);
 }
 
+/* 常驻占位槽：空槽也占一行高，检查结果落槽不撑面板（防重新居中抖动）。
+   错误细节复用同槽，is-error 只换色不加行。 */
 .update-footer-status {
   margin-top: 6px;
+  min-height: 1.5em;
+}
+
+.update-footer-status.is-error {
+  color: var(--danger);
 }
 
 /* ---------- stats ---------- */
