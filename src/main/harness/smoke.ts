@@ -1106,8 +1106,11 @@ export async function runSmokeTest(): Promise<void> {
     const retentionOk = runRetentionAssertions()
     const csvAssertions = runCsvImportAssertions()
 
-    // 本地 MCP：开启 → initialize / tools/list / tools/call 真实 HTTP 往返 → 关闭后拒连。
+    // 本地 MCP：开启 → 经 IPC 取 bearer token → initialize / tools/list / tools/call
+    // 真实 HTTP 往返 → 401 矩阵（无/错 token）→ regenerate 作废旧 token → 关闭后拒连。
     let mcpWorks = false
+    let mcpAuthRejects = false
+    let mcpTokenRegenerate = false
     let mcpFixtureId: string | null = null
     try {
       setMcpEnabled(true)
@@ -1116,10 +1119,15 @@ export async function runSmokeTest(): Promise<void> {
         await new Promise((resolve) => setTimeout(resolve, 50))
       }
       if (getMcpState().running) {
+        // token 走真实 IPC 通道（renderer → preload → main），不直调模块函数：
+        // 顺带验证 app:mcp-token-get / app:mcp-token-regenerate 的接线。
+        let activeToken = (await mainWindow.webContents.executeJavaScript(
+          'window.polaris.app.getMcpToken()'
+        )) as string
         const rpc = async (method: string, params: Record<string, unknown>, id: number) => {
           const res = await fetch(MCP_ENDPOINT, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${activeToken}` },
             body: JSON.stringify({ jsonrpc: '2.0', id, method, params })
           })
           return (await res.json()) as { result?: Record<string, any> }
@@ -1137,7 +1145,8 @@ export async function runSmokeTest(): Promise<void> {
         const doneTask = JSON.parse(toolText(completed)) as { completed?: boolean }
         const getRes = await fetch(MCP_ENDPOINT)
         // 拒绝矩阵：用 node:http 精确控制请求头（fetch 不允许覆盖 Host）。
-        // Origin 一律 403；非回环 Host 403（DNS rebinding）；非 JSON 415。
+        // Origin 一律 403；非回环 Host 403（DNS rebinding）；非 JSON 415；
+        // 过了三重校验后无/错 Bearer token 401。
         const probe = (headers: Record<string, string>): Promise<number> =>
           new Promise((resolve, reject) => {
             const req = httpRequest(
@@ -1159,7 +1168,37 @@ export async function runSmokeTest(): Promise<void> {
         const originStatus = await probe({ Origin: 'https://evil.example' })
         const hostStatus = await probe({ Host: `evil.example:${MCP_PORT}` })
         const plainStatus = await probe({ 'Content-Type': 'text/plain' })
+        // 401 矩阵：无 token / 错 token / 非 Bearer scheme 一律 401。
+        const noTokenStatus = await probe({})
+        const wrongTokenStatus = await probe({ Authorization: 'Bearer not-the-token' })
+        const wrongSchemeStatus = await probe({ Authorization: `Basic ${activeToken}` })
+        mcpAuthRejects =
+          noTokenStatus === 401 && wrongTokenStatus === 401 && wrongSchemeStatus === 401
+        if (!mcpAuthRejects) {
+          console.error('MCP_AUTH_FAIL', JSON.stringify({ noTokenStatus, wrongTokenStatus, wrongSchemeStatus }))
+        }
+        // token 形状与持久性：64 位 hex，重复读取同值（重启不变的同一存储路径）。
+        const tokenAgain = (await mainWindow.webContents.executeJavaScript(
+          'window.polaris.app.getMcpToken()'
+        )) as string
+        const tokenStable = /^[0-9a-f]{64}$/.test(activeToken) && tokenAgain === activeToken
+        // regenerate：旧 token 立即 401，新 token initialize 200。
+        const oldToken = activeToken
+        activeToken = (await mainWindow.webContents.executeJavaScript(
+          'window.polaris.app.regenerateMcpToken()'
+        )) as string
+        const oldTokenStatus = await probe({ Authorization: `Bearer ${oldToken}` })
+        const reinit = await rpc('initialize', { protocolVersion: '2025-03-26', capabilities: {}, clientInfo: { name: 'smoke', version: '0' } }, 7)
+        mcpTokenRegenerate =
+          /^[0-9a-f]{64}$/.test(activeToken) &&
+          activeToken !== oldToken &&
+          oldTokenStatus === 401 &&
+          (reinit.result?.serverInfo as { name?: string } | undefined)?.name === 'polaris'
+        if (!mcpTokenRegenerate) {
+          console.error('MCP_REGEN_FAIL', JSON.stringify({ oldTokenStatus, reinit: reinit.result }))
+        }
         // 入参校验对齐 IPC：越界 priority 拒绝（isError），不落库。
+        // 放在 regenerate 之后：顺带证明新 token 的 tools/call 也通。
         const badPriority = await rpc('tools/call', { name: 'create_task', arguments: { title: '冒烟MCP越界', priority: 9 } }, 6)
         const badPriorityRejected =
           (badPriority.result as { isError?: boolean } | undefined)?.isError === true &&
@@ -1175,9 +1214,10 @@ export async function runSmokeTest(): Promise<void> {
           originStatus === 403 &&
           hostStatus === 403 &&
           plainStatus === 415 &&
+          tokenStable &&
           badPriorityRejected
         if (!mcpWorks) {
-          console.error('MCP_FAIL', JSON.stringify({ init: init.result, toolCount: (list.result?.tools as unknown[] | undefined)?.length, created: created.result, doneTask, getStatus: getRes.status, originStatus, hostStatus, plainStatus, badPriorityRejected }))
+          console.error('MCP_FAIL', JSON.stringify({ init: init.result, toolCount: (list.result?.tools as unknown[] | undefined)?.length, created: created.result, doneTask, getStatus: getRes.status, originStatus, hostStatus, plainStatus, tokenStable, badPriorityRejected }))
         }
       } else {
         console.error('MCP_START_FAIL', JSON.stringify(getMcpState()))
@@ -4004,6 +4044,8 @@ export async function runSmokeTest(): Promise<void> {
       csvParseTable: csvAssertions.table,
       csvRoundTrip: csvAssertions.roundTrip,
       mcpWorks,
+      mcpAuthRejects: mcpAuthRejects === true,
+      mcpTokenRegenerate: mcpTokenRegenerate === true,
       recurrenceClampTable: recurrenceOk === true,
       parseGrammarTable: parseAssertions.grammar === true,
       parseGrammarEnTable: parseAssertions.english === true,
@@ -4096,6 +4138,8 @@ export async function runSmokeTest(): Promise<void> {
           csvParseTable: csvAssertions.table,
           csvRoundTrip: csvAssertions.roundTrip,
           mcpWorks,
+          mcpAuthRejects,
+          mcpTokenRegenerate,
           recurrenceClampTable: recurrenceOk,
           paletteEscWorks,
           emptyStateWorks,

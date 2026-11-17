@@ -16,7 +16,7 @@ import {
   setMeta
 } from './db'
 import { registerIpc } from './ipc'
-import { disposeMcp, getMcpState, initMcp, setMcpEnabled } from './mcp'
+import { disposeMcp, getMcpState, getMcpToken, initMcp, regenerateMcpToken, setMcpEnabled } from './mcp'
 import { describeTrayCheck, disposeUpdater, initUpdater, manualCheckForUpdates } from './updater'
 import {
   disposeGlobalHotkey,
@@ -572,6 +572,12 @@ app.whenReady().then(() => {
     if (typeof enabled !== 'boolean') return getMcpState()
     return setMcpEnabled(enabled)
   })
+
+  // MCP bearer token：两条通道都无载荷可校验（同 app:get-version 的只读风格）；
+  // regenerate 是显式动作通道，不接受参数——旧 token 立即作废由 mcp.ts 保证。
+  ipcMain.handle('app:mcp-token-get', () => getMcpToken())
+
+  ipcMain.handle('app:mcp-token-regenerate', () => regenerateMcpToken())
 
   ipcMain.handle('data:export', async () => {
     try {
