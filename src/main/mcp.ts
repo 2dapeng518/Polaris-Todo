@@ -50,12 +50,18 @@ function enabledInMeta(): boolean {
 }
 
 // token 持久化在 meta（同 theme/locale，零迁移）：首次启用生成一次，之后
-// 重启复用——客户端配置一次长期有效。meta 值被外力改坏（非 64 位 hex）时
+// 重启复用——客户端配置一次长期有效。meta 值被外力改坏（形状不对）时
 // 视为无 token，重新生成，绝不拿坏值当鉴权凭据。
+// 形状：sk- 前缀 + 64 位 hex（32 字节熵不变）；0.16.1 及以前的无前缀旧 token
+// 继续认（已配置的客户端不作废），只有新生成/重新生成才带前缀。
+const TOKEN_SHAPE = /^(sk-)?[0-9a-f]{64}$/
+function newToken(): string {
+  return `sk-${randomBytes(32).toString('hex')}`
+}
 function ensureToken(): string {
   const existing = getMeta(TOKEN_META_KEY)
-  if (existing && /^[0-9a-f]{64}$/.test(existing)) return existing
-  const token = randomBytes(32).toString('hex')
+  if (existing && TOKEN_SHAPE.test(existing)) return existing
+  const token = newToken()
   setMeta(TOKEN_META_KEY, token)
   return token
 }
@@ -67,7 +73,7 @@ export function getMcpToken(): string {
 
 /** 重新生成：旧 token 立即作废，已配置的客户端必须换新值。 */
 export function regenerateMcpToken(): string {
-  const token = randomBytes(32).toString('hex')
+  const token = newToken()
   setMeta(TOKEN_META_KEY, token)
   return token
 }

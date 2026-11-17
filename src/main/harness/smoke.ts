@@ -1220,11 +1220,11 @@ export async function runSmokeTest(): Promise<void> {
         if (!mcpAuthRejects) {
           console.error('MCP_AUTH_FAIL', JSON.stringify({ noTokenStatus, wrongTokenStatus, wrongSchemeStatus }))
         }
-        // token 形状与持久性：64 位 hex，重复读取同值（重启不变的同一存储路径）。
+        // token 形状与持久性：sk- 前缀 + 64 位 hex，重复读取同值（重启不变的同一存储路径）。
         const tokenAgain = (await mainWindow.webContents.executeJavaScript(
           'window.polaris.app.getMcpToken()'
         )) as string
-        const tokenStable = /^[0-9a-f]{64}$/.test(activeToken) && tokenAgain === activeToken
+        const tokenStable = /^sk-[0-9a-f]{64}$/.test(activeToken) && tokenAgain === activeToken
         // regenerate：旧 token 立即 401，新 token initialize 200。
         const oldToken = activeToken
         activeToken = (await mainWindow.webContents.executeJavaScript(
@@ -1233,7 +1233,7 @@ export async function runSmokeTest(): Promise<void> {
         const oldTokenStatus = await probe({ Authorization: `Bearer ${oldToken}` })
         const reinit = await rpc('initialize', { protocolVersion: '2025-03-26', capabilities: {}, clientInfo: { name: 'smoke', version: '0' } }, 7)
         mcpTokenRegenerate =
-          /^[0-9a-f]{64}$/.test(activeToken) &&
+          /^sk-[0-9a-f]{64}$/.test(activeToken) &&
           activeToken !== oldToken &&
           oldTokenStatus === 401 &&
           (reinit.result?.serverInfo as { name?: string } | undefined)?.name === 'polaris'
@@ -3794,10 +3794,10 @@ export async function runSmokeTest(): Promise<void> {
       await settledFrames(mainWindow.webContents)
     }
 
-    // 设置页零抖动：用户实机低分辨率档（1024×576）下，令牌显示/隐藏与检查更新
-    // 结果落槽都不得改变面板内容高度。掩码与明文等字符数 + 码盒锁两行高；
-    // 状态行常驻占位，检查前空槽。scrollHeight/页脚顶边是内容位移判别器
-    // （面板被 max-height 封顶时外框不变，只看外框会漏判）。
+    // 设置页零抖动：用户实机低分辨率档（1024×576）下，令牌行单行掩码
+    // （头 7 + … + 末 4，中段隐藏，明文永不上屏，仅复制/重新生成两按钮），
+    // 检查更新结果落槽不得改变面板内容高度。状态行常驻占位，检查前空槽。
+    // scrollHeight/页脚顶边是内容位移判别器（面板被 max-height 封顶时外框不变，只看外框会漏判）。
     let settingsNoShift = false
     if (mainWindow) {
       const originalSize = mainWindow.getSize()
@@ -3814,18 +3814,10 @@ export async function runSmokeTest(): Promise<void> {
           const tokenBox = await waitFor(() => panel.querySelector('code[aria-label="访问令牌"]'));
           if (!tokenBox) return { found: true, token: false };
           const contentH = () => panel.scrollHeight;
-          const boxH = () => tokenBox.getBoundingClientRect().height;
           const footerTop = () => panel.querySelector('.settings-footer').getBoundingClientRect().top;
-          const maskedH = contentH(); const maskedBox = boxH(); const maskedFooter = footerTop();
-          const showBtn = [...panel.querySelectorAll('.backup-btn')].find((b) => b.textContent === '显示');
-          showBtn?.click();
-          await sleep(150);
-          const shownText = tokenBox.textContent ?? '';
-          const shownH = contentH(); const shownBox = boxH(); const shownFooter = footerTop();
-          const hideBtn = [...panel.querySelectorAll('.backup-btn')].find((b) => b.textContent === '隐藏');
-          hideBtn?.click();
-          await sleep(150);
-          const reH = contentH(); const reBox = boxH();
+          const maskText = tokenBox.textContent ?? '';
+          const fullToken = await window.polaris.app.getMcpToken();
+          const rowButtons = [...tokenBox.parentElement.querySelectorAll('.backup-btn')].map((b) => b.textContent);
           const beforeCheck = contentH(); const beforeFooter = footerTop();
           panel.querySelector('.update-footer-btn')?.click();
           const answered = await waitFor(() => (panel.querySelector('.update-footer-status')?.textContent ?? '').length > 0);
@@ -3836,18 +3828,20 @@ export async function runSmokeTest(): Promise<void> {
           return {
             found: true,
             token: true,
-            shownIsToken: /^[0-9a-f]{64}$/.test(shownText),
-            tokenStable: maskedH === shownH && shownH === reH && maskedBox === shownBox && shownBox === reBox && maskedFooter === shownFooter,
-            boxNoScroll: tokenBox.scrollHeight <= tokenBox.clientHeight + 1,
+            maskShape: /^.{7}….{4}$/.test(maskText),
+            maskNeverFull: maskText !== fullToken,
+            singleLine: tokenBox.scrollHeight <= tokenBox.clientHeight + 1 && tokenBox.getBoundingClientRect().height <= 32,
+            buttonsExact: rowButtons.length === 2 && rowButtons[0] === '复制' && rowButtons[1] === '重新生成',
             updateStable: Boolean(answered) && beforeCheck === afterCheck && beforeFooter === afterFooter
           };
         })()`)
         settingsNoShift =
           noShift?.found === true &&
           noShift?.token === true &&
-          noShift?.shownIsToken === true &&
-          noShift?.tokenStable === true &&
-          noShift?.boxNoScroll === true &&
+          noShift?.maskShape === true &&
+          noShift?.maskNeverFull === true &&
+          noShift?.singleLine === true &&
+          noShift?.buttonsExact === true &&
           noShift?.updateStable === true
         if (!settingsNoShift) console.error('SETTINGS_NO_SHIFT_FAIL', JSON.stringify(noShift))
       } finally {
