@@ -24,7 +24,8 @@ import {
   updateTask
 } from '../db'
 import { registerIpc, registerTaskCreate } from '../ipc'
-import { getMcpState, MCP_ENDPOINT, setMcpEnabled } from '../mcp'
+import { request as httpRequest } from 'node:http'
+import { getMcpState, MCP_ENDPOINT, MCP_PORT, setMcpEnabled } from '../mcp'
 import { describeTrayCheck } from '../updater'
 import {
   estimateEtaSeconds,
@@ -1135,6 +1136,34 @@ export async function runSmokeTest(): Promise<void> {
         const completed = await rpc('tools/call', { name: 'complete_task', arguments: { id: mcpFixtureId } }, 5)
         const doneTask = JSON.parse(toolText(completed)) as { completed?: boolean }
         const getRes = await fetch(MCP_ENDPOINT)
+        // 拒绝矩阵：用 node:http 精确控制请求头（fetch 不允许覆盖 Host）。
+        // Origin 一律 403；非回环 Host 403（DNS rebinding）；非 JSON 415。
+        const probe = (headers: Record<string, string>): Promise<number> =>
+          new Promise((resolve, reject) => {
+            const req = httpRequest(
+              {
+                host: '127.0.0.1',
+                port: MCP_PORT,
+                path: '/mcp',
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', ...headers }
+              },
+              (res) => {
+                res.resume()
+                resolve(res.statusCode ?? 0)
+              }
+            )
+            req.on('error', reject)
+            req.end(JSON.stringify({ jsonrpc: '2.0', id: 99, method: 'tools/list' }))
+          })
+        const originStatus = await probe({ Origin: 'https://evil.example' })
+        const hostStatus = await probe({ Host: `evil.example:${MCP_PORT}` })
+        const plainStatus = await probe({ 'Content-Type': 'text/plain' })
+        // 入参校验对齐 IPC：越界 priority 拒绝（isError），不落库。
+        const badPriority = await rpc('tools/call', { name: 'create_task', arguments: { title: '冒烟MCP越界', priority: 9 } }, 6)
+        const badPriorityRejected =
+          (badPriority.result as { isError?: boolean } | undefined)?.isError === true &&
+          !listTasks().some((task) => task.title === '冒烟MCP越界')
         mcpWorks =
           (init.result?.serverInfo as { name?: string } | undefined)?.name === 'polaris' &&
           Array.isArray(list.result?.tools) &&
@@ -1142,9 +1171,13 @@ export async function runSmokeTest(): Promise<void> {
           Boolean(mcpFixtureId) &&
           tasks.some((task) => task.id === mcpFixtureId) &&
           doneTask.completed === true &&
-          getRes.status === 405
+          getRes.status === 405 &&
+          originStatus === 403 &&
+          hostStatus === 403 &&
+          plainStatus === 415 &&
+          badPriorityRejected
         if (!mcpWorks) {
-          console.error('MCP_FAIL', JSON.stringify({ init: init.result, toolCount: (list.result?.tools as unknown[] | undefined)?.length, created: created.result, doneTask, getStatus: getRes.status }))
+          console.error('MCP_FAIL', JSON.stringify({ init: init.result, toolCount: (list.result?.tools as unknown[] | undefined)?.length, created: created.result, doneTask, getStatus: getRes.status, originStatus, hostStatus, plainStatus, badPriorityRejected }))
         }
       } else {
         console.error('MCP_START_FAIL', JSON.stringify(getMcpState()))

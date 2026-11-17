@@ -14,5 +14,7 @@ export const common = {
   'app.skip': '跳到主内容',
   'app.loading': '正在载入 Polaris…',
   'errors.save': '保存失败，改动未写入本地数据库',
-  'errors.load': '读取本地数据失败'
+  'errors.load': '读取本地数据失败',
+  // DB 层守卫（createTask/updateTask）：抛出前按当前界面语言翻译。
+  'errors.recurrenceNeedsDue': '重复任务需要截止时间'
 }
