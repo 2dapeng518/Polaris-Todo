@@ -298,7 +298,7 @@ Common commands:
 | `npm run release:win` | Build and publish to GitHub Releases (requires `GH_TOKEN`) |
 | `npm run make:icon` | Regenerate app icons (png/ico/icns) and the tray icon |
 
-During development, closing the main window only hides it to the tray; end `npm run dev` via the tray's "Quit" or `Ctrl+C`. First launch creates the database and seeds sample tasks.
+During development, closing the main window only hides it to the tray; end `npm run dev` via the tray's "Quit" or `Ctrl+C`. First launch creates the database and seeds a set of tutorial sample tasks: each demonstrates one feature (quick add, subtasks, tags, recurrence, reminders, matrix, completed section), with the how-to in its notes.
 
 ## Directory Structure
 
@@ -454,7 +454,7 @@ The live implementation (`src/renderer`) is this design system's applied screen 
 - Backups include subtasks since `schemaVersion: 2` and tags with associations since `schemaVersion: 3`; importing older backups still succeeds, just without the newer data.
 - CSV migration detects TickTick / Todoist exports by header aliases — if those products change their headers, new aliases may be needed. Recurrence rules, reminders, attachments, and comments are not migrated, and imported completed tasks have no completion timestamp (excluded from trends and the on-time rate).
 - Automatic backup triggers only at startup (24-hour throttle), not periodically while running; export manually for an immediate snapshot.
-- Sample tasks exist only for the first-launch showcase; to wipe data, delete `polaris.db` under Electron's userData directory.
+- Sample tasks exist only as a first-launch tutorial and can be deleted anytime; to wipe data, delete `polaris.db` under Electron's userData directory.
 
 **Integrations & updates**
 
