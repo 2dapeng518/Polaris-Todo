@@ -3925,30 +3925,40 @@ export async function runSmokeTest(): Promise<void> {
           const top = () => panel.getBoundingClientRect().top;
           const ftop = () => panel.querySelector('.settings-footer').getBoundingClientRect().top;
           const height = () => panel.getBoundingClientRect().height;
+          // 横向判别器：滚动条槽常驻后 clientWidth 与主题卡宽展开前后必须逐像素不变
+          // （旧版滚动条突现挤窄 10px → 全片重排，是顶边锚定之后残留的横向抖动）。
+          const cw = () => panel.clientWidth;
+          const tw = () => panel.querySelector('.theme-option').getBoundingClientRect().width;
           const before = top(); const fbefore = ftop(); const hbefore = height();
+          const cbefore = cw(); const tbefore = tw();
           const toggle = panel.querySelector('.settings-about-toggle');
           toggle?.click();
           await waitFor(() => panel.querySelector('.about-credits'));
           await sleep(350);
           const openTop = top(); const openF = ftop(); const hopen = height();
+          const copen = cw(); const topen = tw();
           toggle?.click();
           await waitFor(() => !panel.querySelector('.about-credits'));
           await sleep(350);
           const closedTop = top(); const closedF = ftop();
+          const cclosed = cw(); const tclosed = tw();
           document.querySelector('.settings-panel .detail-close')?.click();
           await sleep(250);
           return {
             found: true,
             grew: hopen > hbefore + 40,
             openStable: Math.abs(openTop - before) <= 1 && Math.abs(openF - fbefore) <= 1,
-            closedStable: Math.abs(closedTop - before) <= 1 && Math.abs(closedF - fbefore) <= 1
+            closedStable: Math.abs(closedTop - before) <= 1 && Math.abs(closedF - fbefore) <= 1,
+            widthStable: copen === cbefore && cclosed === cbefore &&
+              Math.abs(topen - tbefore) <= 0.5 && Math.abs(tclosed - tbefore) <= 0.5
           };
         })()`)
         settingsAboutStable =
           stable?.found === true &&
           stable?.grew === true &&
           stable?.openStable === true &&
-          stable?.closedStable === true
+          stable?.closedStable === true &&
+          stable?.widthStable === true
         if (!settingsAboutStable) console.error('SETTINGS_ABOUT_STABLE_FAIL', JSON.stringify(stable))
       } finally {
         mainWindow.setSize(originalSize[0], originalSize[1])

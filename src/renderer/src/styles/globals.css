@@ -4427,6 +4427,10 @@ textarea {
   width: min(440px, calc(100vw - 48px));
   max-height: calc(100vh - var(--settings-inset-top) - 24px);
   overflow-y: auto;
+  /* 滚动条槽常驻：展开关于超帽时滚动条才出现，会瞬间挤窄内容 10px →
+     主题卡收缩、描述折行、整片重排 = 横向抖动。预留槽后出不出现滚动条
+     内容宽度都不变（与侧栏/主区同一套 scrollbar-gutter 词汇）。 */
+  scrollbar-gutter: stable;
   padding: 12px 24px;
   border: 1px solid var(--line-strong);
   border-radius: 16px;
@@ -5070,7 +5074,9 @@ textarea {
       'behavior side'
       'footer footer'
       'status status';
-    column-gap: 24px;
+    /* 列距 24→16 补偿常驻滚动条槽的 10px：收起态列宽与无槽时代逐像素
+       同宽，描述折行行为不变，高度预算不漂移。 */
+    column-gap: 16px;
     row-gap: 12px;
     align-items: start;
     width: min(760px, calc(100vw - 48px));
