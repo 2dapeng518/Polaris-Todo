@@ -2,7 +2,7 @@
 
 <img src="build/icon.png" alt="Polaris icon" width="96" />
 
-[![English](https://img.shields.io/badge/English-0F766E?style=flat-square)] [![简体中文](https://img.shields.io/badge/%E7%AE%80%E4%BD%93%E4%B8%AD%E6%96%87-334155?style=flat-square)](README.md)
+![English](https://img.shields.io/badge/English-0F766E?style=flat-square) [![简体中文](https://img.shields.io/badge/%E7%AE%80%E4%BD%93%E4%B8%AD%E6%96%87-334155?style=flat-square)](README.md)
 
 # Polaris
 
