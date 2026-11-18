@@ -6,6 +6,7 @@ import { existsSync, mkdirSync, renameSync } from 'node:fs'
 import { join } from 'node:path'
 import { nextOccurrence } from '../shared/recurrence'
 import { isPurgeable } from '../shared/retention'
+import { isLocale, localeFromLanguageTag, type Locale } from '../shared/i18n'
 import { csvErrorMessage, parseCsvImport } from '../shared/csvImport'
 import { translate } from '../shared/i18n'
 // db ↔ locale 相互引用：locale 用 getMeta/setMeta 持久化，db 用 getCurrentLocale
@@ -271,11 +272,35 @@ export function getWriteRevision(): number {
   return Number.isFinite(parsed) ? parsed : 0
 }
 
+// 种子语言与 initAppLocale 同口径：harness 下 POLARIS_LOCALE 覆盖、其余 harness
+// 场景确定性中文；正常启动按 meta 已存值 → 系统语言。种子先于 initAppLocale
+// 执行（locale 的 meta 读取依赖建库），故这里独立解析，避免循环依赖。
+function seedLocale(): Locale {
+  if (__POLARIS_HARNESS__) {
+    const forced = process.env['POLARIS_LOCALE']
+    if (isLocale(forced)) return forced
+    if (
+      process.env['POLARIS_SMOKE'] ||
+      process.env['POLARIS_SHOT'] ||
+      process.env['POLARIS_SCREENSHOT']
+    ) {
+      return 'zh-CN'
+    }
+  }
+  const stored = db.prepare('SELECT value FROM meta WHERE key = ?').get('locale') as
+    | { value: string }
+    | undefined
+  const value = stored?.value
+  return isLocale(value) ? value : localeFromLanguageTag(app.getLocale())
+}
+
 function seedIfNeeded(): void {
   const seeded = db.prepare('SELECT value FROM meta WHERE key = ?').get('demo_seeded') as
     | { value: string }
     | undefined
   if (seeded) return
+
+  const en = seedLocale() === 'en'
 
   const now = new Date()
   const stamp = now.toISOString()
@@ -300,22 +325,33 @@ function seedIfNeeded(): void {
 
   const seed = db.transaction(() => {
     insertProject.run(polarisProjectId, 'Polaris', '#5EEAD4', 0, stamp, stamp)
-    insertProject.run(personalProjectId, '个人', '#A78BFA', 1, stamp, stamp)
+    insertProject.run(personalProjectId, en ? 'Personal' : '个人', '#A78BFA', 1, stamp, stamp)
 
+    // 英文镜像与中文种子同结构（偏移/时刻/优先级/完成态一致），统计视图的
+    // 「未记录时刻」老任务语义两边相同（completed 直插、不写 completed_at）。
     const tasks: Array<{
       title: string
       completed: number
       dueAt: string
       projectId: string
       priority: number
-    }> = [
-      { title: '完成 Polaris 的界面设计', completed: 0, dueAt: at(0, 18), projectId: polarisProjectId, priority: 2 },
-      { title: '梳理本周的任务清单', completed: 0, dueAt: at(0, 20), projectId: personalProjectId, priority: 1 },
-      { title: '给妈妈打个电话', completed: 1, dueAt: at(0, 19, 30), projectId: personalProjectId, priority: 0 },
-      { title: '整理下载文件夹', completed: 1, dueAt: at(0, 12), projectId: personalProjectId, priority: 0 },
-      { title: '阅读《设计中的设计》第三章', completed: 0, dueAt: at(1, 21), projectId: personalProjectId, priority: 0 },
-      { title: '预约周五的牙医', completed: 0, dueAt: at(1, 10), projectId: personalProjectId, priority: 2 }
-    ]
+    }> = en
+      ? [
+          { title: 'Finish the Polaris UI design', completed: 0, dueAt: at(0, 18), projectId: polarisProjectId, priority: 2 },
+          { title: "Review this week's task list", completed: 0, dueAt: at(0, 20), projectId: personalProjectId, priority: 1 },
+          { title: 'Call mom', completed: 1, dueAt: at(0, 19, 30), projectId: personalProjectId, priority: 0 },
+          { title: 'Tidy up the Downloads folder', completed: 1, dueAt: at(0, 12), projectId: personalProjectId, priority: 0 },
+          { title: 'Read chapter 3 of "Designing Design"', completed: 0, dueAt: at(1, 21), projectId: personalProjectId, priority: 0 },
+          { title: 'Book the Friday dentist appointment', completed: 0, dueAt: at(1, 10), projectId: personalProjectId, priority: 2 }
+        ]
+      : [
+          { title: '完成 Polaris 的界面设计', completed: 0, dueAt: at(0, 18), projectId: polarisProjectId, priority: 2 },
+          { title: '梳理本周的任务清单', completed: 0, dueAt: at(0, 20), projectId: personalProjectId, priority: 1 },
+          { title: '给妈妈打个电话', completed: 1, dueAt: at(0, 19, 30), projectId: personalProjectId, priority: 0 },
+          { title: '整理下载文件夹', completed: 1, dueAt: at(0, 12), projectId: personalProjectId, priority: 0 },
+          { title: '阅读《设计中的设计》第三章', completed: 0, dueAt: at(1, 21), projectId: personalProjectId, priority: 0 },
+          { title: '预约周五的牙医', completed: 0, dueAt: at(1, 10), projectId: personalProjectId, priority: 2 }
+        ]
 
     for (const task of tasks) {
       insertTask.run(

@@ -333,7 +333,7 @@ function createWindow(): void {
   // 主窗口/提醒窗/启动页共用同一份外链白名单，这里不再单独设置。
 
   // 界面语言随地址传给渲染层：主进程的 meta 记录是权威值，渲染层首帧据此
-  // 初始化（冒烟/截图模式下 initAppLocale 已强制 zh-CN，因此具有确定性）。
+  // 初始化（冒烟/截图模式下 initAppLocale 默认确定性 zh-CN，POLARIS_LOCALE 可覆盖）。
   if (process.env['ELECTRON_RENDERER_URL']) {
     void mainWindow.loadURL(withLocale(process.env['ELECTRON_RENDERER_URL']))
   } else {

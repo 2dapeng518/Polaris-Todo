@@ -8,7 +8,17 @@ import { writeFile } from 'node:fs/promises'
 import { createSplashWindow } from '../splash'
 import { THEME_ORDER } from '../../shared/themes'
 import { checkRemindersNow, dismissReminder, getReminderWindow } from '../reminders'
+import { getCurrentLocale } from '../locale'
 import { harnessContext } from './context'
+
+// 截图脚本按文本找元素：中英文界面都要命中，候选词并列（中文在前，冒烟不受影响）。
+function findByText(selector: string, candidates: string[]): string {
+  return `[...document.querySelectorAll(${JSON.stringify(selector)})].find((el) => ${JSON.stringify(candidates)}.some((c) => el.textContent.includes(c)))`
+}
+
+function shotEn(): boolean {
+  return getCurrentLocale() === 'en'
+}
 
 async function captureTo(filename: string): Promise<void> {
   const { mainWindow } = harnessContext()
@@ -44,7 +54,7 @@ async function captureThemePaletteScreenshot(filename: string): Promise<void> {
     const input = document.querySelector('.command-input');
     if (!input) return;
     const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
-    setter.call(input, '主题');
+    setter.call(input, ${JSON.stringify(shotEn() ? 'theme' : '主题')});
     input.dispatchEvent(new Event('input', { bubbles: true }));
   })()`)
   await new Promise((resolve) => setTimeout(resolve, 500))
@@ -75,16 +85,16 @@ async function captureRecurrenceScreenshot(filename: string): Promise<void> {
   )
   await new Promise((resolve) => setTimeout(resolve, 600))
   await mainWindow.webContents.executeJavaScript(
-    `[...document.querySelectorAll('.detail-row')].find((el) => el.textContent.includes('重复'))?.click()`
+    `${findByText('.detail-row', ['重复', 'Repeat'])}?.click()`
   )
   await new Promise((resolve) => setTimeout(resolve, 350))
   await mainWindow.webContents.executeJavaScript(
-    `(() => { const chip = [...document.querySelectorAll('.detail-chip')].find((el) => el.textContent === '每周'); if (chip) { chip.focus(); chip.click(); } })()`
+    `(() => { const chip = ${findByText('.detail-chip', ['每周', 'Weekly'])}; if (chip) { chip.focus(); chip.click(); } })()`
   )
   await new Promise((resolve) => setTimeout(resolve, 500))
   await captureTo(filename)
   await mainWindow.webContents.executeJavaScript(
-    `[...document.querySelectorAll('.detail-chip')].find((el) => el.textContent === '不重复')?.click()`
+    `${findByText('.detail-chip', ['不重复', "Doesn't repeat"])}?.click()`
   )
   await new Promise((resolve) => setTimeout(resolve, 300))
   await mainWindow.webContents.executeJavaScript(
@@ -117,7 +127,7 @@ async function captureReminderDetailScreenshot(filename: string): Promise<void> 
   )
   await new Promise((resolve) => setTimeout(resolve, 600))
   await mainWindow.webContents.executeJavaScript(
-    `[...document.querySelectorAll('.detail-row')].find((el) => el.textContent.includes('提醒'))?.click()`
+    `${findByText('.detail-row', ['提醒', 'Reminder'])}?.click()`
   )
   await new Promise((resolve) => setTimeout(resolve, 350))
   await captureTo(filename)
@@ -174,13 +184,20 @@ async function captureTrashScreenshot(filename: string, confirm: boolean): Promi
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     const projects = await window.polaris.projects.list();
     const polaris = projects.find((p) => p.name === 'Polaris');
-    const personal = projects.find((p) => p.name === '个人');
+    const personal = projects.find((p) => ['个人', 'Personal'].includes(p.name));
     const due = new Date();
     due.setHours(23, 59, 0, 0);
-    const seeds = [
-      { title: '归档旧版设计稿', projectId: polaris ? polaris.id : null },
-      { title: '取消周末的聚餐', projectId: personal ? personal.id : null }
-    ];
+    const seeds = ${JSON.stringify(
+      shotEn()
+        ? [
+            { title: 'Archive the old design drafts', project: 'polaris' },
+            { title: 'Cancel the weekend dinner', project: 'personal' }
+          ]
+        : [
+            { title: '归档旧版设计稿', project: 'polaris' },
+            { title: '取消周末的聚餐', project: 'personal' }
+          ]
+    )}.map((s) => ({ title: s.title, projectId: s.project === 'polaris' ? (polaris ? polaris.id : null) : (personal ? personal.id : null) }));
     const created = [];
     for (const seed of seeds) {
       const task = await window.polaris.tasks.create({ title: seed.title, dueAt: due.toISOString(), projectId: seed.projectId });
@@ -189,7 +206,7 @@ async function captureTrashScreenshot(filename: string, confirm: boolean): Promi
     }
     window.dispatchEvent(new Event('focus'));
     await sleep(400);
-    [...document.querySelectorAll('.nav-item')].find((el) => el.textContent.includes('回收站'))?.click();
+    ${findByText('.nav-item', ['回收站', 'Trash'])}?.click();
     for (let i = 0; i < 40 && document.querySelectorAll('.trash-item').length < 2; i++) await sleep(50);
     await sleep(450);
     return created;
@@ -209,7 +226,7 @@ async function captureTrashScreenshot(filename: string, confirm: boolean): Promi
     for (const id of ${JSON.stringify(ids)}) await window.polaris.tasks.deleteForever(id);
     window.dispatchEvent(new Event('focus'));
     await sleep(300);
-    [...document.querySelectorAll('.nav-item')].find((el) => el.textContent.includes('今天'))?.click();
+    ${findByText('.nav-item', ['今天', 'Today'])}?.click();
     await sleep(300);
   })()`)
 }
@@ -242,17 +259,16 @@ async function captureDuePickerScreenshot(filename: string, confirm: boolean): P
   await new Promise((resolve) => setTimeout(resolve, 700))
   if (confirm) {
     await mainWindow?.webContents.executeJavaScript(`(async () => {
-      const rows = [...document.querySelectorAll('.detail-row')];
-      const repeat = rows.find((el) => el.textContent.includes('重复'));
+      const repeat = ${findByText('.detail-row', ['重复', 'Repeat'])};
       repeat?.click();
       await new Promise((r) => setTimeout(r, 300));
-      [...document.querySelectorAll('.detail-chip')].find((el) => el.textContent.includes('每天'))?.click();
+      ${findByText('.detail-chip', ['每天', 'Daily'])}?.click();
       await new Promise((r) => setTimeout(r, 300));
     })()`)
     await new Promise((resolve) => setTimeout(resolve, 400))
   }
   await mainWindow?.webContents.executeJavaScript(`(() => {
-    [...document.querySelectorAll('.detail-row')].find((el) => el.textContent.includes('截止'))?.click();
+    ${findByText('.detail-row', ['截止', 'Due'])}?.click();
   })()`)
   await new Promise((resolve) => setTimeout(resolve, 450))
   if (confirm) {
@@ -274,20 +290,33 @@ async function captureCalendarScreenshot(filename: string): Promise<void> {
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     const projects = await window.polaris.projects.list();
     const polaris = projects.find((p) => p.name === 'Polaris');
-    const personal = projects.find((p) => p.name === '个人');
+    const personal = projects.find((p) => ['个人', 'Personal'].includes(p.name));
     const now = new Date();
     const y = now.getFullYear(), m = now.getMonth();
     const at = (day, hour) => new Date(y, m, day, hour, 0, 0, 0).toISOString();
-    const seeds = [
-      { title: '整理竞品调研笔记', dueAt: at(3, 10), projectId: polaris ? polaris.id : null, priority: 1 },
-      { title: '提交报销单', dueAt: at(8, 17), projectId: personal ? personal.id : null, priority: 2 },
-      { title: '设计评审会', dueAt: at(12, 14), projectId: polaris ? polaris.id : null, priority: 3 },
-      { title: '给绿植浇水', dueAt: at(15, 9), projectId: personal ? personal.id : null, priority: 0 },
-      { title: '发布补丁版本', dueAt: at(19, 20), projectId: polaris ? polaris.id : null, priority: 3 },
-      { title: '周末采购清单', dueAt: at(22, 11), projectId: personal ? personal.id : null, priority: 1 },
-      { title: '读完《设计中的设计》', dueAt: at(26, 21), projectId: personal ? personal.id : null, priority: 0 },
-      { title: '月度回顾', dueAt: at(28, 16), projectId: polaris ? polaris.id : null, priority: 2 }
-    ];
+    const seeds = ${JSON.stringify(
+      shotEn()
+        ? [
+            { title: 'Compile competitor research notes', day: 3, hour: 10, project: 'polaris', priority: 1 },
+            { title: 'Submit the expense report', day: 8, hour: 17, project: 'personal', priority: 2 },
+            { title: 'Design review meeting', day: 12, hour: 14, project: 'polaris', priority: 3 },
+            { title: 'Water the plants', day: 15, hour: 9, project: 'personal', priority: 0 },
+            { title: 'Ship the patch release', day: 19, hour: 20, project: 'polaris', priority: 3 },
+            { title: 'Weekend grocery list', day: 22, hour: 11, project: 'personal', priority: 1 },
+            { title: 'Finish "Designing Design"', day: 26, hour: 21, project: 'personal', priority: 0 },
+            { title: 'Monthly review', day: 28, hour: 16, project: 'polaris', priority: 2 }
+          ]
+        : [
+            { title: '整理竞品调研笔记', day: 3, hour: 10, project: 'polaris', priority: 1 },
+            { title: '提交报销单', day: 8, hour: 17, project: 'personal', priority: 2 },
+            { title: '设计评审会', day: 12, hour: 14, project: 'polaris', priority: 3 },
+            { title: '给绿植浇水', day: 15, hour: 9, project: 'personal', priority: 0 },
+            { title: '发布补丁版本', day: 19, hour: 20, project: 'polaris', priority: 3 },
+            { title: '周末采购清单', day: 22, hour: 11, project: 'personal', priority: 1 },
+            { title: '读完《设计中的设计》', day: 26, hour: 21, project: 'personal', priority: 0 },
+            { title: '月度回顾', day: 28, hour: 16, project: 'polaris', priority: 2 }
+          ]
+    )}.map((s) => ({ title: s.title, dueAt: at(s.day, s.hour), projectId: s.project === 'polaris' ? (polaris ? polaris.id : null) : (personal ? personal.id : null), priority: s.priority }));
     const created = [];
     for (const seed of seeds) {
       const task = await window.polaris.tasks.create(seed);
@@ -296,7 +325,7 @@ async function captureCalendarScreenshot(filename: string): Promise<void> {
     await window.polaris.tasks.toggle(created[3], true);
     window.dispatchEvent(new Event('focus'));
     await sleep(400);
-    [...document.querySelectorAll('.nav-item')].find((el) => el.textContent.includes('日历'))?.click();
+    ${findByText('.nav-item', ['日历', 'Calendar'])}?.click();
     for (let i = 0; i < 40 && !document.querySelector('.calendar-grid, [role="gridcell"]'); i++) await sleep(50);
     await sleep(450);
     return created;
@@ -307,7 +336,7 @@ async function captureCalendarScreenshot(filename: string): Promise<void> {
     for (const id of ${JSON.stringify(ids)}) await window.polaris.tasks.deleteForever(id);
     window.dispatchEvent(new Event('focus'));
     await sleep(300);
-    [...document.querySelectorAll('.nav-item')].find((el) => el.textContent.includes('今天'))?.click();
+    ${findByText('.nav-item', ['今天', 'Today'])}?.click();
     await sleep(300);
   })()`)
 }
@@ -318,6 +347,13 @@ export async function captureDemo(mode: string): Promise<void> {
     app.quit()
     return
   }
+
+  // 截图证据：记录当前语言与首个导航文本，事后凭日志核对中英文界面，不依赖目视图片。
+  console.log('POLARIS_SHOT_LOCALE', getCurrentLocale())
+  const navText = await mainWindow.webContents.executeJavaScript(
+    `document.querySelector('.nav-item')?.textContent ?? ''`
+  )
+  console.log('POLARIS_SHOT_NAV', navText)
 
   try {
     if (mode === 'splash') {
@@ -389,7 +425,7 @@ export async function captureDemo(mode: string): Promise<void> {
           const input = document.querySelector('.command-input');
           if (!input) return;
           const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
-          setter.call(input, '任务');
+          setter.call(input, ${JSON.stringify(shotEn() ? 'task' : '任务')});
           input.dispatchEvent(new Event('input', { bubbles: true }));
         })()`)
         await new Promise((resolve) => setTimeout(resolve, 500))
@@ -441,7 +477,7 @@ export async function captureDemo(mode: string): Promise<void> {
         const input = document.querySelector('.command-input');
         if (!input) return;
         const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
-        setter.call(input, '任务');
+        setter.call(input, ${JSON.stringify(shotEn() ? 'task' : '任务')});
         input.dispatchEvent(new Event('input', { bubbles: true }));
       })()`)
       await new Promise((resolve) => setTimeout(resolve, 500))
@@ -481,9 +517,9 @@ export async function captureDemo(mode: string): Promise<void> {
     } else if (mode === 'matrix' || mode === 'stats') {
       // 四象限与统计直接用首启示例数据：六条任务恰好落满四个象限，
       // 统计有今日完成与项目分布，不需要额外种子。
-      const label = mode === 'matrix' ? '四象限' : '统计'
+      const labels = mode === 'matrix' ? ['四象限', 'Matrix'] : ['统计', 'Statistics']
       await mainWindow.webContents.executeJavaScript(
-        `[...document.querySelectorAll('.nav-item')].find((el) => el.textContent.includes(${JSON.stringify(label)}))?.click()`
+        `${findByText('.nav-item', labels)}?.click()`
       )
       await new Promise((resolve) => setTimeout(resolve, 700))
       await captureTo(`screenshot-${mode}.png`)
