@@ -4406,20 +4406,26 @@ textarea {
 
 /* ---------- settings ---------- */
 
+/* 顶边锚定：浮层不再按内容真实高度垂直居中（内容一长高就重新居中 = 抖动），
+   而是按「名义高度」算出固定顶边距——单列名义 760、紧凑两列名义 560（媒体块覆写）。
+   展开关于/启用 MCP 只向下生长，顶边与页脚纹丝不动；名义值略大于收起态实际高度，
+   收起时面板落在光学中心偏上一点，比数学居中更稳。 */
 .settings-overlay {
+  --settings-inset-top: max(24px, calc((100vh - 760px) / 2));
   position: fixed;
   z-index: 70;
   inset: 0;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
+  padding-top: var(--settings-inset-top);
   background: var(--command-overlay);
   backdrop-filter: blur(7px);
 }
 
 .settings-panel {
   width: min(440px, calc(100vw - 48px));
-  max-height: calc(100vh - 96px);
+  max-height: calc(100vh - var(--settings-inset-top) - 24px);
   overflow-y: auto;
   padding: 12px 24px;
   border: 1px solid var(--line-strong);
@@ -4482,6 +4488,23 @@ textarea {
   margin-top: 0;
 }
 
+/* 分组卡片：行为 / MCP / 备份三组各自成卡，材质与主题选项卡同源
+   （surface-1 底 + line 描边），左列拉伸留下的余白被卡框收住，
+   不再是裸奔的大洞。半径 12 介于面板 16 与按钮 8 之间，层级递减。 */
+.settings-section--behavior,
+.settings-side .settings-section {
+  padding: 9px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface-1);
+}
+
+/* 卡内描述不再锁 290px：半宽列里让句子吃满卡宽，少折一行是一行。 */
+.settings-section--behavior .settings-row-desc,
+.settings-side .settings-row-desc {
+  max-width: none;
+}
+
 /* 语言下拉上移到主题标题行右侧，省一整行高度。 */
 .settings-theme-head {
   display: flex;
@@ -4494,7 +4517,7 @@ textarea {
 .settings-side {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
   min-width: 0;
   margin-top: 16px;
 }
@@ -5013,7 +5036,7 @@ textarea {
   border-top: 1px solid var(--line);
   color: var(--text-tertiary);
   font-size: 11px;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.02em;
 }
 
 /* 版本号走等宽，与日期/时间数字同一套排版；父级的字距对数字不适用。 */
@@ -5026,12 +5049,18 @@ textarea {
    不靠压字号换高度。主题网格三列两行横跨整幅；左列「应用行为」（三开关一组），
    右列「数据进出」（MCP + 备份，settings-side 包裹）；页脚/状态/关于折叠横跨整幅。
    命名 grid-area 定位，DOM 顺序 = 视觉顺序 = 焦点顺序，加节挪节不再打乱排布。
-   关于折叠不占常驻行（挂载才生隐式行），收起态高度预算 ≈ header 53 + 主题 156
-   + max(行为 152, MCP+备份 175) + 页脚/状态 44 + 四道 gap 64 + 内边距 24 ≈ 516px，
-   加热键冲突错误行 25px 也小于最小窗口 640-96=544px。
+   关于折叠不占常驻行（挂载才生隐式行）。分组卡片化后实测预算（CDP 探针）：
+   收起态含状态行 551px；640 窗口顶边距 40 + 底留 24 → 帽 576，加热键冲突
+   错误行 25 = 576 恰好一屏；576 实机档帽 528，内容 551 滚约 24px（旧版约 40，
+   面板自带 overflow，如实保留）。MCP 启用态 657px：843 窗口帽 677 不滚，
+   640/576 滚——令牌块本就是条件增高，滚动只发生在面板内部，顶边锚定不抖。
    断点取 860 而非 830：默认 840 窗口也走两列，留足余量吞掉任何条件行；
-   单列只留给 >860 的高窗口（关于折叠后全条件内容更矮，765px 里放得下）。 */
+   单列只留给 >860 的高窗口（收起态实测 799px，900 窗口帽 806 放得下）。 */
 @media (max-height: 860px) {
+  .settings-overlay {
+    --settings-inset-top: max(24px, calc((100vh - 560px) / 2));
+  }
+
   .settings-panel {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
@@ -5042,7 +5071,7 @@ textarea {
       'footer footer'
       'status status';
     column-gap: 24px;
-    row-gap: 16px;
+    row-gap: 12px;
     align-items: start;
     width: min(760px, calc(100vw - 48px));
   }
@@ -5090,23 +5119,31 @@ textarea {
     order: 6;
   }
 
-  /* 左列拉伸到与右列同高：MCP 启用态右列长高时，开关行间距自适应呼吸，
-     不留左下大洞；行距下限 8 由 gap 保住，多余空间 space-between 分摊。 */
+  /* 左列卡片拉伸到与右列同高（balanced 断言钉死两列等高）：行组顶对齐、
+     行距固定 8，余白留在卡框内底部——框住的留白是呼吸，没框的留白是洞。
+     旧 space-between 把余白摊进行距，三开关间距忽大忽小，节奏已废。 */
   .settings-section--behavior {
     grid-area: behavior;
     align-self: stretch;
     display: flex;
     flex-direction: column;
     gap: 8px;
-    justify-content: space-between;
+    justify-content: flex-start;
   }
 
   .settings-section--behavior .settings-row {
     margin-top: 0;
   }
 
+  /* 右列也拉伸：MCP 关闭态左卡内容比右列高时，余白由备份卡吸收
+     （flex:1 + 内容顶对齐），两列任何状态同高（balanced 断言）。 */
   .settings-side {
     grid-area: side;
+    align-self: stretch;
+  }
+
+  .settings-side .settings-section--backup {
+    flex: 1;
   }
 
   .settings-footer {
