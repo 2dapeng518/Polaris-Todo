@@ -3907,6 +3907,56 @@ export async function runSmokeTest(): Promise<void> {
       }
     }
 
+    // 设置页顶边锚定（1280×843 实机比例）：展开/收起关于时面板顶边与页脚顶边
+    // 纹丝不动——旧垂直居中在内容长高瞬间重新居中 = 用户实机报障的抖动根因；
+    // 现顶边按名义高度锁死，展开只向下生长（grew 证明真的长高了，不是恒真）。
+    let settingsAboutStable = false
+    if (mainWindow) {
+      const originalSize = mainWindow.getSize()
+      mainWindow.setSize(1280, 843)
+      await settledFrames(mainWindow.webContents)
+      try {
+        const stable = await mainWindow.webContents.executeJavaScript(`(async () => {
+          ${pageHelpers}
+          document.querySelector('.settings-item').click();
+          const panel = await waitFor(() => document.querySelector('.settings-panel'));
+          if (!panel) return { found: false };
+          await sleep(450);
+          const top = () => panel.getBoundingClientRect().top;
+          const ftop = () => panel.querySelector('.settings-footer').getBoundingClientRect().top;
+          const height = () => panel.getBoundingClientRect().height;
+          const before = top(); const fbefore = ftop(); const hbefore = height();
+          const toggle = panel.querySelector('.settings-about-toggle');
+          toggle?.click();
+          await waitFor(() => panel.querySelector('.about-credits'));
+          await sleep(350);
+          const openTop = top(); const openF = ftop(); const hopen = height();
+          toggle?.click();
+          await waitFor(() => !panel.querySelector('.about-credits'));
+          await sleep(350);
+          const closedTop = top(); const closedF = ftop();
+          document.querySelector('.settings-panel .detail-close')?.click();
+          await sleep(250);
+          return {
+            found: true,
+            grew: hopen > hbefore + 40,
+            openStable: Math.abs(openTop - before) <= 1 && Math.abs(openF - fbefore) <= 1,
+            closedStable: Math.abs(closedTop - before) <= 1 && Math.abs(closedF - fbefore) <= 1
+          };
+        })()`)
+        settingsAboutStable =
+          stable?.found === true &&
+          stable?.grew === true &&
+          stable?.openStable === true &&
+          stable?.closedStable === true
+        if (!settingsAboutStable) console.error('SETTINGS_ABOUT_STABLE_FAIL', JSON.stringify(stable))
+      } finally {
+        mainWindow.setSize(originalSize[0], originalSize[1])
+        await settledFrames(mainWindow.webContents)
+      }
+    }
+
+
     // 托盘驻留开关：默认开；UI 往返持久化；开启时关窗=隐藏而非退出。
     let trayToggleWorks = false
     try {
@@ -4829,6 +4879,7 @@ export async function runSmokeTest(): Promise<void> {
       settingsFitsCompact: settingsFitsCompact === true,
       settingsNoShift: settingsNoShift === true,
       settingsLayoutV2: settingsLayoutV2 === true,
+      settingsAboutStable: settingsAboutStable === true,
       trayToggleWorks: trayToggleWorks === true,
       trayMenuEntries: trayMenuEntries === true,
       traySettingsOpens: traySettingsOpens === true,
@@ -4930,6 +4981,7 @@ export async function runSmokeTest(): Promise<void> {
           settingsFitsCompact,
           settingsNoShift,
           settingsLayoutV2,
+          settingsAboutStable,
           trayToggleWorks,
           trayMenuEntries,
           traySettingsOpens,

@@ -673,9 +673,19 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
               {updateErrorDetail ?? (updateStatusVisible && update ? updateStatusText(update, t) : '')}
             </div>
 
-            {/* 关于与许可折叠内容：展开才挂载，收起即卸载，默认零增高。 */}
-            {aboutOpen && (
-              <div className="settings-about">
+            {/* 关于与许可折叠内容：展开才挂载，收起即卸载，默认零增高。
+                高度 0→auto 动画让展开是「缓缓展开」而不是瞬移；浮层顶边已锚定，
+                面板不重新居中，动画只向下生长。 */}
+            <AnimatePresence initial={false}>
+              {aboutOpen && (
+                <motion.div
+                  className="settings-about"
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.2, ease: 'easeOut' }}
+                  style={{ overflow: 'hidden' }}
+                >
                 {/* 版本号常驻页脚，展开区只留许可署名，不重复报版本。 */}
                 <div className="settings-row-desc">{t('settings.versionOnly')}</div>
                 <div className="about-credits">
@@ -691,8 +701,9 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
                     {t('settings.creditsNote')}
                   </div>
                 </div>
-              </div>
-            )}
+                </motion.div>
+              )}
+            </AnimatePresence>
 
             {/* 重新生成令牌的二次确认：旧客户端配置立即失效，属破坏性动作。
                 ConfirmDialog 自带焦点陷阱（压在面板陷阱之上）并在 React 根
