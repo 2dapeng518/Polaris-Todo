@@ -575,16 +575,17 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
                   {t('settings.mcpError', { error: mcp.error })}
                 </div>
               )}
-              {/* 令牌单行：掩码盒 + 复制 + 重新生成横排，仅启用时渲染，默认零增高。
-                  掩码头 7 + … + 末 4，中段隐藏；nowrap + ellipsis 兜底极窄窗口，
-                  高度恒定一行，面板零回流。明文永不渲染，只能整串复制。 */}
+              {/* 令牌独占整行：掩码盒吃满卡宽（凭证字段的主角待遇），复制/重新生成
+                  退第二行右对齐。仅启用时渲染，默认零增高。掩码头 7 + … + 末 4，
+                  中段隐藏；nowrap + ellipsis 兜底极窄窗口，高度恒定一行。
+                  明文永不渲染，只能整串复制。 */}
               {mcp.enabled && mcpToken && (
                 <div className="mcp-token">
                   <div className="settings-row-desc">{t('settings.mcpTokenDesc')}</div>
-                  <div className="mcp-token-row">
-                    <code className="mcp-token-box" aria-label={t('settings.mcpToken')}>
-                      {`${mcpToken.slice(0, 7)}…${mcpToken.slice(-4)}`}
-                    </code>
+                  <code className="mcp-token-box" aria-label={t('settings.mcpToken')}>
+                    {`${mcpToken.slice(0, 7)}…${mcpToken.slice(-4)}`}
+                  </code>
+                  <div className="mcp-token-actions">
                     <button className="backup-btn" onClick={() => void copyMcpToken()}>
                       {t('settings.mcpTokenCopy')}
                     </button>
