@@ -2,6 +2,8 @@
 
 <img src="build/icon.png" alt="Polaris icon" width="96" />
 
+[![English](https://img.shields.io/badge/English-0F766E?style=flat-square)] [![简体中文](https://img.shields.io/badge/%E7%AE%80%E4%BD%93%E4%B8%AD%E6%96%87-334155?style=flat-square)](README.md)
+
 # Polaris
 
 **A local-first to-do app for Windows 11**
@@ -12,8 +14,6 @@ Deep ink-dark UI · teal signal color · native window controls · your data sta
 [![Platform](https://img.shields.io/badge/platform-Windows%2011-334155?style=flat-square)](#installation)
 [![License](https://img.shields.io/badge/license-MIT-0F766E?style=flat-square)](LICENSE)
 [![Downloads](https://img.shields.io/github/downloads/2dapeng518/Polaris-Todo/total?style=flat-square&color=0F766E&label=downloads)](https://github.com/2dapeng518/Polaris-Todo/releases)
-
-English | [简体中文](README.md)
 
 </div>
 

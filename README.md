@@ -2,6 +2,8 @@
 
 <img src="build/icon.png" alt="Polaris 图标" width="96" />
 
+[![简体中文](https://img.shields.io/badge/%E7%AE%80%E4%BD%93%E4%B8%AD%E6%96%87-0F766E?style=flat-square)] [![English](https://img.shields.io/badge/English-334155?style=flat-square)](README.en.md)
+
 # Polaris
 
 **Windows 11 上的本地优先待办应用**
@@ -12,8 +14,6 @@
 [![平台](https://img.shields.io/badge/platform-Windows%2011-334155?style=flat-square)](#安装)
 [![许可证](https://img.shields.io/badge/license-MIT-0F766E?style=flat-square)](LICENSE)
 [![下载](https://img.shields.io/github/downloads/2dapeng518/Polaris-Todo/total?style=flat-square&color=0F766E&label=downloads)](https://github.com/2dapeng518/Polaris-Todo/releases)
-
-[English](README.en.md) | 简体中文
 
 </div>
 
