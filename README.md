@@ -13,6 +13,8 @@
 [![许可证](https://img.shields.io/badge/license-MIT-0F766E?style=flat-square)](LICENSE)
 [![下载](https://img.shields.io/github/downloads/2dapeng518/Polaris-Todo/total?style=flat-square&color=0F766E&label=downloads)](https://github.com/2dapeng518/Polaris-Todo/releases)
 
+[English](README.en.md) | 简体中文
+
 </div>
 
 Polaris 面向 Windows 11 桌面，用 Electron 构建，数据落在本机 SQLite 文件里，不依赖账号或云同步。界面支持简体中文与英文，强调键盘操作、可访问性和安静的视觉层级：八个视图、自然语言快速添加、子任务与标签、提醒与重复、统计回顾，外加托盘驻留、全局热键和后台自动更新——装好之后几乎不用想起它，它一直在。
@@ -412,7 +414,7 @@ npm run verify:pure
 - 时间统一存 ISO UTC 字符串；日期分组和格式化只在渲染层进行。
 - 重复规则按 RFC 5545 RRULE 计算，并按本地墙钟时间推进；COUNT 和 UNTIL 不接受。
 - 界面文案使用简体中文；改动 UI 时沿用现有 token 和组件规范，不要引入新的视觉方向。
-- 改动行为、命令或已知限制时同步更新本 README。
+- 改动行为、命令或已知限制时同步更新中英文 README（`README.md` / `README.en.md`），两份结构保持一致。
 
 ## 设计系统
 
