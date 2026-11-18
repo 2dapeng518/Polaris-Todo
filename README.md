@@ -325,7 +325,7 @@ build/         应用图标与安装包资源
 1. 改代码，用 `npm run dev` 验证交互。
 2. 运行 `npm run typecheck`。
 3. 运行 `npm run build && npm run smoke`；动过主题加跑 `npm run verify:themes`，动过 `lib/dateTime.ts` 加跑 `npm run verify:datetime`，动过 `shared/quickAddParse.ts` / `shared/retention.ts` 先跑秒级的 `npm run verify:pure` 快速反馈。
-4. 需要看视觉结果时，先 `POLARIS_HARNESS=1 npm run build` 带 harness 重建（生产构建会剥离截图代码，直接截会静默无产出），再 `POLARIS_SHOT=<mode> npx electron .` 截图到仓库根目录（模式清单见下方折叠块）；截完跑一次 `npm run build` 恢复生产态；验证时请加 `--user-data-dir` 隔离，避免改写真实配置目录的主题。
+4. 需要看视觉结果时，先 `POLARIS_HARNESS=1 npm run build` 带 harness 重建（生产构建会剥离截图代码，直接截会静默无产出），再 `POLARIS_SHOT=<mode> npx electron .` 截图到仓库根目录（模式清单见下方折叠块）；截完跑一次 `npm run build` 恢复生产态；验证时请加 `--user-data-dir` 隔离，避免改写真实配置目录的主题。英文界面截图加 `POLARIS_LOCALE=en`（首启种子与截图选择器随语言切换），归档在 `docs/screenshots/en/`，供 `README.en.md` 引用。
 5. 发布：递增 `package.json` 版本 → 提交并打附注 tag → **先 push main 与 tag**（否则 electron-builder 可能抢先把 tag 建在旧 HEAD 上）→ 设好 `GH_TOKEN` 跑 `npm run release:win`。发完核对 Release 资产三件套齐全：`Polaris-Setup-<版本>.exe`、`.blockmap`、`latest.yml`（electron-builder 上传偶有静默漏传，缺啥用 `gh release upload --clobber` 补）；Release 若停在 DRAFT 用 `gh release edit --draft=false` 转正。
 
 <details>

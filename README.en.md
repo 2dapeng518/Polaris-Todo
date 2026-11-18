@@ -20,7 +20,7 @@ Deep ink-dark UI · teal signal color · native window controls · your data sta
 Polaris targets the Windows 11 desktop. Built with Electron, it keeps your data in a local SQLite file — no account, no cloud sync. The UI ships in Simplified Chinese and English, with an emphasis on keyboard workflows, accessibility, and a quiet visual hierarchy: eight views, natural-language quick add, subtasks and tags, reminders and recurrence, a stats review — plus tray residency, a global hotkey, and silent background updates. Once installed, you barely have to think about it. It's just there.
 
 <div align="center">
-<img src="docs/screenshots/main-dark.png" alt="Polaris main window · Nightfall theme" width="860" />
+<img src="docs/screenshots/en/main-dark.png" alt="Polaris main window · Nightfall theme" width="860" />
 </div>
 
 ## Installation
@@ -84,15 +84,15 @@ If you previously installed the "all users" build (under `C:\Program Files`), un
 
 | Task detail inspector | Calendar view |
 |---|---|
-| ![Task detail inspector](docs/screenshots/detail.png) | ![Calendar view](docs/screenshots/calendar.png) |
+| ![Task detail inspector](docs/screenshots/en/detail.png) | ![Calendar view](docs/screenshots/en/calendar.png) |
 
 | Eisenhower matrix | Stats review |
 |---|---|
-| ![Eisenhower matrix](docs/screenshots/matrix.png) | ![Stats review](docs/screenshots/stats.png) |
+| ![Eisenhower matrix](docs/screenshots/en/matrix.png) | ![Stats review](docs/screenshots/en/stats.png) |
 
 | Settings panel | Command palette |
 |---|---|
-| ![Settings panel](docs/screenshots/settings.png) | ![Command palette](docs/screenshots/palette.png) |
+| ![Settings panel](docs/screenshots/en/settings.png) | ![Command palette](docs/screenshots/en/palette.png) |
 
 ## Themes
 
@@ -112,8 +112,8 @@ One pair per column, dark on top:
 
 | Nightfall ↔ Daylight | Dusk ↔ Sky | Pine ↔ Sand |
 |---|---|---|
-| ![Nightfall](docs/screenshots/theme-dark.png) | ![Dusk](docs/screenshots/theme-dusk.png) | ![Pine](docs/screenshots/theme-green.png) |
-| ![Daylight](docs/screenshots/theme-light.png) | ![Sky](docs/screenshots/theme-sky.png) | ![Sand](docs/screenshots/theme-sand.png) |
+| ![Nightfall](docs/screenshots/en/theme-dark.png) | ![Dusk](docs/screenshots/en/theme-dusk.png) | ![Pine](docs/screenshots/en/theme-green.png) |
+| ![Daylight](docs/screenshots/en/theme-light.png) | ![Sky](docs/screenshots/en/theme-sky.png) | ![Sand](docs/screenshots/en/theme-sand.png) |
 
 ## Keyboard Shortcuts
 
@@ -327,13 +327,13 @@ The repo uses `main` as its primary branch, with basic CI configured (typecheck 
 1. Change code and verify interactions with `npm run dev`.
 2. Run `npm run typecheck`.
 3. Run `npm run build && npm run smoke`; if you touched themes add `npm run verify:themes`, if you touched `lib/dateTime.ts` add `npm run verify:datetime`, and if you touched `shared/quickAddParse.ts` / `shared/retention.ts` run the seconds-fast `npm run verify:pure` first for quick feedback.
-4. For visual results, rebuild with the harness first via `POLARIS_HARNESS=1 npm run build` (production builds strip the screenshot code — shooting without it silently produces nothing), then `POLARIS_SHOT=<mode> npx electron .` to capture into the repo root (mode list in the collapsed block below); afterwards run `npm run build` once to restore the production state. Add `--user-data-dir` when verifying to avoid rewriting the theme in your real profile directory.
+4. For visual results, rebuild with the harness first via `POLARIS_HARNESS=1 npm run build` (production builds strip the screenshot code — shooting without it silently produces nothing), then `POLARIS_SHOT=<mode> npx electron .` to capture into the repo root (mode list in the collapsed block below); afterwards run `npm run build` once to restore the production state. Add `--user-data-dir` when verifying to avoid rewriting the theme in your real profile directory. For English-UI screenshots add `POLARIS_LOCALE=en` (first-launch seeds and capture selectors follow the language); they are archived in `docs/screenshots/en/` and referenced by `README.en.md`.
 5. Release: bump the version in `package.json` → commit and create an annotated tag → **push main and the tag first** (otherwise electron-builder may race and create the tag on an old HEAD) → set `GH_TOKEN` and run `npm run release:win`. After publishing, verify the Release has all three assets: `Polaris-Setup-<version>.exe`, `.blockmap`, `latest.yml` (electron-builder occasionally drops uploads silently — patch missing ones with `gh release upload --clobber`); if the Release sits in DRAFT, promote it with `gh release edit --draft=false`.
 
 <details>
 <summary><b>POLARIS_SHOT screenshot mode list</b></summary>
 
-Modes include `detail`, `palette`, `projects`, `reminder`, `reminder-detail`, `settings`, `theme-menu`, `palette-theme`, `toast`, `recurrence`, `parse`, `parse-past`, `parse-notice`, `parse-blocked`, `due-picker`, `due-clear`, `trash` and their `light-` variants, plus dark-only `trash-confirm` (the trash delete-forever confirm dialog), `narrow` (shrinks the window to 1100×800 before shooting the detail pane), `calendar` (self-seeds eight tasks scattered across the current month including overdue and one completed, hard-deletes them afterwards), `matrix` and `stats` (shoot the matrix and stats with first-launch sample data), `themes` (captures all six themes' main view, the expanded theme menu, and the theme picker), and `splash` (captures the splash in all six themes without touching the main window's theme). Trash screenshots self-seed two deleted tasks and hard-delete them afterwards. README screenshots are archived in `docs/screenshots/`.
+Modes include `detail`, `palette`, `projects`, `reminder`, `reminder-detail`, `settings`, `theme-menu`, `palette-theme`, `toast`, `recurrence`, `parse`, `parse-past`, `parse-notice`, `parse-blocked`, `due-picker`, `due-clear`, `trash` and their `light-` variants, plus dark-only `trash-confirm` (the trash delete-forever confirm dialog), `narrow` (shrinks the window to 1100×800 before shooting the detail pane), `calendar` (self-seeds eight tasks scattered across the current month including overdue and one completed, hard-deletes them afterwards), `matrix` and `stats` (shoot the matrix and stats with first-launch sample data), `themes` (captures all six themes' main view, the expanded theme menu, and the theme picker), and `splash` (captures the splash in all six themes without touching the main window's theme). Trash screenshots self-seed two deleted tasks and hard-delete them afterwards. README screenshots are archived in `docs/screenshots/` (Chinese UI) and `docs/screenshots/en/` (English UI).
 
 </details>
 

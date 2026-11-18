@@ -8,18 +8,21 @@ const META_KEY = 'locale'
 // 测试 env 读取只存在于 harness 构建：生产构建 __POLARIS_HARNESS__ 恒 false，
 // 这段被编译期消除，HARNESS 恒 false，语言记录照常走 meta/系统语言。
 let HARNESS = false
+let FORCED_LOCALE: string | undefined
 if (__POLARIS_HARNESS__) {
   HARNESS = Boolean(
     process.env['POLARIS_SMOKE'] || process.env['POLARIS_SHOT'] || process.env['POLARIS_SCREENSHOT']
   )
+  FORCED_LOCALE = process.env['POLARIS_LOCALE']
 }
 
 let current: Locale | null = null
 
 export function initAppLocale(): void {
-  // 冒烟与截图必须确定性中文：现有断言与截图全部按中文文本工作。
+  // 冒烟与截图默认确定性中文：现有断言与截图全部按中文文本工作。
+  // POLARIS_LOCALE 可显式覆盖（英文界面截图用 POLARIS_LOCALE=en）。
   if (HARNESS) {
-    current = 'zh-CN'
+    current = isLocale(FORCED_LOCALE) ? FORCED_LOCALE : 'zh-CN'
     return
   }
   const stored = getMeta(META_KEY)
