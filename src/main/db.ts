@@ -319,54 +319,217 @@ function seedIfNeeded(): void {
     'INSERT INTO projects (id, name, color, sort_order, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)'
   )
   const insertTask = db.prepare(`
-    INSERT INTO tasks (id, title, notes, completed, due_at, remind_at, project_id, priority, created_at, updated_at, deleted_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO tasks (id, title, notes, completed, due_at, remind_at, recurrence_rule, project_id, priority, created_at, updated_at, deleted_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `)
+  const insertSubtask = db.prepare(
+    'INSERT INTO subtasks (id, task_id, title, completed, sort_order, created_at) VALUES (?, ?, ?, ?, ?, ?)'
+  )
+  const insertTag = db.prepare('INSERT INTO tags (id, name, created_at) VALUES (?, ?, ?)')
+  const insertTaskTag = db.prepare('INSERT INTO task_tags (task_id, tag_id) VALUES (?, ?)')
 
   const seed = db.transaction(() => {
     insertProject.run(polarisProjectId, 'Polaris', '#5EEAD4', 0, stamp, stamp)
     insertProject.run(personalProjectId, en ? 'Personal' : '个人', '#A78BFA', 1, stamp, stamp)
 
-    // 英文镜像与中文种子同结构（偏移/时刻/优先级/完成态一致），统计视图的
-    // 「未记录时刻」老任务语义两边相同（completed 直插、不写 completed_at）。
-    const tasks: Array<{
+    // 首启种子是一组教学示例：每条任务演示一个功能，用法写在备注里，取代
+    // 早期的泛型演示任务。英文镜像与中文种子同结构（偏移/时刻/优先级/完成态/
+    // 子任务/标签一致）；completed 直插、不写 completed_at，统计视图的
+    // 「未记录时刻」老任务语义两边相同。四象限全覆盖：立即做（子任务/四象限两条）、
+    // 计划（标签）、快速处理（每周回顾）、稍后（欢迎/提醒），matrix 截图仍有数据。
+    // 提醒设在明天：首启不会立刻弹提醒窗。
+    type SeedTask = {
       title: string
+      notes: string
       completed: number
-      dueAt: string
+      dueAt: string | null
+      remindAt: string | null
+      recurrenceRule: string | null
       projectId: string
       priority: number
-    }> = en
+      subtasks: Array<{ title: string; completed: number }>
+      tags: string[]
+    }
+    const t = (
+      partial: Partial<SeedTask> & Pick<SeedTask, 'title' | 'notes' | 'projectId'>
+    ): SeedTask => ({
+      completed: 0,
+      dueAt: null,
+      remindAt: null,
+      recurrenceRule: null,
+      priority: 0,
+      subtasks: [],
+      tags: [],
+      ...partial
+    })
+
+    const tasks: SeedTask[] = en
       ? [
-          { title: 'Finish the Polaris UI design', completed: 0, dueAt: at(0, 18), projectId: polarisProjectId, priority: 2 },
-          { title: "Review this week's task list", completed: 0, dueAt: at(0, 20), projectId: personalProjectId, priority: 1 },
-          { title: 'Call mom', completed: 1, dueAt: at(0, 19, 30), projectId: personalProjectId, priority: 0 },
-          { title: 'Tidy up the Downloads folder', completed: 1, dueAt: at(0, 12), projectId: personalProjectId, priority: 0 },
-          { title: 'Read chapter 3 of "Designing Design"', completed: 0, dueAt: at(1, 21), projectId: personalProjectId, priority: 0 },
-          { title: 'Book the Friday dentist appointment', completed: 0, dueAt: at(1, 10), projectId: personalProjectId, priority: 2 }
+          t({
+            title: 'Welcome to Polaris — open me',
+            notes:
+              'Click a task to open its details: notes, due date, reminder and recurrence all live there.\nUse the input at the top to add tasks anytime; press Ctrl+Alt+P in any app to bring up Polaris quick add.\nThese sample tasks are just a demo — delete them whenever you like.',
+            projectId: polarisProjectId
+          }),
+          t({
+            title: 'Try quick add: Submit report tomorrow 3pm #Personal !high',
+            notes:
+              'Type the title above into the top input and press Enter: the date, #project and !priority are recognized as chips below the input.\nChinese syntax works too, e.g. 明天下午3点 交报告 #个人 !高.',
+            projectId: personalProjectId
+          }),
+          t({
+            title: 'Subtasks: break big work into small steps',
+            notes:
+              'Open the details and add checklist items under Subtasks, then tick them off one by one; the task row shows the progress.',
+            dueAt: at(0, 18),
+            projectId: polarisProjectId,
+            priority: 2,
+            subtasks: [
+              { title: 'Open the detail panel', completed: 1 },
+              { title: 'Add a subtask of your own', completed: 0 },
+              { title: 'Tick one off and watch the progress', completed: 0 }
+            ]
+          }),
+          t({
+            title: 'Tags: organize across projects',
+            notes:
+              'A task can carry several tags; click a tag in the sidebar to filter across projects.\nType a name in the Tags row of the details to create a new one.',
+            dueAt: at(1, 12),
+            projectId: personalProjectId,
+            priority: 2,
+            tags: ['sample', 'getting-started']
+          }),
+          t({
+            title: 'Review the task list weekly',
+            notes:
+              'This is a repeating task: completing it automatically spawns the next occurrence one week later.\nSubtasks and tags carry over to the next one.',
+            dueAt: at(0, 20),
+            recurrenceRule: 'FREQ=WEEKLY',
+            projectId: personalProjectId,
+            priority: 1
+          }),
+          t({
+            title: 'Reminders: a popup right on time',
+            notes:
+              'This task has a reminder set for tomorrow 09:00 — a reminder window will pop up then.\nAny task can get one via the Remind row in the details.',
+            dueAt: at(1, 9),
+            remindAt: at(1, 9),
+            projectId: personalProjectId
+          }),
+          t({
+            title: 'Matrix: important & urgent comes first',
+            notes:
+              'Open the Matrix view: important = medium/high priority, urgent = due today or overdue.\nThis task lands in the "Do now" quadrant.',
+            dueAt: at(0, 17),
+            projectId: polarisProjectId,
+            priority: 3
+          }),
+          t({
+            title: 'Completed tasks fold away here',
+            notes:
+              'The completed section collapses into a single count row; expand it to review, and it folds back when you switch views.',
+            completed: 1,
+            dueAt: at(0, 12),
+            projectId: personalProjectId
+          })
         ]
       : [
-          { title: '完成 Polaris 的界面设计', completed: 0, dueAt: at(0, 18), projectId: polarisProjectId, priority: 2 },
-          { title: '梳理本周的任务清单', completed: 0, dueAt: at(0, 20), projectId: personalProjectId, priority: 1 },
-          { title: '给妈妈打个电话', completed: 1, dueAt: at(0, 19, 30), projectId: personalProjectId, priority: 0 },
-          { title: '整理下载文件夹', completed: 1, dueAt: at(0, 12), projectId: personalProjectId, priority: 0 },
-          { title: '阅读《设计中的设计》第三章', completed: 0, dueAt: at(1, 21), projectId: personalProjectId, priority: 0 },
-          { title: '预约周五的牙医', completed: 0, dueAt: at(1, 10), projectId: personalProjectId, priority: 2 }
+          t({
+            title: '欢迎使用 Polaris，点我看看',
+            notes:
+              '点击任务打开详情：备注、截止、提醒、重复都在那里设置。\n顶部输入框随时添加任务；在任何程序里按 Ctrl+Alt+P 都能唤起 Polaris 快速添加。\n这组示例任务只是演示，随时可以删掉。',
+            projectId: polarisProjectId
+          }),
+          t({
+            title: '试试快速添加：明天下午3点 交报告 #个人 !高',
+            notes:
+              '把标题这句话原样敲进顶部输入框再回车：时间、#项目、!优先级 会自动识别成输入框下方的芯片。\n英文同样支持，例如 Submit report tomorrow 3pm #Personal !high。',
+            projectId: personalProjectId
+          }),
+          t({
+            title: '子任务：把大事拆成小步',
+            notes: '打开详情，在「子任务」里添加检查项，逐项打勾；任务行会显示完成进度。',
+            dueAt: at(0, 18),
+            projectId: polarisProjectId,
+            priority: 2,
+            subtasks: [
+              { title: '打开详情面板', completed: 1 },
+              { title: '添加一条自己的子任务', completed: 0 },
+              { title: '勾掉一项，看进度变化', completed: 0 }
+            ]
+          }),
+          t({
+            title: '标签：跨项目归类',
+            notes:
+              '一条任务可以贴多个标签；点侧栏标签就能跨项目筛选。\n在详情的「标签」行输入名字即可新建。',
+            dueAt: at(1, 12),
+            projectId: personalProjectId,
+            priority: 2,
+            tags: ['示例', '入门']
+          }),
+          t({
+            title: '每周回顾任务清单',
+            notes:
+              '这是一条重复任务：勾选完成后自动生成下一次，截止顺延一周。\n子任务和标签也会继承到下一次。',
+            dueAt: at(0, 20),
+            recurrenceRule: 'FREQ=WEEKLY',
+            projectId: personalProjectId,
+            priority: 1
+          }),
+          t({
+            title: '提醒：到点弹窗不怕忘',
+            notes:
+              '这条任务设了明天 09:00 的提醒，到点会弹出提醒窗口。\n任何任务都能在详情的「提醒」行设置。',
+            dueAt: at(1, 9),
+            remindAt: at(1, 9),
+            projectId: personalProjectId
+          }),
+          t({
+            title: '四象限：重要又紧急的排最前',
+            notes:
+              '打开「四象限」视图看看：重要 = 中/高优先级，紧急 = 今天到期或已逾期。\n这条任务会落在「立即做」象限。',
+            dueAt: at(0, 17),
+            projectId: polarisProjectId,
+            priority: 3
+          }),
+          t({
+            title: '已完成的任务收在这里',
+            notes: '完成区默认折叠成一行计数，点开可以回顾，切换视图后自动收起。',
+            completed: 1,
+            dueAt: at(0, 12),
+            projectId: personalProjectId
+          })
         ]
 
+    const tagIds = new Map<string, string>()
     for (const task of tasks) {
+      const taskId = randomUUID()
       insertTask.run(
-        randomUUID(),
+        taskId,
         task.title,
-        '',
+        task.notes,
         task.completed,
         task.dueAt,
-        null,
+        task.remindAt,
+        task.recurrenceRule,
         task.projectId,
         task.priority,
         stamp,
         stamp,
         null
       )
+      task.subtasks.forEach((subtask, index) => {
+        insertSubtask.run(randomUUID(), taskId, subtask.title, subtask.completed, index, stamp)
+      })
+      for (const name of task.tags) {
+        let tagId = tagIds.get(name)
+        if (!tagId) {
+          tagId = randomUUID()
+          insertTag.run(tagId, name, stamp)
+          tagIds.set(name, tagId)
+        }
+        insertTaskTag.run(taskId, tagId)
+      }
     }
 
     db.prepare('INSERT INTO meta (key, value) VALUES (?, ?)').run('demo_seeded', '1')

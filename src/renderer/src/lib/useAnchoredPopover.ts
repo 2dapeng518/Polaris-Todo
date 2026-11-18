@@ -11,7 +11,9 @@ import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from 're
  * - 锚点矩形在每次打开时捕获一次，之后固定 —— 与旧 TaskDetail 把
  *   anchorTop/anchorBottom 存进 state 的语义一致；
  * - 外点 pointerdown / 窗口 resize / 捕获阶段 scroll 收起（不还原焦点），
- *   浮层内部与 outsideIgnoreSelector 命中的触发区不算外点。
+ *   浮层内部与 outsideIgnoreSelector 命中的触发区不算外点；scroll 只在锚点
+ *   真实位移时才收起——零位移滚动事件（滚动锚定重算、content-visibility
+ *   状态切换等浏览器内部动作）不移动锚点，不该秒杀刚打开的浮层。
  *
  * Esc 刻意不在这里：两处的路由语义根本不同 —— TaskDetail 在 window 上监听
  * 并路由（先收弹层、再收详情栏，还要看 paletteOpen），ThemeMenu 在自身
@@ -58,6 +60,8 @@ export function useAnchoredPopover({
   popoverRef: RefObject<HTMLDivElement | null>
 } {
   const popoverRef = useRef<HTMLDivElement | null>(null)
+  // 打开瞬间的锚点位置：scroll 收起前用它核对锚点是否真的动了。
+  const anchorRectRef = useRef<{ top: number; left: number } | null>(null)
   // 首帧就给出位置，绝不用 visibility:hidden 占位：隐藏的节点不可聚焦，而
   // useLayoutEffect 里 setState 会让 React 先 flush 上一轮的 passive effect，
   // 初始聚焦会打在还隐藏着的节点上静默失败（ThemeMenu 的老规矩）。
@@ -77,6 +81,7 @@ export function useAnchoredPopover({
     if (!anchor || !element) return
 
     const rect = anchor.getBoundingClientRect()
+    anchorRectRef.current = { top: rect.top, left: rect.left }
     const left = Math.max(MARGIN, Math.min(rect.left, window.innerWidth - width - MARGIN))
     // 首帧预估：与旧 openPopover 相同的判断（严格 >），让首绘就落在正确一侧。
     const estimatedBelow = rect.bottom + GAP
@@ -116,6 +121,14 @@ export function useAnchoredPopover({
     const onResize = () => onDismiss()
     const onScroll = (event: Event) => {
       if (popoverRef.current?.contains(event.target as Node)) return
+      // 锚点没动就不收：浏览器会在浮层插入后发出零位移 scroll（滚动锚定
+      // 重算等），旧逻辑在这里把刚打开的浮层同帧秒杀。锚点已卸载则照收。
+      const anchor = anchorRef.current
+      const saved = anchorRectRef.current
+      if (anchor && saved) {
+        const rect = anchor.getBoundingClientRect()
+        if (Math.abs(rect.top - saved.top) < 0.5 && Math.abs(rect.left - saved.left) < 0.5) return
+      }
       onDismiss()
     }
 
