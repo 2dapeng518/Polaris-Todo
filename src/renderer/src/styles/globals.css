@@ -5015,9 +5015,23 @@ textarea {
   line-height: 1.5;
 }
 
-/* 关于与许可：页脚折叠入口 + 展开内容，默认不挂载零增高。 */
+/* 关于与许可：页脚上方浮层。绝对定位脱离布局流——展开不增高、不改滚动
+   状态，滚动容器收起时 clamp scrollTop 跳视的根因从构造上消失。
+   锚在页脚（position:relative）上随内容一起滚；向上弹出盖住组卡是_transient_
+   披露的预期行为。材质走 panel-bg + line-strong + 单层软阴影。 */
 .settings-about {
-  margin-top: 8px;
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  z-index: 5;
+  max-height: min(320px, 60vh);
+  overflow-y: auto;
+  padding: 12px 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+  background: var(--panel-bg);
+  box-shadow: 0 12px 32px rgba(var(--shadow-rgb), 0.35);
 }
 
 .settings-about-toggle {
@@ -5036,6 +5050,7 @@ textarea {
 }
 
 .settings-footer {
+  position: relative;
   padding-top: 10px;
   border-top: 1px solid var(--line);
   color: var(--text-tertiary);
@@ -5162,11 +5177,6 @@ textarea {
     margin-top: 0;
   }
 
-  /* 关于折叠：挂载才生隐式整幅行，收起态不白占 gap。 */
-  .settings-about {
-    grid-column: 1 / -1;
-    margin-top: 0;
-  }
 }
 
 .switch {

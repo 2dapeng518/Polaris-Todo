@@ -3931,12 +3931,14 @@ export async function runSmokeTest(): Promise<void> {
           const tw = () => panel.querySelector('.theme-option').getBoundingClientRect().width;
           const before = top(); const fbefore = ftop(); const hbefore = height();
           const cbefore = cw(); const tbefore = tw();
+          const shbefore = panel.scrollHeight;
           const toggle = panel.querySelector('.settings-about-toggle');
           toggle?.click();
           await waitFor(() => panel.querySelector('.about-credits'));
           await sleep(350);
           const openTop = top(); const openF = ftop(); const hopen = height();
           const copen = cw(); const topen = tw();
+          const shopen = panel.scrollHeight;
           toggle?.click();
           await waitFor(() => !panel.querySelector('.about-credits'));
           await sleep(350);
@@ -3946,7 +3948,9 @@ export async function runSmokeTest(): Promise<void> {
           await sleep(250);
           return {
             found: true,
-            grew: hopen > hbefore + 40,
+            // 浮层契约：展开后面板外框与内容高度逐像素不变（旧流内折叠会增高
+            // → 超帽出滚动条 → 收起 clamp scrollTop 跳视，根因已除）。
+            heightStable: Math.abs(hopen - hbefore) <= 1 && shopen === shbefore,
             openStable: Math.abs(openTop - before) <= 1 && Math.abs(openF - fbefore) <= 1,
             closedStable: Math.abs(closedTop - before) <= 1 && Math.abs(closedF - fbefore) <= 1,
             widthStable: copen === cbefore && cclosed === cbefore &&
@@ -3955,7 +3959,7 @@ export async function runSmokeTest(): Promise<void> {
         })()`)
         settingsAboutStable =
           stable?.found === true &&
-          stable?.grew === true &&
+          stable?.heightStable === true &&
           stable?.openStable === true &&
           stable?.closedStable === true &&
           stable?.widthStable === true

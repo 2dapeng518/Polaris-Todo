@@ -196,14 +196,22 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
     }
   }, [open])
 
+  // Esc 分层在单监听器内决策：浮层开着只关浮层，否则关面板。
+  // 单监听器免掉跨监听器的相位/注册序复杂度；CDP 真按键实测：
+  // 浮层开时 Esc 只关浮层、面板存活（trace 探针四阶段日志确认）。
   useEffect(() => {
     if (!open || paletteOpen) return
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose()
+      if (event.key !== 'Escape') return
+      if (aboutOpen) {
+        setAboutOpen(false)
+        return
+      }
+      onClose()
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [open, paletteOpen, onClose])
+  }, [open, paletteOpen, onClose, aboutOpen])
 
   const toggleAutoStart = async () => {
     if (busy || !autoStart.supported) return
@@ -396,7 +404,14 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -10, scale: 0.98 }}
             transition={{ type: 'spring', stiffness: 420, damping: 40 }}
-            onMouseDown={(event) => event.stopPropagation()}
+            onMouseDown={(event) => {
+              event.stopPropagation()
+              // 点浮层外（不含开关本身）收起关于；开关自己的 onClick 负责切换。
+              const target = event.target as HTMLElement
+              if (aboutOpen && !target.closest('.settings-about') && !target.closest('.settings-about-toggle')) {
+                setAboutOpen(false)
+              }
+            }}
           >
             <div className="settings-header">
               <div>
@@ -625,8 +640,39 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
             </div>
 
             {/* 更新入口收进页脚：状态行常驻占位一行，检查过或有动静才落字，
-                高度不随状态变化，面板不重新居中抖动。 */}
+                高度不随状态变化，面板不重新居中抖动。
+                关于与许可是页脚上方的浮层（绝对定位）：展开不增高、不改滚动状态，
+                滚动容器 clamp 跳视的根因从构造上消失。 */}
             <div className="settings-footer">
+              <AnimatePresence initial={false}>
+                {aboutOpen && (
+                  <motion.div
+                    className="settings-about"
+                    role="region"
+                    aria-label={t('settings.aboutToggle')}
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 6 }}
+                    transition={{ duration: 0.14, ease: 'easeOut' }}
+                  >
+                    {/* 版本号常驻页脚，浮层只留许可署名，不重复报版本。 */}
+                    <div className="settings-row-desc">{t('settings.versionOnly')}</div>
+                    <div className="about-credits">
+                      <div className="about-credit-row">
+                        <span className="about-credit-label">{t('settings.fonts')}</span>
+                        <span className="about-credit-value">Inter · Manrope · Noto Sans SC · Geist Mono (SIL OFL 1.1)</span>
+                      </div>
+                      <div className="about-credit-row">
+                        <span className="about-credit-label">{t('settings.icons')}</span>
+                        <span className="about-credit-value">Lucide (ISC / MIT)</span>
+                      </div>
+                      <div className="about-credit-note">
+                        {t('settings.creditsNote')}
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
               {version && (
                 <>
                   {t('settings.footerVersion')}{' '}
@@ -672,38 +718,6 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
             >
               {updateErrorDetail ?? (updateStatusVisible && update ? updateStatusText(update, t) : '')}
             </div>
-
-            {/* 关于与许可折叠内容：展开才挂载，收起即卸载，默认零增高。
-                高度 0→auto 动画让展开是「缓缓展开」而不是瞬移；浮层顶边已锚定，
-                面板不重新居中，动画只向下生长。 */}
-            <AnimatePresence initial={false}>
-              {aboutOpen && (
-                <motion.div
-                  className="settings-about"
-                  initial={{ height: 0, opacity: 0 }}
-                  animate={{ height: 'auto', opacity: 1 }}
-                  exit={{ height: 0, opacity: 0 }}
-                  transition={{ duration: 0.2, ease: 'easeOut' }}
-                  style={{ overflow: 'hidden' }}
-                >
-                {/* 版本号常驻页脚，展开区只留许可署名，不重复报版本。 */}
-                <div className="settings-row-desc">{t('settings.versionOnly')}</div>
-                <div className="about-credits">
-                  <div className="about-credit-row">
-                    <span className="about-credit-label">{t('settings.fonts')}</span>
-                    <span className="about-credit-value">Inter · Manrope · Noto Sans SC · Geist Mono (SIL OFL 1.1)</span>
-                  </div>
-                  <div className="about-credit-row">
-                    <span className="about-credit-label">{t('settings.icons')}</span>
-                    <span className="about-credit-value">Lucide (ISC / MIT)</span>
-                  </div>
-                  <div className="about-credit-note">
-                    {t('settings.creditsNote')}
-                  </div>
-                </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
 
             {/* 重新生成令牌的二次确认：旧客户端配置立即失效，属破坏性动作。
                 ConfirmDialog 自带焦点陷阱（压在面板陷阱之上）并在 React 根
