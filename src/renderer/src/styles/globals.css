@@ -4950,27 +4950,29 @@ textarea {
   color: var(--danger);
 }
 
-/* 令牌单行：掩码盒弹性占满 + 两按钮横排；明文永不渲染。 */
+/* 令牌独占整行：掩码盒吃满卡宽，操作退第二行右对齐；明文永不渲染。
+   块内距 6（组内紧）：843 档 MCP 启用态 675px 恰好不滚（帽 676）。 */
 .mcp-token {
-  margin-top: 8px;
+  margin-top: 6px;
 }
 
-.mcp-token-row {
+.mcp-token-actions {
   display: flex;
-  align-items: center;
+  justify-content: flex-end;
   gap: 8px;
-  margin-top: 8px;
+  margin-top: 6px;
 }
 
-/* 备份按钮行的 flex:1 不该传进令牌横排：掩码盒占大头，按钮贴文字收窄。 */
-.mcp-token-row .backup-btn {
+/* 备份按钮行的 flex:1 不该传进令牌操作行：按钮贴文字收窄。 */
+.mcp-token-actions .backup-btn {
   flex: none;
 }
 
 .mcp-token-box {
-  flex: 1;
+  width: 100%;
   min-width: 0;
   display: block;
+  margin-top: 6px;
   padding: 6px 8px;
   border: 1px solid var(--line);
   border-radius: 8px;
