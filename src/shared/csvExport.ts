@@ -67,14 +67,16 @@ function taskRow(task: CsvExportTask, indent: number, title: string): string {
   return cells.map(csvField).join(',')
 }
 
-/** 活任务（不含回收站）→ Csv 格式 CSV 文本；子任务紧随父任务 INDENT 2。 */
+/** 活任务（不含回收站）→ Csv 格式 CSV 文本；子任务紧随父任务 INDENT 2。
+ *  首字节带 UTF-8 BOM：中文 Windows 的 Excel 对无 BOM 的 CSV 按 GBK 解码必乱码，
+ *  BOM 是其识别 UTF-8 的唯一信号；Csv 等解析器惯例剥离 BOM，不受影响。 */
 export function buildCsvExport(tasks: CsvExportTask[]): string {
   const lines = [CSV_EXPORT_HEADERS.join(',')]
   for (const task of tasks) {
     lines.push(taskRow(task, 1, task.title))
     for (const sub of task.subtasks) lines.push(taskRow(task, 2, sub))
   }
-  return lines.join('\r\n') + '\r\n'
+  return '\uFEFF' + lines.join('\r\n') + '\r\n'
 }
 
 /** 备份三表 → 导出文本的装配（主进程 handler 与 harness 断言共用同一份逻辑）：
