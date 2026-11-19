@@ -39,6 +39,13 @@ export const settings = {
   'settings.import': '导入备份',
   'settings.importCsv': '导入 CSV',
   'settings.importCsvTitle': '支持主流待办应用 / Csv 的 CSV 导出，按表头自动识别',
+  'settings.csvHelpToggle': 'CSV 格式说明与导出',
+  'settings.csvHelpTitle': 'CSV 格式与导出',
+  'settings.csvHelpDesc': '主流待办应用 / Csv 的导出文件可直接导入。下面这串表头就是本应用导出的格式（示例行紧随其后），照着手写或改列都能被认回；也可以直接导出一份当模板。',
+  'settings.csvHelpNote': '重复规则、提醒、附件与评论不随 CSV 迁移；子任务按 INDENT 层级挂回父任务。',
+  'settings.csvExport': '导出 CSV',
+  'settings.csvExported': '已导出 CSV 文件',
+  'settings.csvExportFailed': '导出失败：{error}',
   'settings.aboutToggle': '关于与许可',
   'settings.behaviorGroup': '常规设置',
 

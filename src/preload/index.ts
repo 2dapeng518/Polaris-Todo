@@ -54,7 +54,8 @@ const api: PolarisApi = {
     getRevision: (): Promise<number> => ipcRenderer.invoke('data:revision'),
     export: (): Promise<ExportResult> => ipcRenderer.invoke('data:export'),
     import: (): Promise<ImportResult> => ipcRenderer.invoke('data:import'),
-    importCsv: (): Promise<CsvImportResult> => ipcRenderer.invoke('data:import-csv')
+    importCsv: (): Promise<CsvImportResult> => ipcRenderer.invoke('data:import-csv'),
+    exportCsv: (): Promise<ExportResult> => ipcRenderer.invoke('data:export-csv')
   },
   backups: {
     list: (): Promise<AutoBackupListResult> => ipcRenderer.invoke('backups:list'),

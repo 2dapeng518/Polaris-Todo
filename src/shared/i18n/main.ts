@@ -18,6 +18,7 @@ export const main = {
   'native.importTitle': '导入备份',
   'native.csvTitle': '导入 CSV（主流待办应用 / Csv）',
   'native.csvFilter': 'CSV 文件',
+  'native.csvExportTitle': '导出 CSV（Csv 格式，可回导）',
   'native.jsonFilter': 'Polaris 备份',
   // 启动灾难恢复与启动失败兜底（主进程原生对话框，locale 可能未就绪，双语并列展示）。
   'native.dbCorruptTitle': '数据库文件损坏，已隔离',

@@ -1,9 +1,11 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { Check, ChevronDown, X } from './Icon'
 import type { AutoBackupItem, AutoStartState, GlobalHotkeyState, McpState, UpdateState } from '@shared/types'
 import { THEME_META, THEME_ORDER } from '@shared/themes'
+import { CSV_EXPORT_HEADERS, buildCsvExport } from '@shared/csvExport'
 import { themeDesc, themeLabel } from '@shared/i18n'
+import { useAnchoredPopover } from '../lib/useAnchoredPopover'
 import { useTaskStore } from '../stores/useTaskStore'
 import { useThemeStore } from '../stores/useThemeStore'
 import { useAppVersion } from '../stores/useAppVersion'
@@ -65,6 +67,12 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
   })
   const [busy, setBusy] = useState(false)
   const panelRef = useRef<HTMLDivElement>(null)
+  const overlayRef = useRef<HTMLDivElement>(null)
+  const csvBtnRef = useRef<HTMLDivElement>(null)
+  const tokenBoxRef = useRef<HTMLElement>(null)
+  const [csvHelpOpen, setCsvHelpOpen] = useState(false)
+  // 自适应掩码头尾长度：随令牌盒实宽填满整行（中段照藏），窄窗少露、宽窗多露。
+  const [maskK, setMaskK] = useState(7)
   const paletteOpen = useTaskStore((state) => state.paletteOpen)
   const theme = useThemeStore((state) => state.theme)
   const setTheme = useThemeStore((state) => state.setTheme)
@@ -137,6 +145,61 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
 
   // 更新弹窗可能叠在设置面板上（「查看更新」）：焦点陷阱让位，别互相抢。
   useFocusTrap(panelRef, open && !paletteOpen && !updateDialogOpen, panelRef)
+
+  // 真·垂直居中：顶边距按面板实测高度实时算 (vh - h) / 2，启用 MCP 长高时
+  // overlay 的 padding-top 走 180ms 过渡平滑 glide——既居中美观，又没有旧
+  // 「内容一长高就重新居中」的瞬移抖动。offsetHeight 不吃入场弹簧的 scale。
+  // 高度来源全确定（手风琴被卡吸收 / 关于是浮层 / 状态行常驻 / 错误零增行），
+  // 唯一变高源是 MCP 开关，glide 覆盖它。
+  useLayoutEffect(() => {
+    if (!open) return
+    const panel = panelRef.current
+    const overlay = overlayRef.current
+    if (!panel || !overlay) return
+    const center = () => {
+      const inset = Math.max(24, (window.innerHeight - panel.offsetHeight) / 2)
+      overlay.style.setProperty('--settings-inset-top', `${inset}px`)
+    }
+    center()
+    const ro = new ResizeObserver(center)
+    ro.observe(panel)
+    window.addEventListener('resize', center)
+    return () => {
+      ro.disconnect()
+      window.removeEventListener('resize', center)
+    }
+  }, [open])
+
+  // 掩码头尾长度随盒宽自适应：等宽字体 advance = 0.6em，头尾各 k 字符 + 省略号
+  // 恰好填满一行（≥80% 盒宽），中段 67-2k-1 字符照藏；复制仍整串明文。
+  useLayoutEffect(() => {
+    if (!open || !mcp.enabled || !mcpToken) return
+    const box = tokenBoxRef.current
+    if (!box) return
+    const measure = () => {
+      const style = getComputedStyle(box)
+      const inner =
+        box.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight)
+      const charWidth = parseFloat(style.fontSize) * 0.6
+      // 头尾按 hex 对称：头额外带 sk- 三字符，故总字符 = 3 + 2k + 1（省略号）
+      const k = Math.max(4, Math.min(32, Math.floor((inner / charWidth - 4) / 2)))
+      setMaskK(k)
+    }
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(box)
+    return () => ro.disconnect()
+  }, [open, mcp.enabled, mcpToken])
+
+  // CSV 格式浮层：锚在导入 CSV 分体钮上，绝对定位零布局增高（关于浮层同源契约）。
+  const csvHelpPlace = useAnchoredPopover({
+    active: csvHelpOpen,
+    anchorRef: csvBtnRef,
+    width: 340,
+    estimatedHeight: 230,
+    outsideIgnoreSelector: '.backup-btn--csv',
+    onDismiss: () => setCsvHelpOpen(false)
+  })
 
   useEffect(() => {
     if (open && paletteOpen) onClose()
@@ -218,6 +281,7 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
     if (!open) {
       setMcpTokenNotice(null)
       setMcpRegenConfirm(false)
+      setCsvHelpOpen(false)
       // 备份状态行随面板关闭清空：反馈是瞬时的，重开回到干净态，
       // 长计数文案不会在下次打开时撑高备份区（一屏守卫量的是干净态）。
       setBackupStatus(null)
@@ -242,6 +306,10 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
     if (!open || paletteOpen) return
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return
+      if (csvHelpOpen) {
+        setCsvHelpOpen(false)
+        return
+      }
       if (aboutOpen) {
         setAboutOpen(false)
         return
@@ -250,7 +318,7 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [open, paletteOpen, onClose, aboutOpen])
+  }, [open, paletteOpen, onClose, aboutOpen, csvHelpOpen])
 
   const toggleAutoStart = async () => {
     if (busy || !autoStart.supported) return
@@ -421,6 +489,26 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
     }
   }
 
+  // CSV 导出：格式浮层里的主动作；反馈落备份区同一条状态行（卡内吸收零增高）。
+  const handleExportCsv = async () => {
+    setBackupBusy(true)
+    setBackupError(null)
+    setBackupStatus(null)
+    try {
+      const result = await window.polaris.data.exportCsv()
+      if (result.saved) {
+        setBackupStatus(t('settings.csvExported'))
+        setCsvHelpOpen(false)
+      } else if (result.error) {
+        setBackupError(t('settings.csvExportFailed', { error: result.error }))
+      }
+    } catch (error) {
+      setBackupError(t('settings.csvExportFailed', { error: String(error) }))
+    } finally {
+      setBackupBusy(false)
+    }
+  }
+
   const loadAutoBackups = async () => {
     setAutoBackupError(null)
     try {
@@ -507,6 +595,7 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
       {open && (
         <motion.div
           className="settings-overlay"
+          ref={overlayRef}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -632,14 +721,32 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
                 <button className="backup-btn" onClick={() => void handleImport()} disabled={backupBusy}>
                   {t('settings.import')}
                 </button>
-                <button
-                  className="backup-btn"
-                  onClick={() => void handleImportCsv()}
-                  disabled={backupBusy}
-                  title={t('settings.importCsvTitle')}
-                >
-                  {t('settings.importCsv')}
-                </button>
+                {/* 分体钮：主段导入，箭头段开格式浮层（表头模板 + 导出 CSV）。
+                    占同一个网格 cell、同 32px 高——布局预算逐像素不动。 */}
+                <div className="backup-btn-split backup-btn--csv" ref={csvBtnRef}>
+                  <button
+                    className="backup-btn"
+                    onClick={() => void handleImportCsv()}
+                    disabled={backupBusy}
+                    title={t('settings.importCsvTitle')}
+                  >
+                    {t('settings.importCsv')}
+                  </button>
+                  <button
+                    className="backup-btn backup-btn--chev"
+                    aria-expanded={csvHelpOpen}
+                    aria-label={t('settings.csvHelpToggle')}
+                    title={t('settings.csvHelpToggle')}
+                    onClick={() => setCsvHelpOpen((v) => !v)}
+                  >
+                    <ChevronDown
+                      size={12}
+                      strokeWidth={1.8}
+                      aria-hidden="true"
+                      className={`settings-about-chev${csvHelpOpen ? ' open' : ''}`}
+                    />
+                  </button>
+                </div>
                 <button className="backup-btn" onClick={() => void handleOpenDataDir()} disabled={backupBusy}>
                   {t('settings.openDataDir')}
                 </button>
@@ -745,12 +852,15 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
                   说明与提示都是一行，槽高恒定——省掉独立说明行的 16~33px。 */}
               {mcp.enabled && mcpToken && (
                 <div className="mcp-token">
+                  {/* 自适应掩码：头尾各 maskK 字符随盒宽填满整行，中段照藏；
+                      单行 nowrap，盒高恒定；复制/重新生成走整串明文 IPC。 */}
                   <code
                     className="mcp-token-box"
+                    ref={tokenBoxRef}
                     aria-label={t('settings.mcpToken')}
                     title={t('settings.mcpTokenDescFull')}
                   >
-                    {mcpToken}
+                    {`${mcpToken.slice(0, maskK + 3)}…${mcpToken.slice(-maskK)}`}
                   </code>
                   <div className="mcp-token-actions">
                     <button className="backup-btn" onClick={() => void copyMcpToken()}>
@@ -924,6 +1034,53 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
             >
               {updateErrorDetail ?? (updateStatusVisible && update ? updateStatusText(update, t) : '')}
             </div>
+
+            {/* CSV 格式浮层：锚在导入 CSV 分体钮，fixed 定位零布局增高。
+                表头与示例行直接由 buildCsvExport 生成——展示的就是导出件本身，
+                用户照着手写或改列都能被导入侧认回。导出按钮把格式变成活模板。 */}
+            <AnimatePresence>
+              {csvHelpOpen && (
+                <motion.div
+                  className="csv-help"
+                  ref={csvHelpPlace.popoverRef}
+                  role="dialog"
+                  aria-label={t('settings.csvHelpTitle')}
+                  style={{ top: csvHelpPlace.place.top, left: csvHelpPlace.place.left }}
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 6 }}
+                  transition={{ duration: 0.14, ease: 'easeOut' }}
+                >
+                  <div className="settings-row-title">{t('settings.csvHelpTitle')}</div>
+                  <div className="settings-row-desc csv-help-desc">{t('settings.csvHelpDesc')}</div>
+                  <code className="csv-help-head">{CSV_EXPORT_HEADERS.join(',')}</code>
+                  <code className="csv-help-example">
+                    {buildCsvExport([
+                      {
+                        title: 'Sample task',
+                        notes: '',
+                        priority: 0,
+                        dueAt: '2026-11-20T09:00:00',
+                        completed: false,
+                        projectName: 'Personal',
+                        tags: ['home'],
+                        subtasks: []
+                      }
+                    ]).split('\r\n')[1]}
+                  </code>
+                  <div className="settings-hint csv-help-note">{t('settings.csvHelpNote')}</div>
+                  <div className="csv-help-actions">
+                    <button
+                      className="backup-btn backup-btn--primary"
+                      onClick={() => void handleExportCsv()}
+                      disabled={backupBusy}
+                    >
+                      {t('settings.csvExport')}
+                    </button>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
             {/* 重新生成令牌的二次确认：旧客户端配置立即失效，属破坏性动作。
                 ConfirmDialog 自带焦点陷阱（压在面板陷阱之上）并在 React 根

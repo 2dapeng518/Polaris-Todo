@@ -16,6 +16,7 @@ import {
   purgeExpiredDeleted,
   setMeta
 } from './db'
+import { csvExportFromBackup } from '../shared/csvExport'
 import { registerIpc } from './ipc'
 import { disposeMcp, getMcpState, getMcpToken, initMcp, regenerateMcpToken, setMcpEnabled } from './mcp'
 import { describeTrayCheck, disposeUpdater, initUpdater, manualCheckForUpdates } from './updater'
@@ -530,6 +531,28 @@ app.whenReady().then(() => {
       return importCsvText(raw)
     } catch (error) {
       return { ok: false, error: String(error) }
+    }
+  })
+
+  // CSV 导出：与导入侧共用表头契约（shared/csvExport 镜像 csvImport 别名表），
+  // 导出件可原样回导——用户拿它当格式模板，「导入没有导出、不知道格式」根除。
+  // 只导活任务（回收站不随 CSV 走）；子任务走 INDENT 2 紧随父任务。
+  ipcMain.handle('data:export-csv', async () => {
+    try {
+      const text = csvExportFromBackup(exportBackup())
+      const stamp = new Date().toISOString().slice(0, 10).replace(/-/g, '')
+      const target = await showSaveDialogSafe({
+        title: translate(getCurrentLocale(), 'native.csvExportTitle'),
+        defaultPath: `polaris-todo-${stamp}.csv`,
+        filters: [
+          { name: translate(getCurrentLocale(), 'native.csvFilter'), extensions: ['csv'] }
+        ]
+      })
+      if (target.canceled || !target.filePath) return { saved: false }
+      await writeFileAtomic(target.filePath, text)
+      return { saved: true, path: target.filePath }
+    } catch (error) {
+      return { saved: false, error: String(error) }
     }
   })
 

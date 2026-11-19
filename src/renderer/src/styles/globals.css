@@ -4427,12 +4427,13 @@ textarea {
 
 /* ---------- settings ---------- */
 
-/* 顶边锚定：浮层不再按内容真实高度垂直居中（内容一长高就重新居中 = 抖动），
-   而是按「名义高度 560」算出固定顶边距。展开关于/启用 MCP 只向下生长，
-   顶边与页脚纹丝不动；名义值略大于实际高度，面板落在光学中心偏上一点，
-   比数学居中更稳。 */
+/* 真·垂直居中 + 平滑 glide：顶边距由 SettingsPanel 按面板实测高度实时写
+   (vh - h) / 2（ResizeObserver + window resize），启用 MCP 长高时 padding-top
+   走 180ms 过渡滑到新中心——居中美观且无瞬移抖动。560 仅作首帧前的兜底名义值。
+   关于浮层/手风琴/状态行都不改面板高度，故事实上只有 MCP 开关触发 glide。 */
 .settings-overlay {
   --settings-inset-top: max(24px, calc((100vh - 560px) / 2));
+  transition: padding-top 0.18s var(--ease-out);
   position: fixed;
   z-index: 70;
   inset: 0;
@@ -5118,6 +5119,81 @@ textarea {
   color: var(--danger);
 }
 
+/* 导入 CSV 分体钮：主段导入 + 箭头段开格式浮层，合占一个网格 cell、同 32px 高，
+   2×2 布局预算逐像素不动。两段拼成一枚钮的观感（中缝去边框、圆角各半）。 */
+.backup-btn-split {
+  display: flex;
+  min-width: 0;
+}
+
+.backup-btn-split .backup-btn {
+  flex: 1;
+  min-width: 0;
+  border-radius: 8px 0 0 8px;
+}
+
+.backup-btn--chev {
+  flex: none;
+  width: 26px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border-left: 0;
+  border-radius: 0 8px 8px 0;
+}
+
+/* CSV 格式浮层：fixed 锚定（useAnchoredPopover 视口坐标），材质照关于浮层
+   （panel-bg + line-strong + 单层软阴影），层级压设置面板（70）之上。
+   表头/示例行等宽小字 break-all，浮层自身宽度 340 由 JS 夹在视口内。 */
+.csv-help {
+  position: fixed;
+  z-index: 80;
+  width: 340px;
+  padding: 12px 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+  background: var(--panel-bg);
+  box-shadow: 0 12px 32px rgba(var(--shadow-rgb), 0.35);
+}
+
+.csv-help-desc {
+  max-width: none;
+  margin-top: 4px;
+}
+
+.csv-help-head,
+.csv-help-example {
+  display: block;
+  margin-top: 8px;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-1);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  line-height: 1.5;
+  word-break: break-all;
+}
+
+.csv-help-example {
+  margin-top: 4px;
+  color: var(--text-tertiary);
+}
+
+.csv-help-note {
+  margin-top: 8px;
+}
+
+.csv-help-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 10px;
+}
+
+.csv-help-actions .backup-btn {
+  flex: none;
+}
+
 /* 令牌独占整行：明文全量上屏（用户拍板不掩码），盒吃满卡宽；
    67 字符半宽卡折两行、整宽一行，操作退第二行右对齐。
    用法说明住常驻反馈槽（单行），不再独立占行。 */
@@ -5137,8 +5213,8 @@ textarea {
   flex: none;
 }
 
-/* 全量令牌：hex 串无空格，break-all 才折得动；折行后盒高两行恒定
-   （同宽同字数），不随状态跳。完整用法说明在 title 提示。 */
+/* 自适应掩码盒：头尾各 k 字符由 JS 按盒宽算（等宽 0.6em advance），填满整行
+   单行 nowrap；中段照藏，盒高恒一行不随状态跳。完整用法说明在 title 提示。 */
 .mcp-token-box {
   width: 100%;
   min-width: 0;
@@ -5151,8 +5227,9 @@ textarea {
   font-family: var(--font-mono);
   font-size: 11px;
   line-height: 1.5;
-  white-space: normal;
-  word-break: break-all;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* 常驻反馈槽：默认落单行用法说明，提示来了替换 2.6s 再还原。
