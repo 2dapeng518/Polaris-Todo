@@ -58,6 +58,27 @@ export function TaskView() {
   const setTrashConfirm = useTaskStore((state) => state.setTrashConfirm)
   const deleteForever = useTaskStore((state) => state.deleteForever)
   const emptyTrash = useTaskStore((state) => state.emptyTrash)
+
+  // 钉底状态栏的条件渐隐带：仅「下面还有内容没滚完」时亮（scrollTop +
+  // clientHeight < scrollHeight - 8），滚到底/短内容关闭——resting 态与
+  // 归档不被染灰。scroll + ResizeObserver 双源（内容长高/视口变化都重算），
+  // setState 同值自动 bail，零额外渲染。
+  const mainRef = useRef<HTMLElement>(null)
+  const [fadeBottom, setFadeBottom] = useState(false)
+  useEffect(() => {
+    const el = mainRef.current
+    if (!el) return
+    const update = () => setFadeBottom(el.scrollTop + el.clientHeight < el.scrollHeight - 8)
+    update()
+    el.addEventListener('scroll', update, { passive: true })
+    const ro = new ResizeObserver(update)
+    ro.observe(el)
+    if (el.firstElementChild) ro.observe(el.firstElementChild)
+    return () => {
+      el.removeEventListener('scroll', update)
+      ro.disconnect()
+    }
+  }, [view])
   // 页脚常驻，挂载即取；与设置面板共用同一份版本号。
   const version = useAppVersion()
 
@@ -216,7 +237,12 @@ export function TaskView() {
   }
 
   return (
-    <main className="main" id="main-content" tabIndex={-1}>
+    <main
+      ref={mainRef}
+      className={`main${fadeBottom ? ' can-scroll-down' : ''}`}
+      id="main-content"
+      tabIndex={-1}
+    >
       <div className="main-inner">
         <header className="view-header">
           <div>
