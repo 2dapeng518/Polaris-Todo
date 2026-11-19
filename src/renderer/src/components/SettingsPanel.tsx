@@ -25,6 +25,15 @@ function formatBackupSize(bytes: number): string {
   return `${Math.max(1, Math.round(bytes / 1024))} KB`
 }
 
+/** 固定短掩码：前缀照露 + 密钥体头 4 位 + … + 尾 4 位（用户拍板 2026-11-19 15:33，
+    撤掉自适应填满整行的长掩码）。无前缀旧 token 取整串头 4 / 尾 4；
+    中段永不上屏，复制/重新生成仍走整串明文 IPC。 */
+function maskToken(token: string): string {
+  const prefix = token.startsWith('sk-') ? 'sk-' : ''
+  const body = token.slice(prefix.length)
+  return `${prefix}${body.slice(0, 4)}…${body.slice(-4)}`
+}
+
 /** 更新状态一行说清；错误细节另有 settings-error，这里不堆长文。 */
 function updateStatusText(state: UpdateState | null, t: Translate): string {
   if (!state) return t('settings.update.idle')
@@ -69,10 +78,7 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
   const panelRef = useRef<HTMLDivElement>(null)
   const overlayRef = useRef<HTMLDivElement>(null)
   const csvBtnRef = useRef<HTMLDivElement>(null)
-  const tokenBoxRef = useRef<HTMLElement>(null)
   const [csvHelpOpen, setCsvHelpOpen] = useState(false)
-  // 自适应掩码头尾长度：随令牌盒实宽填满整行（中段照藏），窄窗少露、宽窗多露。
-  const [maskK, setMaskK] = useState(7)
   const paletteOpen = useTaskStore((state) => state.paletteOpen)
   const theme = useThemeStore((state) => state.theme)
   const setTheme = useThemeStore((state) => state.setTheme)
@@ -170,26 +176,6 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
     }
   }, [open])
 
-  // 掩码头尾长度随盒宽自适应：等宽字体 advance = 0.6em，头尾各 k 字符 + 省略号
-  // 恰好填满一行（≥80% 盒宽），中段 67-2k-1 字符照藏；复制仍整串明文。
-  useLayoutEffect(() => {
-    if (!open || !mcp.enabled || !mcpToken) return
-    const box = tokenBoxRef.current
-    if (!box) return
-    const measure = () => {
-      const style = getComputedStyle(box)
-      const inner =
-        box.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight)
-      const charWidth = parseFloat(style.fontSize) * 0.6
-      // 头尾按 hex 对称：头额外带 sk- 三字符，故总字符 = 3 + 2k + 1（省略号）
-      const k = Math.max(4, Math.min(32, Math.floor((inner / charWidth - 4) / 2)))
-      setMaskK(k)
-    }
-    measure()
-    const ro = new ResizeObserver(measure)
-    ro.observe(box)
-    return () => ro.disconnect()
-  }, [open, mcp.enabled, mcpToken])
 
   // CSV 格式浮层：锚在导入 CSV 分体钮上，绝对定位零布局增高（关于浮层同源契约）。
   const csvHelpPlace = useAnchoredPopover({
@@ -845,34 +831,32 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
                   <span className="switch-thumb" />
                 </button>
               </div>
-              {/* 令牌独占整行：明文全量上屏（用户拍板不再掩码），67 字符在半宽
-                  卡里 break-all 折两行、整宽时一行，盒宽吃满卡宽。复制/重新生成
-                  退第二行右对齐。仅启用时渲染，默认零增高。
-                  用法说明住进常驻反馈槽（无提示时显示说明，提示来了替换 2.6s），
-                  说明与提示都是一行，槽高恒定——省掉独立说明行的 16~33px。 */}
+              {/* 令牌块：固定短掩码（头 4 尾 4）贴内容收窄，与复制/重新生成
+                  同行（按钮右对齐）——比掩码独占整行省一行高度。仅启用时渲染，
+                  默认零增高。用法说明住进常驻反馈槽（无提示时显示说明，提示来了
+                  替换 2.6s），说明与提示都是一行，槽高恒定。 */}
               {mcp.enabled && mcpToken && (
                 <div className="mcp-token">
-                  {/* 自适应掩码：头尾各 maskK 字符随盒宽填满整行，中段照藏；
-                      单行 nowrap，盒高恒定；复制/重新生成走整串明文 IPC。 */}
-                  <code
-                    className="mcp-token-box"
-                    ref={tokenBoxRef}
-                    aria-label={t('settings.mcpToken')}
-                    title={t('settings.mcpTokenDescFull')}
-                  >
-                    {`${mcpToken.slice(0, maskK + 3)}…${mcpToken.slice(-maskK)}`}
-                  </code>
-                  <div className="mcp-token-actions">
-                    <button className="backup-btn" onClick={() => void copyMcpToken()}>
-                      {t('settings.mcpTokenCopy')}
-                    </button>
-                    <button
-                      className="backup-btn backup-btn--danger"
-                      onClick={() => setMcpRegenConfirm(true)}
-                      disabled={mcpTokenBusy}
+                  <div className="mcp-token-row">
+                    <code
+                      className="mcp-token-box"
+                      aria-label={t('settings.mcpToken')}
+                      title={t('settings.mcpTokenDescFull')}
                     >
-                      {t('settings.mcpTokenRegenerate')}
-                    </button>
+                      {maskToken(mcpToken)}
+                    </code>
+                    <div className="mcp-token-actions">
+                      <button className="backup-btn" onClick={() => void copyMcpToken()}>
+                        {t('settings.mcpTokenCopy')}
+                      </button>
+                      <button
+                        className="backup-btn backup-btn--danger"
+                        onClick={() => setMcpRegenConfirm(true)}
+                        disabled={mcpTokenBusy}
+                      >
+                        {t('settings.mcpTokenRegenerate')}
+                      </button>
+                    </div>
                   </div>
                   {/* 反馈行常驻占位：默认落用法说明，复制/重新生成的 2.6s 提示
                       替换进槽再还原，不来回撑面板高度。 */}

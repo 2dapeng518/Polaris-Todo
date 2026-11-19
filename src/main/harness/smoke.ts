@@ -4087,8 +4087,8 @@ export async function runSmokeTest(): Promise<void> {
       if (csvFixtureTag) deleteTag(csvFixtureTag)
     }
 
-    // 设置页零抖动：用户实机低分辨率档（1024×576）下，自适应掩码填满整行
-    // （头尾各 k 字符随盒宽、中段照藏），用法说明住常驻反馈槽单行，
+    // 设置页零抖动：用户实机低分辨率档（1024×576）下，固定短掩码（头 4 尾 4）
+    // （前缀 + 头 4 + … + 尾 4，中段照藏、与按钮同行），用法说明住常驻反馈槽单行，
     // 检查更新结果落槽不得改变面板内容高度。
     // scrollHeight/页脚顶边是内容位移判别器（面板被 max-height 封顶时外框不变，只看外框会漏判）。
     let settingsNoShift = false
@@ -4110,9 +4110,9 @@ export async function runSmokeTest(): Promise<void> {
           const footerTop = () => panel.querySelector('.settings-footer').getBoundingClientRect().top;
           const boxText = tokenBox.textContent ?? '';
           const fullToken = await window.polaris.app.getMcpToken();
-          const rowButtons = [...tokenBox.parentElement.querySelectorAll('.backup-btn')].map((b) => b.textContent);
-          const btnWidths = [...tokenBox.parentElement.querySelectorAll('.backup-btn')].map((b) => b.getBoundingClientRect().width);
-          const boxDominant = tokenBox.getBoundingClientRect().width > btnWidths[0] * 1.4;
+          const tokenRow = tokenBox.parentElement;
+          const rowButtons = [...tokenRow.querySelectorAll('.backup-btn')].map((b) => b.textContent);
+          const actions = tokenRow.querySelector('.mcp-token-actions');
           const slot = panel.querySelector('.mcp-token-slot');
           const beforeCheck = contentH(); const beforeFooter = footerTop();
           const beforeBoxH = tokenBox.getBoundingClientRect().height;
@@ -4123,24 +4123,26 @@ export async function runSmokeTest(): Promise<void> {
           const afterBoxH = tokenBox.getBoundingClientRect().height;
           document.querySelector('.settings-panel .detail-close')?.click();
           await sleep(250);
-          // 自适应掩码：头尾各 k 字符（k 随盒宽）+ 省略号，中段照藏；
-          // 填满整行单行（scrollWidth ≥ 80% 盒宽），盒高恒一行。
-          const m = boxText.match(/^sk-([0-9a-f]+)…([0-9a-f]+)$/)
-          const k = m ? m[1].length : 0
-          const middleHidden = Boolean(m) && m[1].length === m[2].length && k >= 4 &&
-            !boxText.includes(fullToken.slice(3 + k, fullToken.length - k))
-          const fillRatio = tokenBox.scrollWidth / Math.max(1, tokenBox.clientWidth)
+          // 固定短掩码（用户拍板 15:33）：sk- 前缀 + 头 4 hex + … + 尾 4 hex，
+          // 中段照藏；盒贴内容收窄（≤ 行宽 60%）单行，与操作按钮同行右对齐。
+          const m = boxText.match(/^sk-[0-9a-f]{4}…[0-9a-f]{4}$/)
+          const middleHidden = Boolean(m) &&
+            !boxText.includes(fullToken.slice(7, fullToken.length - 4))
+          const boxRect = tokenBox.getBoundingClientRect();
+          const rowRect = tokenRow.getBoundingClientRect();
+          const actRect = actions ? actions.getBoundingClientRect() : null;
           return {
             found: true,
             token: true,
             maskShape: Boolean(m),
             middleHidden,
             maskNotFull: boxText !== fullToken,
-            singleLine: tokenBox.scrollHeight <= tokenBox.clientHeight + 1 && tokenBox.getBoundingClientRect().height <= 32,
-            fillsRow: fillRatio >= 0.8,
+            singleLine: tokenBox.scrollHeight <= tokenBox.clientHeight + 1 && boxRect.height <= 32,
+            hugBox: boxRect.width <= rowRect.width * 0.6,
+            sameRow: Boolean(actRect) && Math.abs(actRect.top - boxRect.top) <= 2 &&
+              Math.abs(actRect.right - rowRect.right) <= 2,
             boxHeightStable: beforeBoxH === afterBoxH,
             slotOneLine: Boolean(slot) && slot.scrollHeight <= slot.clientHeight + 1,
-            boxDominant,
             buttonsExact: rowButtons.length === 2 && rowButtons[0] === '复制' && rowButtons[1] === '重新生成',
             updateStable: Boolean(answered) && beforeCheck === afterCheck && beforeFooter === afterFooter
           };
@@ -4152,10 +4154,10 @@ export async function runSmokeTest(): Promise<void> {
           noShift?.middleHidden === true &&
           noShift?.maskNotFull === true &&
           noShift?.singleLine === true &&
-          noShift?.fillsRow === true &&
+          noShift?.hugBox === true &&
+          noShift?.sameRow === true &&
           noShift?.boxHeightStable === true &&
           noShift?.slotOneLine === true &&
-          noShift?.boxDominant === true &&
           noShift?.buttonsExact === true &&
           noShift?.updateStable === true
         if (!settingsNoShift) console.error('SETTINGS_NO_SHIFT_FAIL', JSON.stringify(noShift))

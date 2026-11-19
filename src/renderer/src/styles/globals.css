@@ -5194,18 +5194,26 @@ textarea {
   flex: none;
 }
 
-/* 令牌独占整行：明文全量上屏（用户拍板不掩码），盒吃满卡宽；
-   67 字符半宽卡折两行、整宽一行，操作退第二行右对齐。
+/* 令牌块：短掩码 + 操作一行、反馈槽一行，共两行恒定。
    用法说明住常驻反馈槽（单行），不再独立占行。 */
 .mcp-token {
   margin-top: 6px;
+}
+
+/* 掩码与操作同行：掩码贴内容收窄居左，按钮右对齐吃剩余空间。 */
+.mcp-token-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
 }
 
 .mcp-token-actions {
   display: flex;
   justify-content: flex-end;
   gap: 8px;
-  margin-top: 6px;
+  margin-left: auto;
+  flex: none;
 }
 
 /* 备份按钮行的 flex:1 不该传进令牌操作行：按钮贴文字收窄。 */
@@ -5213,12 +5221,12 @@ textarea {
   flex: none;
 }
 
-/* 自适应掩码盒：头尾各 k 字符由 JS 按盒宽算（等宽 0.6em advance），填满整行
+/* 固定短掩码盒（头 4 尾 4）：贴内容收窄（inline-block + max-width 兜底极窄），
    单行 nowrap；中段照藏，盒高恒一行不随状态跳。完整用法说明在 title 提示。 */
 .mcp-token-box {
-  width: 100%;
+  max-width: 100%;
   min-width: 0;
-  display: block;
+  display: inline-block;
   padding: 6px 8px;
   border: 1px solid var(--line);
   border-radius: 8px;
