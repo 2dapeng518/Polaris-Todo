@@ -29,6 +29,7 @@ import { getCurrentTheme, initAppTheme, setCurrentTheme, themeBackgroundColor } 
 import { getCurrentLocale, initAppLocale, setCurrentLocale } from './locale'
 import { translate, type Locale } from '../shared/i18n'
 import type { BackupData } from '../shared/types'
+import { AUTO_BACKUP_PREFIX, isAutoBackupFileName } from '../shared/backupNames'
 import { hasSplashWindow, openSplashWindow, revealMainWindow } from './splash'
 import { isAppTheme, THEME_SYMBOL_COLOR, themeFamily } from '../shared/themes'
 import { dismissReminder, startReminderScheduler } from './reminders'
@@ -205,9 +206,9 @@ function buildBackupPayload(): BackupData {
 }
 
 // 启动自动备份：userData/backups/ 里最新一份超过 24h（或不存在）才写一份，
-// 复用导出序列化 + 原子写，保留最近 7 份。失败只留痕，不阻塞启动。
-const AUTO_BACKUP_PREFIX = 'polaris-auto-'
-const AUTO_BACKUP_KEEP = 7
+// 复用导出序列化 + 原子写，保留最近 21 份（对齐 Csv 的保留份数）。
+// 失败只留痕，不阻塞启动。
+const AUTO_BACKUP_KEEP = 21
 const AUTO_BACKUP_INTERVAL_MS = 24 * 60 * 60 * 1000
 
 async function runAutoBackup(): Promise<void> {
@@ -630,6 +631,99 @@ app.whenReady().then(() => {
       return { ok: true, ...counts }
     } catch (error) {
       return { ok: false, error: String(error) }
+    }
+  })
+
+  // ---------- 自动备份管理（设置页备份区） ----------
+  // list 只读元数据不解析内容，列备份是廉价操作；导入/另存以文件名为唯一入口，
+  // isAutoBackupFileName 在 join 之前拒绝路径穿越，渲染层拿不到 backups 之外的文件。
+  const backupsDir = (): string => join(app.getPath('userData'), 'backups')
+
+  const assertAutoBackupName = (name: unknown): string => {
+    if (typeof name !== 'string' || !isAutoBackupFileName(name)) {
+      throw new Error(translate(getCurrentLocale(), 'native.invalidBackupName'))
+    }
+    return name
+  }
+
+  ipcMain.handle('backups:list', async () => {
+    try {
+      const dir = backupsDir()
+      await mkdir(dir, { recursive: true })
+      // 文件名即时间戳，字典序倒排 = 新到旧。
+      const names = (await readdir(dir)).filter(isAutoBackupFileName).sort().reverse()
+      const items = await Promise.all(
+        names.map(async (name) => {
+          const info = await stat(join(dir, name))
+          return { name, mtimeMs: info.mtimeMs, sizeBytes: info.size }
+        })
+      )
+      return { ok: true, items }
+    } catch (error) {
+      return { ok: false, error: String(error) }
+    }
+  })
+
+  ipcMain.handle('backups:import', async (_event, name: unknown) => {
+    try {
+      const filePath = join(backupsDir(), assertAutoBackupName(name))
+      // 与 data:import 同一套大小门禁与校验链，不另造导入语义。
+      const info = await stat(filePath)
+      if (info.size > IMPORT_JSON_MAX_BYTES) {
+        return {
+          ok: false,
+          error: translate(getCurrentLocale(), 'native.importTooLarge', {
+            limit: IMPORT_JSON_MAX_BYTES / (1024 * 1024)
+          })
+        }
+      }
+      const raw = await readFile(filePath, 'utf8')
+      const parsed = backupSchema.parse(JSON.parse(raw))
+      const counts = importBackup(parsed)
+      return { ok: true, ...counts }
+    } catch (error) {
+      return { ok: false, error: String(error) }
+    }
+  })
+
+  ipcMain.handle('backups:save-as', async (_event, name: unknown) => {
+    try {
+      const fileName = assertAutoBackupName(name)
+      const filePath = join(backupsDir(), fileName)
+      const info = await stat(filePath)
+      if (info.size > IMPORT_JSON_MAX_BYTES) {
+        return {
+          saved: false,
+          error: translate(getCurrentLocale(), 'native.importTooLarge', {
+            limit: IMPORT_JSON_MAX_BYTES / (1024 * 1024)
+          })
+        }
+      }
+      const target = await showSaveDialogSafe({
+        title: translate(getCurrentLocale(), 'native.exportTitle'),
+        defaultPath: fileName,
+        filters: [
+          { name: translate(getCurrentLocale(), 'native.jsonFilter'), extensions: ['json'] }
+        ]
+      })
+      if (target.canceled || !target.filePath) return { saved: false }
+      await writeFileAtomic(target.filePath, await readFile(filePath, 'utf8'))
+      return { saved: true, path: target.filePath }
+    } catch (error) {
+      return { saved: false, error: String(error) }
+    }
+  })
+
+  ipcMain.handle('backups:open-data-dir', async () => {
+    // harness 构建恒不真开资源管理器（与 splash/updater 的惰性约定一致）；
+    // 生产构建 __POLARIS_HARNESS__ 恒 false，此分支被编译期消除。
+    if (__POLARIS_HARNESS__) return { opened: false }
+    try {
+      // openPath 成功返回空串，失败返回系统错误原文。
+      const error = await shell.openPath(app.getPath('userData'))
+      return error ? { opened: false, error } : { opened: true }
+    } catch (error) {
+      return { opened: false, error: String(error) }
     }
   })
 

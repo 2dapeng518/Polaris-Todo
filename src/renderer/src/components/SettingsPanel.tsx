@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { Check, ChevronDown, X } from './Icon'
-import type { AutoStartState, GlobalHotkeyState, McpState, UpdateState } from '@shared/types'
+import type { AutoBackupItem, AutoStartState, GlobalHotkeyState, McpState, UpdateState } from '@shared/types'
 import { THEME_META, THEME_ORDER } from '@shared/themes'
 import { themeDesc, themeLabel } from '@shared/i18n'
 import { useTaskStore } from '../stores/useTaskStore'
@@ -12,6 +12,16 @@ import { useT, useLocale, type Translate } from '../stores/useLocaleStore'
 import { LanguageSelect } from './LanguageSelect'
 import { ConfirmDialog } from './ConfirmDialog'
 import { useFocusTrap } from '../lib/useFocusTrap'
+
+/** 备份行时间戳跟随界面语言；大小给人类可读单位，列表不解析文件内容。 */
+function formatBackupWhen(mtimeMs: number, locale: string): string {
+  return new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' }).format(mtimeMs)
+}
+
+function formatBackupSize(bytes: number): string {
+  if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+  return `${Math.max(1, Math.round(bytes / 1024))} KB`
+}
 
 /** 更新状态一行说清；错误细节另有 settings-error，这里不堆长文。 */
 function updateStatusText(state: UpdateState | null, t: Translate): string {
@@ -63,6 +73,11 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
   const [backupBusy, setBackupBusy] = useState(false)
   const [backupStatus, setBackupStatus] = useState<string | null>(null)
   const [backupError, setBackupError] = useState<string | null>(null)
+  // 自动备份折叠块：默认收起不占高度；首次展开才取列表（懒加载），
+  // 取到就缓存——重开面板不必重读。
+  const [autoBackupOpen, setAutoBackupOpen] = useState(false)
+  const [autoBackups, setAutoBackups] = useState<AutoBackupItem[] | null>(null)
+  const [autoBackupError, setAutoBackupError] = useState<string | null>(null)
   const [closeToTray, setCloseToTray] = useState(true)
   const [hotkey, setHotkey] = useState<GlobalHotkeyState>({
     enabled: true,
@@ -187,6 +202,14 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
     if (!open) {
       setMcpTokenNotice(null)
       setMcpRegenConfirm(false)
+      // 备份状态行随面板关闭清空：反馈是瞬时的，重开回到干净态，
+      // 长计数文案不会在下次打开时撑高备份区（一屏守卫量的是干净态）。
+      setBackupStatus(null)
+      setBackupError(null)
+      setAutoBackupError(null)
+      // 手风琴随面板关闭收起：重开回到收起态，一屏守卫量的永远是收起态。
+      // 列表缓存保留——重开不必重读。
+      setAutoBackupOpen(false)
     }
     return () => {
       if (mcpNoticeTimer.current) {
@@ -379,6 +402,81 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
       setBackupError(t('settings.importFailed', { error: String(error) }))
     } finally {
       setBackupBusy(false)
+    }
+  }
+
+  const loadAutoBackups = async () => {
+    setAutoBackupError(null)
+    try {
+      const result = await window.polaris.backups.list()
+      if (result.ok && result.items) setAutoBackups(result.items)
+      else setAutoBackupError(t('settings.autoBackupLoadFailed', { error: result.error ?? '' }))
+    } catch (error) {
+      setAutoBackupError(t('settings.autoBackupLoadFailed', { error: String(error) }))
+    }
+  }
+
+  const toggleAutoBackup = () => {
+    const next = !autoBackupOpen
+    setAutoBackupOpen(next)
+    if (next && autoBackups === null) void loadAutoBackups()
+  }
+
+  // 与 handleImport 完全同语义：合并非破坏，计数进同一条状态行，刷新两个存储。
+  const handleAutoBackupImport = async (name: string) => {
+    setBackupBusy(true)
+    setBackupError(null)
+    setBackupStatus(null)
+    try {
+      const result = await window.polaris.backups.import(name)
+      if (result.ok) {
+        setBackupStatus(
+          t('settings.importDone', {
+            tasks: result.tasksImported ?? 0,
+            tasksSkipped: result.tasksSkipped ?? 0,
+            projects: result.projectsImported ?? 0,
+            projectsSkipped: result.projectsSkipped ?? 0,
+            subtasks: result.subtasksImported ?? 0,
+            subtasksSkipped: result.subtasksSkipped ?? 0
+          })
+        )
+        await useTaskStore.getState().load()
+        await useTaskStore.getState().loadTrash()
+      } else if (result.error) {
+        setBackupError(t('settings.importFailed', { error: result.error }))
+      }
+    } catch (error) {
+      setBackupError(t('settings.importFailed', { error: String(error) }))
+    } finally {
+      setBackupBusy(false)
+    }
+  }
+
+  const handleAutoBackupSaveAs = async (name: string) => {
+    setBackupBusy(true)
+    setBackupError(null)
+    setBackupStatus(null)
+    try {
+      const result = await window.polaris.backups.saveAs(name)
+      if (result.saved) setBackupStatus(t('settings.autoBackupSavedAs'))
+      else if (result.error) setBackupError(t('settings.exportFailed', { error: result.error }))
+    } catch (error) {
+      setBackupError(t('settings.exportFailed', { error: String(error) }))
+    } finally {
+      setBackupBusy(false)
+    }
+  }
+
+  const handleOpenDataDir = async () => {
+    setBackupError(null)
+    try {
+      const result = await window.polaris.backups.openDataDir()
+      // harness 门控返回 opened:false 且无 error——不是失败，不弹文案。
+      if (!result.opened && result.error) {
+        setBackupError(t('settings.openDataDirFailed', { error: result.error }))
+      }
+    } catch (error) {
+      setBackupError(t('settings.openDataDirFailed', { error: String(error) }))
     }
   }
 
@@ -611,7 +709,22 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
             </div>
 
             <div className="settings-section settings-section--backup">
-              <div className="settings-group-label">{t('settings.backup')}</div>
+              {/* 折叠开关进标题行右侧：收起态零增高，一屏守卫的高度预算不动。 */}
+              <div className="settings-group-label settings-group-label--split">
+                <span>{t('settings.backup')}</span>
+                <button className="auto-backup-toggle" aria-expanded={autoBackupOpen} onClick={toggleAutoBackup}>
+                  <span>
+                    {t('settings.autoBackup')}
+                    {autoBackups !== null && ` · ${t('settings.autoBackupCount', { count: autoBackups.length })}`}
+                  </span>
+                  <ChevronDown
+                    size={12}
+                    strokeWidth={1.8}
+                    aria-hidden="true"
+                    className={`settings-about-chev${autoBackupOpen ? ' open' : ''}`}
+                  />
+                </button>
+              </div>
               <div className="settings-row-desc">
                 {t('settings.backupDesc')}
               </div>
@@ -630,6 +743,9 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
                 >
                   {t('settings.importCsv')}
                 </button>
+                <button className="backup-btn" onClick={() => void handleOpenDataDir()} disabled={backupBusy}>
+                  {t('settings.openDataDir')}
+                </button>
               </div>
               {backupStatus && (
                 <div className="settings-hint" role="status">{backupStatus}</div>
@@ -637,6 +753,53 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
               {backupError && (
                 <div className="settings-error" role="alert">{backupError}</div>
               )}
+              {/* 自动备份手风琴：开关在标题行，这里收起时什么都不渲染。
+                  导入是合并非回滚，说明文字写死在列表上方。 */}
+              <AnimatePresence initial={false}>
+                {autoBackupOpen && (
+                  <motion.div
+                    className="auto-backup-body"
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 6 }}
+                    transition={{ duration: 0.14, ease: 'easeOut' }}
+                  >
+                    <div className="settings-row-desc">{t('settings.autoBackupDesc')}</div>
+                    {autoBackupError && (
+                      <div className="settings-error" role="alert">{autoBackupError}</div>
+                    )}
+                    {autoBackups !== null && autoBackups.length === 0 && (
+                      <div className="settings-hint">{t('settings.autoBackupEmpty')}</div>
+                    )}
+                    {autoBackups !== null && autoBackups.length > 0 && (
+                      <ul className="auto-backup-list">
+                        {autoBackups.map((item) => (
+                          <li key={item.name} className="auto-backup-row" data-backup-name={item.name}>
+                            <span className="auto-backup-when">{formatBackupWhen(item.mtimeMs, locale)}</span>
+                            <span className="auto-backup-size">{formatBackupSize(item.sizeBytes)}</span>
+                            <span className="auto-backup-row-actions">
+                              <button
+                                className="backup-btn backup-btn--small"
+                                disabled={backupBusy}
+                                onClick={() => void handleAutoBackupImport(item.name)}
+                              >
+                                {t('settings.autoBackupImport')}
+                              </button>
+                              <button
+                                className="backup-btn backup-btn--small"
+                                disabled={backupBusy}
+                                onClick={() => void handleAutoBackupSaveAs(item.name)}
+                              >
+                                {t('settings.autoBackupSaveAs')}
+                              </button>
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
             </div>
 

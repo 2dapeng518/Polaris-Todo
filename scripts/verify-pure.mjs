@@ -27,6 +27,7 @@ const { isPurgeable } = await import('../src/shared/retention.ts')
 // 目录式 import 与 recurrence 的 'rrule' 包依赖都由钩子/Node 默认解析接住）。
 const { buildCustomRecurrence, nextMonthlyClamped, nextOccurrence, parseCustomRecurrence } = await import('../src/shared/recurrence.ts')
 const { csvErrorMessage, parseCsvImport } = await import('../src/shared/csvImport.ts')
+const { isAutoBackupFileName } = await import('../src/shared/backupNames.ts')
 
 let fail = 0
 const assert = (cond, msg) => { if (!cond) { fail++; console.log('  FAIL ' + msg) } else console.log('  PASS ' + msg) }
@@ -693,6 +694,30 @@ console.log('=== CSV 搬家：纯函数真值表（落库往返留在 E2E 层）
   const zhQuote = csvErrorMessage('zh-CN', { code: 'unclosedQuote', params: { row: 2 } })
   const i18nOk = enQuote.includes('Unclosed quote on row 2') && zhQuote.includes('第 2 行')
   assert(i18nOk, '错误文案 zh+en：unclosedQuote 双语字面量' + (i18nOk ? '' : `（实得 ${JSON.stringify({ enQuote, zhQuote })}）`))
+}
+
+// ---------- 自动备份文件名校验（与 assertions.ts runBackupNameAssertions 逐字镜像） ----------
+{
+  const table = [
+    ['polaris-auto-2026-11-19T02-00-00-000Z.json', true],
+    ['polaris-auto-2026-01-01T00-00-00-000Z.json', true],
+    ['', false],
+    ['polaris-auto-.json', false],
+    ['polaris-auto-2026-11-19T02-00-00-000Z.json.tmp', false],
+    ['polaris-auto-2026-11-19T02-00-00-000Z.JSON', false],
+    ['polaris-backup-2026-11-19T02-00-00-000Z.json', false],
+    ['../polaris-auto-2026-11-19T02-00-00-000Z.json', false],
+    ['..\\polaris-auto-2026-11-19T02-00-00-000Z.json', false],
+    ['sub/polaris-auto-2026-11-19T02-00-00-000Z.json', false],
+    ['polaris-auto-..2026-11-19T02-00-00-000Z.json', false],
+    ['polaris-auto-2026-11-19T02:00:00.000Z.json', false],
+    ['polaris-auto-2026-11-19T02-00-00-000Z.json\n', false],
+    ['{SECRET_suhq3wqz}', false]
+  ]
+  for (const [name, want] of table) {
+    const got = isAutoBackupFileName(name)
+    assert(got === want, `备份文件名 ${JSON.stringify(name)} → ${want}` + (got === want ? '' : `（实得 ${got}）`))
+  }
 }
 
 console.log('\n' + (fail === 0 ? '纯函数真值表全部成立 ✓' : fail + ' 项失败 ✗'))

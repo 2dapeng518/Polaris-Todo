@@ -3980,6 +3980,27 @@ textarea {
     padding: 12px var(--space-6) 12px;
   }
 
+  /* 空态紧凑档：常规档 76/64 大留白 + 88px 星轨在 536px 工作区必溢
+     （低分辨率空今天视图页脚被推出滚动线）。收留白与星轨，文案字号降一档，
+     整块落到约 230px，页脚回到一屏内。 */
+  .empty-state {
+    padding: 28px 24px 24px;
+  }
+
+  .empty-orbit {
+    width: 64px;
+    height: 64px;
+    margin-bottom: 14px;
+  }
+
+  .empty-title {
+    font-size: 16px;
+  }
+
+  .empty-desc {
+    font-size: 12px;
+  }
+
   .view-header {
     margin-bottom: 12px;
   }
@@ -4900,14 +4921,17 @@ textarea {
 
 .backup-actions {
   display: flex;
-  gap: 8px;
+  /* 中文四按钮一行放得下（紧凑档右列 343px 是硬预算：间距 6 + 内边距 11
+     让总宽约 332px）；英文标签更长，允许换行不溢出。 */
+  flex-wrap: wrap;
+  gap: 6px;
   margin-top: 8px;
 }
 
 .backup-btn {
   flex: 1;
   height: 32px;
-  padding: 0 12px;
+  padding: 0 11px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--surface-1);
@@ -4943,6 +4967,89 @@ textarea {
 
 .backup-btn--danger {
   color: var(--danger);
+}
+
+/* 自动备份手风琴：开关住在分组标题行右侧（收起态零增高，一屏守卫预算不动）；
+   展开才生高度，列表自带滚动帽，21 份也不把设置页撑出长滚动。 */
+.settings-group-label--split {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.auto-backup-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  cursor: default;
+  transition: color 0.16s;
+}
+
+.auto-backup-toggle:hover {
+  color: var(--accent);
+}
+
+.auto-backup-body {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--line);
+}
+
+.auto-backup-list {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 224px;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+}
+
+.auto-backup-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.auto-backup-when {
+  flex: 1;
+  min-width: 0;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.auto-backup-size {
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.auto-backup-row-actions {
+  display: inline-flex;
+  gap: 6px;
+}
+
+.backup-btn--small {
+  flex: none;
+  height: 26px;
+  padding: 0 10px;
+  font-size: 11px;
+  border-radius: 6px;
 }
 
 .backup-btn--danger:hover:not(:disabled) {

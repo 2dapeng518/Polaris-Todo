@@ -4,7 +4,7 @@
 
 import { app, globalShortcut, ipcMain, type NativeImage } from 'electron'
 import { join } from 'node:path'
-import { mkdtemp, readFile, readdir, rm } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, readdir, rm, unlink } from 'node:fs/promises'
 import { randomUUID } from 'node:crypto'
 import {
   createProject,
@@ -47,6 +47,7 @@ import { getTrayMenuLabels } from '../tray'
 import { harnessContext } from './context'
 import { settledFrames, waitForCondition } from './util'
 import {
+  runBackupNameAssertions,
   runCsvImportAssertions,
   runCustomRecurrenceAssertions,
   runParseAssertions,
@@ -1148,6 +1149,7 @@ export async function runSmokeTest(): Promise<void> {
 
     const parseAssertions = runParseAssertions()
     const retentionOk = runRetentionAssertions()
+    const backupNameOk = runBackupNameAssertions()
     const csvAssertions = runCsvImportAssertions()
 
     // 本地 MCP：开启 → 经 IPC 取 bearer token → initialize / tools/list / tools/call
@@ -3143,6 +3145,80 @@ export async function runSmokeTest(): Promise<void> {
       if (backupProjectId) deleteProject(backupProjectId)
     }
 
+    // 自动备份列表（设置页 E2E）：fixture 备份落盘 → 标题行展开列表 → 行内「导入」
+    // 合并回库；路径穿越入参拒绝；openDataDir 在 harness 恒不真开资源管理器；
+    // 「另存为」只断言存在——原生保存对话框无自动化，不点。
+    let autoBackupListWorks = false
+    const autoBackupFixtureName = 'polaris-auto-2026-11-19T02-00-00-000Z.json'
+    let autoBackupFixtureId: string | null = null
+    let autoBackupFixturePath: string | null = null
+    try {
+      const fixtureTask = createTask({ title: '冒烟自动备份任务' })
+      autoBackupFixtureId = fixtureTask.id
+      const payload = {
+        schemaVersion: 3,
+        app: 'polaris',
+        exportedAt: new Date().toISOString(),
+        ...exportBackup()
+      }
+      const autoBackupDir = join(app.getPath('userData'), 'backups')
+      await mkdir(autoBackupDir, { recursive: true })
+      autoBackupFixturePath = join(autoBackupDir, autoBackupFixtureName)
+      await writeFileAtomic(autoBackupFixturePath, JSON.stringify(payload, null, 2))
+      // 先删掉 fixture 任务，合并导入才有得插（已存在的 ID 会跳过）。
+      deleteTask(fixtureTask.id)
+      deleteTaskForever(fixtureTask.id)
+      if (mainWindow) {
+        const listResult = await mainWindow.webContents.executeJavaScript(`(async () => {
+          ${pageHelpers}
+          document.querySelector('.settings-item').click();
+          const panel = await waitFor(() => document.querySelector('.settings-panel'));
+          if (!panel) return { opened: false };
+          await sleep(450);
+          const toggle = panel.querySelector('.auto-backup-toggle');
+          if (!toggle) return { opened: true, toggle: false };
+          toggle.click();
+          const row = await waitFor(() =>
+            panel.querySelector('.auto-backup-row[data-backup-name="${autoBackupFixtureName}"]')
+          );
+          if (!row) return { opened: true, toggle: true, row: false };
+          const rowButtons = row.querySelectorAll('button');
+          const saveAsPresent = rowButtons.length === 2;
+          rowButtons[0].click();
+          const status = await waitFor(() => {
+            const el = panel.querySelector('.settings-section--backup .settings-hint');
+            return el && el.textContent ? el.textContent : null;
+          });
+          const traversal = await window.polaris.backups.import('../../evil.json');
+          const openDir = await window.polaris.backups.openDataDir();
+          document.querySelector('.settings-panel .detail-close')?.click();
+          await sleep(250);
+          return {
+            opened: true, toggle: true, row: true, saveAsPresent, status,
+            traversalOk: traversal.ok === false,
+            openDirOpened: openDir.opened === true
+          };
+        })()`)
+        const backInDb = listTasks().some((t) => t.id === autoBackupFixtureId)
+        autoBackupListWorks =
+          listResult?.row === true &&
+          listResult?.saveAsPresent === true &&
+          typeof listResult?.status === 'string' &&
+          backInDb &&
+          listResult?.traversalOk === true &&
+          listResult?.openDirOpened === false
+        if (!autoBackupListWorks) console.error('AUTO_BACKUP_LIST_FAIL', JSON.stringify({ listResult, backInDb }))
+      }
+    } catch (error) {
+      console.error('AUTO_BACKUP_LIST_ERROR', error)
+    } finally {
+      if (autoBackupFixtureId) {
+        deleteTask(autoBackupFixtureId)
+        deleteTaskForever(autoBackupFixtureId)
+      }
+      if (autoBackupFixturePath) await unlink(autoBackupFixturePath).catch(() => {})
+    }
+
     // 重复任务继承：完成后旧实例保留自己的勾选，新实例复制全部步骤但全部重置为未完成。
     let subtaskRecurrenceWorks = false
     const recurrenceSubtaskIds: string[] = []
@@ -3418,7 +3494,7 @@ export async function runSmokeTest(): Promise<void> {
       try {
         await dbg.sendCommand('Emulation.setDeviceMetricsOverride', { width: 1024, height: 536, deviceScaleFactor: 1, mobile: false })
         await settledFrames(mainWindow.webContents)
-        const m = await mainWindow.webContents.executeJavaScript(`(() => {
+        const m = await mainWindow.webContents.executeJavaScript(`(async () => {
           const main = document.querySelector('.main');
           const sidebar = document.querySelector('.sidebar');
           const footer = document.querySelector('.view-footer');
@@ -4874,8 +4950,10 @@ export async function runSmokeTest(): Promise<void> {
       completedAtShown: completedAtShown === true,
       reminderSnoozeWorks: reminderSnoozeWorks === true,
       customRecurrenceTable: customRecurrenceOk === true,
+      backupNameTable: backupNameOk === true,
       customRepeatUiWorks: customRepeatUiWorks === true,
       backupRoundTripWorks: backupRoundTripWorks === true,
+      autoBackupListWorks: autoBackupListWorks === true,
       atomicWriteWorks: atomicWriteWorks === true,
       scalingFrameWorks: scalingFrameWorks === true,
       lowResFits: lowResFits === true,
@@ -4976,8 +5054,10 @@ export async function runSmokeTest(): Promise<void> {
           completedAtShown,
           reminderSnoozeWorks,
           customRecurrenceTable: customRecurrenceOk,
+          backupNameTable: backupNameOk,
           customRepeatUiWorks,
           backupRoundTripWorks,
+          autoBackupListWorks,
           atomicWriteWorks,
           scalingFrameWorks,
           lowResFits,
