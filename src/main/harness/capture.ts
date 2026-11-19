@@ -515,7 +515,7 @@ export async function captureDemo(mode: string): Promise<void> {
     } else if (mode === 'calendar') {
       await captureCalendarScreenshot('screenshot-calendar.png')
     } else if (mode === 'matrix' || mode === 'stats') {
-      // 四象限与统计直接用首启示例数据：六条任务恰好落满四个象限，
+      // 四象限与统计直接用首启示例数据：八条教学示例恰好落满四个象限，
       // 统计有今日完成与项目分布，不需要额外种子。
       const labels = mode === 'matrix' ? ['四象限', 'Matrix'] : ['统计', 'Statistics']
       await mainWindow.webContents.executeJavaScript(
