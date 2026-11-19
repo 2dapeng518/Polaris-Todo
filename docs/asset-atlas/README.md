@@ -46,13 +46,13 @@ node docs/asset-atlas/tools/build-data.mjs          # 合成 atlas-data.js
 事实性字段不写在那里，由 `build-data.mjs` 从 `data/*.json` 注入。
 
 `tools/verified.mjs` 是 19 个 agent 两轮对抗式核验的结论，会**覆盖** `curated.mjs` 里的同项判断。
-原始记录（每个 agent 的完整返回）在 `data/research/`，可用下面的命令从 workflow journal 重新提取：
+原始记录（每个 agent 的完整返回）只在本地生成到 `data/research/`（不入库），可用下面的命令从 workflow journal 重新提取：
 
 ```bash
 node docs/asset-atlas/tools/extract-research.mjs <journal.jsonl 路径>
 ```
 
-其中 `_corrections.json` 汇总了全部 69 条需修正/留意的条目。
+生成产物中的 `_corrections.json` 汇总了全部 69 条需修正/留意的条目。
 
 ## 关于 fonts/
 
