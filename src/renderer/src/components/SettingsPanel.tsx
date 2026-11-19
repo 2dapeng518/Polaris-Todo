@@ -73,8 +73,8 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
   const [backupBusy, setBackupBusy] = useState(false)
   const [backupStatus, setBackupStatus] = useState<string | null>(null)
   const [backupError, setBackupError] = useState<string | null>(null)
-  // 自动备份折叠块：默认收起不占高度；首次展开才取列表（懒加载），
-  // 取到就缓存——重开面板不必重读。
+  // 自动备份折叠块：默认收起不占高度；每次展开重读列表（目录可能被
+  // 外部改动），缓存只供收起态的计数展示。
   const [autoBackupOpen, setAutoBackupOpen] = useState(false)
   const [autoBackups, setAutoBackups] = useState<AutoBackupItem[] | null>(null)
   const [autoBackupError, setAutoBackupError] = useState<string | null>(null)
@@ -208,7 +208,7 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
       setBackupError(null)
       setAutoBackupError(null)
       // 手风琴随面板关闭收起：重开回到收起态，一屏守卫量的永远是收起态。
-      // 列表缓存保留——重开不必重读。
+      // 列表缓存保留供收起态计数；展开时重读防幽灵行。
       setAutoBackupOpen(false)
     }
     return () => {
@@ -416,10 +416,16 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
     }
   }
 
-  const toggleAutoBackup = () => {
-    const next = !autoBackupOpen
-    setAutoBackupOpen(next)
-    if (next && autoBackups === null) void loadAutoBackups()
+  // 先取列表再展开：本地 IPC 毫秒级，避免「先撑开空壳、行随后弹出」的
+  // 两段式跳高。每次展开都重读——目录可能被外部改动（数据目录里删文件、
+  // 新一轮自动备份），拿旧缓存会渲染幽灵行；缓存只供收起态计数展示。
+  const toggleAutoBackup = async () => {
+    if (autoBackupOpen) {
+      setAutoBackupOpen(false)
+      return
+    }
+    await loadAutoBackups()
+    setAutoBackupOpen(true)
   }
 
   // 与 handleImport 完全同语义：合并非破坏，计数进同一条状态行，刷新两个存储。
@@ -575,144 +581,14 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
 
             </div>
 
-            <div className="settings-section settings-section--behavior">
-              <div className="settings-group-label">{t('settings.behaviorGroup')}</div>
-              <div className="settings-row">
-                <div>
-                  <div className="settings-row-title">{t('settings.autoStart')}</div>
-                  <div className="settings-row-desc">
-                    {t('settings.autoStartDesc')}
-                  </div>
-                </div>
-                <button
-                  role="switch"
-                  aria-checked={autoStart.enabled}
-                  aria-label={t('settings.autoStart')}
-                  className={`switch ${autoStart.enabled ? 'on' : ''}`}
-                  onClick={() => void toggleAutoStart()}
-                  disabled={busy || !autoStart.supported}
-                >
-                  <span className="switch-thumb" />
-                </button>
-              </div>
-              {autoStart.error && (
-                <div className="settings-error" role="alert">
-                  {t('settings.autoStartError', { error: autoStart.error })}
-                </div>
-              )}
-              {!autoStart.supported && (
-                <div className="settings-hint">
-                  {t('settings.autoStartUnsupported')}
-                </div>
-              )}
-              <div className="settings-row">
-                <div>
-                  <div className="settings-row-title">{t('settings.tray')}</div>
-                  <div className="settings-row-desc">
-                    {closeToTray ? t('settings.trayOn') : t('settings.trayOff')}
-                  </div>
-                </div>
-                <button
-                  role="switch"
-                  aria-checked={closeToTray}
-                  aria-label={t('settings.tray')}
-                  className={`switch ${closeToTray ? 'on' : ''}`}
-                  onClick={() => void toggleCloseToTray()}
-                >
-                  <span className="switch-thumb" />
-                </button>
-              </div>
-              <div className="settings-row">
-                <div>
-                  <div className="settings-row-title">{t('settings.hotkey')}</div>
-                  <div className="settings-row-desc">
-                    {hotkey.enabled
-                      ? t('settings.hotkeyOn', { accelerator: hotkey.accelerator })
-                      : t('settings.hotkeyOff')}
-                  </div>
-                </div>
-                <button
-                  role="switch"
-                  aria-checked={hotkey.enabled}
-                  aria-label={t('settings.hotkey')}
-                  className={`switch ${hotkey.enabled ? 'on' : ''}`}
-                  onClick={() => void toggleHotkey()}
-                >
-                  <span className="switch-thumb" />
-                </button>
-              </div>
-              {hotkey.enabled && hotkey.error && (
-                <div className="settings-error" role="alert">
-                  {t('settings.hotkeyError', { error: hotkey.error })}
-                </div>
-              )}
-            </div>
-
-            <div className="settings-side">
-            <div className="settings-section settings-section--mcp">
-              <div className="settings-group-label">{t('settings.mcp')}</div>
-              <div className="settings-row">
-                <div>
-                  <div className="settings-row-title">{t('settings.mcpEnable')}</div>
-                  <div className="settings-row-desc">
-                    {mcp.enabled ? mcp.endpoint : t('settings.mcpOff')}
-                  </div>
-                </div>
-                <button
-                  role="switch"
-                  aria-checked={mcp.enabled}
-                  aria-label={t('settings.mcp')}
-                  className={`switch ${mcp.enabled ? 'on' : ''}`}
-                  onClick={() => void toggleMcp()}
-                >
-                  <span className="switch-thumb" />
-                </button>
-              </div>
-              {mcp.enabled && mcp.error && (
-                <div className="settings-error" role="alert">
-                  {t('settings.mcpError', { error: mcp.error })}
-                </div>
-              )}
-              {/* 令牌独占整行：掩码盒吃满卡宽（凭证字段的主角待遇），复制/重新生成
-                  退第二行右对齐。仅启用时渲染，默认零增高。掩码头 7 + … + 末 4，
-                  中段隐藏；nowrap + ellipsis 兜底极窄窗口，高度恒定一行。
-                  明文永不渲染，只能整串复制。 */}
-              {mcp.enabled && mcpToken && (
-                <div className="mcp-token">
-                  <div className="settings-row-desc">{t('settings.mcpTokenDesc')}</div>
-                  <code className="mcp-token-box" aria-label={t('settings.mcpToken')}>
-                    {`${mcpToken.slice(0, 7)}…${mcpToken.slice(-4)}`}
-                  </code>
-                  <div className="mcp-token-actions">
-                    <button className="backup-btn" onClick={() => void copyMcpToken()}>
-                      {t('settings.mcpTokenCopy')}
-                    </button>
-                    <button
-                      className="backup-btn backup-btn--danger"
-                      onClick={() => setMcpRegenConfirm(true)}
-                      disabled={mcpTokenBusy}
-                    >
-                      {t('settings.mcpTokenRegenerate')}
-                    </button>
-                  </div>
-                  {/* 反馈行常驻占位：复制/重新生成的 2.6s 提示落进槽里再消失，
-                      不来回撑面板高度。 */}
-                  <div
-                    className={mcpTokenNotice?.error ? 'settings-error' : 'settings-hint'}
-                    role={mcpTokenNotice?.error ? 'alert' : 'status'}
-                    style={{ minHeight: '1.5em' }}
-                  >
-                    {mcpTokenNotice?.text ?? ''}
-                  </div>
-                </div>
-              )}
-            </div>
-
+            {/* 左列「数据备份」：唯一会变高的组（手风琴/状态行）。两列档里
+                contain:size + stretch 让展开高度被卡框吸收、列表卡内滚动，
+                行高由右列固定内容决定——展开/收起外几何逐像素不变。 */}
             <div className="settings-section settings-section--backup">
               {/* 折叠开关进标题行右侧：收起态零增高，一屏守卫的高度预算不动。 */}
               <div className="settings-group-label settings-group-label--split">
                 <span>{t('settings.backup')}</span>
-                <button className="auto-backup-toggle" aria-expanded={autoBackupOpen} onClick={toggleAutoBackup}>
+                <button className="auto-backup-toggle" aria-expanded={autoBackupOpen} onClick={() => void toggleAutoBackup()}>
                   <span>
                     {t('settings.autoBackup')}
                     {autoBackups !== null && ` · ${t('settings.autoBackupCount', { count: autoBackups.length })}`}
@@ -800,6 +676,143 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
                   </motion.div>
                 )}
               </AnimatePresence>
+            </div>
+
+            <div className="settings-side">
+            <div className="settings-section settings-section--mcp">
+              {/* 组名即开关行标题：省掉冗余标题行（「本地 MCP 服务」+「启用服务」
+                  两行说一件事）。换位后右列 MCP+常规叠卡，这一行把行高预算
+                  压回换位前水平，一屏守卫各档不 regress。 */}
+              <div className="settings-row">
+                <div>
+                  <div className="settings-row-title">{t('settings.mcp')}</div>
+                  <div className="settings-row-desc">
+                    {mcp.enabled ? mcp.endpoint : t('settings.mcpOff')}
+                  </div>
+                </div>
+                <button
+                  role="switch"
+                  aria-checked={mcp.enabled}
+                  aria-label={t('settings.mcp')}
+                  className={`switch ${mcp.enabled ? 'on' : ''}`}
+                  onClick={() => void toggleMcp()}
+                >
+                  <span className="switch-thumb" />
+                </button>
+              </div>
+              {mcp.enabled && mcp.error && (
+                <div className="settings-error" role="alert">
+                  {t('settings.mcpError', { error: mcp.error })}
+                </div>
+              )}
+              {/* 令牌独占整行：掩码盒吃满卡宽（凭证字段的主角待遇），复制/重新生成
+                  退第二行右对齐。仅启用时渲染，默认零增高。掩码头 7 + … + 末 4，
+                  中段隐藏；nowrap + ellipsis 兜底极窄窗口，高度恒定一行。
+                  明文永不渲染，只能整串复制。 */}
+              {mcp.enabled && mcpToken && (
+                <div className="mcp-token">
+                  <div className="settings-row-desc">{t('settings.mcpTokenDesc')}</div>
+                  <code className="mcp-token-box" aria-label={t('settings.mcpToken')}>
+                    {`${mcpToken.slice(0, 7)}…${mcpToken.slice(-4)}`}
+                  </code>
+                  <div className="mcp-token-actions">
+                    <button className="backup-btn" onClick={() => void copyMcpToken()}>
+                      {t('settings.mcpTokenCopy')}
+                    </button>
+                    <button
+                      className="backup-btn backup-btn--danger"
+                      onClick={() => setMcpRegenConfirm(true)}
+                      disabled={mcpTokenBusy}
+                    >
+                      {t('settings.mcpTokenRegenerate')}
+                    </button>
+                  </div>
+                  {/* 反馈行常驻占位：复制/重新生成的 2.6s 提示落进槽里再消失，
+                      不来回撑面板高度。 */}
+                  <div
+                    className={mcpTokenNotice?.error ? 'settings-error' : 'settings-hint'}
+                    role={mcpTokenNotice?.error ? 'alert' : 'status'}
+                    style={{ minHeight: '1.5em' }}
+                  >
+                    {mcpTokenNotice?.text ?? ''}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* 右列下半「常规设置」：三开关内容固定，与 MCP 一起钉死行高，
+                左列备份卡展开时这里纹丝不动。 */}
+            <div className="settings-section settings-section--behavior">
+              <div className="settings-group-label">{t('settings.behaviorGroup')}</div>
+              <div className="settings-row">
+                <div>
+                  <div className="settings-row-title">{t('settings.autoStart')}</div>
+                  <div className="settings-row-desc">
+                    {t('settings.autoStartDesc')}
+                  </div>
+                </div>
+                <button
+                  role="switch"
+                  aria-checked={autoStart.enabled}
+                  aria-label={t('settings.autoStart')}
+                  className={`switch ${autoStart.enabled ? 'on' : ''}`}
+                  onClick={() => void toggleAutoStart()}
+                  disabled={busy || !autoStart.supported}
+                >
+                  <span className="switch-thumb" />
+                </button>
+              </div>
+              {autoStart.error && (
+                <div className="settings-error" role="alert">
+                  {t('settings.autoStartError', { error: autoStart.error })}
+                </div>
+              )}
+              {!autoStart.supported && (
+                <div className="settings-hint">
+                  {t('settings.autoStartUnsupported')}
+                </div>
+              )}
+              <div className="settings-row">
+                <div>
+                  <div className="settings-row-title">{t('settings.tray')}</div>
+                  <div className="settings-row-desc">
+                    {closeToTray ? t('settings.trayOn') : t('settings.trayOff')}
+                  </div>
+                </div>
+                <button
+                  role="switch"
+                  aria-checked={closeToTray}
+                  aria-label={t('settings.tray')}
+                  className={`switch ${closeToTray ? 'on' : ''}`}
+                  onClick={() => void toggleCloseToTray()}
+                >
+                  <span className="switch-thumb" />
+                </button>
+              </div>
+              <div className="settings-row">
+                <div>
+                  <div className="settings-row-title">{t('settings.hotkey')}</div>
+                  <div className="settings-row-desc">
+                    {hotkey.enabled
+                      ? t('settings.hotkeyOn', { accelerator: hotkey.accelerator })
+                      : t('settings.hotkeyOff')}
+                  </div>
+                </div>
+                <button
+                  role="switch"
+                  aria-checked={hotkey.enabled}
+                  aria-label={t('settings.hotkey')}
+                  className={`switch ${hotkey.enabled ? 'on' : ''}`}
+                  onClick={() => void toggleHotkey()}
+                >
+                  <span className="switch-thumb" />
+                </button>
+              </div>
+              {hotkey.enabled && hotkey.error && (
+                <div className="settings-error" role="alert">
+                  {t('settings.hotkeyError', { error: hotkey.error })}
+                </div>
+              )}
             </div>
             </div>
 

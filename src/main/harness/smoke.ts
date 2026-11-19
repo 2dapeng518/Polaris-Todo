@@ -3830,6 +3830,7 @@ export async function runSmokeTest(): Promise<void> {
       }
       const fit840 = await fitAt(840)
       const fit900 = await fitAt(900)
+      console.log('SETTINGS_FIT_METRICS', JSON.stringify({ fit840, fit900 }))
       settingsFitsDefault =
         fit840?.fits === true && fit840?.statusShown === true && fit900?.fits === true && fit900?.statusShown === true
       if (!settingsFitsDefault) console.error('SETTINGS_FIT_FAIL', JSON.stringify({ fit840, fit900 }))
@@ -3934,8 +3935,9 @@ export async function runSmokeTest(): Promise<void> {
       }
     }
 
-    // 设置页 v2 布局（1024×576 实机档）：命名两列左行为/右数据进出、
-    // 语言下拉上移主题标题行、关于页脚折叠展开挂载/收起卸载。
+    // 设置页 v2 布局（1024×576 实机档）：命名两列左数据备份/右 MCP+常规设置
+    // （固定内容钉行高，备份卡 contain:size 吸收展开）、语言下拉上移主题标题行、
+    // 关于页脚折叠展开挂载/收起卸载。
     let settingsLayoutV2 = false
     if (mainWindow) {
       const originalSize = mainWindow.getSize()
@@ -3948,16 +3950,17 @@ export async function runSmokeTest(): Promise<void> {
           const panel = await waitFor(() => document.querySelector('.settings-panel'));
           if (!panel) return { found: false };
           await sleep(400);
-          const behavior = panel.querySelector('.settings-section--behavior');
+          const backupCard = panel.querySelector('.settings-section--backup');
           const mcp = panel.querySelector('.settings-section--mcp');
           const head = panel.querySelector('.settings-theme-head');
           const langInHead = Boolean(head && head.querySelector('.settings-language-select'));
-          const cols = behavior && mcp
-            ? behavior.getBoundingClientRect().right <= mcp.getBoundingClientRect().left + 1
+          // 换位契约：备份卡在左、MCP（右列上半）在右。
+          const cols = backupCard && mcp
+            ? backupCard.getBoundingClientRect().right <= mcp.getBoundingClientRect().left + 1
             : false;
           const side = panel.querySelector('.settings-side');
-          const balanced = behavior && side
-            ? Math.abs(behavior.getBoundingClientRect().height - side.getBoundingClientRect().height) <= 2
+          const balanced = backupCard && side
+            ? Math.abs(backupCard.getBoundingClientRect().height - side.getBoundingClientRect().height) <= 2
             : false;
           const toggle = panel.querySelector('.settings-about-toggle');
           toggle?.click();
@@ -3967,8 +3970,15 @@ export async function runSmokeTest(): Promise<void> {
           const collapsed = await waitFor(() => !panel.querySelector('.about-credits'));
           document.querySelector('.settings-panel .detail-close')?.click();
           await sleep(250);
-          return { found: true, langInHead, cols, balanced, expandedOk, collapsed };
+          return {
+            found: true, langInHead, cols, balanced, expandedOk, collapsed,
+            // 高度预算复核日志：CSS 注释里的实测数字以此为据。
+            panelSH: panel.scrollHeight,
+            backupH: backupCard ? backupCard.getBoundingClientRect().height : -1,
+            sideH: side ? side.getBoundingClientRect().height : -1
+          };
         })()`)
+        console.log('SETTINGS_LAYOUT_METRICS', JSON.stringify(layout))
         settingsLayoutV2 =
           layout?.found === true &&
           layout?.langInHead === true &&
@@ -3978,6 +3988,120 @@ export async function runSmokeTest(): Promise<void> {
           layout?.collapsed === true
         if (!settingsLayoutV2) console.error('SETTINGS_LAYOUT_V2_FAIL', JSON.stringify(layout))
       } finally {
+        mainWindow.setSize(originalSize[0], originalSize[1])
+        await settledFrames(mainWindow.webContents)
+      }
+    }
+
+    // 设置页备份零抖动（1024×576 实机档）：左列备份卡 contain:size + stretch
+    // 吸收手风琴展开高度——展开/收起前后面板内容高度、页脚顶边、外框、右列
+    // 高度逐像素相等，且行真渲染在卡内（非恒真）。3 份 fixture 触发列表分支，
+    // 量完即清。用户报障根因（展开撑高右列→左卡拉伸/页脚跳）的回归守卫。
+    let settingsBackupNoShift = false
+    if (mainWindow) {
+      const originalSize = mainWindow.getSize()
+      mainWindow.setSize(1024, 576)
+      await settledFrames(mainWindow.webContents)
+      // 名字必须过 isAutoBackupFileName 锚定正则（polaris-auto- + ISO 连字符时间戳）。
+      const noShiftFixtureNames = [
+        'polaris-auto-2026-11-19T00-00-01-000Z.json',
+        'polaris-auto-2026-11-19T00-00-02-000Z.json',
+        'polaris-auto-2026-11-19T00-00-03-000Z.json'
+      ]
+      const noShiftFixturePaths: string[] = []
+      try {
+        const noShiftBackupDir = join(app.getPath('userData'), 'backups')
+        await mkdir(noShiftBackupDir, { recursive: true })
+        for (const name of noShiftFixtureNames) {
+          const p = join(noShiftBackupDir, name)
+          await writeFileAtomic(p, JSON.stringify({ schemaVersion: 3, app: 'polaris', tasks: [], projects: [] }))
+          noShiftFixturePaths.push(p)
+        }
+        const stable = await mainWindow.webContents.executeJavaScript(`(async () => {
+          ${pageHelpers}
+          // 等上一块面板退场动画走完再重开，否则量到还挂在 DOM 里的旧节点
+          // （storageCard 同款坑：旧节点上的点击随退场卸载，行永远等不到）。
+          await waitFor(() => !document.querySelector('.settings-panel'));
+          document.querySelector('.settings-item').click();
+          const panel = await waitFor(() => document.querySelector('.settings-panel'));
+          if (!panel) return { found: false };
+          await sleep(400);
+          const backupCard = panel.querySelector('.settings-section--backup');
+          const side = panel.querySelector('.settings-side');
+          if (!backupCard || !side) return { found: true, cards: false };
+          const snap = () => ({
+            sh: panel.scrollHeight,
+            ftop: panel.querySelector('.settings-footer').getBoundingClientRect().top,
+            ph: panel.getBoundingClientRect().height,
+            cw: panel.clientWidth,
+            sideH: side.getBoundingClientRect().height,
+            cardH: backupCard.getBoundingClientRect().height
+          });
+          const before = snap();
+          panel.querySelector('.auto-backup-toggle')?.click();
+          const rows = await waitFor(() => panel.querySelectorAll('.auto-backup-row').length >= 3, 8000);
+          if (!rows) {
+            // 诊断塞返回值：IPC 直调 vs DOM 状态，定位是列表没取到还是没展开。
+            const dbg = await window.polaris.backups.list();
+            return {
+              found: true, cards: true, rows: false,
+              expanded: panel.querySelector('.auto-backup-toggle')?.getAttribute('aria-expanded'),
+              body: Boolean(panel.querySelector('.auto-backup-body')),
+              err: panel.querySelector('.settings-section--backup .settings-error')?.textContent ?? null,
+              rowCount: panel.querySelectorAll('.auto-backup-row').length,
+              rowNames: [...panel.querySelectorAll('.auto-backup-row')].map((r) => r.getAttribute('data-backup-name')),
+              panels: document.querySelectorAll('.settings-panel').length,
+              bodies: document.querySelectorAll('.auto-backup-body').length,
+              emptyHint: panel.querySelector('.auto-backup-body .settings-hint')?.textContent ?? null,
+              listOk: dbg.ok,
+              listCount: dbg.items ? dbg.items.length : -1,
+              listDetail: dbg.items ? dbg.items.map((i) => i.name) : dbg.error
+            };
+          }
+          await sleep(300);
+          const open = snap();
+          const cardRect = backupCard.getBoundingClientRect();
+          const list = panel.querySelector('.auto-backup-list');
+          const listRect = list ? list.getBoundingClientRect() : null;
+          const rowRects = [...panel.querySelectorAll('.auto-backup-row')].map((r) => r.getBoundingClientRect());
+          // 收容契约：行住在列表滚动内容里（横向不出卡、纵向不出列表
+          // scrollHeight），首行免滚可见。列表超高卡内滚动是设计行为
+          // （576 档卡高 226px 装不下三行），不要求全行可见。
+          const rowsInCard = Boolean(listRect) && rowRects.every((r) =>
+            r.left >= cardRect.left - 1 && r.right <= cardRect.right + 1 &&
+            r.top >= listRect.top - 1 && r.bottom <= listRect.top + list.scrollHeight + 1);
+          const firstRowVisible = rowRects.length > 0 && rowRects[0].bottom <= cardRect.bottom + 1;
+          panel.querySelector('.auto-backup-toggle')?.click();
+          await waitFor(() => !panel.querySelector('.auto-backup-body'));
+          await sleep(300);
+          const closed = snap();
+          document.querySelector('.settings-panel .detail-close')?.click();
+          await sleep(250);
+          const eq = (a, b) =>
+            a.sh === b.sh && a.ftop === b.ftop && a.ph === b.ph && a.cw === b.cw && a.sideH === b.sideH;
+          return {
+            found: true,
+            cards: true,
+            rows: true,
+            rowsInCard,
+            firstRowVisible,
+            balanced: Math.abs(open.cardH - open.sideH) <= 2,
+            openStable: eq(before, open),
+            closedStable: eq(before, closed)
+          };
+        })()`)
+        settingsBackupNoShift =
+          stable?.found === true &&
+          stable?.cards === true &&
+          stable?.rows === true &&
+          stable?.rowsInCard === true &&
+          stable?.firstRowVisible === true &&
+          stable?.balanced === true &&
+          stable?.openStable === true &&
+          stable?.closedStable === true
+        if (!settingsBackupNoShift) console.error('SETTINGS_BACKUP_NO_SHIFT_FAIL', JSON.stringify(stable))
+      } finally {
+        for (const p of noShiftFixturePaths) await unlink(p).catch(() => {})
         mainWindow.setSize(originalSize[0], originalSize[1])
         await settledFrames(mainWindow.webContents)
       }
@@ -4971,6 +5095,7 @@ export async function runSmokeTest(): Promise<void> {
       settingsFitsCompact: settingsFitsCompact === true,
       settingsNoShift: settingsNoShift === true,
       settingsLayoutV2: settingsLayoutV2 === true,
+      settingsBackupNoShift: settingsBackupNoShift === true,
       settingsAboutStable: settingsAboutStable === true,
       trayToggleWorks: trayToggleWorks === true,
       trayMenuEntries: trayMenuEntries === true,
