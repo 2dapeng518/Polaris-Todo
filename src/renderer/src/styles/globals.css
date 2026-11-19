@@ -4456,9 +4456,8 @@ textarea {
   grid-template-areas:
     'header theme'
     'backup side'
-    'footer footer'
-    'status status';
-  /* 列距 16：最窄 635 面板档半幅 279.5px，主题横条 140 + 隙 8 + 语言 92
+    'footer footer';
+  /* 列距 16：最窄 635 面板档半幅 285.5px，主题横条 140 + 隙 8 + 语言 92
      + 隙 8 + 关闭钮 28 = 276px 吞得下（关闭钮并入横条后不再额外让位）。 */
   column-gap: 16px;
   row-gap: 8px;
@@ -4468,9 +4467,11 @@ textarea {
   overflow-y: auto;
   /* 滚动条槽常驻且左右对称（both-edges）：超帽出滚动条不挤窄内容 = 零横向
      抖动；单侧 stable 曾让右留白比左多一个槽宽（用户报障左右不对称）。
-     水平 padding 20 + 槽 10 = 左右各 30，逐像素对称，槽宽漂移也不破对称。 */
+     四边等距 24（用户拍板统一节奏）：水平 1 边框 + 13 + 槽 10，垂直 1 + 23；
+     槽宽亚像素漂移 ≤1px 由对称断言容差吞。垂直不再大：536 低分辨率档
+     MCP 启用最坏态一屏契约只剩 8.5px 余量，30 等距会顶破。 */
   scrollbar-gutter: stable both-edges;
-  padding: 10px 20px;
+  padding: 23px 13px;
   border: 1px solid var(--line-strong);
   border-radius: 16px;
   background: var(--command-bg);
@@ -4579,7 +4580,7 @@ textarea {
 /* 语言下拉上移到主题标题行右侧，省一整行高度。 */
 /* 主题节 = 标题同行右半：色样横条 + 语言下拉 + 关闭钮末项。只留色样
    （名字/气质进 title），20px 六枚 + 4px 隙 = 140px，加语言 92 + 隙 8
-   + 关闭钮 28 + 隙 8 = 276px ≤ 最窄两列半幅 279.5px（635px 面板档）。 */
+   + 关闭钮 28 + 隙 8 = 276px ≤ 最窄两列半幅 285.5px（635px 面板档）。 */
 .settings-section--theme {
   grid-area: theme;
   display: flex;
@@ -5242,6 +5243,8 @@ textarea {
 .settings-footer {
   grid-area: footer;
   position: relative;
+  /* 与 row-gap 8 合出 18px 行间隙，收容脱流的状态单行槽（16.5px）。 */
+  margin-top: 10px;
   padding-top: 8px;
   border-top: 1px solid var(--line);
   color: var(--text-tertiary);
@@ -5294,8 +5297,14 @@ textarea {
   max-height: none;
 }
 
-.settings-panel > .update-footer-status {
-  grid-area: status;
+/* 状态槽脱流住页脚分隔线上方行间隙（footer margin-top 10 + row-gap 8 = 18
+   ≥ 单行 16.5）：旧 in-flow 末行让底留白 = 10+8+16.5 ≈ 34.5 vs 顶 10
+   （用户报障上下不对称）；脱流后上下留白各 10 逐像素对称，落槽仍零增高。 */
+.settings-footer .update-footer-status {
+  position: absolute;
+  bottom: calc(100% + 1px);
+  left: 0;
+  right: 0;
   margin-top: 0;
 }
 

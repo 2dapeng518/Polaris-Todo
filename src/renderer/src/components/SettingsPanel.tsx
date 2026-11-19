@@ -974,13 +974,15 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
                   className={`settings-about-chev${aboutOpen ? ' open' : ''}`}
                 />
               </button>
-            </div>
-            <div
-              className={`settings-hint update-footer-status${updateErrorDetail ? ' is-error' : ''}`}
-              role={updateErrorDetail ? 'alert' : 'status'}
-              title={updateErrorDetail ?? (updateStatusVisible && update ? updateStatusText(update, t) : '')}
-            >
-              {updateErrorDetail ?? (updateStatusVisible && update ? updateStatusText(update, t) : '')}
+              {/* 状态槽脱流住分隔线上方行间隙（见 CSS）：面板上下留白对称、
+                  落槽零增高。DOM 仍住 footer 内，阅读/焦点顺序不变。 */}
+              <div
+                className={`settings-hint update-footer-status${updateErrorDetail ? ' is-error' : ''}`}
+                role={updateErrorDetail ? 'alert' : 'status'}
+                title={updateErrorDetail ?? (updateStatusVisible && update ? updateStatusText(update, t) : '')}
+              >
+                {updateErrorDetail ?? (updateStatusVisible && update ? updateStatusText(update, t) : '')}
+              </div>
             </div>
 
             {/* 重新生成令牌的二次确认：旧客户端配置立即失效，属破坏性动作。
