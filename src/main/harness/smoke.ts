@@ -44,6 +44,8 @@ import { getGlobalHotkeyState, GLOBAL_HOTKEY_ACCELERATOR, setGlobalHotkeyEnabled
 import { getCurrentTheme, themeBackgroundColor } from '../theme'
 import { checkRemindersNow, dismissReminder, getReminderWindow } from '../reminders'
 import { getTrayMenuLabels } from '../tray'
+import { CSV_EXPORT_HEADERS, csvExportFromBackup } from '../../shared/csvExport'
+import { parseCsvImport } from '../../shared/csvImport'
 import { harnessContext } from './context'
 import { settledFrames, waitForCondition } from './util'
 import {
@@ -3900,11 +3902,16 @@ export async function runSmokeTest(): Promise<void> {
             const pr = panel.getBoundingClientRect();
             const last = panel.querySelector('.update-footer-status').getBoundingClientRect().bottom;
             const full = await window.polaris.app.getMcpToken();
+            const mm = (box.textContent ?? '').match(/^sk-([0-9a-f]+)…([0-9a-f]+)$/);
+            const mk = mm ? mm[1].length : 0;
+            const maskOk = Boolean(mm) && mm[1].length === mm[2].length && mk >= 4 &&
+              box.textContent !== full &&
+              !(box.textContent ?? '').includes(full.slice(3 + mk, full.length - mk));
             const result = {
               fits: panel.scrollHeight <= panel.clientHeight + 1,
               found: true,
               token: true,
-              tokenFull: box.textContent === full,
+              maskOk,
               lastVisible: last <= pr.bottom + 1,
               scrollHeight: panel.scrollHeight,
               clientHeight: panel.clientHeight
@@ -3946,7 +3953,7 @@ export async function runSmokeTest(): Promise<void> {
         })()`)
         console.log('SETTINGS_NO_SCROLL_MCP_METRICS', JSON.stringify({ zh, en }))
         const all = [...zh, ...en]
-        settingsNoScrollMcp = all.every((r) => r?.fits === true && r?.tokenFull === true && r?.lastVisible === true)
+        settingsNoScrollMcp = all.every((r) => r?.fits === true && r?.maskOk === true && r?.lastVisible === true)
         if (!settingsNoScrollMcp) console.error('SETTINGS_NO_SCROLL_MCP_FAIL', JSON.stringify({ zh, en }))
       } finally {
         setMcpEnabled(false)
@@ -3955,9 +3962,134 @@ export async function runSmokeTest(): Promise<void> {
       }
     }
 
-    // 设置页零抖动：用户实机低分辨率档（1024×576）下，令牌明文全量上屏
-    // （用户拍板不掩码；67 字符半宽卡 break-all 折两行、盒高恒定），
-    // 用法说明住常驻反馈槽单行，检查更新结果落槽不得改变面板内容高度。
+    // 设置页真·垂直居中（用户拍板居中更美观）：顶边距 = (vh - 面板高) / 2，
+    // MCP 启停长高走 180ms glide 不瞬移。两档窗口 × MCP 关/开四态量
+    // 上下留白逐像素相等（±2px 吞过渡落定误差）。
+    let settingsCentered = false
+    if (mainWindow) {
+      const originalSize = mainWindow.getSize()
+      try {
+        const centeredAt = async (w: number, h: number, mcpOn: boolean) => {
+          setMcpEnabled(mcpOn)
+          mainWindow!.setSize(w, h)
+          await settledFrames(mainWindow!.webContents)
+          return mainWindow!.webContents.executeJavaScript(`(async () => {
+            ${pageHelpers}
+            await waitFor(() => !document.querySelector('.settings-panel'));
+            document.querySelector('.settings-item').click();
+            const panel = await waitFor(() => document.querySelector('.settings-panel'));
+            if (!panel) return { ok: false };
+            await sleep(450);
+            const r = panel.getBoundingClientRect();
+            const top = r.top;
+            const bottomGap = innerHeight - r.bottom;
+            document.querySelector('.settings-panel .detail-close')?.click();
+            await sleep(250);
+            return { ok: Math.abs(top - bottomGap) <= 2, top, bottomGap };
+          })()`)
+        }
+        const cases = []
+        for (const [w, h] of [[1024, 674], [980, 640]] as Array<[number, number]>) {
+          cases.push(await centeredAt(w, h, false))
+          cases.push(await centeredAt(w, h, true))
+        }
+        console.log('SETTINGS_CENTERED_METRICS', JSON.stringify(cases))
+        settingsCentered = cases.every((c) => c?.ok === true)
+        if (!settingsCentered) console.error('SETTINGS_CENTERED_FAIL', JSON.stringify(cases))
+      } finally {
+        setMcpEnabled(false)
+        mainWindow.setSize(originalSize[0], originalSize[1])
+        await settledFrames(mainWindow.webContents)
+      }
+    }
+
+    // CSV 格式浮层 + 导出圆环：分体钮箭头开浮层（表头/示例行即导出件本身），
+    // Esc 只收浮层面板存活、浮层零布局增高；主进程侧用夹具任务（子任务/标签/
+    // 项目/完成态/引号逗号）走 csvExportFromBackup → parseCsvImport 圆环，
+    // 逐字段相等证明导出件可原样回导——「导入没有导出、不知道格式」根除。
+    let csvHelpWorks = false
+    const csvFixtureIds: string[] = []
+    let csvFixtureProject: string | null = null
+    let csvFixtureTag: string | null = null
+    try {
+      const ui = await mainWindow?.webContents.executeJavaScript(`(async () => {
+        ${pageHelpers}
+        await waitFor(() => !document.querySelector('.settings-panel'));
+        document.querySelector('.settings-item').click();
+        const panel = await waitFor(() => document.querySelector('.settings-panel'));
+        if (!panel) return { found: false };
+        await sleep(400);
+        const beforeH = panel.scrollHeight;
+        panel.querySelector('.backup-btn--csv .backup-btn--chev')?.click();
+        const pop = await waitFor(() => document.querySelector('.csv-help'));
+        if (!pop) return { found: true, open: false };
+        await sleep(250);
+        const head = pop.querySelector('.csv-help-head')?.textContent ?? '';
+        const example = pop.querySelector('.csv-help-example')?.textContent ?? '';
+        const exportBtn = [...pop.querySelectorAll('.backup-btn')].some((b) => b.textContent === '导出 CSV');
+        const afterH = panel.scrollHeight;
+        window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+        await sleep(250);
+        const closed = !document.querySelector('.csv-help');
+        const panelAlive = Boolean(document.querySelector('.settings-panel'));
+        document.querySelector('.settings-panel .detail-close')?.click();
+        await sleep(250);
+        return { found: true, open: true, head, example, exportBtn, zeroGrowth: beforeH === afterH, closed, panelAlive };
+      })()`)
+      const project = createProject({ name: '冒烟CSV项目', color: '#5EEAD4' })
+      csvFixtureProject = project.id
+      const tag = createTag({ name: '冒烟CSV标签' })
+      csvFixtureTag = tag.id
+      const due = new Date()
+      due.setHours(9, 0, 0, 0)
+      const task = createTask({
+        title: '冒烟CSV任务,带逗号',
+        dueAt: due.toISOString(),
+        projectId: project.id,
+        priority: 3
+      })
+      csvFixtureIds.push(task.id)
+      updateTask({ id: task.id, notes: '备注含"引号"与,逗号', tagIds: [tag.id] })
+      createSubtask({ taskId: task.id, title: 'CSV步骤一' })
+      createSubtask({ taskId: task.id, title: 'CSV步骤二' })
+      const done = createTask({ title: '冒烟CSV已完成' })
+      csvFixtureIds.push(done.id)
+      updateTask({ id: done.id, completed: true })
+      const text = csvExportFromBackup(exportBackup())
+      const parsed = parseCsvImport(text)
+      const mine = parsed.ok ? parsed.tasks.find((t) => t.title === '冒烟CSV任务,带逗号') : undefined
+      const roundTrip =
+        parsed.ok === true &&
+        parsed.format === 'todoist' &&
+        Boolean(mine) &&
+        mine?.notes === '备注含"引号"与,逗号' &&
+        mine?.priority === 3 &&
+        mine?.projectName === '冒烟CSV项目' &&
+        mine?.tags.join(',') === '冒烟CSV标签' &&
+        mine?.subtasks.join(',') === 'CSV步骤一,CSV步骤二' &&
+        mine?.dueAt === due.toISOString() &&
+        parsed.tasks.some((t) => t.title === '冒烟CSV已完成' && t.completed)
+      csvHelpWorks =
+        ui?.found === true && ui?.open === true && ui?.exportBtn === true &&
+        ui?.zeroGrowth === true && ui?.closed === true && ui?.panelAlive === true &&
+        ui?.head === CSV_EXPORT_HEADERS.join(',') &&
+        (ui?.example ?? '').startsWith('task,Sample task,') &&
+        roundTrip
+      if (!csvHelpWorks) console.error('CSV_HELP_FAIL', JSON.stringify({ ui, roundTrip, detail: parsed.ok ? parsed.tasks.length : parsed.error }))
+    } catch (error) {
+      console.error('CSV_HELP_ERROR', error)
+    } finally {
+      for (const id of csvFixtureIds) {
+        deleteTask(id)
+        deleteTaskForever(id)
+      }
+      if (csvFixtureProject) deleteProject(csvFixtureProject)
+      if (csvFixtureTag) deleteTag(csvFixtureTag)
+    }
+
+    // 设置页零抖动：用户实机低分辨率档（1024×576）下，自适应掩码填满整行
+    // （头尾各 k 字符随盒宽、中段照藏），用法说明住常驻反馈槽单行，
+    // 检查更新结果落槽不得改变面板内容高度。
     // scrollHeight/页脚顶边是内容位移判别器（面板被 max-height 封顶时外框不变，只看外框会漏判）。
     let settingsNoShift = false
     if (mainWindow) {
@@ -3991,12 +4123,22 @@ export async function runSmokeTest(): Promise<void> {
           const afterBoxH = tokenBox.getBoundingClientRect().height;
           document.querySelector('.settings-panel .detail-close')?.click();
           await sleep(250);
+          // 自适应掩码：头尾各 k 字符（k 随盒宽）+ 省略号，中段照藏；
+          // 填满整行单行（scrollWidth ≥ 80% 盒宽），盒高恒一行。
+          const m = boxText.match(/^sk-([0-9a-f]+)…([0-9a-f]+)$/)
+          const k = m ? m[1].length : 0
+          const middleHidden = Boolean(m) && m[1].length === m[2].length && k >= 4 &&
+            !boxText.includes(fullToken.slice(3 + k, fullToken.length - k))
+          const fillRatio = tokenBox.scrollWidth / Math.max(1, tokenBox.clientWidth)
           return {
             found: true,
             token: true,
-            tokenFull: boxText === fullToken,
-            boxNoInnerScroll: tokenBox.scrollHeight <= tokenBox.clientHeight + 1,
-            boxHeightStable: beforeBoxH === afterBoxH && beforeBoxH <= 50,
+            maskShape: Boolean(m),
+            middleHidden,
+            maskNotFull: boxText !== fullToken,
+            singleLine: tokenBox.scrollHeight <= tokenBox.clientHeight + 1 && tokenBox.getBoundingClientRect().height <= 32,
+            fillsRow: fillRatio >= 0.8,
+            boxHeightStable: beforeBoxH === afterBoxH,
             slotOneLine: Boolean(slot) && slot.scrollHeight <= slot.clientHeight + 1,
             boxDominant,
             buttonsExact: rowButtons.length === 2 && rowButtons[0] === '复制' && rowButtons[1] === '重新生成',
@@ -4006,8 +4148,11 @@ export async function runSmokeTest(): Promise<void> {
         settingsNoShift =
           noShift?.found === true &&
           noShift?.token === true &&
-          noShift?.tokenFull === true &&
-          noShift?.boxNoInnerScroll === true &&
+          noShift?.maskShape === true &&
+          noShift?.middleHidden === true &&
+          noShift?.maskNotFull === true &&
+          noShift?.singleLine === true &&
+          noShift?.fillsRow === true &&
           noShift?.boxHeightStable === true &&
           noShift?.slotOneLine === true &&
           noShift?.boxDominant === true &&
@@ -5292,6 +5437,8 @@ export async function runSmokeTest(): Promise<void> {
           settingsFitsDefault,
           settingsFitsCompact,
           settingsNoScrollMcp,
+          settingsCentered,
+          csvHelpWorks,
           settingsNoShift,
           settingsLayoutV2,
           settingsAboutStable,

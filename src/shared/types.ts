@@ -291,6 +291,7 @@ export type PolarisApi = {
     export: () => Promise<ExportResult>
     import: () => Promise<ImportResult>
     importCsv: () => Promise<CsvImportResult>
+    exportCsv: () => Promise<ExportResult>
   }
   backups: {
     /** 列出 userData/backups 下的自动备份（新→旧），只读元数据不解析内容。 */

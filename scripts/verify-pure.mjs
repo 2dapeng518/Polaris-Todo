@@ -27,6 +27,7 @@ const { isPurgeable } = await import('../src/shared/retention.ts')
 // 目录式 import 与 recurrence 的 'rrule' 包依赖都由钩子/Node 默认解析接住）。
 const { buildCustomRecurrence, nextMonthlyClamped, nextOccurrence, parseCustomRecurrence } = await import('../src/shared/recurrence.ts')
 const { csvErrorMessage, parseCsvImport } = await import('../src/shared/csvImport.ts')
+const { CSV_EXPORT_HEADERS, buildCsvExport, csvExportFromBackup, csvField, formatCsvDue } = await import('../src/shared/csvExport.ts')
 const { isAutoBackupFileName } = await import('../src/shared/backupNames.ts')
 
 let fail = 0
@@ -718,6 +719,68 @@ console.log('=== CSV 搬家：纯函数真值表（落库往返留在 E2E 层）
     const got = isAutoBackupFileName(name)
     assert(got === want, `备份文件名 ${JSON.stringify(name)} → ${want}` + (got === want ? '' : `（实得 ${got}）`))
   }
+}
+
+// ---------- CSV 导出：表头镜像 + escaping + 圆环回导（与导入别名表互逆） ----------
+{
+  const q = '"'
+  const esc = [
+    ['plain', 'plain'],
+    ['a,b', q + 'a,b' + q],
+    ['say ' + q + 'hi' + q, q + 'say ' + q + q + 'hi' + q + q + q],
+    ['line1\nline2', q + 'line1\nline2' + q],
+    ['', '']
+  ]
+  for (const [input, want] of esc) {
+    const got = csvField(input)
+    assert(got === want, `csvField(${JSON.stringify(input)}) = ${JSON.stringify(want)}` + (got === want ? '' : `（实得 ${JSON.stringify(got)}）`))
+  }
+  const due = new Date(2026, 10, 20, 9, 5, 0).toISOString()
+  assert(formatCsvDue(due) === '2026-11-20T09:05:00', 'formatCsvDue 本地墙钟补零' + (formatCsvDue(due) === '2026-11-20T09:05:00' ? '' : `（实得 ${formatCsvDue(due)}）`))
+  const sample = {
+    title: '圆环任务,带逗号',
+    notes: '备注含' + q + '引号' + q + ',逗号\n与换行',
+    priority: 3,
+    dueAt: due,
+    completed: false,
+    projectName: '圆环项目',
+    tags: ['甲', '乙'],
+    subtasks: ['步骤一', '步骤二']
+  }
+  const text = buildCsvExport([sample, { ...sample, title: '已完成件', completed: true, subtasks: [], tags: [], projectName: null, dueAt: null, priority: 0 }])
+  assert(text.startsWith(CSV_EXPORT_HEADERS.join(',') + '\r\n'), '导出首行即镜像表头')
+  assert(text.endsWith('\r\n'), 'CRLF 行尾')
+  const back = parseCsvImport(text)
+  const ring =
+    back.ok && back.format === 'todoist' && back.tasks.length === 2 &&
+    back.tasks[0].title === sample.title &&
+    back.tasks[0].notes === sample.notes &&
+    back.tasks[0].priority === 3 &&
+    back.tasks[0].dueAt === due &&
+    back.tasks[0].projectName === '圆环项目' &&
+    back.tasks[0].tags.join('|') === '甲|乙' &&
+    back.tasks[0].subtasks.join('|') === '步骤一|步骤二' &&
+    back.tasks[1].completed === true && back.tasks[1].priority === 0 && back.tasks[1].dueAt === null
+  assert(ring, '导出→导入圆环：引号/逗号/换行/优先级互逆/墙钟瞬间/标签/子任务/完成态逐字段相等' + (ring ? '' : `（实得 ${JSON.stringify(back)}）`))
+  for (const p of [0, 1, 2, 3]) {
+    const one = buildCsvExport([{ ...sample, priority: p, subtasks: [], tags: [], notes: '' }])
+    const got = parseCsvImport(one)
+    const ok = got.ok && got.tasks[0].priority === p
+    assert(ok, `优先级 ${p} 互逆` + (ok ? '' : `（实得 ${JSON.stringify(got.ok ? got.tasks[0].priority : got.error)}）`))
+  }
+  const assembled = csvExportFromBackup({
+    projects: [{ id: 'p1', name: '装配项目' }],
+    tasks: [
+      { id: 't1', title: '活任务', notes: '', priority: 1, dueAt: null, completed: false, deletedAt: null, projectId: 'p1', tags: [{ name: '装配标签' }] },
+      { id: 't2', title: '回收站任务', notes: '', priority: 0, dueAt: null, completed: false, deletedAt: '2026-11-19T00:00:00.000Z', projectId: null, tags: [] }
+    ],
+    subtasks: [{ taskId: 't1', title: '装配步骤' }]
+  })
+  const ab = parseCsvImport(assembled)
+  const aok = ab.ok && ab.tasks.length === 1 && ab.tasks[0].title === '活任务' &&
+    ab.tasks[0].projectName === '装配项目' && ab.tasks[0].tags.join('|') === '装配标签' &&
+    ab.tasks[0].subtasks.join('|') === '装配步骤'
+  assert(aok, 'csvExportFromBackup：过滤回收站 + 项目/标签/子任务 join' + (aok ? '' : `（实得 ${JSON.stringify(ab)}）`))
 }
 
 console.log('\n' + (fail === 0 ? '纯函数真值表全部成立 ✓' : fail + ' 项失败 ✗'))

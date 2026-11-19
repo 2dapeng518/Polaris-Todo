@@ -275,6 +275,13 @@ export const en: Messages = {
   'settings.import': 'Import backup',
   'settings.importCsv': 'Import CSV',
   'settings.importCsvTitle': 'Supports CSV exports from TickTick and Todoist, detected by header',
+  'settings.csvHelpToggle': 'CSV format help & export',
+  'settings.csvHelpTitle': 'CSV format & export',
+  'settings.csvHelpDesc': 'TickTick / Todoist exports import as-is. The header below is exactly what this app exports (example row follows) — hand-write or edit columns against it and they will be recognized; or export a copy as a live template.',
+  'settings.csvHelpNote': 'Recurrence, reminders, attachments and comments do not travel via CSV; subtasks re-attach to their parent by INDENT level.',
+  'settings.csvExport': 'Export CSV',
+  'settings.csvExported': 'CSV file exported',
+  'settings.csvExportFailed': 'Export failed: {error}',
   'settings.aboutToggle': 'About & licenses',
   'settings.behaviorGroup': 'General',
 
@@ -374,6 +381,7 @@ export const en: Messages = {
   'native.importTitle': 'Import backup',
   'native.csvTitle': 'Import CSV (TickTick / Todoist)',
   'native.csvFilter': 'CSV files',
+  'native.csvExportTitle': 'Export CSV (Todoist format, re-importable)',
   'native.jsonFilter': 'Polaris backup',
   'native.dbCorruptTitle': 'Database corrupted — quarantined',
   'native.dbCorruptDetail':
