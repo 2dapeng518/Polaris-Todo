@@ -78,7 +78,7 @@ export function buildCsvExport(tasks: CsvExportTask[]): string {
   return lines.join('\r\n') + '\r\n'
 }
 
-/** 备份三表 → 导出文本的装配（主进程 handler 与冒烟共用同一份逻辑）：
+/** 备份三表 → 导出文本的装配（主进程 handler 与 harness 断言共用同一份逻辑）：
  *  只取活任务；项目名/标签名/子任务标题按 id  join；子任务顺序保持 sort_order。 */
 export function csvExportFromBackup(backup: {
   projects: Array<{ id: string; name: string }>
