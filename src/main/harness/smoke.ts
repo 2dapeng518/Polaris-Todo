@@ -4139,11 +4139,13 @@ export async function runSmokeTest(): Promise<void> {
             maskNotFull: boxText !== fullToken,
             singleLine: tokenBox.scrollHeight <= tokenBox.clientHeight + 1 && boxRect.height <= 32,
             hugBox: boxRect.width <= rowRect.width * 0.6,
+            // 镜像契约：掩码盒宽 == 复制+重置按钮组宽（±1px）。
+            mirrorBox: Boolean(actRect) && Math.abs(boxRect.width - actRect.width) <= 1,
             sameRow: Boolean(actRect) && Math.abs(actRect.top - boxRect.top) <= 2 &&
               Math.abs(actRect.right - rowRect.right) <= 2,
             boxHeightStable: beforeBoxH === afterBoxH,
             slotOneLine: Boolean(slot) && slot.scrollHeight <= slot.clientHeight + 1,
-            buttonsExact: rowButtons.length === 2 && rowButtons[0] === '复制' && rowButtons[1] === '重新生成',
+            buttonsExact: rowButtons.length === 2 && rowButtons[0] === '复制' && rowButtons[1] === '重置',
             updateStable: Boolean(answered) && beforeCheck === afterCheck && beforeFooter === afterFooter
           };
         })()`)
@@ -4155,6 +4157,7 @@ export async function runSmokeTest(): Promise<void> {
           noShift?.maskNotFull === true &&
           noShift?.singleLine === true &&
           noShift?.hugBox === true &&
+          noShift?.mirrorBox === true &&
           noShift?.sameRow === true &&
           noShift?.boxHeightStable === true &&
           noShift?.slotOneLine === true &&

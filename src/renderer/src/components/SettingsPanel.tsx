@@ -78,6 +78,8 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
   const panelRef = useRef<HTMLDivElement>(null)
   const overlayRef = useRef<HTMLDivElement>(null)
   const csvBtnRef = useRef<HTMLDivElement>(null)
+  const tokenBoxRef = useRef<HTMLElement>(null)
+  const tokenActionsRef = useRef<HTMLDivElement>(null)
   const [csvHelpOpen, setCsvHelpOpen] = useState(false)
   const paletteOpen = useTaskStore((state) => state.paletteOpen)
   const theme = useThemeStore((state) => state.theme)
@@ -176,6 +178,24 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
     }
   }, [open])
 
+
+  // 掩码盒宽镜像复制+重置按钮组（用户拍板 15:4x）：左右对称节奏。
+  // CSS 没有「兄弟内容宽」单位，flex/grid 只能按比例分不能按内容镜像，
+  // 故 ResizeObserver 盯按钮组实宽写 inline width；中英/字号变化实时跟随，
+  // 极窄卡里 flex-shrink + ellipsis 兜底不溢出。
+  useLayoutEffect(() => {
+    if (!open || !mcp.enabled || !mcpToken) return
+    const box = tokenBoxRef.current
+    const actions = tokenActionsRef.current
+    if (!box || !actions) return
+    const mirror = () => {
+      box.style.width = `${actions.offsetWidth}px`
+    }
+    mirror()
+    const ro = new ResizeObserver(mirror)
+    ro.observe(actions)
+    return () => ro.disconnect()
+  }, [open, mcp.enabled, mcpToken])
 
   // CSV 格式浮层：锚在导入 CSV 分体钮上，绝对定位零布局增高（关于浮层同源契约）。
   const csvHelpPlace = useAnchoredPopover({
@@ -840,12 +860,13 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
                   <div className="mcp-token-row">
                     <code
                       className="mcp-token-box"
+                      ref={tokenBoxRef}
                       aria-label={t('settings.mcpToken')}
                       title={t('settings.mcpTokenDescFull')}
                     >
                       {maskToken(mcpToken)}
                     </code>
-                    <div className="mcp-token-actions">
+                    <div className="mcp-token-actions" ref={tokenActionsRef}>
                       <button className="backup-btn" onClick={() => void copyMcpToken()}>
                         {t('settings.mcpTokenCopy')}
                       </button>

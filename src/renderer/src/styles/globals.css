@@ -5221,7 +5221,8 @@ textarea {
   flex: none;
 }
 
-/* 固定短掩码盒（头 4 尾 4）：贴内容收窄（inline-block + max-width 兜底极窄），
+/* 固定短掩码盒（头 4 尾 4）：宽度由 JS 镜像复制+重置按钮组实宽（inline style），
+   左右对称；max-width + flex-shrink + ellipsis 兜底极窄卡。
    单行 nowrap；中段照藏，盒高恒一行不随状态跳。完整用法说明在 title 提示。 */
 .mcp-token-box {
   max-width: 100%;
