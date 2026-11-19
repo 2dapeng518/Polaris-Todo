@@ -5221,9 +5221,10 @@ textarea {
   flex: none;
 }
 
-/* 固定短掩码盒（头 4 尾 4）：flex:1 吃掉行内剩余宽度（整行两端对齐，
-   左贴卡左缘、按钮组贴右缘，中间无死白）；min-width:0 + ellipsis 兜底极窄卡。
-   单行 nowrap；中段照藏，盒高恒一行不随状态跳。完整用法说明在 title 提示。 */
+/* 自适应短掩码盒：flex:1 吃掉行内剩余宽度（整行两端对齐，左贴卡左缘、
+   按钮组贴右缘，中间无死白）；盒内头尾各 k hex 由 JS 按盒宽算（等宽 0.6em
+   advance，k clamp [4,32] 保底头 4 尾 4）填满整盒单行 nowrap；中段照藏，
+   盒高恒一行不随状态跳。min-width:0 + ellipsis 兜底极窄卡。用法说明在 title。 */
 .mcp-token-box {
   flex: 1;
   min-width: 0;
