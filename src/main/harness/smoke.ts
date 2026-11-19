@@ -4215,10 +4215,11 @@ export async function runSmokeTest(): Promise<void> {
       }
     }
 
-    // 设置页左右对称 + 叉号右缘对齐（用户报障左右留白不一致/叉号悬空）：
-    // both-edges 滚动条槽让左右有效留白逐像素相等；关闭钮是主题横条末项，
-    // 右缘与右列卡片右缘同基线，标题左缘与备份卡左缘同基线，叉号与语言
-    // 下拉同行居中。三档窗口（含 683×607 实机窄档）量完即关。
+    // 设置页四边等距 + 叉号右缘对齐（用户报障左右/上下不一致、拍板四边统一）：
+    // both-edges 滚动条槽 + 状态槽脱流住页脚上方行间隙后，四边有效留白
+    // 逐像素相等（24 档，±1 吞槽宽亚像素漂移）；关闭钮是主题横条末项，右缘
+    // 与右列卡片右缘同基线，标题左缘与备份卡左缘同基线，叉号与语言下拉同行
+    // 居中。三档窗口（含 683×607 实机窄档）量完即关。
     let settingsSymmetricEdges = false
     if (mainWindow) {
       const originalSize = mainWindow.getSize()
@@ -4240,16 +4241,21 @@ export async function runSmokeTest(): Promise<void> {
             const close = panel.querySelector('.detail-close').getBoundingClientRect();
             const lang = panel.querySelector('.settings-language-select').getBoundingClientRect();
             const title = panel.querySelector('.settings-title').getBoundingClientRect();
+            const head = panel.querySelector('.settings-header').getBoundingClientRect();
+            const foot = panel.querySelector('.settings-footer').getBoundingClientRect();
             const leftInset = backup.left - pr.left;
             const rightInset = pr.right - mcp.right;
+            const topInset = head.top - pr.top;
+            const bottomInset = pr.bottom - foot.bottom;
             const closeFlush = Math.abs(close.right - mcp.right) <= 1;
             const titleFlush = Math.abs(title.left - backup.left) <= 1;
             const rowAligned = Math.abs((close.top + close.bottom) / 2 - (lang.top + lang.bottom) / 2) <= 2;
             document.querySelector('.settings-panel .detail-close')?.click();
             await sleep(250);
             return {
-              ok: Math.abs(leftInset - rightInset) <= 1 && closeFlush && titleFlush && rowAligned,
-              leftInset, rightInset, closeRight: close.right, mcpRight: mcp.right
+              ok: Math.abs(leftInset - rightInset) <= 1 && Math.abs(topInset - bottomInset) <= 1 &&
+                Math.abs(leftInset - topInset) <= 1 && closeFlush && titleFlush && rowAligned,
+              leftInset, rightInset, topInset, bottomInset, closeRight: close.right, mcpRight: mcp.right
             };
           })()`))
         }
