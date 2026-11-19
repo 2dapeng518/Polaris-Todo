@@ -1,4 +1,4 @@
-// 把后台调研 workflow 的 journal 拆成可读文件，存进 data/research/ 作为溯源材料。
+// 把后台调研 workflow 的 journal 拆成可读文件，存进 data/research/ 作为溯源材料（仅本地，不入库）。
 // 用法：node docs/asset-atlas/tools/extract-research.mjs <journal.jsonl 路径>
 import { readFile, writeFile, mkdir } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
