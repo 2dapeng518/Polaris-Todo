@@ -158,18 +158,6 @@ export type ImportResult = {
   error?: string
 }
 
-export type CsvImportResult = {
-  ok: boolean
-  canceled?: boolean
-  format?: 'standard' | 'legacy'
-  tasksImported?: number
-  tasksSkipped?: number
-  projectsImported?: number
-  subtasksImported?: number
-  tagsImported?: number
-  error?: string
-}
-
 /** 自动备份列表的一行：只有文件元数据，主进程不解析 JSON——
  *  打开设置页时列备份必须是廉价操作，几十份文件也不读盘内容。 */
 export type AutoBackupItem = {
@@ -290,7 +278,6 @@ export type PolarisApi = {
     getRevision: () => Promise<number>
     export: () => Promise<ExportResult>
     import: () => Promise<ImportResult>
-    importCsv: () => Promise<CsvImportResult>
     exportCsv: () => Promise<ExportResult>
   }
   backups: {

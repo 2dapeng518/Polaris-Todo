@@ -1,24 +1,22 @@
-// 真值表断言：quick-add 解析 / 回收站保留期 / 重复规则 / CSV 搬家导入。
+// 真值表断言：quick-add 解析 / 回收站保留期 / 重复规则。
 // 期望值全部写字面量，绝不经过被测代码重算——否则是拿实现测实现。
 // 只在 harness 构建里存在；shared 纯函数照常 import，不依赖窗口。
 //
-// ⚠️ 同步维护：parse / retention / recurrence（含自定义往返）/ csv 纯函数半区
-// 的表已逐字镜像到 scripts/verify-pure.mjs（plain Node 秒级快速层，CI 已挂）。
+// ⚠️ 同步维护：parse / retention / recurrence（含自定义往返）的表已逐字镜像到
+// scripts/verify-pure.mjs（plain Node 秒级快速层，CI 已挂）。
 // 这里的原断言保留（E2E 仍跑）；任何一处改表，另一处必须跟着改。
-// csv 的真实落库往返（importCsvText → SQLite）只在 E2E 层，不进快速层。
+// CSV 导入功能已移除；导出守卫在 smoke.ts（csvExportWorks）与 verify-pure 导出表。
 
 import {
   deleteProject,
   deleteTag,
   deleteTask,
   deleteTaskForever,
-  importCsvText,
   listProjects,
   listSubtasks,
   listTags,
   listTasks
 } from '../db'
-import { csvErrorMessage, parseCsvImport } from '../../shared/csvImport'
 import { dismissKeys, formatParsedDue, parseQuickAdd, pruneDismissed } from '../../shared/quickAddParse'
 import { isPurgeable } from '../../shared/retention'
 import { isAutoBackupFileName } from '../../shared/backupNames'
@@ -741,154 +739,4 @@ export function runCustomRecurrenceAssertions(): boolean {
     }
   }
   return ok
-}
-
-// CSV 搬家：纯函数真值表（两种格式签名、引号/转义/BOM/CRLF、indent 子任务、
-// 优先级映射、重复描述不猜截止、删除/分区/笔记行跳过）+ 真实落库往返。
-export function runCsvImportAssertions(): { table: boolean; roundTrip: boolean } {
-  const standardCsv = [
-    'TYPE,CONTENT,DESCRIPTION,PRIORITY,INDENT,DATE,IS_DELETED,IS_ARCHIVED,PROJECT_NAME',
-    'task,"冒烟CSV甲,带逗号","备注甲",4,0,2026-11-20,false,false,冒烟CSV项目',
-    'task,冒烟CSV子步骤,,1,1,,false,false,',
-    'section,冒烟CSV分区,,1,0,,false,false,',
-    'task,冒烟CSV已删,,1,0,,true,false,',
-    'task,冒烟CSV乙,,2,0,every day,false,false,',
-    'note,冒烟CSV笔记,,1,0,,false,false,'
-  ].join('\r\n')
-  const didaCsv = '\uFEFF任务名称,任务内容,清单名称,标签,优先级,截止日期,完成状态\r\n' +
-    '冒烟CSV丙,备注丙,冒烟CSV清单,"工作,紧急",高,2026-11-21 15:00,未完成\r\n' +
-    '冒烟CSV丁,,,,低,,已完成\r\n' +
-    ',空标题跳过,,,,,\r\n'
-
-  // 硬化用例：未闭合引号 / 日期溢出 / 备注超长都必须整体拒绝，
-  // 错误是 code+params（带物理行号），不再静默吞内容或滚成次年。
-  const unclosedCsv = '任务名称,任务内容\r\n"未闭合,备注\r\n'
-  const overflowCsv = '任务名称,截止日期\r\n冒烟CSV溢出,2026-13-40\r\n'
-  const feb30Csv = '任务名称,截止日期\r\n冒烟CSV溢出,2026-02-30\r\n'
-  const longNotesCsv = `任务名称,任务内容\r\n冒烟CSV超长,${'x'.repeat(20001)}\r\n`
-  const leapOkCsv = '任务名称,截止日期\r\n冒烟CSV闰日,2028-02-29\r\n'
-
-  let table = false
-  try {
-    const t = parseCsvImport(standardCsv)
-    const d = parseCsvImport(didaCsv)
-    const bad = parseCsvImport('a,b\r\n1,2\r\n')
-    const empty = parseCsvImport('')
-    const unclosed = parseCsvImport(unclosedCsv)
-    const overflow = parseCsvImport(overflowCsv)
-    const feb30 = parseCsvImport(feb30Csv)
-    const longNotes = parseCsvImport(longNotesCsv)
-    const leapOk = parseCsvImport(leapOkCsv)
-    const expectedDue = new Date(2026, 10, 20, 23, 59, 0).toISOString()
-    const expectedDidaDue = new Date(2026, 10, 21, 15, 0, 0).toISOString()
-    const expectedLeapDue = new Date(2028, 1, 29, 23, 59, 0).toISOString()
-    table =
-      t.ok && t.format === 'standard' &&
-      t.tasks.length === 2 && t.skipped === 3 &&
-      t.tasks[0].title === '冒烟CSV甲,带逗号' &&
-      t.tasks[0].notes === '备注甲' &&
-      t.tasks[0].priority === 3 &&
-      t.tasks[0].dueAt === expectedDue &&
-      t.tasks[0].projectName === '冒烟CSV项目' &&
-      t.tasks[0].subtasks.join('|') === '冒烟CSV子步骤' &&
-      t.tasks[1].title === '冒烟CSV乙' &&
-      t.tasks[1].priority === 1 &&
-      t.tasks[1].dueAt === null &&
-      d.ok && d.format === 'legacy' &&
-      d.tasks.length === 2 && d.skipped === 1 &&
-      d.tasks[0].priority === 3 &&
-      d.tasks[0].dueAt === expectedDidaDue &&
-      d.tasks[0].tags.join('|') === '工作|紧急' &&
-      d.tasks[0].projectName === '冒烟CSV清单' &&
-      d.tasks[1].completed === true && d.tasks[1].priority === 1 &&
-      !bad.ok && bad.error?.code === 'unknownFormat' &&
-      !empty.ok && empty.error?.code === 'empty' &&
-      // 未闭合引号：拒绝并给出引号起始的物理行号（第 2 行）
-      !unclosed.ok && unclosed.tasks.length === 0 &&
-      unclosed.error?.code === 'unclosedQuote' && unclosed.error?.params?.row === 2 &&
-      // 13 月 40 日 / 2 月 30 日：拒绝而非滚成次年/下月，带行号与原值
-      !overflow.ok && overflow.error?.code === 'invalidDate' &&
-      overflow.error?.params?.row === 2 && overflow.error?.params?.value === '2026-13-40' &&
-      !feb30.ok && feb30.error?.code === 'invalidDate' && feb30.error?.params?.row === 2 &&
-      // 备注超 20000：对齐 IPC zod 上限，整体拒绝带行号
-      !longNotes.ok && longNotes.error?.code === 'notesTooLong' &&
-      longNotes.error?.params?.row === 2 && longNotes.error?.params?.limit === 20000 &&
-      // 合法闰日不受回读校验误伤
-      leapOk.ok && leapOk.tasks.length === 1 && leapOk.tasks[0].dueAt === expectedLeapDue
-    if (!table) {
-      console.error('CSV_TABLE_FAIL', JSON.stringify({
-        t, d, bad: bad.error, empty: empty.error,
-        unclosed: unclosed.error, overflow: overflow.error, feb30: feb30.error,
-        longNotes: longNotes.error, leapOk
-      }))
-    }
-    // 错误文案在展示边界按语言翻译：英文界面必须看到英文（纯函数校验，
-    // 不动主进程语言状态）。期望写字面量片段，不经被测函数回算。
-    const enQuote = csvErrorMessage('en', { code: 'unclosedQuote', params: { row: 2 } })
-    const zhQuote = csvErrorMessage('zh-CN', { code: 'unclosedQuote', params: { row: 2 } })
-    if (!enQuote.includes('Unclosed quote on row 2') || !zhQuote.includes('第 2 行')) {
-      table = false
-      console.error('CSV_I18N_FAIL', JSON.stringify({ enQuote, zhQuote }))
-    }
-  } catch (error) {
-    console.error('CSV_TABLE_ERROR', error)
-  }
-
-  let roundTrip = false
-  const fixtureTaskIds: string[] = []
-  const fixtureProjectIds: string[] = []
-  const fixtureTagIds: string[] = []
-  try {
-    const result = importCsvText(standardCsv)
-    const tasks = listTasks().filter((task) => task.title.startsWith('冒烟CSV'))
-    for (const task of tasks) fixtureTaskIds.push(task.id)
-    const parent = tasks.find((task) => task.title === '冒烟CSV甲,带逗号')
-    const project = listProjects().find((item) => item.name === '冒烟CSV项目')
-    if (project) fixtureProjectIds.push(project.id)
-    roundTrip =
-      result.ok === true &&
-      result.tasksImported === 2 &&
-      result.tasksSkipped === 3 &&
-      result.projectsImported === 1 &&
-      result.subtasksImported === 1 &&
-      parent?.priority === 3 &&
-      parent?.subtaskTotal === 1 &&
-      parent?.projectId === project?.id &&
-      listSubtasks(parent?.id ?? '').length === 1
-
-    const didaResult = importCsvText(didaCsv)
-    const didaTasks = listTasks().filter(
-      (task) => task.title === '冒烟CSV丙' || task.title === '冒烟CSV丁'
-    )
-    for (const task of didaTasks) fixtureTaskIds.push(task.id)
-    const bing = didaTasks.find((task) => task.title === '冒烟CSV丙')
-    const ding = didaTasks.find((task) => task.title === '冒烟CSV丁')
-    for (const tag of listTags().filter((item) => item.name === '工作' || item.name === '紧急')) {
-      fixtureTagIds.push(tag.id)
-    }
-    const didaProject = listProjects().find((item) => item.name === '冒烟CSV清单')
-    if (didaProject) fixtureProjectIds.push(didaProject.id)
-    roundTrip =
-      roundTrip &&
-      didaResult.ok === true &&
-      didaResult.tasksImported === 2 &&
-      didaResult.tagsImported === 2 &&
-      bing?.tags.some((item) => item.name === '工作') === true &&
-      bing?.tags.some((item) => item.name === '紧急') === true &&
-      ding?.completed === true &&
-      ding?.completedAt === null
-    if (!roundTrip) {
-      console.error('CSV_ROUNDTRIP_FAIL', JSON.stringify({ result, didaResult, parent, bing, ding }))
-    }
-  } catch (error) {
-    console.error('CSV_ROUNDTRIP_ERROR', error)
-  } finally {
-    for (const id of fixtureTaskIds) {
-      deleteTask(id)
-      deleteTaskForever(id)
-    }
-    for (const id of fixtureProjectIds) deleteProject(id)
-    for (const id of fixtureTagIds) deleteTag(id)
-  }
-  return { table, roundTrip }
 }
