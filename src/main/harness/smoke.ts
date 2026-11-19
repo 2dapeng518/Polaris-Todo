@@ -3736,9 +3736,9 @@ export async function runSmokeTest(): Promise<void> {
     }
 
     // 主视图页脚钉底（用户报障：任务多时快捷键提示/版本被滚出视口）：
-    // .view-footer sticky bottom:var(--space-6)，吸住时底缘 == .main 底缘
-    // 减 paddingBottom（与 in-flow 落点同位）；40 条夹具量顶/中/底三态，
-    // 滚到底回流仍同位零跳变。量完即清，路由留在「今天」。
+    // .view-footer sticky bottom:0，吸住时底缘 == .main 底缘减 paddingBottom
+    // （与 in-flow 落点同位）；40 条夹具量顶/中/底三态，滚到底回流仍同位
+    // 零跳变；条件渐隐带顶/中亮（fade>0.9）、滚到底灭（fade<0.1）。量完即清。
     let mainFooterPinned = false
     const footerSeedIds: string[] = []
     try {
@@ -3759,11 +3759,13 @@ export async function runSmokeTest(): Promise<void> {
         const padB = parseFloat(getComputedStyle(main).paddingBottom);
         const at = async (top) => {
           main.scrollTop = top;
-          await sleep(200);
+          await sleep(260);
           const fr = document.querySelector('.view-footer').getBoundingClientRect();
+          const fade = parseFloat(getComputedStyle(document.querySelector('.view-footer'), '::before').opacity);
           return {
             delta: Math.abs(fr.bottom - (mr.bottom - padB)),
-            inside: fr.top >= mr.top && fr.bottom <= mr.bottom + 1
+            inside: fr.top >= mr.top && fr.bottom <= mr.bottom + 1,
+            fade
           };
         };
         const head = await at(0);
@@ -3777,7 +3779,8 @@ export async function runSmokeTest(): Promise<void> {
       mainFooterPinned =
         typeof pin?.sh === 'number' && typeof pin?.ch === 'number' && pin.sh > pin.ch &&
         pin?.head?.delta <= 1 && pin?.mid?.delta <= 1 && pin?.end?.delta <= 1 &&
-        pin?.head?.inside === true && pin?.mid?.inside === true && pin?.end?.inside === true
+        pin?.head?.inside === true && pin?.mid?.inside === true && pin?.end?.inside === true &&
+        pin?.head?.fade > 0.9 && pin?.mid?.fade > 0.9 && pin?.end?.fade < 0.1
       if (!mainFooterPinned) console.error('MAIN_FOOTER_PIN_FAIL', JSON.stringify(pin))
     } catch (error) {
       console.error('MAIN_FOOTER_PIN_ERROR', error)

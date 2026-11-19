@@ -3961,6 +3961,27 @@ textarea {
   font-size: 11px;
 }
 
+/* 条件渐隐带：中段滚动时列表行在状态栏上方 40px 内溶进背景色（行高
+   67.5 的大半行参与溶解），根除发丝线处硬切半行；纯绘制覆盖
+   （pointer-events:none）不碰滚动契约。仅 .can-scroll-down（下方仍有
+   未滚完内容）点亮，滚到底/短内容关闭，resting 态与归档像素不变。 */
+.view-footer::before {
+  content: '';
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  right: 0;
+  height: 40px;
+  background: linear-gradient(to top, var(--bg), transparent);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.18s var(--ease-out);
+}
+
+.main.can-scroll-down .view-footer::before {
+  opacity: 1;
+}
+
 .view-footer kbd {
   display: inline-block;
   margin-right: 3px;
