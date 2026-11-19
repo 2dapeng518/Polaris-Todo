@@ -1,9 +1,8 @@
-// CSV 搬家导出：纯函数，无 DOM / Node 依赖，主进程与冒烟/纯函数断言共用。
-// 表头与 csvImport 的别名表逐字镜像（Todoist 规范列 + 本应用扩展列），
-// 导出的文件可以被 parseCsvImport 原样回导——用户拿导出件当格式模板，
-// 「导入 CSV 没有导出、不知道格式」的报障从构造上消失。
-// 刻意不导出：重复规则、提醒、附件、评论（与导入侧同一份语义边界，文档明示）。
-// 子任务走 Todoist 的 INDENT 层级（父 1 / 子 2），回导时挂回最近父任务。
+// CSV 导出：纯函数，无 DOM / Node 依赖，主进程与冒烟/纯函数断言共用。
+// 表头 = Todoist 规范列 + 本应用扩展列（PROJECT_NAME/TAGS/STATUS），
+// 活任务一键导出供备份/搬家（导入 CSV 功能已移除，导出为单向出口）。
+// 刻意不导出：重复规则、提醒、附件、评论（语义无法可靠对应，文档明示）。
+// 子任务走 Todoist 的 INDENT 层级（父 1 / 子 2）。
 
 export type CsvExportTask = {
   title: string
@@ -16,7 +15,7 @@ export type CsvExportTask = {
   subtasks: string[]
 }
 
-/** 导出表头（顺序即列顺序）；小写归一后全部命中 csvImport 别名表。 */
+/** 导出表头（顺序即列顺序）：Todoist 规范列 + 本应用扩展列。 */
 export const CSV_EXPORT_HEADERS = [
   'TYPE',
   'CONTENT',
@@ -40,13 +39,13 @@ export function csvField(value: string): string {
 
 const pad = (n: number): string => String(n).padStart(2, '0')
 
-/** 截止导出为本地墙钟 YYYY-MM-DDTHH:mm:ss（导入侧按本地墙钟解析，瞬间往返一致）。 */
+/** 截止导出为本地墙钟 YYYY-MM-DDTHH:mm:ss（不带时区偏移，读件按本地墙钟理解）。 */
 export function formatCsvDue(iso: string): string {
   const d = new Date(iso)
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
 }
 
-// Polaris 0-3 → Todoist 1-4（4 最高），与导入侧 mapPriority 互逆。
+// Polaris 0-3 → Todoist 1-4（4 最高）。
 const toTodoistPriority = (priority: number): number =>
   priority === 3 ? 4 : priority === 2 ? 3 : priority === 1 ? 2 : 1
 

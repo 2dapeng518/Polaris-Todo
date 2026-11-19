@@ -16,9 +16,8 @@ export const main = {
   'updater.notReady': '更新尚未就绪，无法安装',
   'native.exportTitle': '导出备份',
   'native.importTitle': '导入备份',
-  'native.csvTitle': '导入 CSV（滴答清单 / Todoist）',
   'native.csvFilter': 'CSV 文件',
-  'native.csvExportTitle': '导出 CSV（Todoist 格式，可回导）',
+  'native.csvExportTitle': '导出 CSV（Todoist 格式）',
   'native.jsonFilter': 'Polaris 备份',
   // 启动灾难恢复与启动失败兜底（主进程原生对话框，locale 可能未就绪，双语并列展示）。
   'native.dbCorruptTitle': '数据库文件损坏，已隔离',
@@ -29,5 +28,5 @@ export const main = {
   // 导入文件大小上限（readFile 前的 stat 检查）。
   'native.importTooLarge': '备份文件超过 {limit} MB 上限，已拒绝读取。',
   'native.invalidBackupName': '非法的备份文件名，已拒绝。',
-  'native.csvTooLarge': 'CSV 文件超过 {limit} MB 上限，已拒绝读取。'
+
 }

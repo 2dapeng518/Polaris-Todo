@@ -11,7 +11,7 @@ import {
   getMeta,
   getWriteRevision,
   importBackup,
-  importCsvText,
+
   initDatabase,
   purgeExpiredDeleted,
   setMeta
@@ -126,10 +126,9 @@ async function writeFileAtomic(filePath: string, content: string): Promise<void>
   }
 }
 
-// 导入读取上限：备份 JSON 50MB、CSV 20MB。readFile 前先 stat，超限明确报错，
+// 导入读取上限：备份 JSON 50MB。readFile 前先 stat，超限明确报错，
 // 绝不把超大文件整个读进内存。
 const IMPORT_JSON_MAX_BYTES = 50 * 1024 * 1024
-const IMPORT_CSV_MAX_BYTES = 20 * 1024 * 1024
 
 // ---------- 导航守卫 ----------
 // 外链白名单：只放行 https/http/mailto，其余协议（file:/javascript:/自定义协议等）
@@ -507,36 +506,8 @@ app.whenReady().then(() => {
     })
   })
 
-  ipcMain.handle('data:import-csv', async () => {
-    try {
-      const source = await showOpenDialogSafe({
-        title: translate(getCurrentLocale(), 'native.csvTitle'),
-        properties: ['openFile'],
-        filters: [
-          { name: translate(getCurrentLocale(), 'native.csvFilter'), extensions: ['csv'] }
-        ]
-      })
-      if (source.canceled || !source.filePaths[0]) return { ok: false, canceled: true }
-      // readFile 前先查大小：超过 20MB 明确拒绝，不整文件读进内存。
-      const info = await stat(source.filePaths[0])
-      if (info.size > IMPORT_CSV_MAX_BYTES) {
-        return {
-          ok: false,
-          error: translate(getCurrentLocale(), 'native.csvTooLarge', {
-            limit: IMPORT_CSV_MAX_BYTES / (1024 * 1024)
-          })
-        }
-      }
-      const raw = await readFile(source.filePaths[0], 'utf8')
-      return importCsvText(raw)
-    } catch (error) {
-      return { ok: false, error: String(error) }
-    }
-  })
-
-  // CSV 导出：与导入侧共用表头契约（shared/csvExport 镜像 csvImport 别名表），
-  // 导出件可原样回导——用户拿它当格式模板，「导入没有导出、不知道格式」根除。
-  // 只导活任务（回收站不随 CSV 走）；子任务走 INDENT 2 紧随父任务。
+  // CSV 导出：Todoist 规范列 + 本应用扩展列（shared/csvExport），活任务一键
+  // 导出供备份/搬家；回收站不随 CSV 走；子任务走 INDENT 2 紧随父任务。
   ipcMain.handle('data:export-csv', async () => {
     try {
       const text = csvExportFromBackup(exportBackup())

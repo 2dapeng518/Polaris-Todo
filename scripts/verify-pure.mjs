@@ -1,4 +1,4 @@
-// 纯函数快速校验层：quick-add 解析 / 回收站保留期 / 重复规则 / CSV 搬家真值表。
+// 纯函数快速校验层：quick-add 解析 / 回收站保留期 / 重复规则 / CSV 导出真值表。
 // 与 verify-datetime 同一套路 —— Node type-stripping 直接 import shared 纯函数、
 // 注入固定时钟，不启动 Electron，秒级反馈；CI（.github/workflows/ci.yml）已挂。
 // 用法：node scripts/verify-pure.mjs
@@ -7,8 +7,8 @@
 // runParseAssertions()（中文语法表 / 英文语法表 / 误报反例 / 撤销与不变量 / 格式表）、
 // runRetentionAssertions()（保留期边界表）、runRecurrenceAssertions()（月度钳制表 +
 // nextOccurrence 注入时钟表，含逾期 3 年不断链用例）、runCustomRecurrenceAssertions()
-// （parse/build 往返表）与 runCsvImportAssertions() 的纯函数半区（parseCsvImport
-// 字面量表 + 错误文案 zh/en 断言；真实落库往返依赖 better-sqlite3，留在 E2E 层）。
+// （parse/build 往返表）。CSV 导入功能已移除；导出表（escaping/逐字全文/优先级
+// 映射/回收站过滤）与 smoke.ts 的 csvExportWorks 守卫互为镜像，改一处另一处跟着改。
 // harness 里的原断言保留不动（E2E 仍跑），两处任何一处改表，另一处必须跟着改，
 // 否则快速层与 E2E 层会各自为政。
 //
@@ -23,10 +23,8 @@ import { register } from 'node:module'
 register('./ts-resolve-hooks.mjs', import.meta.url)
 const { dismissKeys, formatParsedDue, parseQuickAdd, pruneDismissed } = await import('../src/shared/quickAddParse.ts')
 const { isPurgeable } = await import('../src/shared/retention.ts')
-// recurrence / csvImport 经同一套 ts-resolve-hooks 解析（csvImport 的 './i18n'
-// 目录式 import 与 recurrence 的 'rrule' 包依赖都由钩子/Node 默认解析接住）。
+// recurrence 经同一套 ts-resolve-hooks 解析（'rrule' 包依赖由钩子/Node 默认解析接住）。
 const { buildCustomRecurrence, nextMonthlyClamped, nextOccurrence, parseCustomRecurrence } = await import('../src/shared/recurrence.ts')
-const { csvErrorMessage, parseCsvImport } = await import('../src/shared/csvImport.ts')
 const { CSV_EXPORT_HEADERS, buildCsvExport, csvExportFromBackup, csvField, formatCsvDue } = await import('../src/shared/csvExport.ts')
 const { isAutoBackupFileName } = await import('../src/shared/backupNames.ts')
 
@@ -607,96 +605,6 @@ console.log('=== 自定义重复：parse/build 往返真值表 ===')
   }
 }
 
-console.log('=== CSV 搬家：纯函数真值表（落库往返留在 E2E 层） ===')
-// 逐字移植 runCsvImportAssertions() 的纯函数半区：两种格式签名、引号/转义/
-// BOM/CRLF、indent 子任务、优先级映射、重复描述不猜截止、删除/分区/笔记行跳过，
-// 以及硬化用例（未闭合引号 / 日期溢出 / 备注超长整体拒绝，闰日不误伤）。
-// 错误是 code+params 结构，期望照 harness 字面量。
-{
-  const todoistCsv = [
-    'TYPE,CONTENT,DESCRIPTION,PRIORITY,INDENT,DATE,IS_DELETED,IS_ARCHIVED,PROJECT_NAME',
-    'task,"冒烟CSV甲,带逗号","备注甲",4,0,2026-11-20,false,false,冒烟CSV项目',
-    'task,冒烟CSV子步骤,,1,1,,false,false,',
-    'section,冒烟CSV分区,,1,0,,false,false,',
-    'task,冒烟CSV已删,,1,0,,true,false,',
-    'task,冒烟CSV乙,,2,0,every day,false,false,',
-    'note,冒烟CSV笔记,,1,0,,false,false,'
-  ].join('\r\n')
-  const didaCsv = '\uFEFF任务名称,任务内容,清单名称,标签,优先级,截止日期,完成状态\r\n' +
-    '冒烟CSV丙,备注丙,冒烟CSV清单,"工作,紧急",高,2026-11-21 15:00,未完成\r\n' +
-    '冒烟CSV丁,,,,低,,已完成\r\n' +
-    ',空标题跳过,,,,,\r\n'
-
-  const unclosedCsv = '任务名称,任务内容\r\n"未闭合,备注\r\n'
-  const overflowCsv = '任务名称,截止日期\r\n冒烟CSV溢出,2026-13-40\r\n'
-  const feb30Csv = '任务名称,截止日期\r\n冒烟CSV溢出,2026-02-30\r\n'
-  const longNotesCsv = `任务名称,任务内容\r\n冒烟CSV超长,${'x'.repeat(20001)}\r\n`
-  const leapOkCsv = '任务名称,截止日期\r\n冒烟CSV闰日,2028-02-29\r\n'
-
-  const t = parseCsvImport(todoistCsv)
-  const d = parseCsvImport(didaCsv)
-  const bad = parseCsvImport('a,b\r\n1,2\r\n')
-  const empty = parseCsvImport('')
-  const unclosed = parseCsvImport(unclosedCsv)
-  const overflow = parseCsvImport(overflowCsv)
-  const feb30 = parseCsvImport(feb30Csv)
-  const longNotes = parseCsvImport(longNotesCsv)
-  const leapOk = parseCsvImport(leapOkCsv)
-  const expectedDue = new Date(2026, 10, 20, 23, 59, 0).toISOString()
-  const expectedDidaDue = new Date(2026, 10, 21, 15, 0, 0).toISOString()
-  const expectedLeapDue = new Date(2028, 1, 29, 23, 59, 0).toISOString()
-
-  const todoistOk =
-    t.ok && t.format === 'todoist' &&
-    t.tasks.length === 2 && t.skipped === 3 &&
-    t.tasks[0].title === '冒烟CSV甲,带逗号' &&
-    t.tasks[0].notes === '备注甲' &&
-    t.tasks[0].priority === 3 &&
-    t.tasks[0].dueAt === expectedDue &&
-    t.tasks[0].projectName === '冒烟CSV项目' &&
-    t.tasks[0].subtasks.join('|') === '冒烟CSV子步骤' &&
-    t.tasks[1].title === '冒烟CSV乙' &&
-    t.tasks[1].priority === 1 &&
-    t.tasks[1].dueAt === null
-  assert(todoistOk, 'Todoist 签名：引号逗号/优先级映射/indent 子任务/every day 不猜截止/跳过 3 行' + (todoistOk ? '' : `（实得 ${JSON.stringify(t)}）`))
-  const didaOk =
-    d.ok && d.format === 'dida' &&
-    d.tasks.length === 2 && d.skipped === 1 &&
-    d.tasks[0].priority === 3 &&
-    d.tasks[0].dueAt === expectedDidaDue &&
-    d.tasks[0].tags.join('|') === '工作|紧急' &&
-    d.tasks[0].projectName === '冒烟CSV清单' &&
-    d.tasks[1].completed === true && d.tasks[1].priority === 1
-  assert(didaOk, '滴答签名：BOM+CRLF/标签列表/高→3 低→1/已完成/空标题跳过' + (didaOk ? '' : `（实得 ${JSON.stringify(d)}）`))
-  assert(!bad.ok && bad.error?.code === 'unknownFormat', '未知表头拒绝：unknownFormat' + (!bad.ok && bad.error?.code === 'unknownFormat' ? '' : `（实得 ${JSON.stringify(bad.error)}）`))
-  assert(!empty.ok && empty.error?.code === 'empty', '空文件拒绝：empty' + (!empty.ok && empty.error?.code === 'empty' ? '' : `（实得 ${JSON.stringify(empty.error)}）`))
-  // 未闭合引号：拒绝并给出引号起始的物理行号（第 2 行）
-  const unclosedOk =
-    !unclosed.ok && unclosed.tasks.length === 0 &&
-    unclosed.error?.code === 'unclosedQuote' && unclosed.error?.params?.row === 2
-  assert(unclosedOk, '未闭合引号整体拒绝：unclosedQuote row=2' + (unclosedOk ? '' : `（实得 ${JSON.stringify(unclosed.error)}）`))
-  // 13 月 40 日 / 2 月 30 日：拒绝而非滚成次年/下月，带行号与原值
-  const overflowOk =
-    !overflow.ok && overflow.error?.code === 'invalidDate' &&
-    overflow.error?.params?.row === 2 && overflow.error?.params?.value === '2026-13-40'
-  assert(overflowOk, '日期溢出拒绝：invalidDate row=2 value=2026-13-40' + (overflowOk ? '' : `（实得 ${JSON.stringify(overflow.error)}）`))
-  const feb30Ok = !feb30.ok && feb30.error?.code === 'invalidDate' && feb30.error?.params?.row === 2
-  assert(feb30Ok, '2 月 30 日拒绝：invalidDate row=2' + (feb30Ok ? '' : `（实得 ${JSON.stringify(feb30.error)}）`))
-  // 备注超 20000：对齐 IPC zod 上限，整体拒绝带行号
-  const longNotesOk =
-    !longNotes.ok && longNotes.error?.code === 'notesTooLong' &&
-    longNotes.error?.params?.row === 2 && longNotes.error?.params?.limit === 20000
-  assert(longNotesOk, '备注超长拒绝：notesTooLong row=2 limit=20000' + (longNotesOk ? '' : `（实得 ${JSON.stringify(longNotes.error)}）`))
-  // 合法闰日不受回读校验误伤
-  const leapOkOk = leapOk.ok && leapOk.tasks.length === 1 && leapOk.tasks[0].dueAt === expectedLeapDue
-  assert(leapOkOk, '闰日 2028-02-29 不误伤' + (leapOkOk ? '' : `（实得 ${JSON.stringify(leapOk)}）`))
-  // 错误文案在展示边界按语言翻译：英文界面必须看到英文。期望写字面量片段。
-  const enQuote = csvErrorMessage('en', { code: 'unclosedQuote', params: { row: 2 } })
-  const zhQuote = csvErrorMessage('zh-CN', { code: 'unclosedQuote', params: { row: 2 } })
-  const i18nOk = enQuote.includes('Unclosed quote on row 2') && zhQuote.includes('第 2 行')
-  assert(i18nOk, '错误文案 zh+en：unclosedQuote 双语字面量' + (i18nOk ? '' : `（实得 ${JSON.stringify({ enQuote, zhQuote })}）`))
-}
-
 // ---------- 自动备份文件名校验（与 assertions.ts runBackupNameAssertions 逐字镜像） ----------
 {
   const table = [
@@ -721,7 +629,7 @@ console.log('=== CSV 搬家：纯函数真值表（落库往返留在 E2E 层）
   }
 }
 
-// ---------- CSV 导出：表头镜像 + escaping + 圆环回导（与导入别名表互逆） ----------
+// ---------- CSV 导出：契约表头 + escaping + 逐字全文（导入已移除，无回导圆环） ----------
 {
   const q = '"'
   const esc = [
@@ -750,23 +658,19 @@ console.log('=== CSV 搬家：纯函数真值表（落库往返留在 E2E 层）
   const text = buildCsvExport([sample, { ...sample, title: '已完成件', completed: true, subtasks: [], tags: [], projectName: null, dueAt: null, priority: 0 }])
   assert(text.startsWith(CSV_EXPORT_HEADERS.join(',') + '\r\n'), '导出首行即镜像表头')
   assert(text.endsWith('\r\n'), 'CRLF 行尾')
-  const back = parseCsvImport(text)
-  const ring =
-    back.ok && back.format === 'todoist' && back.tasks.length === 2 &&
-    back.tasks[0].title === sample.title &&
-    back.tasks[0].notes === sample.notes &&
-    back.tasks[0].priority === 3 &&
-    back.tasks[0].dueAt === due &&
-    back.tasks[0].projectName === '圆环项目' &&
-    back.tasks[0].tags.join('|') === '甲|乙' &&
-    back.tasks[0].subtasks.join('|') === '步骤一|步骤二' &&
-    back.tasks[1].completed === true && back.tasks[1].priority === 0 && back.tasks[1].dueAt === null
-  assert(ring, '导出→导入圆环：引号/逗号/换行/优先级互逆/墙钟瞬间/标签/子任务/完成态逐字段相等' + (ring ? '' : `（实得 ${JSON.stringify(back)}）`))
+  const wantText = [
+    CSV_EXPORT_HEADERS.join(','),
+    'task,"圆环任务,带逗号","备注含""引号"",逗号\n与换行",4,1,圆环项目,"甲,乙",active,2026-11-20T09:05:00,en,,',
+    'task,步骤一,,4,2,,,active,2026-11-20T09:05:00,en,,',
+    'task,步骤二,,4,2,,,active,2026-11-20T09:05:00,en,,',
+    'task,已完成件,"备注含""引号"",逗号\n与换行",1,1,,,completed,,en,,'
+  ].join('\r\n') + '\r\n'
+  assert(text === wantText, '导出全文逐字相等：escaping/INDENT 子任务/标签逗号加引号/优先级 3→4/墙钟/完成态' + (text === wantText ? '' : `（实得 ${JSON.stringify(text)}）`))
   for (const p of [0, 1, 2, 3]) {
     const one = buildCsvExport([{ ...sample, priority: p, subtasks: [], tags: [], notes: '' }])
-    const got = parseCsvImport(one)
-    const ok = got.ok && got.tasks[0].priority === p
-    assert(ok, `优先级 ${p} 互逆` + (ok ? '' : `（实得 ${JSON.stringify(got.ok ? got.tasks[0].priority : got.error)}）`))
+    const want = CSV_EXPORT_HEADERS.join(',') + '\r\n' + `task,"圆环任务,带逗号",,${p + 1},1,圆环项目,,active,2026-11-20T09:05:00,en,,\r\n`
+    const ok = one === want
+    assert(ok, `优先级 ${p} → Todoist ${p + 1}` + (ok ? '' : `（实得 ${JSON.stringify(one)}）`))
   }
   const assembled = csvExportFromBackup({
     projects: [{ id: 'p1', name: '装配项目' }],
@@ -776,11 +680,13 @@ console.log('=== CSV 搬家：纯函数真值表（落库往返留在 E2E 层）
     ],
     subtasks: [{ taskId: 't1', title: '装配步骤' }]
   })
-  const ab = parseCsvImport(assembled)
-  const aok = ab.ok && ab.tasks.length === 1 && ab.tasks[0].title === '活任务' &&
-    ab.tasks[0].projectName === '装配项目' && ab.tasks[0].tags.join('|') === '装配标签' &&
-    ab.tasks[0].subtasks.join('|') === '装配步骤'
-  assert(aok, 'csvExportFromBackup：过滤回收站 + 项目/标签/子任务 join' + (aok ? '' : `（实得 ${JSON.stringify(ab)}）`))
+  const wantAssembled = [
+    CSV_EXPORT_HEADERS.join(','),
+    'task,活任务,,2,1,装配项目,装配标签,active,,en,,',
+    'task,装配步骤,,2,2,,,active,,en,,'
+  ].join('\r\n') + '\r\n'
+  const aok = assembled === wantAssembled
+  assert(aok, 'csvExportFromBackup：过滤回收站 + 项目/标签/子任务 join' + (aok ? '' : `（实得 ${JSON.stringify(assembled)}）`))
 }
 
 console.log('\n' + (fail === 0 ? '纯函数真值表全部成立 ✓' : fail + ' 项失败 ✗'))

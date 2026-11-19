@@ -44,13 +44,11 @@ import { getGlobalHotkeyState, GLOBAL_HOTKEY_ACCELERATOR, setGlobalHotkeyEnabled
 import { getCurrentTheme, themeBackgroundColor } from '../theme'
 import { checkRemindersNow, dismissReminder, getReminderWindow } from '../reminders'
 import { getTrayMenuLabels } from '../tray'
-import { CSV_EXPORT_HEADERS, csvExportFromBackup } from '../../shared/csvExport'
-import { parseCsvImport } from '../../shared/csvImport'
+import { CSV_EXPORT_HEADERS, csvExportFromBackup, formatCsvDue } from '../../shared/csvExport'
 import { harnessContext } from './context'
 import { settledFrames, waitForCondition } from './util'
 import {
   runBackupNameAssertions,
-  runCsvImportAssertions,
   runCustomRecurrenceAssertions,
   runParseAssertions,
   runRecurrenceAssertions,
@@ -1152,7 +1150,6 @@ export async function runSmokeTest(): Promise<void> {
     const parseAssertions = runParseAssertions()
     const retentionOk = runRetentionAssertions()
     const backupNameOk = runBackupNameAssertions()
-    const csvAssertions = runCsvImportAssertions()
 
     // 本地 MCP：开启 → 经 IPC 取 bearer token → initialize / tools/list / tools/call
     // 真实 HTTP 往返 → 401 矩阵（无/错 token）→ regenerate 作废旧 token → 关闭后拒连。
@@ -2641,7 +2638,7 @@ export async function runSmokeTest(): Promise<void> {
     // ---------- focus 修订号门控（迁移 7 触发器 + data:revision） ----------
     // 主进程侧计数探针：tasks:list / tasks:list-deleted 包一层计数，行为与生产
     // 一致（list-deleted 保留 purge 语义），照 resetTaskIpc 的摘装手法恢复。
-    // 三段：无变化 focus 不重拉；DB 直写（与 MCP/CSV 外部写入同一条触发器路径）
+    // 三段：无变化 focus 不重拉；DB 直写（与 MCP/备份外部写入同一条触发器路径）
     // 后 focus 重拉且 UI 可见；自有 UI 写成功盖章后 focus 不多拉。
     let focusRevisionGate = false
     let focusGateListCalls = 0
@@ -4003,11 +4000,11 @@ export async function runSmokeTest(): Promise<void> {
       }
     }
 
-    // CSV 格式浮层 + 导出圆环：分体钮箭头开浮层（表头/示例行即导出件本身），
-    // Esc 只收浮层面板存活、浮层零布局增高；主进程侧用夹具任务（子任务/标签/
-    // 项目/完成态/引号逗号）走 csvExportFromBackup → parseCsvImport 圆环，
-    // 逐字段相等证明导出件可原样回导——「导入没有导出、不知道格式」根除。
-    let csvHelpWorks = false
+    // CSV 导出守卫：导入功能已移除，导出 CSV 独立成钮占原网格 cell。
+    // UI 侧钉四钮 2×2、无分体箭头、无格式浮层残留；主进程侧用夹具任务
+    // （子任务/标签/项目/完成态/引号逗号）走 csvExportFromBackup，逐行字面量
+    // 比对导出文本（escaping/INDENT/优先级/墙钟/完成态），期望不经过被测代码回算。
+    let csvExportWorks = false
     const csvFixtureIds: string[] = []
     let csvFixtureProject: string | null = null
     let csvFixtureTag: string | null = null
@@ -4019,22 +4016,12 @@ export async function runSmokeTest(): Promise<void> {
         const panel = await waitFor(() => document.querySelector('.settings-panel'));
         if (!panel) return { found: false };
         await sleep(400);
-        const beforeH = panel.scrollHeight;
-        panel.querySelector('.backup-btn--csv .backup-btn--chev')?.click();
-        const pop = await waitFor(() => document.querySelector('.csv-help'));
-        if (!pop) return { found: true, open: false };
-        await sleep(250);
-        const head = pop.querySelector('.csv-help-head')?.textContent ?? '';
-        const example = pop.querySelector('.csv-help-example')?.textContent ?? '';
-        const exportBtn = [...pop.querySelectorAll('.backup-btn')].some((b) => b.textContent === '导出 CSV');
-        const afterH = panel.scrollHeight;
-        window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
-        await sleep(250);
-        const closed = !document.querySelector('.csv-help');
-        const panelAlive = Boolean(document.querySelector('.settings-panel'));
+        const buttons = [...panel.querySelectorAll('.backup-actions > .backup-btn')].map((b) => b.textContent);
+        const noSplit = !panel.querySelector('.backup-btn-split');
+        const noPop = !panel.querySelector('.csv-help');
         document.querySelector('.settings-panel .detail-close')?.click();
         await sleep(250);
-        return { found: true, open: true, head, example, exportBtn, zeroGrowth: beforeH === afterH, closed, panelAlive };
+        return { found: true, buttons, noSplit, noPop };
       })()`)
       const project = createProject({ name: '冒烟CSV项目', color: '#5EEAD4' })
       csvFixtureProject = project.id
@@ -4056,28 +4043,22 @@ export async function runSmokeTest(): Promise<void> {
       csvFixtureIds.push(done.id)
       updateTask({ id: done.id, completed: true })
       const text = csvExportFromBackup(exportBackup())
-      const parsed = parseCsvImport(text)
-      const mine = parsed.ok ? parsed.tasks.find((t) => t.title === '冒烟CSV任务,带逗号') : undefined
-      const roundTrip =
-        parsed.ok === true &&
-        parsed.format === 'todoist' &&
-        Boolean(mine) &&
-        mine?.notes === '备注含"引号"与,逗号' &&
-        mine?.priority === 3 &&
-        mine?.projectName === '冒烟CSV项目' &&
-        mine?.tags.join(',') === '冒烟CSV标签' &&
-        mine?.subtasks.join(',') === 'CSV步骤一,CSV步骤二' &&
-        mine?.dueAt === due.toISOString() &&
-        parsed.tasks.some((t) => t.title === '冒烟CSV已完成' && t.completed)
-      csvHelpWorks =
-        ui?.found === true && ui?.open === true && ui?.exportBtn === true &&
-        ui?.zeroGrowth === true && ui?.closed === true && ui?.panelAlive === true &&
-        ui?.head === CSV_EXPORT_HEADERS.join(',') &&
-        (ui?.example ?? '').startsWith('task,Sample task,') &&
-        roundTrip
-      if (!csvHelpWorks) console.error('CSV_HELP_FAIL', JSON.stringify({ ui, roundTrip, detail: parsed.ok ? parsed.tasks.length : parsed.error }))
+      const dueCell = formatCsvDue(due.toISOString())
+      const wantParent = `task,"冒烟CSV任务,带逗号","备注含""引号""与,逗号",4,1,冒烟CSV项目,冒烟CSV标签,active,${dueCell},en,,`
+      const wantSub1 = `task,CSV步骤一,,4,2,,,active,${dueCell},en,,`
+      const wantSub2 = `task,CSV步骤二,,4,2,,,active,${dueCell},en,,`
+      const wantDone = `task,冒烟CSV已完成,,1,1,,,completed,,en,,`
+      const linesOk =
+        text.startsWith(CSV_EXPORT_HEADERS.join(',') + '\r\n') &&
+        text.includes(wantParent + '\r\n' + wantSub1 + '\r\n' + wantSub2 + '\r\n') &&
+        text.includes(wantDone + '\r\n')
+      csvExportWorks =
+        ui?.found === true && ui?.noSplit === true && ui?.noPop === true &&
+        JSON.stringify(ui?.buttons) === JSON.stringify(['导出备份', '导入备份', '导出 CSV', '打开数据目录']) &&
+        linesOk
+      if (!csvExportWorks) console.error('CSV_EXPORT_FAIL', JSON.stringify({ ui, linesOk }))
     } catch (error) {
-      console.error('CSV_HELP_ERROR', error)
+      console.error('CSV_EXPORT_ERROR', error)
     } finally {
       for (const id of csvFixtureIds) {
         deleteTask(id)
@@ -5297,8 +5278,6 @@ export async function runSmokeTest(): Promise<void> {
       confirmDescribedBy: confirmDescribedBy === true,
       trashFocusLands: trashFocusLands === true,
       retentionTable: retentionOk === true,
-      csvParseTable: csvAssertions.table,
-      csvRoundTrip: csvAssertions.roundTrip,
       mcpWorks,
       mcpAuthRejects: mcpAuthRejects === true,
       mcpTokenRegenerate: mcpTokenRegenerate === true,
@@ -5411,8 +5390,6 @@ export async function runSmokeTest(): Promise<void> {
           confirmDescribedBy,
           trashFocusLands,
           retentionTable: retentionOk,
-          csvParseTable: csvAssertions.table,
-          csvRoundTrip: csvAssertions.roundTrip,
           mcpWorks,
           mcpAuthRejects,
           mcpTokenRegenerate,
@@ -5448,7 +5425,7 @@ export async function runSmokeTest(): Promise<void> {
           settingsFitsCompact,
           settingsNoScrollMcp,
           settingsCentered,
-          csvHelpWorks,
+          csvExportWorks,
           settingsNoShift,
           settingsLayoutV2,
           settingsAboutStable,
