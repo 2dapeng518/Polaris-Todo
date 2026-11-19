@@ -1135,6 +1135,8 @@ textarea {
   overflow-y: auto;
   overscroll-behavior: contain;
   scrollbar-gutter: stable;
+  /* 钉底页脚高约 34 + 隙 32：键盘导航/scrollIntoView 不把行停到栏底下。 */
+  scroll-padding-bottom: 70px;
 }
 
 .main-inner {
@@ -3936,11 +3938,23 @@ textarea {
 
 /* ---------- footer ---------- */
 
+/* 状态栏钉底（用户报障：任务多时快捷键提示/版本被滚出视口）：sticky
+   bottom:0 实测吸在内容盒底（Chrome sticky 参照含 padding 盒再扣偏移，
+   写 var(--space-6) 会多扣一份 padding）——与 in-flow 短内容落点逐像素
+   同位，滚到底回流零跳变；下方 32px padding 隙带用同色 box-shadow 盖住
+   滑过的行。不挪 DOM/不换滚动容器：.main 仍是唯一 scroller，弹层零位移/
+   窗口化/低分辨率各守卫的 scrollTop 语义原样保留。背景同 body 继承色，
+   短内容归档截图像素不变。 */
 .view-footer {
   display: flex;
   align-items: center;
   gap: 18px;
   margin-top: auto;
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  background: var(--bg);
+  box-shadow: 0 var(--space-6) 0 0 var(--bg);
   padding: 14px 12px 0;
   border-top: 1px solid var(--line);
   color: var(--text-tertiary);

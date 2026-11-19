@@ -3735,6 +3735,67 @@ export async function runSmokeTest(): Promise<void> {
       })()`).catch(() => {})
     }
 
+    // 主视图页脚钉底（用户报障：任务多时快捷键提示/版本被滚出视口）：
+    // .view-footer sticky bottom:var(--space-6)，吸住时底缘 == .main 底缘
+    // 减 paddingBottom（与 in-flow 落点同位）；40 条夹具量顶/中/底三态，
+    // 滚到底回流仍同位零跳变。量完即清，路由留在「今天」。
+    let mainFooterPinned = false
+    const footerSeedIds: string[] = []
+    try {
+      const footerDue = new Date()
+      footerDue.setHours(23, 59, 0, 0)
+      for (let i = 0; i < 40; i++) {
+        footerSeedIds.push(
+          createTask({ title: '冒烟页脚 ' + String(i).padStart(2, '0'), dueAt: footerDue.toISOString() }).id
+        )
+      }
+      const pin = await mainWindow?.webContents.executeJavaScript(`(async () => {
+        ${pageHelpers}
+        window.dispatchEvent(new Event('focus'));
+        const main = document.querySelector('.main');
+        await waitFor(() => document.querySelectorAll('.task-item').length >= 40, 10000);
+        await sleep(400);
+        const mr = main.getBoundingClientRect();
+        const padB = parseFloat(getComputedStyle(main).paddingBottom);
+        const at = async (top) => {
+          main.scrollTop = top;
+          await sleep(200);
+          const fr = document.querySelector('.view-footer').getBoundingClientRect();
+          return {
+            delta: Math.abs(fr.bottom - (mr.bottom - padB)),
+            inside: fr.top >= mr.top && fr.bottom <= mr.bottom + 1
+          };
+        };
+        const head = await at(0);
+        const mid = await at(Math.floor(main.scrollHeight / 2));
+        const end = await at(main.scrollHeight);
+        main.scrollTop = 0;
+        await sleep(150);
+        return { head, mid, end, sh: main.scrollHeight, ch: main.clientHeight };
+      })()`)
+      console.log('MAIN_FOOTER_PIN_METRICS', JSON.stringify(pin))
+      mainFooterPinned =
+        typeof pin?.sh === 'number' && typeof pin?.ch === 'number' && pin.sh > pin.ch &&
+        pin?.head?.delta <= 1 && pin?.mid?.delta <= 1 && pin?.end?.delta <= 1 &&
+        pin?.head?.inside === true && pin?.mid?.inside === true && pin?.end?.inside === true
+      if (!mainFooterPinned) console.error('MAIN_FOOTER_PIN_FAIL', JSON.stringify(pin))
+    } catch (error) {
+      console.error('MAIN_FOOTER_PIN_ERROR', error)
+    } finally {
+      for (const id of footerSeedIds) {
+        deleteTask(id)
+        deleteTaskForever(id)
+      }
+      await mainWindow?.webContents.executeJavaScript(`(async () => {
+        ${pageHelpers}
+        window.dispatchEvent(new Event('focus'));
+        await waitFor(() => document.querySelectorAll('.task-item').length < 40, 10000);
+        const main = document.querySelector('.main');
+        if (main) main.scrollTop = 0;
+        await sleep(200);
+      })()`).catch(() => {})
+    }
+
     // 关于署名区：设置面板展示字体/图标许可（OFL 可见署名义务）。
     const aboutCreditsShown =
       (await mainWindow?.webContents.executeJavaScript(`(async () => {
@@ -5369,6 +5430,7 @@ export async function runSmokeTest(): Promise<void> {
       largeListOffscreenToggle: largeListOffscreenToggle === true,
       largeListExitSettles: largeListExitSettles === true,
       largeListCompactTier: largeListCompactTier === true,
+      mainFooterPinned: mainFooterPinned === true,
       aboutCreditsShown: aboutCreditsShown === true,
       storageCardWorks: storageCardWorks === true,
       settingsFitsDefault: settingsFitsDefault === true,
@@ -5476,6 +5538,7 @@ export async function runSmokeTest(): Promise<void> {
           largeListOffscreenToggle,
           largeListExitSettles,
           largeListCompactTier,
+          mainFooterPinned,
           aboutCreditsShown,
           storageCardWorks,
           settingsFitsDefault,
