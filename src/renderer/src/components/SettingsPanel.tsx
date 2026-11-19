@@ -25,13 +25,12 @@ function formatBackupSize(bytes: number): string {
   return `${Math.max(1, Math.round(bytes / 1024))} KB`
 }
 
-/** 固定短掩码：前缀照露 + 密钥体头 4 位 + … + 尾 4 位（用户拍板 2026-11-19 15:33，
-    撤掉自适应填满整行的长掩码）。无前缀旧 token 取整串头 4 / 尾 4；
-    中段永不上屏，复制/重新生成仍走整串明文 IPC。 */
-function maskToken(token: string): string {
-  const prefix = token.startsWith('sk-') ? 'sk-' : ''
-  const body = token.slice(prefix.length)
-  return `${prefix}${body.slice(0, 4)}…${body.slice(-4)}`
+/** 自适应短掩码：前缀照露 + 头 k 位 hex + … + 尾 k 位 hex，k 随盒宽填满整盒
+    （用户 16:2x「填充满」），clamp [4,32]——窄盒保底头 4 尾 4（用户 15:33）。
+    无前缀旧 token 头尾各 k 位整串字符。中段永不上屏，复制/重置仍走整串明文 IPC。 */
+function maskToken(token: string, k: number): string {
+  const prefixLen = token.startsWith('sk-') ? 3 : 0
+  return `${token.slice(0, prefixLen + k)}…${token.slice(-k)}`
 }
 
 /** 更新状态一行说清；错误细节另有 settings-error，这里不堆长文。 */
@@ -78,6 +77,9 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
   const panelRef = useRef<HTMLDivElement>(null)
   const overlayRef = useRef<HTMLDivElement>(null)
   const csvBtnRef = useRef<HTMLDivElement>(null)
+  const tokenBoxRef = useRef<HTMLElement>(null)
+  // 掩码头尾 hex 位数：随盒宽自适应填满整盒，保底 4（头 4 尾 4）。
+  const [maskK, setMaskK] = useState(4)
   const [csvHelpOpen, setCsvHelpOpen] = useState(false)
   const paletteOpen = useTaskStore((state) => state.paletteOpen)
   const theme = useThemeStore((state) => state.theme)
@@ -176,6 +178,27 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
     }
   }, [open])
 
+
+  // 掩码头尾长度随盒宽自适应：等宽 advance = 0.6em，头尾各 k hex + 省略号
+  // 填满整盒（≥80% 内宽）；k clamp [4,32]。当前统一两列布局盒宽上限约 210px
+  // → k≈12，64 hex 里仍藏 40 位；中段照藏与盒宽无关地成立。
+  useLayoutEffect(() => {
+    if (!open || !mcp.enabled || !mcpToken) return
+    const box = tokenBoxRef.current
+    if (!box) return
+    const measure = () => {
+      const style = getComputedStyle(box)
+      const inner =
+        box.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight)
+      const charWidth = parseFloat(style.fontSize) * 0.6
+      const k = Math.max(4, Math.min(32, Math.floor((inner / charWidth - 4) / 2)))
+      setMaskK(k)
+    }
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(box)
+    return () => ro.disconnect()
+  }, [open, mcp.enabled, mcpToken])
 
   // CSV 格式浮层：锚在导入 CSV 分体钮上，绝对定位零布局增高（关于浮层同源契约）。
   const csvHelpPlace = useAnchoredPopover({
@@ -838,14 +861,15 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
               {mcp.enabled && mcpToken && (
                 <div className="mcp-token">
                   {/* 整行两端对齐（用户拍板 16:17）：掩码盒 flex:1 吃掉剩余宽度
-                      左贴卡左缘，按钮组贴右缘——镜像等宽会在中间留死白，已撤。 */}
+                      左贴卡左缘，按钮组贴右缘；盒内掩码自适应填满（16:2x）。 */}
                   <div className="mcp-token-row">
                     <code
                       className="mcp-token-box"
+                      ref={tokenBoxRef}
                       aria-label={t('settings.mcpToken')}
                       title={t('settings.mcpTokenDescFull')}
                     >
-                      {maskToken(mcpToken)}
+                      {maskToken(mcpToken, maskK)}
                     </code>
                     <div className="mcp-token-actions">
                       <button className="backup-btn" onClick={() => void copyMcpToken()}>

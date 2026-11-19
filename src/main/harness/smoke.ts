@@ -4123,11 +4123,14 @@ export async function runSmokeTest(): Promise<void> {
           const afterBoxH = tokenBox.getBoundingClientRect().height;
           document.querySelector('.settings-panel .detail-close')?.click();
           await sleep(250);
-          // 固定短掩码（用户拍板 15:33）：sk- 前缀 + 头 4 hex + … + 尾 4 hex，
-          // 中段照藏；盒 flex:1 吃剩余宽单行，整行两端对齐（16:17 撤镜像等宽）。
-          const m = boxText.match(/^sk-[0-9a-f]{4}…[0-9a-f]{4}$/)
-          const middleHidden = Boolean(m) &&
-            !boxText.includes(fullToken.slice(7, fullToken.length - 4))
+          // 自适应短掩码：sk- 前缀 + 头 k+3 字符 + … + 尾 k hex（k≥4 保底头 4 尾 4，
+          // 随盒宽填满整盒 ≥80% 内宽），中段照藏；盒 flex:1 整行两端对齐。
+          // 正则组抓的是 hex（不含 sk- 前缀）：头尾组各 k 位；含前缀的头字符数 = k+3。
+          const m = boxText.match(/^sk-([0-9a-f]+)…([0-9a-f]+)$/)
+          const k = m ? m[2].length : 0
+          const middleHidden = Boolean(m) && m[1].length === k && k >= 4 &&
+            !boxText.includes(fullToken.slice(3 + k, fullToken.length - k))
+          const fillRatio = tokenBox.scrollWidth / Math.max(1, tokenBox.clientWidth)
           const boxRect = tokenBox.getBoundingClientRect();
           const rowRect = tokenRow.getBoundingClientRect();
           const actRect = actions ? actions.getBoundingClientRect() : null;
@@ -4138,6 +4141,7 @@ export async function runSmokeTest(): Promise<void> {
             middleHidden,
             maskNotFull: boxText !== fullToken,
             singleLine: tokenBox.scrollHeight <= tokenBox.clientHeight + 1 && boxRect.height <= 32,
+            fillsRow: fillRatio >= 0.8,
             // 两端对齐契约：盒左缘==行左缘、盒右缘+8 间距==按钮组左缘、
             // 按钮组右缘==行右缘（flex:1 吃掉剩余宽，中间无死白）。
             flushRow: Boolean(actRect) && Math.abs(boxRect.left - rowRect.left) <= 1 &&
@@ -4157,6 +4161,7 @@ export async function runSmokeTest(): Promise<void> {
           noShift?.middleHidden === true &&
           noShift?.maskNotFull === true &&
           noShift?.singleLine === true &&
+          noShift?.fillsRow === true &&
           noShift?.flushRow === true &&
           noShift?.sameRow === true &&
           noShift?.boxHeightStable === true &&
