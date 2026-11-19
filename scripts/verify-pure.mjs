@@ -656,9 +656,9 @@ console.log('=== 自定义重复：parse/build 往返真值表 ===')
     subtasks: ['步骤一', '步骤二']
   }
   const text = buildCsvExport([sample, { ...sample, title: '已完成件', completed: true, subtasks: [], tags: [], projectName: null, dueAt: null, priority: 0 }])
-  assert(text.startsWith(CSV_EXPORT_HEADERS.join(',') + '\r\n'), '导出首行即镜像表头')
+  assert(text.startsWith('\uFEFF' + CSV_EXPORT_HEADERS.join(',') + '\r\n'), '导出首行 BOM+契约表头')
   assert(text.endsWith('\r\n'), 'CRLF 行尾')
-  const wantText = [
+  const wantText = '\uFEFF' + [
     CSV_EXPORT_HEADERS.join(','),
     'task,"圆环任务,带逗号","备注含""引号"",逗号\n与换行",4,1,圆环项目,"甲,乙",active,2026-11-20T09:05:00,en,,',
     'task,步骤一,,4,2,,,active,2026-11-20T09:05:00,en,,',
@@ -668,7 +668,7 @@ console.log('=== 自定义重复：parse/build 往返真值表 ===')
   assert(text === wantText, '导出全文逐字相等：escaping/INDENT 子任务/标签逗号加引号/优先级 3→4/墙钟/完成态' + (text === wantText ? '' : `（实得 ${JSON.stringify(text)}）`))
   for (const p of [0, 1, 2, 3]) {
     const one = buildCsvExport([{ ...sample, priority: p, subtasks: [], tags: [], notes: '' }])
-    const want = CSV_EXPORT_HEADERS.join(',') + '\r\n' + `task,"圆环任务,带逗号",,${p + 1},1,圆环项目,,active,2026-11-20T09:05:00,en,,\r\n`
+    const want = '\uFEFF' + CSV_EXPORT_HEADERS.join(',') + '\r\n' + `task,"圆环任务,带逗号",,${p + 1},1,圆环项目,,active,2026-11-20T09:05:00,en,,\r\n`
     const ok = one === want
     assert(ok, `优先级 ${p} → Todoist ${p + 1}` + (ok ? '' : `（实得 ${JSON.stringify(one)}）`))
   }
@@ -680,7 +680,7 @@ console.log('=== 自定义重复：parse/build 往返真值表 ===')
     ],
     subtasks: [{ taskId: 't1', title: '装配步骤' }]
   })
-  const wantAssembled = [
+  const wantAssembled = '\uFEFF' + [
     CSV_EXPORT_HEADERS.join(','),
     'task,活任务,,2,1,装配项目,装配标签,active,,en,,',
     'task,装配步骤,,2,2,,,active,,en,,'

@@ -4049,7 +4049,7 @@ export async function runSmokeTest(): Promise<void> {
       const wantSub2 = `task,CSV步骤二,,4,2,,,active,${dueCell},en,,`
       const wantDone = `task,冒烟CSV已完成,,1,1,,,completed,,en,,`
       const linesOk =
-        text.startsWith(CSV_EXPORT_HEADERS.join(',') + '\r\n') &&
+        text.startsWith('\uFEFF' + CSV_EXPORT_HEADERS.join(',') + '\r\n') &&
         text.includes(wantParent + '\r\n' + wantSub1 + '\r\n' + wantSub2 + '\r\n') &&
         text.includes(wantDone + '\r\n')
       csvExportWorks =
