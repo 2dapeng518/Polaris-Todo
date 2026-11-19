@@ -3874,9 +3874,90 @@ export async function runSmokeTest(): Promise<void> {
       await settledFrames(mainWindow.webContents)
     }
 
-    // 设置页零抖动：用户实机低分辨率档（1024×576）下，令牌行单行掩码
-    // （头 7 + … + 末 4，中段隐藏，明文永不上屏，仅复制/重新生成两按钮），
-    // 检查更新结果落槽不得改变面板内容高度。状态行常驻占位，检查前空槽。
+    // 设置页一屏守卫（MCP 启用最坏态，中英双语 × 五档窗口）：用户报障根因是
+    // MCP 启用态令牌块把内容顶出帽外产生上下滚动。现统一两列布局 + 主题色样
+    // 横条与标题同行 + 令牌明文全量折行 + 说明并入常驻槽，各档 scrollHeight
+    // 必须 <= clientHeight（含 683×607 用户实宽档与 900 高窗口档）。
+    let settingsNoScrollMcp = false
+    if (mainWindow) {
+      const originalSize = mainWindow.getSize()
+      setMcpEnabled(true)
+      try {
+        const noScrollAt = async (w: number, h: number) => {
+          mainWindow!.setSize(w, h)
+          await settledFrames(mainWindow!.webContents)
+          return mainWindow!.webContents.executeJavaScript(`(async () => {
+            ${pageHelpers}
+            await waitFor(() => !document.querySelector('.settings-panel'));
+            document.querySelector('.settings-item').click();
+            const panel = await waitFor(() => document.querySelector('.settings-panel'));
+            if (!panel) return { fits: false, found: false };
+            await sleep(400);
+            const box = await waitFor(() => panel.querySelector('.mcp-token-box'));
+            if (!box) return { fits: false, found: true, token: false };
+            panel.querySelector('.update-footer-btn')?.click();
+            await sleep(350);
+            const pr = panel.getBoundingClientRect();
+            const last = panel.querySelector('.update-footer-status').getBoundingClientRect().bottom;
+            const full = await window.polaris.app.getMcpToken();
+            const result = {
+              fits: panel.scrollHeight <= panel.clientHeight + 1,
+              found: true,
+              token: true,
+              tokenFull: box.textContent === full,
+              lastVisible: last <= pr.bottom + 1,
+              scrollHeight: panel.scrollHeight,
+              clientHeight: panel.clientHeight
+            };
+            document.querySelector('.settings-panel .detail-close')?.click();
+            await sleep(250);
+            return result;
+          })()`)
+        }
+        const sizes: Array<[number, number]> = [[1024, 576], [980, 640], [683, 607], [1280, 840], [1280, 900]]
+        const zh = []
+        for (const [w, h] of sizes) zh.push(await noScrollAt(w, h))
+        // 英文经真实 UI 路径切换（语言下拉），量完切回中文。
+        await mainWindow.webContents.executeJavaScript(`(async () => {
+          ${pageHelpers}
+          document.querySelector('.settings-item').click();
+          const panel = await waitFor(() => document.querySelector('.settings-panel'));
+          await sleep(350);
+          panel.querySelector('.settings-language-select').click();
+          await sleep(250);
+          [...panel.querySelectorAll('.settings-language-option')].find((o) => o.textContent.includes('English'))?.click();
+          await sleep(350);
+          document.querySelector('.settings-panel .detail-close')?.click();
+          await sleep(250);
+        })()`)
+        const en = []
+        for (const [w, h] of sizes) en.push(await noScrollAt(w, h))
+        await mainWindow.webContents.executeJavaScript(`(async () => {
+          ${pageHelpers}
+          document.querySelector('.settings-item').click();
+          const panel = await waitFor(() => document.querySelector('.settings-panel'));
+          await sleep(350);
+          panel.querySelector('.settings-language-select').click();
+          await sleep(250);
+          [...panel.querySelectorAll('.settings-language-option')].find((o) => o.textContent.includes('简体中文'))?.click();
+          await sleep(350);
+          document.querySelector('.settings-panel .detail-close')?.click();
+          await sleep(250);
+        })()`)
+        console.log('SETTINGS_NO_SCROLL_MCP_METRICS', JSON.stringify({ zh, en }))
+        const all = [...zh, ...en]
+        settingsNoScrollMcp = all.every((r) => r?.fits === true && r?.tokenFull === true && r?.lastVisible === true)
+        if (!settingsNoScrollMcp) console.error('SETTINGS_NO_SCROLL_MCP_FAIL', JSON.stringify({ zh, en }))
+      } finally {
+        setMcpEnabled(false)
+        mainWindow.setSize(originalSize[0], originalSize[1])
+        await settledFrames(mainWindow.webContents)
+      }
+    }
+
+    // 设置页零抖动：用户实机低分辨率档（1024×576）下，令牌明文全量上屏
+    // （用户拍板不掩码；67 字符半宽卡 break-all 折两行、盒高恒定），
+    // 用法说明住常驻反馈槽单行，检查更新结果落槽不得改变面板内容高度。
     // scrollHeight/页脚顶边是内容位移判别器（面板被 max-height 封顶时外框不变，只看外框会漏判）。
     let settingsNoShift = false
     if (mainWindow) {
@@ -3895,25 +3976,29 @@ export async function runSmokeTest(): Promise<void> {
           if (!tokenBox) return { found: true, token: false };
           const contentH = () => panel.scrollHeight;
           const footerTop = () => panel.querySelector('.settings-footer').getBoundingClientRect().top;
-          const maskText = tokenBox.textContent ?? '';
+          const boxText = tokenBox.textContent ?? '';
           const fullToken = await window.polaris.app.getMcpToken();
           const rowButtons = [...tokenBox.parentElement.querySelectorAll('.backup-btn')].map((b) => b.textContent);
           const btnWidths = [...tokenBox.parentElement.querySelectorAll('.backup-btn')].map((b) => b.getBoundingClientRect().width);
-          const maskDominant = tokenBox.getBoundingClientRect().width > btnWidths[0] * 1.4;
+          const boxDominant = tokenBox.getBoundingClientRect().width > btnWidths[0] * 1.4;
+          const slot = panel.querySelector('.mcp-token-slot');
           const beforeCheck = contentH(); const beforeFooter = footerTop();
+          const beforeBoxH = tokenBox.getBoundingClientRect().height;
           panel.querySelector('.update-footer-btn')?.click();
           const answered = await waitFor(() => (panel.querySelector('.update-footer-status')?.textContent ?? '').length > 0);
           await sleep(150);
           const afterCheck = contentH(); const afterFooter = footerTop();
+          const afterBoxH = tokenBox.getBoundingClientRect().height;
           document.querySelector('.settings-panel .detail-close')?.click();
           await sleep(250);
           return {
             found: true,
             token: true,
-            maskShape: /^.{7}….{4}$/.test(maskText),
-            maskNeverFull: maskText !== fullToken,
-            singleLine: tokenBox.scrollHeight <= tokenBox.clientHeight + 1 && tokenBox.getBoundingClientRect().height <= 32,
-            maskDominant,
+            tokenFull: boxText === fullToken,
+            boxNoInnerScroll: tokenBox.scrollHeight <= tokenBox.clientHeight + 1,
+            boxHeightStable: beforeBoxH === afterBoxH && beforeBoxH <= 50,
+            slotOneLine: Boolean(slot) && slot.scrollHeight <= slot.clientHeight + 1,
+            boxDominant,
             buttonsExact: rowButtons.length === 2 && rowButtons[0] === '复制' && rowButtons[1] === '重新生成',
             updateStable: Boolean(answered) && beforeCheck === afterCheck && beforeFooter === afterFooter
           };
@@ -3921,10 +4006,11 @@ export async function runSmokeTest(): Promise<void> {
         settingsNoShift =
           noShift?.found === true &&
           noShift?.token === true &&
-          noShift?.maskShape === true &&
-          noShift?.maskNeverFull === true &&
-          noShift?.singleLine === true &&
-          noShift?.maskDominant === true &&
+          noShift?.tokenFull === true &&
+          noShift?.boxNoInnerScroll === true &&
+          noShift?.boxHeightStable === true &&
+          noShift?.slotOneLine === true &&
+          noShift?.boxDominant === true &&
           noShift?.buttonsExact === true &&
           noShift?.updateStable === true
         if (!settingsNoShift) console.error('SETTINGS_NO_SHIFT_FAIL', JSON.stringify(noShift))
@@ -4066,7 +4152,7 @@ export async function runSmokeTest(): Promise<void> {
           const rowRects = [...panel.querySelectorAll('.auto-backup-row')].map((r) => r.getBoundingClientRect());
           // 收容契约：行住在列表滚动内容里（横向不出卡、纵向不出列表
           // scrollHeight），首行免滚可见。列表超高卡内滚动是设计行为
-          // （576 档卡高 226px 装不下三行），不要求全行可见。
+          // （576 档卡高 207px 装不下三行），不要求全行可见。
           const rowsInCard = Boolean(listRect) && rowRects.every((r) =>
             r.left >= cardRect.left - 1 && r.right <= cardRect.right + 1 &&
             r.top >= listRect.top - 1 && r.bottom <= listRect.top + list.scrollHeight + 1);
@@ -4519,8 +4605,15 @@ export async function runSmokeTest(): Promise<void> {
         await sleep(300);
         const row = [...document.querySelectorAll('.settings-panel .settings-row')].find((el) => el.textContent.includes('全局热键快速添加'));
         const sw = row ? row.querySelector('.switch') : null;
-        const err = document.querySelector('.settings-panel .settings-error');
-        const ok = Boolean(sw) && sw.getAttribute('aria-checked') === 'true' && Boolean(err) && err.textContent.includes('被其他程序占用');
+        // 冲突文案替换行描述落同一行（is-error + role=alert + title 全文），
+        // 不再挂独立 .settings-error 行——条件行零增高是一屏契约的一部分。
+        const desc = row ? row.querySelector('.settings-row-desc') : null;
+        const ok = Boolean(sw) && sw.getAttribute('aria-checked') === 'true' &&
+          Boolean(desc) && desc.classList.contains('is-error') &&
+          desc.getAttribute('role') === 'alert' &&
+          desc.textContent.includes('被其他程序占用') &&
+          (desc.getAttribute('title') ?? '').includes('被其他程序占用') &&
+          !document.querySelector('.settings-panel .settings-error');
         document.querySelector('.settings-panel .detail-close')?.click();
         await sleep(250);
         return ok;
@@ -5198,6 +5291,7 @@ export async function runSmokeTest(): Promise<void> {
           storageCardWorks,
           settingsFitsDefault,
           settingsFitsCompact,
+          settingsNoScrollMcp,
           settingsNoShift,
           settingsLayoutV2,
           settingsAboutStable,
