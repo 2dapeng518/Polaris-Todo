@@ -275,8 +275,8 @@ export const en: Messages = {
   'settings.importCsv': 'Import CSV',
   'settings.importCsvTitle': 'Supports CSV exports from TickTick and Todoist, detected by header',
   'settings.aboutToggle': 'About & licenses',
-  'settings.behaviorGroup': 'General behavior',
-  'settings.mcpEnable': 'Enable service',
+  'settings.behaviorGroup': 'General',
+
   'settings.versionOnly': 'Polaris · MIT License',
   'settings.fonts': 'Fonts',
   'settings.icons': 'Icons',

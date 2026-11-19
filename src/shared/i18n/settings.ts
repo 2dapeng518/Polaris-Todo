@@ -37,8 +37,8 @@ export const settings = {
   'settings.importCsv': '导入 CSV',
   'settings.importCsvTitle': '支持滴答清单 / Todoist 的 CSV 导出，按表头自动识别',
   'settings.aboutToggle': '关于与许可',
-  'settings.behaviorGroup': '常规行为',
-  'settings.mcpEnable': '启用服务',
+  'settings.behaviorGroup': '常规设置',
+
   'settings.versionOnly': 'Polaris · MIT 许可',
   'settings.fonts': '字体',
   'settings.icons': '图标',

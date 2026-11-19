@@ -4517,6 +4517,7 @@ textarea {
    （surface-1 底 + line 描边），左列拉伸留下的余白被卡框收住，
    不再是裸奔的大洞。半径 12 介于面板 16 与按钮 8 之间，层级递减。 */
 .settings-section--behavior,
+.settings-section--backup,
 .settings-side .settings-section {
   padding: 9px 12px;
   border: 1px solid var(--line);
@@ -4526,6 +4527,7 @@ textarea {
 
 /* 卡内描述不再锁 290px：半宽列里让句子吃满卡宽，少折一行是一行。 */
 .settings-section--behavior .settings-row-desc,
+.settings-section--backup .settings-row-desc,
 .settings-side .settings-row-desc {
   max-width: none;
 }
@@ -4538,7 +4540,9 @@ textarea {
   gap: 16px;
 }
 
-/* 右列「数据进出」：MCP + 备份包成一个 grid 单元，内部组间 16。 */
+/* 右列「服务与常规」：MCP + 常规设置包成一个 grid 单元，内部组间 12。
+   两组内容固定（开关/令牌块条件行除外），钉死两列档行高；会变高的
+   备份卡独住左列，展开被卡框吸收（见媒体块 contain:size 契约）。 */
 .settings-side {
   display: flex;
   flex-direction: column;
@@ -4921,8 +4925,9 @@ textarea {
 
 .backup-actions {
   display: flex;
-  /* 中文四按钮一行放得下（紧凑档右列 343px 是硬预算：间距 6 + 内边距 11
-     让总宽约 332px）；英文标签更长，允许换行不溢出。 */
+  /* 单列档中文四按钮一行放得下（440 面板内宽约 366px）；英文更长允许
+     整钮换行。两列档改 2×2 网格（见媒体块）——半宽列里四连排会把
+     「导入 CSV / 打开数据目录」挤成钮内折行，网格 + nowrap 根除。 */
   flex-wrap: wrap;
   gap: 6px;
   margin-top: 8px;
@@ -4931,6 +4936,9 @@ textarea {
 .backup-btn {
   flex: 1;
   height: 32px;
+  /* 钮内永不折行：宽度不够时整钮换行（flex-wrap）或网格让位，
+     不出现「导入 / CSV」两行挤在 32px 钮里的破相。 */
+  white-space: nowrap;
   padding: 0 11px;
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -5174,16 +5182,24 @@ textarea {
 }
 
 /* 低窗口（≤860px）单列放不下全部设置：面板加宽、两列回流，内容全显不滚动，
-   不靠压字号换高度。主题网格三列两行横跨整幅；左列「应用行为」（三开关一组），
-   右列「数据进出」（MCP + 备份，settings-side 包裹）；页脚/状态/关于折叠横跨整幅。
-   命名 grid-area 定位，DOM 顺序 = 视觉顺序 = 焦点顺序，加节挪节不再打乱排布。
-   关于折叠不占常驻行（挂载才生隐式行）。分组卡片化后实测预算（CDP 探针）：
-   收起态含状态行 551px；640 窗口顶边距 40 + 底留 24 → 帽 576，加热键冲突
-   错误行 25 = 576 恰好一屏；576 实机档帽 528，内容 551 滚约 24px（旧版约 40，
-   面板自带 overflow，如实保留）。MCP 启用态 657px：843 窗口帽 677 不滚，
-   640/576 滚——令牌块本就是条件增高，滚动只发生在面板内部，顶边锚定不抖。
+   不靠压字号换高度。主题网格三列两行横跨整幅；左列「数据备份」（唯一会变高
+   的组），右列「服务与常规」（MCP + 常规设置，settings-side 包裹，内容固定）；
+   页脚/状态/关于折叠横跨整幅。命名 grid-area 定位，DOM 顺序 = 视觉顺序 =
+   焦点顺序，加节挪节不再打乱排布。关于折叠不占常驻行（挂载才生隐式行）。
+   零抖动契约：备份卡 contain:size（intrinsic 尺寸归零，不参与行高定价）+
+   align-self:stretch（吃满右列钉死的行高）+ 卡内 flex 链（body/list flex:1 +
+   min-height:0）→ 手风琴展开/状态行落字只填卡内余白，列表超高卡内滚动，
+   面板外几何/页脚/右列逐像素不动（settingsBackupNoShift 断言钉死）。
+   右列行高 = MCP 卡 + 常规卡 + 组间；叠卡天然比旧行高约 40px，靠三档
+   收紧收回：MCP 组名并入开关行标题（省一整标题行）、行距 12→10、
+   组间 12→8、卡内距 9→8。实测（SETTINGS_LAYOUT_METRICS /
+   SETTINGS_FIT_METRICS 日志）：收起态含状态行 551px，与换位前预算逐像素
+   同高；640 窗口顶边距 40 + 底留 24 → 帽 576，加热键冲突错误行 25 = 576
+   恰好一屏；576 实机档帽 528，内容 551 滚约 23px（面板自带 overflow，
+   如实保留）。MCP 启用态令牌块条件增高只发生在右列，滚动只发生在面板
+   内部，顶边锚定不抖。
    断点取 860 而非 830：默认 840 窗口也走两列，留足余量吞掉任何条件行；
-   单列只留给 >860 的高窗口（收起态实测 799px，900 窗口帽 806 放得下）。 */
+   单列只留给 >860 的高窗口（收起态实测 744px，900 窗口帽 806 放得下）。 */
 @media (max-height: 860px) {
   .settings-overlay {
     --settings-inset-top: max(24px, calc((100vh - 560px) / 2));
@@ -5195,13 +5211,15 @@ textarea {
     grid-template-areas:
       'header header'
       'theme theme'
-      'behavior side'
+      'backup side'
       'footer footer'
       'status status';
     /* 列距 24→16 补偿常驻滚动条槽的 10px：收起态列宽与无槽时代逐像素
        同宽，描述折行行为不变，高度预算不漂移。 */
     column-gap: 16px;
-    row-gap: 12px;
+    /* 换位后右列叠两卡，行距收一档（12→10）配合卡内距/组间收紧，
+       把行高预算压回换位前水平（实测见 SETTINGS_LAYOUT_METRICS）。 */
+    row-gap: 10px;
     align-items: start;
     width: min(760px, calc(100vw - 48px));
   }
@@ -5249,12 +5267,48 @@ textarea {
     order: 6;
   }
 
-  /* 左列卡片拉伸到与右列同高（balanced 断言钉死两列等高）：行组顶对齐、
-     行距固定 8，余白留在卡框内底部——框住的留白是呼吸，没框的留白是洞。
-     旧 space-between 把余白摊进行距，三开关间距忽大忽小，节奏已废。 */
-  .settings-section--behavior {
-    grid-area: behavior;
+  /* 左列备份卡：contain:size 让 intrinsic 尺寸归零、不参与行高定价
+     （行高由右列固定内容钉死）；stretch 吃满整行高。手风琴展开/状态行
+     落字只填卡内余白，body/list flex:1 + min-height:0 吸收高度，列表
+     超高卡内滚动——外几何/页脚/右列逐像素不动（settingsBackupNoShift）。
+     overflow-y:auto 是兜底（极长错误文案），滚动条槽常驻防横向抖动。 */
+  .settings-section--backup {
+    grid-area: backup;
     align-self: stretch;
+    display: flex;
+    flex-direction: column;
+    contain: size;
+    min-height: 0;
+    overflow-y: auto;
+    scrollbar-gutter: stable;
+  }
+
+  .settings-section--backup .auto-backup-body {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* 两列档列表吃满卡内余高（卡框即帽，不再需要 224 硬帽）；
+     单列档保留基础 224 滚动帽。 */
+  .settings-section--backup .auto-backup-list {
+    flex: 1;
+    min-height: 0;
+    max-height: none;
+  }
+
+  /* 半宽列四连排会挤成钮内折行；2×2 网格 + nowrap 每钮宽度充裕，
+     中英都单行（最长 Open data folder 约 121px < 列宽约 152px）。 */
+  .backup-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  /* 常规设置卡住右列：行组顶对齐、行距固定 8，余白留在卡框内底部——
+     框住的留白是呼吸，没框的留白是洞。旧 space-between 把余白摊进行距，
+     三开关间距忽大忽小，节奏已废。 */
+  .settings-side .settings-section--behavior {
     display: flex;
     flex-direction: column;
     gap: 8px;
@@ -5265,15 +5319,21 @@ textarea {
     margin-top: 0;
   }
 
-  /* 右列也拉伸：MCP 关闭态左卡内容比右列高时，余白由备份卡吸收
-     （flex:1 + 内容顶对齐），两列任何状态同高（balanced 断言）。 */
+  /* 右列拉伸吃满行高（行高本就由它定价，stretch 只是保险）；
+     两列任何状态同高（balanced 断言改钉备份卡 vs 右列）。
+     组间 12→8：叠卡后的一档收紧，预算回换位前水平。 */
   .settings-side {
     grid-area: side;
     align-self: stretch;
+    gap: 8px;
   }
 
-  .settings-side .settings-section--backup {
-    flex: 1;
+  /* 卡内距 9→8（上下各 1px × 右列两卡）：与行距/组间收紧合计吞掉
+     叠卡带来的行高增量，640 档帽 576 仍一屏（含热键冲突行余量）。 */
+  .settings-section--behavior,
+  .settings-section--backup,
+  .settings-side .settings-section {
+    padding: 8px 12px;
   }
 
   .settings-footer {
