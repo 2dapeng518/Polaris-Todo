@@ -170,6 +170,28 @@ export type CsvImportResult = {
   error?: string
 }
 
+/** 自动备份列表的一行：只有文件元数据，主进程不解析 JSON——
+ *  打开设置页时列备份必须是廉价操作，几十份文件也不读盘内容。 */
+export type AutoBackupItem = {
+  name: string
+  mtimeMs: number
+  sizeBytes: number
+}
+
+/** backups:list 的返回形状：失败时 items 缺席，错误原文进 error。 */
+export type AutoBackupListResult = {
+  ok: boolean
+  items?: AutoBackupItem[]
+  error?: string
+}
+
+/** backups:open-data-dir 的返回形状：openPath 失败时带系统错误原文；
+ *  harness 构建恒为 { opened: false }（编译期门控，绝不真开资源管理器）。 */
+export type OpenDataDirResult = {
+  opened: boolean
+  error?: string
+}
+
 export type AppView = 'today' | 'upcoming' | 'calendar' | 'all' | 'completed' | 'stats' | 'matrix' | 'trash'
 
 import type { AppTheme } from './themes'
@@ -269,6 +291,17 @@ export type PolarisApi = {
     export: () => Promise<ExportResult>
     import: () => Promise<ImportResult>
     importCsv: () => Promise<CsvImportResult>
+  }
+  backups: {
+    /** 列出 userData/backups 下的自动备份（新→旧），只读元数据不解析内容。 */
+    list: () => Promise<AutoBackupListResult>
+    /** 按文件名导入一份自动备份：与 data.import 完全同语义（按 ID 合并，
+     *  已存在的行跳过，绝不覆盖当前数据）。非法文件名在主进程直接拒绝。 */
+    import: (name: string) => Promise<ImportResult>
+    /** 把一份自动备份另存到用户选择的位置；取消时 saved 为 false。 */
+    saveAs: (name: string) => Promise<ExportResult>
+    /** 用系统文件管理器打开 userData 目录；harness 构建下恒为未打开。 */
+    openDataDir: () => Promise<OpenDataDirResult>
   }
   app: {
     getVersion: () => Promise<string>

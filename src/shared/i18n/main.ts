@@ -27,5 +27,6 @@ export const main = {
   'native.startupFailedDetail': '应用初始化时发生错误，即将退出：\n{error}',
   // 导入文件大小上限（readFile 前的 stat 检查）。
   'native.importTooLarge': '备份文件超过 {limit} MB 上限，已拒绝读取。',
+  'native.invalidBackupName': '非法的备份文件名，已拒绝。',
   'native.csvTooLarge': 'CSV 文件超过 {limit} MB 上限，已拒绝读取。'
 }

@@ -21,6 +21,7 @@ import {
 import { csvErrorMessage, parseCsvImport } from '../../shared/csvImport'
 import { dismissKeys, formatParsedDue, parseQuickAdd, pruneDismissed } from '../../shared/quickAddParse'
 import { isPurgeable } from '../../shared/retention'
+import { isAutoBackupFileName } from '../../shared/backupNames'
 import {
   buildCustomRecurrence,
   nextMonthlyClamped,
@@ -552,6 +553,39 @@ export function runRetentionAssertions(): boolean {
     if (got !== want) {
       ok = false
       console.error('RETENTION_CASE_FAIL', JSON.stringify({ deletedAt, now, got, want }))
+    }
+  }
+  return ok
+}
+
+// 自动备份文件名校验真值表：合法名只有一种形状（前缀 + 连字符化 ISO 时间戳 + .json）。
+// 路径穿越/分隔符/未替换的冒号点/首尾杂物一律拒绝——这是 backups:import/save-as
+// 的唯一入口门禁，期望全部字面量。与 scripts/verify-pure.mjs 逐字镜像。
+export function runBackupNameAssertions(): boolean {
+  const table: Array<[string, boolean]> = [
+    ['polaris-auto-2026-11-19T02-00-00-000Z.json', true],
+    ['polaris-auto-2026-01-01T00-00-00-000Z.json', true],
+    ['', false],
+    ['polaris-auto-.json', false],
+    ['polaris-auto-2026-11-19T02-00-00-000Z.json.tmp', false],
+    ['polaris-auto-2026-11-19T02-00-00-000Z.JSON', false],
+    ['polaris-backup-2026-11-19T02-00-00-000Z.json', false],
+    ['../polaris-auto-2026-11-19T02-00-00-000Z.json', false],
+    ['..\polaris-auto-2026-11-19T02-00-00-000Z.json', false],
+    ['sub/polaris-auto-2026-11-19T02-00-00-000Z.json', false],
+    ['polaris-auto-..2026-11-19T02-00-00-000Z.json', false],
+    // 冒号与点未替换成连字符的原始 ISO：不是盘上会出现的名字，拒。
+    ['polaris-auto-2026-11-19T02:00:00.000Z.json', false],
+    // 尾部换行：正则整体锚定，$ 不吃残留字符。
+    ['polaris-auto-2026-11-19T02-00-00-000Z.json\n', false],
+    ['{{SECRET_suhq3wqz}}', false]
+  ]
+  let ok = true
+  for (const [name, want] of table) {
+    const got = isAutoBackupFileName(name)
+    if (got !== want) {
+      ok = false
+      console.error('BACKUP_NAME_CASE_FAIL', JSON.stringify({ name, got, want }))
     }
   }
   return ok

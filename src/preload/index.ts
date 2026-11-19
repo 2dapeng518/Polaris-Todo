@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import type {
   AppTheme,
+  AutoBackupListResult,
   AutoStartState,
   CreateProjectInput,
   CreateSubtaskInput,
@@ -11,6 +12,7 @@ import type {
   GlobalHotkeyState,
   McpState,
   ImportResult,
+  OpenDataDirResult,
   PolarisApi,
   UpdateProjectInput,
   UpdateState,
@@ -53,6 +55,12 @@ const api: PolarisApi = {
     export: (): Promise<ExportResult> => ipcRenderer.invoke('data:export'),
     import: (): Promise<ImportResult> => ipcRenderer.invoke('data:import'),
     importCsv: (): Promise<CsvImportResult> => ipcRenderer.invoke('data:import-csv')
+  },
+  backups: {
+    list: (): Promise<AutoBackupListResult> => ipcRenderer.invoke('backups:list'),
+    import: (name: string): Promise<ImportResult> => ipcRenderer.invoke('backups:import', name),
+    saveAs: (name: string): Promise<ExportResult> => ipcRenderer.invoke('backups:save-as', name),
+    openDataDir: (): Promise<OpenDataDirResult> => ipcRenderer.invoke('backups:open-data-dir')
   },
   app: {
     getVersion: (): Promise<string> => ipcRenderer.invoke('app:get-version'),
