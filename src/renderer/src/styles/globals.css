@@ -5221,13 +5221,13 @@ textarea {
   flex: none;
 }
 
-/* 固定短掩码盒（头 4 尾 4）：宽度由 JS 镜像复制+重置按钮组实宽（inline style），
-   左右对称；max-width + flex-shrink + ellipsis 兜底极窄卡。
+/* 固定短掩码盒（头 4 尾 4）：flex:1 吃掉行内剩余宽度（整行两端对齐，
+   左贴卡左缘、按钮组贴右缘，中间无死白）；min-width:0 + ellipsis 兜底极窄卡。
    单行 nowrap；中段照藏，盒高恒一行不随状态跳。完整用法说明在 title 提示。 */
 .mcp-token-box {
-  max-width: 100%;
+  flex: 1;
   min-width: 0;
-  display: inline-block;
+  display: block;
   padding: 6px 8px;
   border: 1px solid var(--line);
   border-radius: 8px;

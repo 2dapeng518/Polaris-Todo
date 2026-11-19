@@ -4124,7 +4124,7 @@ export async function runSmokeTest(): Promise<void> {
           document.querySelector('.settings-panel .detail-close')?.click();
           await sleep(250);
           // 固定短掩码（用户拍板 15:33）：sk- 前缀 + 头 4 hex + … + 尾 4 hex，
-          // 中段照藏；盒贴内容收窄（≤ 行宽 60%）单行，与操作按钮同行右对齐。
+          // 中段照藏；盒 flex:1 吃剩余宽单行，整行两端对齐（16:17 撤镜像等宽）。
           const m = boxText.match(/^sk-[0-9a-f]{4}…[0-9a-f]{4}$/)
           const middleHidden = Boolean(m) &&
             !boxText.includes(fullToken.slice(7, fullToken.length - 4))
@@ -4138,11 +4138,12 @@ export async function runSmokeTest(): Promise<void> {
             middleHidden,
             maskNotFull: boxText !== fullToken,
             singleLine: tokenBox.scrollHeight <= tokenBox.clientHeight + 1 && boxRect.height <= 32,
-            hugBox: boxRect.width <= rowRect.width * 0.6,
-            // 镜像契约：掩码盒宽 == 复制+重置按钮组宽（±1px）。
-            mirrorBox: Boolean(actRect) && Math.abs(boxRect.width - actRect.width) <= 1,
-            sameRow: Boolean(actRect) && Math.abs(actRect.top - boxRect.top) <= 2 &&
-              Math.abs(actRect.right - rowRect.right) <= 2,
+            // 两端对齐契约：盒左缘==行左缘、盒右缘+8 间距==按钮组左缘、
+            // 按钮组右缘==行右缘（flex:1 吃掉剩余宽，中间无死白）。
+            flushRow: Boolean(actRect) && Math.abs(boxRect.left - rowRect.left) <= 1 &&
+              Math.abs(boxRect.right + 8 - actRect.left) <= 2 &&
+              Math.abs(actRect.right - rowRect.right) <= 1,
+            sameRow: Boolean(actRect) && Math.abs(actRect.top - boxRect.top) <= 2,
             boxHeightStable: beforeBoxH === afterBoxH,
             slotOneLine: Boolean(slot) && slot.scrollHeight <= slot.clientHeight + 1,
             buttonsExact: rowButtons.length === 2 && rowButtons[0] === '复制' && rowButtons[1] === '重置',
@@ -4156,8 +4157,7 @@ export async function runSmokeTest(): Promise<void> {
           noShift?.middleHidden === true &&
           noShift?.maskNotFull === true &&
           noShift?.singleLine === true &&
-          noShift?.hugBox === true &&
-          noShift?.mirrorBox === true &&
+          noShift?.flushRow === true &&
           noShift?.sameRow === true &&
           noShift?.boxHeightStable === true &&
           noShift?.slotOneLine === true &&
