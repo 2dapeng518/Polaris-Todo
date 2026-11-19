@@ -89,8 +89,8 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
     running: false,
     endpoint: 'http://127.0.0.1:3737/mcp'
   })
-  // MCP 访问令牌：仅启用时展示；单行掩码头尾可见中段隐藏（sk-1234…c1d9），
-  // 明文永不上屏；复制/重新生成走主进程 IPC，渲染层不落任何持久化。
+  // MCP 访问令牌：仅启用时展示；明文全量上屏（本机凭证，用户拍板不掩码），
+  // 复制/重新生成走主进程 IPC，渲染层不落任何持久化。
   const [mcpToken, setMcpToken] = useState<string | null>(null)
   const [mcpTokenNotice, setMcpTokenNotice] = useState<{ text: string; error?: boolean } | null>(null)
   const [mcpRegenConfirm, setMcpRegenConfirm] = useState(false)
@@ -118,6 +118,22 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
     !!update &&
     (updateAsked ||
       ['checking', 'available', 'downloading', 'downloaded', 'up-to-date', 'error'].includes(update.status))
+
+  // 右列开关行描述：错误/不支持替换描述落同一行（单行 ellipsis + title 全文），
+  // 条件错误行零增高——右列行高完全确定，一屏守卫不靠余量赌文案长度。
+  const autoStartDesc = autoStart.error
+    ? t('settings.autoStartError', { error: autoStart.error })
+    : !autoStart.supported
+      ? t('settings.autoStartUnsupported')
+      : t('settings.autoStartDesc')
+  const autoStartDescAlert = Boolean(autoStart.error) || !autoStart.supported
+  const hotkeyDesc =
+    hotkey.enabled && hotkey.error
+      ? t('settings.hotkeyError', { error: hotkey.error })
+      : hotkey.enabled
+        ? t('settings.hotkeyOn', { accelerator: hotkey.accelerator })
+        : t('settings.hotkeyOff')
+  const hotkeyDescAlert = Boolean(hotkey.enabled && hotkey.error)
 
   // 更新弹窗可能叠在设置面板上（「查看更新」）：焦点陷阱让位，别互相抢。
   useFocusTrap(panelRef, open && !paletteOpen && !updateDialogOpen, panelRef)
@@ -533,24 +549,35 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
 
             <div className="settings-section settings-section--theme">
               <div className="settings-theme-head">
-                <div className="settings-row-title">{t('settings.theme')}</div>
+                <div className="settings-row-title" title={t('settings.themeDesc')}>
+                  {t('settings.theme')}
+                </div>
                 <span title={t('settings.languageDesc')}>
                   <LanguageSelect />
                 </span>
               </div>
-              <div className="settings-row-desc theme-section-desc">
-                {t('settings.themeDesc')}
-              </div>
-              <div className="theme-picker" role="group" aria-label={t('settings.theme')}>
+              {/* 色样横条：六枚 swatch 一排，与标题同行（header 左 / theme 右），
+                  名字+气质描述进 title 提示。旧 2×3 卡片网格吃 156~210px，
+                  是设置页超帽滚动的最大一块；横条零额外行，一屏守卫各档
+                  才吞得下 MCP 令牌块。 */}
+              <div
+                className="theme-picker"
+                role="group"
+                aria-label={t('settings.theme')}
+                title={t('settings.themeDesc')}
+              >
                 {THEME_ORDER.map((id) => {
                   const meta = THEME_META[id]
                   const selected = theme === id
+                  const label = themeLabel(locale, id)
                   return (
                     <button
                       key={id}
                       type="button"
                       data-theme-option={id}
                       aria-pressed={selected}
+                      aria-label={label}
+                      title={`${label} · ${themeDesc(locale, id)}`}
                       className={`theme-option ${selected ? 'selected' : ''}`}
                       onClick={() => setTheme(id)}
                     >
@@ -558,20 +585,9 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
                         <span className="theme-swatch-surface" style={{ background: meta.swatch[1] }} />
                         <span className="theme-swatch-dot" style={{ background: meta.swatch[2] }} />
                       </span>
-                      <span className="theme-option-text">
-                        <span className="theme-option-label">
-                          {themeLabel(locale, id)}
-                          <span className="theme-family-tag">
-                            {meta.family === 'dark'
-                              ? t('themes.darkFamily')
-                              : t('themes.lightFamily')}
-                          </span>
-                        </span>
-                        <span className="theme-option-desc">{themeDesc(locale, id)}</span>
-                      </span>
                       {selected && (
                         <span className="theme-option-check" aria-hidden="true">
-                          <Check size={15} strokeWidth={2} />
+                          <Check size={9} strokeWidth={2.6} />
                         </span>
                       )}
                     </button>
@@ -588,7 +604,12 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
               {/* 折叠开关进标题行右侧：收起态零增高，一屏守卫的高度预算不动。 */}
               <div className="settings-group-label settings-group-label--split">
                 <span>{t('settings.backup')}</span>
-                <button className="auto-backup-toggle" aria-expanded={autoBackupOpen} onClick={() => void toggleAutoBackup()}>
+                <button
+                  className="auto-backup-toggle"
+                  aria-expanded={autoBackupOpen}
+                  title={t('settings.autoBackupDesc')}
+                  onClick={() => void toggleAutoBackup()}
+                >
                   <span>
                     {t('settings.autoBackup')}
                     {autoBackups !== null && ` · ${t('settings.autoBackupCount', { count: autoBackups.length })}`}
@@ -601,7 +622,7 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
                   />
                 </button>
               </div>
-              <div className="settings-row-desc">
+              <div className="settings-row-desc" title={t('settings.backupDesc')}>
                 {t('settings.backupDesc')}
               </div>
               <div className="backup-actions">
@@ -630,7 +651,9 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
                 <div className="settings-error" role="alert">{backupError}</div>
               )}
               {/* 自动备份手风琴：开关在标题行，这里收起时什么都不渲染。
-                  导入是合并非回滚，说明文字写死在列表上方。 */}
+                  24h/21 份/合并语义的说明进开关 title 提示——展开态卡内
+                  余高要留给列表首行（576 档卡高 207px，说明占行会把首行
+                  挤出卡外，settingsBackupNoShift 的首行免滚断言钉死）。 */}
               <AnimatePresence initial={false}>
                 {autoBackupOpen && (
                   <motion.div
@@ -640,7 +663,6 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
                     exit={{ opacity: 0, y: 6 }}
                     transition={{ duration: 0.14, ease: 'easeOut' }}
                   >
-                    <div className="settings-row-desc">{t('settings.autoBackupDesc')}</div>
                     {autoBackupError && (
                       <div className="settings-error" role="alert">{autoBackupError}</div>
                     )}
@@ -683,11 +705,27 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
               {/* 组名即开关行标题：省掉冗余标题行（「本地 MCP 服务」+「启用服务」
                   两行说一件事）。换位后右列 MCP+常规叠卡，这一行把行高预算
                   压回换位前水平，一屏守卫各档不 regress。 */}
+              {/* 错误替换描述落同一行（单行 ellipsis + title 全文）：条件错误行
+                  零增高，右列行高完全确定，一屏守卫不靠余量赌文案长度。 */}
               <div className="settings-row">
                 <div>
                   <div className="settings-row-title">{t('settings.mcp')}</div>
-                  <div className="settings-row-desc">
-                    {mcp.enabled ? mcp.endpoint : t('settings.mcpOff')}
+                  <div
+                    className={`settings-row-desc ${mcp.enabled && mcp.error ? 'is-error' : ''}`}
+                    role={mcp.enabled && mcp.error ? 'alert' : undefined}
+                    title={
+                      mcp.enabled && mcp.error
+                        ? t('settings.mcpError', { error: mcp.error })
+                        : mcp.enabled
+                          ? mcp.endpoint
+                          : t('settings.mcpOff')
+                    }
+                  >
+                    {mcp.enabled && mcp.error
+                      ? t('settings.mcpError', { error: mcp.error })
+                      : mcp.enabled
+                        ? mcp.endpoint
+                        : t('settings.mcpOff')}
                   </div>
                 </div>
                 <button
@@ -700,20 +738,19 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
                   <span className="switch-thumb" />
                 </button>
               </div>
-              {mcp.enabled && mcp.error && (
-                <div className="settings-error" role="alert">
-                  {t('settings.mcpError', { error: mcp.error })}
-                </div>
-              )}
-              {/* 令牌独占整行：掩码盒吃满卡宽（凭证字段的主角待遇），复制/重新生成
-                  退第二行右对齐。仅启用时渲染，默认零增高。掩码头 7 + … + 末 4，
-                  中段隐藏；nowrap + ellipsis 兜底极窄窗口，高度恒定一行。
-                  明文永不渲染，只能整串复制。 */}
+              {/* 令牌独占整行：明文全量上屏（用户拍板不再掩码），67 字符在半宽
+                  卡里 break-all 折两行、整宽时一行，盒宽吃满卡宽。复制/重新生成
+                  退第二行右对齐。仅启用时渲染，默认零增高。
+                  用法说明住进常驻反馈槽（无提示时显示说明，提示来了替换 2.6s），
+                  说明与提示都是一行，槽高恒定——省掉独立说明行的 16~33px。 */}
               {mcp.enabled && mcpToken && (
                 <div className="mcp-token">
-                  <div className="settings-row-desc">{t('settings.mcpTokenDesc')}</div>
-                  <code className="mcp-token-box" aria-label={t('settings.mcpToken')}>
-                    {`${mcpToken.slice(0, 7)}…${mcpToken.slice(-4)}`}
+                  <code
+                    className="mcp-token-box"
+                    aria-label={t('settings.mcpToken')}
+                    title={t('settings.mcpTokenDescFull')}
+                  >
+                    {mcpToken}
                   </code>
                   <div className="mcp-token-actions">
                     <button className="backup-btn" onClick={() => void copyMcpToken()}>
@@ -727,14 +764,14 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
                       {t('settings.mcpTokenRegenerate')}
                     </button>
                   </div>
-                  {/* 反馈行常驻占位：复制/重新生成的 2.6s 提示落进槽里再消失，
-                      不来回撑面板高度。 */}
+                  {/* 反馈行常驻占位：默认落用法说明，复制/重新生成的 2.6s 提示
+                      替换进槽再还原，不来回撑面板高度。 */}
                   <div
-                    className={mcpTokenNotice?.error ? 'settings-error' : 'settings-hint'}
+                    className={`mcp-token-slot ${mcpTokenNotice?.error ? 'settings-error' : 'settings-hint'}`}
                     role={mcpTokenNotice?.error ? 'alert' : 'status'}
-                    style={{ minHeight: '1.5em' }}
+                    title={mcpTokenNotice?.text ?? t('settings.mcpTokenDesc')}
                   >
-                    {mcpTokenNotice?.text ?? ''}
+                    {mcpTokenNotice?.text ?? t('settings.mcpTokenDesc')}
                   </div>
                 </div>
               )}
@@ -747,8 +784,12 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
               <div className="settings-row">
                 <div>
                   <div className="settings-row-title">{t('settings.autoStart')}</div>
-                  <div className="settings-row-desc">
-                    {t('settings.autoStartDesc')}
+                  <div
+                    className={`settings-row-desc ${autoStartDescAlert ? 'is-error' : ''}`}
+                    role={autoStartDescAlert ? 'alert' : undefined}
+                    title={autoStartDesc}
+                  >
+                    {autoStartDesc}
                   </div>
                 </div>
                 <button
@@ -762,16 +803,6 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
                   <span className="switch-thumb" />
                 </button>
               </div>
-              {autoStart.error && (
-                <div className="settings-error" role="alert">
-                  {t('settings.autoStartError', { error: autoStart.error })}
-                </div>
-              )}
-              {!autoStart.supported && (
-                <div className="settings-hint">
-                  {t('settings.autoStartUnsupported')}
-                </div>
-              )}
               <div className="settings-row">
                 <div>
                   <div className="settings-row-title">{t('settings.tray')}</div>
@@ -792,10 +823,12 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
               <div className="settings-row">
                 <div>
                   <div className="settings-row-title">{t('settings.hotkey')}</div>
-                  <div className="settings-row-desc">
-                    {hotkey.enabled
-                      ? t('settings.hotkeyOn', { accelerator: hotkey.accelerator })
-                      : t('settings.hotkeyOff')}
+                  <div
+                    className={`settings-row-desc ${hotkeyDescAlert ? 'is-error' : ''}`}
+                    role={hotkeyDescAlert ? 'alert' : undefined}
+                    title={hotkeyDesc}
+                  >
+                    {hotkeyDesc}
                   </div>
                 </div>
                 <button
@@ -808,11 +841,6 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
                   <span className="switch-thumb" />
                 </button>
               </div>
-              {hotkey.enabled && hotkey.error && (
-                <div className="settings-error" role="alert">
-                  {t('settings.hotkeyError', { error: hotkey.error })}
-                </div>
-              )}
             </div>
             </div>
 
@@ -892,6 +920,7 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
             <div
               className={`settings-hint update-footer-status${updateErrorDetail ? ' is-error' : ''}`}
               role={updateErrorDetail ? 'alert' : 'status'}
+              title={updateErrorDetail ?? (updateStatusVisible && update ? updateStatusText(update, t) : '')}
             >
               {updateErrorDetail ?? (updateStatusVisible && update ? updateStatusText(update, t) : '')}
             </div>

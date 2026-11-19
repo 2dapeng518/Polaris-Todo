@@ -4428,11 +4428,11 @@ textarea {
 /* ---------- settings ---------- */
 
 /* 顶边锚定：浮层不再按内容真实高度垂直居中（内容一长高就重新居中 = 抖动），
-   而是按「名义高度」算出固定顶边距——单列名义 760、紧凑两列名义 560（媒体块覆写）。
-   展开关于/启用 MCP 只向下生长，顶边与页脚纹丝不动；名义值略大于收起态实际高度，
-   收起时面板落在光学中心偏上一点，比数学居中更稳。 */
+   而是按「名义高度 560」算出固定顶边距。展开关于/启用 MCP 只向下生长，
+   顶边与页脚纹丝不动；名义值略大于实际高度，面板落在光学中心偏上一点，
+   比数学居中更稳。 */
 .settings-overlay {
-  --settings-inset-top: max(24px, calc((100vh - 760px) / 2));
+  --settings-inset-top: max(24px, calc((100vh - 560px) / 2));
   position: fixed;
   z-index: 70;
   inset: 0;
@@ -4444,15 +4444,32 @@ textarea {
   backdrop-filter: blur(7px);
 }
 
+/* 统一两列布局（所有窗口高度）：旧单列变体在 >860 高窗口把内容叠到
+   881px（MCP 启用态），900 窗口帽 806 必滚；且跨 860 断点整片回流 = 抖动。
+   现一套命名 grid-area 布局通吃：header 左半 / 主题色样横条右半 /
+   备份左列 / 服务与常规右列 / 页脚与状态横跨。DOM 顺序 = 视觉顺序 = 焦点顺序。 */
 .settings-panel {
-  width: min(440px, calc(100vw - 48px));
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-areas:
+    'header theme'
+    'backup side'
+    'footer footer'
+    'status status';
+  /* 列距 16 补偿常驻滚动条槽的 10px：列宽与无槽时代逐像素同宽，
+     描述折行行为不变，高度预算不漂移。 */
+  column-gap: 16px;
+  row-gap: 8px;
+  align-items: start;
+  width: min(760px, calc(100vw - 48px));
   max-height: calc(100vh - var(--settings-inset-top) - 24px);
   overflow-y: auto;
   /* 滚动条槽常驻：展开关于超帽时滚动条才出现，会瞬间挤窄内容 10px →
      主题卡收缩、描述折行、整片重排 = 横向抖动。预留槽后出不出现滚动条
      内容宽度都不变（与侧栏/主区同一套 scrollbar-gutter 词汇）。 */
   scrollbar-gutter: stable;
-  padding: 12px 24px;
+  padding: 10px 24px;
   border: 1px solid var(--line-strong);
   border-radius: 16px;
   background: var(--command-bg);
@@ -4462,10 +4479,19 @@ textarea {
 }
 
 .settings-header {
+  grid-area: header;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
+}
+
+/* 关闭钮钉面板右上角：主题横条住在 header 同行右半，关闭钮若留在
+   header flex 里会被挤到面板中线。绝对定位不占布局高度。 */
+.settings-header .detail-close {
+  position: absolute;
+  top: 10px;
+  right: 24px;
 }
 
 .settings-eyebrow {
@@ -4489,7 +4515,7 @@ textarea {
    紧凑档定位走命名 grid-area，不再依赖 nth-child——加节挪节不再静默错乱。 */
 .settings-section {
   min-width: 0;
-  margin-top: 16px;
+  margin-top: 0;
 }
 
 .settings-group-label {
@@ -4504,13 +4530,31 @@ textarea {
   margin-bottom: 0;
 }
 
+.settings-section--behavior {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
 .settings-section--behavior .settings-row {
-  margin-top: 8px;
+  margin-top: 0;
 }
 
 /* side 内部组间靠 gap，section 自身的单列 margin 不叠加。 */
 .settings-side .settings-section {
   margin-top: 0;
+}
+
+/* 右列行描述单行 ellipsis：错误/不支持文案替换描述落同一行（全文进 title），
+   条件行零增高——中英各档高度完全确定，一屏守卫不靠余量赌文案长度。 */
+.settings-side .settings-row-desc {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.settings-row-desc.is-error {
+  color: var(--danger);
 }
 
 /* 分组卡片：行为 / MCP / 备份三组各自成卡，材质与主题选项卡同源
@@ -4519,7 +4563,7 @@ textarea {
 .settings-section--behavior,
 .settings-section--backup,
 .settings-side .settings-section {
-  padding: 9px 12px;
+  padding: 7px 12px;
   border: 1px solid var(--line);
   border-radius: 12px;
   background: var(--surface-1);
@@ -4533,7 +4577,26 @@ textarea {
 }
 
 /* 语言下拉上移到主题标题行右侧，省一整行高度。 */
+/* 主题节 = 标题同行右半的色样横条 + 语言下拉：只留色样（名字/气质进
+   title），20px 六枚 + 4px 隙 = 140px，加语言 92 + 隙 8 + 关闭钮让位 34
+   = 274px ≤ 最窄两列半幅 279px（635px 面板档）。 */
+.settings-section--theme {
+  grid-area: theme;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  min-width: 0;
+  padding-right: 34px;
+}
+
+.settings-section--theme .settings-row-title {
+  display: none;
+}
+
 .settings-theme-head {
+  order: 2;
+  flex: none;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -4543,12 +4606,16 @@ textarea {
 /* 右列「服务与常规」：MCP + 常规设置包成一个 grid 单元，内部组间 12。
    两组内容固定（开关/令牌块条件行除外），钉死两列档行高；会变高的
    备份卡独住左列，展开被卡框吸收（见媒体块 contain:size 契约）。 */
+/* 右列拉伸吃满行高（行高本就由它定价，stretch 只是保险）；
+   两列任何状态同高（balanced 断言钉备份卡 vs 右列）。 */
 .settings-side {
+  grid-area: side;
+  align-self: stretch;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 4px;
   min-width: 0;
-  margin-top: 16px;
+  margin-top: 0;
 }
 
 .settings-row {
@@ -4572,10 +4639,8 @@ textarea {
   text-wrap: pretty;
 }
 
-.theme-section-desc {
-  max-width: none;
-  margin-bottom: 5px;
-}
+/* 主题节描述不再单独占行：整句进「颜色主题」标题的 title 提示，
+   每枚色样的名字+气质进各自 title——低窗口省 21px，信息不丢。 */
 
 /* 语言下拉沿用文本字段的柔和聚焦（淡边 + 浅光晕）。 */
 
@@ -4591,7 +4656,7 @@ textarea {
   align-items: center;
   justify-content: space-between;
   gap: 6px;
-  min-width: 118px;
+  min-width: 92px;
   padding: 5px 8px;
   border: 1px solid var(--line-strong);
   border-radius: 8px;
@@ -4673,22 +4738,25 @@ textarea {
   box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.07);
 }
 
+/* 色样横条：六枚一排（旧 2×3 卡片网格低窗口吃 156px / 单列 210px，
+   是设置页超帽滚动的最大一块）。高窗口竖排带名字，低窗口只留色样
+   并与标题同行（见媒体块）；名字+气质描述统一进 title 提示。 */
 .theme-picker {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 5px;
+  order: 1;
+  display: flex;
+  gap: 4px;
 }
 
 .theme-option {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 7px;
+  padding: 2px;
   border: 1px solid var(--line);
   border-radius: 10px;
   background: var(--surface-1);
   color: var(--text);
-  text-align: left;
+  text-align: center;
   cursor: default;
   transition:
     border-color 0.16s,
@@ -4716,69 +4784,42 @@ textarea {
 .theme-swatch {
   position: relative;
   flex: none;
-  width: 30px;
-  height: 30px;
+  width: 20px;
+  height: 20px;
   border: 1px solid var(--line-strong);
-  border-radius: 8px;
+  border-radius: 6px;
   overflow: hidden;
 }
 
 .theme-swatch-surface {
   position: absolute;
-  left: 4px;
-  right: 4px;
-  bottom: 4px;
-  height: 12px;
-  border-radius: 4px;
+  left: 3px;
+  right: 3px;
+  bottom: 3px;
+  height: 7px;
+  border-radius: 3px;
 }
 
 .theme-swatch-dot {
   position: absolute;
-  top: 5px;
-  right: 5px;
-  width: 7px;
-  height: 7px;
+  top: 4px;
+  right: 4px;
+  width: 5px;
+  height: 5px;
   border-radius: 50%;
 }
 
-.theme-option-text {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-
-.theme-option-label {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.theme-family-tag {
-  padding: 1px 5px;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  color: var(--text-tertiary);
-  font-size: 9px;
-  font-weight: 400;
-  letter-spacing: 0.04em;
-}
-
-.theme-option-desc {
-  color: var(--text-tertiary);
-  font-size: 10px;
-  line-height: 1.4;
-}
-
-.theme-option-check {
+/* 对勾压色样右上角当徽章：横条没有横排余位放独立对勾列。
+   色样水平居中，故对勾以中线锚定，允许 2px 出血。 */
+.theme-option > .theme-option-check {
+  position: absolute;
+  top: 3px;
+  left: 50%;
+  margin-left: 0;
   display: grid;
   place-items: center;
-  flex: none;
-  width: 18px;
-  height: 18px;
-  margin-left: auto;
+  width: 12px;
+  height: 12px;
   border-radius: 50%;
   background: var(--accent);
   color: var(--on-accent);
@@ -4879,8 +4920,15 @@ textarea {
 }
 
 .theme-menu-item .theme-option-check {
+  display: grid;
+  place-items: center;
+  flex: none;
   width: 16px;
   height: 16px;
+  margin-left: auto;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--on-accent);
 }
 
 .theme-menu-label {
@@ -4923,12 +4971,12 @@ textarea {
   font-size: 11px;
 }
 
+/* 2×2 网格 + nowrap：半宽列里四连排会把「导入 CSV / 打开数据目录」
+   挤成钮内折行；网格每钮宽度充裕，中英都单行（最长 Open data folder
+   约 121px < 最窄档钮宽约 123px）。 */
 .backup-actions {
-  display: flex;
-  /* 单列档中文四按钮一行放得下（440 面板内宽约 366px）；英文更长允许
-     整钮换行。两列档改 2×2 网格（见媒体块）——半宽列里四连排会把
-     「导入 CSV / 打开数据目录」挤成钮内折行，网格 + nowrap 根除。 */
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 6px;
   margin-top: 8px;
 }
@@ -5006,6 +5054,10 @@ textarea {
 }
 
 .auto-backup-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
   margin-top: 8px;
   padding-top: 8px;
   border-top: 1px dashed var(--line);
@@ -5018,7 +5070,8 @@ textarea {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  max-height: 224px;
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
   scrollbar-gutter: stable;
 }
@@ -5065,8 +5118,9 @@ textarea {
   color: var(--danger);
 }
 
-/* 令牌独占整行：掩码盒吃满卡宽，操作退第二行右对齐；明文永不渲染。
-   块内距 6（组内紧）：843 档 MCP 启用态 675px 恰好不滚（帽 676）。 */
+/* 令牌独占整行：明文全量上屏（用户拍板不掩码），盒吃满卡宽；
+   67 字符半宽卡折两行、整宽一行，操作退第二行右对齐。
+   用法说明住常驻反馈槽（单行），不再独立占行。 */
 .mcp-token {
   margin-top: 6px;
 }
@@ -5083,11 +5137,12 @@ textarea {
   flex: none;
 }
 
+/* 全量令牌：hex 串无空格，break-all 才折得动；折行后盒高两行恒定
+   （同宽同字数），不随状态跳。完整用法说明在 title 提示。 */
 .mcp-token-box {
   width: 100%;
   min-width: 0;
   display: block;
-  margin-top: 6px;
   padding: 6px 8px;
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -5095,8 +5150,16 @@ textarea {
   color: var(--text-secondary);
   font-family: var(--font-mono);
   font-size: 11px;
-  lineHeight: 1.5;
-  whiteSpace: nowrap;
+  line-height: 1.5;
+  white-space: normal;
+  word-break: break-all;
+}
+
+/* 常驻反馈槽：默认落单行用法说明，提示来了替换 2.6s 再还原。
+   nowrap + ellipsis 钉死单行（长错误全文进 title），槽高恒定 = 零抖动。 */
+.mcp-token-slot {
+  min-height: 1.5em;
+  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
@@ -5167,8 +5230,9 @@ textarea {
 }
 
 .settings-footer {
+  grid-area: footer;
   position: relative;
-  padding-top: 10px;
+  padding-top: 8px;
   border-top: 1px solid var(--line);
   color: var(--text-tertiary);
   font-size: 11px;
@@ -5181,171 +5245,48 @@ textarea {
   letter-spacing: normal;
 }
 
-/* 低窗口（≤860px）单列放不下全部设置：面板加宽、两列回流，内容全显不滚动，
-   不靠压字号换高度。主题网格三列两行横跨整幅；左列「数据备份」（唯一会变高
-   的组），右列「服务与常规」（MCP + 常规设置，settings-side 包裹，内容固定）；
-   页脚/状态/关于折叠横跨整幅。命名 grid-area 定位，DOM 顺序 = 视觉顺序 =
-   焦点顺序，加节挪节不再打乱排布。关于折叠不占常驻行（挂载才生隐式行）。
-   零抖动契约：备份卡 contain:size（intrinsic 尺寸归零，不参与行高定价）+
-   align-self:stretch（吃满右列钉死的行高）+ 卡内 flex 链（body/list flex:1 +
-   min-height:0）→ 手风琴展开/状态行落字只填卡内余白，列表超高卡内滚动，
-   面板外几何/页脚/右列逐像素不动（settingsBackupNoShift 断言钉死）。
-   右列行高 = MCP 卡 + 常规卡 + 组间；叠卡天然比旧行高约 40px，靠三档
-   收紧收回：MCP 组名并入开关行标题（省一整标题行）、行距 12→10、
-   组间 12→8、卡内距 9→8。实测（SETTINGS_LAYOUT_METRICS /
-   SETTINGS_FIT_METRICS 日志）：收起态含状态行 551px，与换位前预算逐像素
-   同高；640 窗口顶边距 40 + 底留 24 → 帽 576，加热键冲突错误行 25 = 576
-   恰好一屏；576 实机档帽 528，内容 551 滚约 23px（面板自带 overflow，
-   如实保留）。MCP 启用态令牌块条件增高只发生在右列，滚动只发生在面板
-   内部，顶边锚定不抖。
-   断点取 860 而非 830：默认 840 窗口也走两列，留足余量吞掉任何条件行；
-   单列只留给 >860 的高窗口（收起态实测 744px，900 窗口帽 806 放得下）。 */
-@media (max-height: 860px) {
-  .settings-overlay {
-    --settings-inset-top: max(24px, calc((100vh - 560px) / 2));
-  }
+/* 左列备份卡：contain:size 让 intrinsic 尺寸归零、不参与行高定价
+   （行高由右列固定内容钉死）；stretch 吃满整行高。手风琴展开/状态行
+   落字只填卡内余白，body/list flex:1 + min-height:0 吸收高度，列表
+   超高卡内滚动——外几何/页脚/右列逐像素不动（settingsBackupNoShift）。
+   overflow-y:auto 是兜底（极长错误文案），滚动条槽常驻防横向抖动。 */
+.settings-section--backup {
+  grid-area: backup;
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  contain: size;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+}
 
-  .settings-panel {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    grid-template-areas:
-      'header header'
-      'theme theme'
-      'backup side'
-      'footer footer'
-      'status status';
-    /* 列距 24→16 补偿常驻滚动条槽的 10px：收起态列宽与无槽时代逐像素
-       同宽，描述折行行为不变，高度预算不漂移。 */
-    column-gap: 16px;
-    /* 换位后右列叠两卡，行距收一档（12→10）配合卡内距/组间收紧，
-       把行高预算压回换位前水平（实测见 SETTINGS_LAYOUT_METRICS）。 */
-    row-gap: 10px;
-    align-items: start;
-    width: min(760px, calc(100vw - 48px));
-  }
+/* 组描述最多两行（英文三行会挤掉展开态列表首行的免滚余高），
+   全文进 title 提示；中文本就两行，视觉不变。 */
+.settings-section--backup > .settings-row-desc {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
 
-  .settings-header {
-    grid-area: header;
-  }
+.settings-section--backup .auto-backup-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
 
-  .settings-section,
-  .settings-side {
-    margin-top: 0;
-  }
+/* 列表吃满卡内余高（卡框即帽，不需要硬帽）。 */
+.settings-section--backup .auto-backup-list {
+  flex: 1;
+  min-height: 0;
+  max-height: none;
+}
 
-  .settings-section--theme {
-    grid-area: theme;
-  }
-
-  .settings-section--theme .theme-picker {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
-  /* 三列时上排三深、下排三浅，列列成对（夜阑/昼白、暮蓝/天蓝、松墨/暖砂）；
-     两列默认序已逐对成行，无需重排。 */
-  .settings-section--theme .theme-option:nth-child(1) {
-    order: 1;
-  }
-
-  .settings-section--theme .theme-option:nth-child(2) {
-    order: 4;
-  }
-
-  .settings-section--theme .theme-option:nth-child(3) {
-    order: 2;
-  }
-
-  .settings-section--theme .theme-option:nth-child(4) {
-    order: 5;
-  }
-
-  .settings-section--theme .theme-option:nth-child(5) {
-    order: 3;
-  }
-
-  .settings-section--theme .theme-option:nth-child(6) {
-    order: 6;
-  }
-
-  /* 左列备份卡：contain:size 让 intrinsic 尺寸归零、不参与行高定价
-     （行高由右列固定内容钉死）；stretch 吃满整行高。手风琴展开/状态行
-     落字只填卡内余白，body/list flex:1 + min-height:0 吸收高度，列表
-     超高卡内滚动——外几何/页脚/右列逐像素不动（settingsBackupNoShift）。
-     overflow-y:auto 是兜底（极长错误文案），滚动条槽常驻防横向抖动。 */
-  .settings-section--backup {
-    grid-area: backup;
-    align-self: stretch;
-    display: flex;
-    flex-direction: column;
-    contain: size;
-    min-height: 0;
-    overflow-y: auto;
-    scrollbar-gutter: stable;
-  }
-
-  .settings-section--backup .auto-backup-body {
-    flex: 1;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-  }
-
-  /* 两列档列表吃满卡内余高（卡框即帽，不再需要 224 硬帽）；
-     单列档保留基础 224 滚动帽。 */
-  .settings-section--backup .auto-backup-list {
-    flex: 1;
-    min-height: 0;
-    max-height: none;
-  }
-
-  /* 半宽列四连排会挤成钮内折行；2×2 网格 + nowrap 每钮宽度充裕，
-     中英都单行（最长 Open data folder 约 121px < 列宽约 152px）。 */
-  .backup-actions {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  /* 常规设置卡住右列：行组顶对齐、行距固定 8，余白留在卡框内底部——
-     框住的留白是呼吸，没框的留白是洞。旧 space-between 把余白摊进行距，
-     三开关间距忽大忽小，节奏已废。 */
-  .settings-side .settings-section--behavior {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    justify-content: flex-start;
-  }
-
-  .settings-section--behavior .settings-row {
-    margin-top: 0;
-  }
-
-  /* 右列拉伸吃满行高（行高本就由它定价，stretch 只是保险）；
-     两列任何状态同高（balanced 断言改钉备份卡 vs 右列）。
-     组间 12→8：叠卡后的一档收紧，预算回换位前水平。 */
-  .settings-side {
-    grid-area: side;
-    align-self: stretch;
-    gap: 8px;
-  }
-
-  /* 卡内距 9→8（上下各 1px × 右列两卡）：与行距/组间收紧合计吞掉
-     叠卡带来的行高增量，640 档帽 576 仍一屏（含热键冲突行余量）。 */
-  .settings-section--behavior,
-  .settings-section--backup,
-  .settings-side .settings-section {
-    padding: 8px 12px;
-  }
-
-  .settings-footer {
-    grid-area: footer;
-  }
-
-  /* 基础 .update-footer-status 规则在本媒体块之后，提一级特异性压住它的 margin。 */
-  .settings-panel > .update-footer-status {
-    grid-area: status;
-    margin-top: 0;
-  }
-
+.settings-panel > .update-footer-status {
+  grid-area: status;
+  margin-top: 0;
 }
 
 .switch {
@@ -5695,10 +5636,14 @@ textarea {
 }
 
 /* 常驻占位槽：空槽也占一行高，检查结果落槽不撑面板（防重新居中抖动）。
-   错误细节复用同槽，is-error 只换色不加行。 */
+   错误细节复用同槽，is-error 只换色不加行；单行 ellipsis 钉死槽高
+   （长错误全文进 title），任何状态文案都不改面板高度。 */
 .update-footer-status {
   margin-top: 6px;
   min-height: 1.5em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .update-footer-status.is-error {
