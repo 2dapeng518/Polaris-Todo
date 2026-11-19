@@ -4458,19 +4458,19 @@ textarea {
     'backup side'
     'footer footer'
     'status status';
-  /* 列距 16 补偿常驻滚动条槽的 10px：列宽与无槽时代逐像素同宽，
-     描述折行行为不变，高度预算不漂移。 */
+  /* 列距 16：最窄 635 面板档半幅 279.5px，主题横条 140 + 隙 8 + 语言 92
+     + 隙 8 + 关闭钮 28 = 276px 吞得下（关闭钮并入横条后不再额外让位）。 */
   column-gap: 16px;
   row-gap: 8px;
   align-items: start;
   width: min(760px, calc(100vw - 48px));
   max-height: calc(100vh - var(--settings-inset-top) - 24px);
   overflow-y: auto;
-  /* 滚动条槽常驻：展开关于超帽时滚动条才出现，会瞬间挤窄内容 10px →
-     主题卡收缩、描述折行、整片重排 = 横向抖动。预留槽后出不出现滚动条
-     内容宽度都不变（与侧栏/主区同一套 scrollbar-gutter 词汇）。 */
-  scrollbar-gutter: stable;
-  padding: 10px 24px;
+  /* 滚动条槽常驻且左右对称（both-edges）：超帽出滚动条不挤窄内容 = 零横向
+     抖动；单侧 stable 曾让右留白比左多一个槽宽（用户报障左右不对称）。
+     水平 padding 20 + 槽 10 = 左右各 30，逐像素对称，槽宽漂移也不破对称。 */
+  scrollbar-gutter: stable both-edges;
+  padding: 10px 20px;
   border: 1px solid var(--line-strong);
   border-radius: 16px;
   background: var(--command-bg);
@@ -4487,12 +4487,11 @@ textarea {
   gap: 16px;
 }
 
-/* 关闭钮钉面板右上角：主题横条住在 header 同行右半，关闭钮若留在
-   header flex 里会被挤到面板中线。绝对定位不占布局高度。 */
-.settings-header .detail-close {
-  position: absolute;
-  top: 10px;
-  right: 24px;
+/* 关闭钮是主题横条的末项（order:3）：右缘与右列卡片右缘同基线，
+   不再绝对定位悬在「面板 padding / 滚动条槽 / 横条让位」三套基线之间。 */
+.settings-section--theme .detail-close {
+  order: 3;
+  flex: none;
 }
 
 .settings-eyebrow {
@@ -4578,9 +4577,9 @@ textarea {
 }
 
 /* 语言下拉上移到主题标题行右侧，省一整行高度。 */
-/* 主题节 = 标题同行右半的色样横条 + 语言下拉：只留色样（名字/气质进
-   title），20px 六枚 + 4px 隙 = 140px，加语言 92 + 隙 8 + 关闭钮让位 34
-   = 274px ≤ 最窄两列半幅 279px（635px 面板档）。 */
+/* 主题节 = 标题同行右半：色样横条 + 语言下拉 + 关闭钮末项。只留色样
+   （名字/气质进 title），20px 六枚 + 4px 隙 = 140px，加语言 92 + 隙 8
+   + 关闭钮 28 + 隙 8 = 276px ≤ 最窄两列半幅 279.5px（635px 面板档）。 */
 .settings-section--theme {
   grid-area: theme;
   display: flex;
@@ -4588,7 +4587,6 @@ textarea {
   justify-content: flex-end;
   gap: 8px;
   min-width: 0;
-  padding-right: 34px;
 }
 
 .settings-section--theme .settings-row-title {

@@ -588,13 +588,6 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
                 <div className="settings-eyebrow">Polaris</div>
                 <h2 className="settings-title">{t('settings.title')}</h2>
               </div>
-              <button
-                className="detail-close"
-                onClick={onClose}
-                aria-label={t('settings.close')}
-              >
-                <X size={16} strokeWidth={1.8} aria-hidden="true" />
-              </button>
             </div>
 
             <div className="settings-section settings-section--theme">
@@ -606,6 +599,15 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
                   <LanguageSelect />
                 </span>
               </div>
+              {/* 关闭钮住横条末项（CSS order:3）：右缘与右列卡片同基线，
+                  垂直与色样/下拉同行居中。DOM 顺序 = 视觉顺序 = 焦点顺序。 */}
+              <button
+                className="detail-close"
+                onClick={onClose}
+                aria-label={t('settings.close')}
+              >
+                <X size={16} strokeWidth={1.8} aria-hidden="true" />
+              </button>
               {/* 色样横条：六枚 swatch 一排，与标题同行（header 左 / theme 右），
                   名字+气质描述进 title 提示。旧 2×3 卡片网格吃 156~210px，
                   是设置页超帽滚动的最大一块；横条零额外行，一屏守卫各档

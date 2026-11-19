@@ -4215,6 +4215,53 @@ export async function runSmokeTest(): Promise<void> {
       }
     }
 
+    // 设置页左右对称 + 叉号右缘对齐（用户报障左右留白不一致/叉号悬空）：
+    // both-edges 滚动条槽让左右有效留白逐像素相等；关闭钮是主题横条末项，
+    // 右缘与右列卡片右缘同基线，标题左缘与备份卡左缘同基线，叉号与语言
+    // 下拉同行居中。三档窗口（含 683×607 实机窄档）量完即关。
+    let settingsSymmetricEdges = false
+    if (mainWindow) {
+      const originalSize = mainWindow.getSize()
+      try {
+        const cases = []
+        for (const [w, h] of [[1024, 576], [683, 607], [1280, 900]] as Array<[number, number]>) {
+          mainWindow.setSize(w, h)
+          await settledFrames(mainWindow.webContents)
+          cases.push(await mainWindow.webContents.executeJavaScript(`(async () => {
+            ${pageHelpers}
+            await waitFor(() => !document.querySelector('.settings-panel'));
+            document.querySelector('.settings-item').click();
+            const panel = await waitFor(() => document.querySelector('.settings-panel'));
+            if (!panel) return { ok: false };
+            await sleep(400);
+            const pr = panel.getBoundingClientRect();
+            const backup = panel.querySelector('.settings-section--backup').getBoundingClientRect();
+            const mcp = panel.querySelector('.settings-section--mcp').getBoundingClientRect();
+            const close = panel.querySelector('.detail-close').getBoundingClientRect();
+            const lang = panel.querySelector('.settings-language-select').getBoundingClientRect();
+            const title = panel.querySelector('.settings-title').getBoundingClientRect();
+            const leftInset = backup.left - pr.left;
+            const rightInset = pr.right - mcp.right;
+            const closeFlush = Math.abs(close.right - mcp.right) <= 1;
+            const titleFlush = Math.abs(title.left - backup.left) <= 1;
+            const rowAligned = Math.abs((close.top + close.bottom) / 2 - (lang.top + lang.bottom) / 2) <= 2;
+            document.querySelector('.settings-panel .detail-close')?.click();
+            await sleep(250);
+            return {
+              ok: Math.abs(leftInset - rightInset) <= 1 && closeFlush && titleFlush && rowAligned,
+              leftInset, rightInset, closeRight: close.right, mcpRight: mcp.right
+            };
+          })()`))
+        }
+        console.log('SETTINGS_SYMMETRIC_METRICS', JSON.stringify(cases))
+        settingsSymmetricEdges = cases.every((c) => c?.ok === true)
+        if (!settingsSymmetricEdges) console.error('SETTINGS_SYMMETRIC_FAIL', JSON.stringify(cases))
+      } finally {
+        mainWindow.setSize(originalSize[0], originalSize[1])
+        await settledFrames(mainWindow.webContents)
+      }
+    }
+
     // 设置页备份零抖动（1024×576 实机档）：左列备份卡 contain:size + stretch
     // 吸收手风琴展开高度——展开/收起前后面板内容高度、页脚顶边、外框、右列
     // 高度逐像素相等，且行真渲染在卡内（非恒真）。3 份 fixture 触发列表分支，
@@ -5321,7 +5368,11 @@ export async function runSmokeTest(): Promise<void> {
       settingsFitsDefault: settingsFitsDefault === true,
       settingsFitsCompact: settingsFitsCompact === true,
       settingsNoShift: settingsNoShift === true,
+      settingsNoScrollMcp: settingsNoScrollMcp === true,
+      settingsCentered: settingsCentered === true,
+      csvExportWorks: csvExportWorks === true,
       settingsLayoutV2: settingsLayoutV2 === true,
+      settingsSymmetricEdges: settingsSymmetricEdges === true,
       settingsBackupNoShift: settingsBackupNoShift === true,
       settingsAboutStable: settingsAboutStable === true,
       trayToggleWorks: trayToggleWorks === true,
@@ -5428,6 +5479,7 @@ export async function runSmokeTest(): Promise<void> {
           csvExportWorks,
           settingsNoShift,
           settingsLayoutV2,
+          settingsSymmetricEdges,
           settingsAboutStable,
           trayToggleWorks,
           trayMenuEntries,
