@@ -4672,6 +4672,15 @@ textarea {
   gap: 18px;
 }
 
+/* 文字列（首个 div）min-width:0：flex 子项默认 min-width:auto，单行 nowrap
+   的长错误描述（热键被占用等）会把整行撑出卡宽 → 面板出横滚动条、底留白
+   多一槽（热键冲突环境下 settingsSymmetricEdges 回归的根因，基线即有）。
+   归零后描述的 ellipsis 才真生效：错误行零增高也零增宽。只动文字列，
+   按钮组（第二个 div）不受影响；网盘行的 main 本就自带 min-width:0。 */
+.settings-row > div:first-child {
+  min-width: 0;
+}
+
 .settings-row-title {
   color: var(--text);
   font-size: 13px;
@@ -5072,8 +5081,8 @@ textarea {
   color: var(--danger);
 }
 
-/* 自动备份手风琴：开关住在分组标题行右侧（收起态零增高，一屏守卫预算不动）；
-   展开才生高度，列表自带滚动帽，21 份也不把设置页撑出长滚动。 */
+/* 自动备份管理入口：固定一行住分组标题行右侧（「自动备份 · 共 N 份 [管理…]」），
+   点击开模态对话框——列表不再内联展开，任何状态备份卡高度恒定。 */
 .settings-group-label--split {
   display: flex;
   align-items: center;
@@ -5081,10 +5090,10 @@ textarea {
   gap: 8px;
 }
 
-.auto-backup-toggle {
+.auto-backup-manage {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
   padding: 0;
   border: none;
   background: none;
@@ -5096,18 +5105,13 @@ textarea {
   transition: color 0.16s;
 }
 
-.auto-backup-toggle:hover {
+.auto-backup-manage:hover {
   color: var(--accent);
 }
 
-.auto-backup-body {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  margin-top: 8px;
-  padding-top: 8px;
-  border-top: 1px dashed var(--line);
+/* 「管理…」常驻强调色：固定行里一眼可辨的可点部分。 */
+.auto-backup-manage-cta {
+  color: var(--accent);
 }
 
 .auto-backup-list {
@@ -5306,9 +5310,9 @@ textarea {
 }
 
 /* 左列备份卡：contain:size 让 intrinsic 尺寸归零、不参与行高定价
-   （行高由右列固定内容钉死）；stretch 吃满整行高。手风琴展开/状态行
-   落字只填卡内余白，body/list flex:1 + min-height:0 吸收高度，列表
-   超高卡内滚动——外几何/页脚/右列逐像素不动（settingsBackupNoShift）。
+   （行高由右列固定内容钉死）；stretch 吃满整行高。状态行落字只填
+   卡内余白——外几何/页脚/右列逐像素不动（settingsBackupNoShift）。
+   自动备份列表已搬进模态对话框，卡内不再有展开体。
    overflow-y:auto 是兜底（极长错误文案），滚动条槽常驻防横向抖动。 */
 .settings-section--backup {
   grid-area: backup;
@@ -5321,27 +5325,13 @@ textarea {
   scrollbar-gutter: stable;
 }
 
-/* 组描述最多两行（英文三行会挤掉展开态列表首行的免滚余高），
-   全文进 title 提示；中文本就两行，视觉不变。 */
+/* 组描述最多两行（英文三行会挤占卡内余白），全文进 title 提示；
+   中文本就两行，视觉不变。 */
 .settings-section--backup > .settings-row-desc {
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
-}
-
-.settings-section--backup .auto-backup-body {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-}
-
-/* 列表吃满卡内余高（卡框即帽，不需要硬帽）。 */
-.settings-section--backup .auto-backup-list {
-  flex: 1;
-  min-height: 0;
-  max-height: none;
 }
 
 /* 状态槽单行 ellipsis，错误/恢复提示只换文案不增行；顶部细分隔线
@@ -5523,6 +5513,47 @@ textarea {
   border-color: rgba(var(--danger-rgb), 0.4);
   background: rgba(var(--danger-rgb), 0.14);
   color: var(--danger);
+}
+
+/* ---------- 自动备份管理对话框 ---------- */
+
+/* 复用 confirm-overlay/panel 浮层语言（80 压设置面板 70），加宽放
+   日期 + 大小 + 双按钮行。列表对话框内滚动（max-height 帽），21 份
+   也不裁切、不撑破视口；设置面板几何全程不动。 */
+.backup-dialog-panel {
+  width: min(480px, calc(100vw - 48px));
+  max-height: calc(100vh - 96px);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.backup-dialog-title {
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 650;
+}
+
+/* 列表自带滚动帽：行再多也在对话框内滚，首行免滚可见。 */
+.backup-dialog-list {
+  max-height: min(320px, 52vh);
+  margin-top: 0;
+}
+
+.backup-dialog-empty {
+  padding: 8px 0;
+}
+
+/* 反馈槽常驻占位（默认合并语义说明，导入/另存为结果替换进槽）：
+   单行 ellipsis + title 全文，反馈落字不撑对话框高度。 */
+.backup-dialog-slot {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.backup-dialog-panel .confirm-actions {
+  margin-top: 0;
 }
 
 /* ---------- 软件更新 ---------- */
