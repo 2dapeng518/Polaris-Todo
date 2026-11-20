@@ -155,7 +155,6 @@ export type ImportResult = {
   tagsSkipped?: number
   taskTagsImported?: number
   taskTagsSkipped?: number
-  /** 云端镜像恢复时是否顺带清掉了首启教学示例。 */
   demoSeedsRemoved?: boolean
   error?: string
 }
@@ -211,10 +210,6 @@ export type McpState = {
   error?: string
 }
 
-/** L0 单设备云端镜像的状态：只写不读的滚动快照。
- *  enabled 是用户意图（持久化），folder 为 null 表示尚未选择；
- *  pending 表示开关打开后还有写修订尚未落盘；recoveryAvailable 只在
- *  「本机只有首启教学示例 + 镜像文件夹已有 latest.json」时为 true。 */
 export type CloudMirrorState = {
   enabled: boolean
   folder: string | null

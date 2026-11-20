@@ -1,11 +1,6 @@
 // 真值表断言：quick-add 解析 / 回收站保留期 / 重复规则。
 // 期望值全部写字面量，绝不经过被测代码重算——否则是拿实现测实现。
 // 只在 harness 构建里存在；shared 纯函数照常 import，不依赖窗口。
-//
-// ⚠️ 同步维护：parse / retention / recurrence（含自定义往返）/ mirror（云端镜像
-// 去抖门控）的表已逐字镜像到 scripts/verify-pure.mjs（plain Node 秒级快速层，
-// CI 已挂）。
-// 这里的原断言保留（E2E 仍跑）；任何一处改表，另一处必须跟着改。
 // CSV 导入功能已移除；导出守卫在 smoke.ts（csvExportWorks）与 verify-pure 导出表。
 
 import {
@@ -591,9 +586,6 @@ export function runBackupNameAssertions(): boolean {
   return ok
 }
 
-// 云端镜像去抖门控真值表：enabled + dirty + folder + 距上次尝试满 minGap 才写；
-// 时钟回拨/坏时间戳/坏参数一律放行——宁可多写一份快照，也不让一次系统改时间
-// 或坏参数把镜像永久冻住。与 scripts/verify-pure.mjs 逐字镜像。
 export function runMirrorAssertions(): boolean {
   type Case = {
     enabled: boolean

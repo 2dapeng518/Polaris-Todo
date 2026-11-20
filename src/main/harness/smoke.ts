@@ -1315,9 +1315,6 @@ export async function runSmokeTest(): Promise<void> {
       mcpWorks = mcpWorks && refused
     }
 
-    // 云端镜像 L0：真实开启 → 建任务 → 去抖后 latest.json 含该任务；
-    // 再移走文件夹 → 状态暂停但应用仍能建/读任务。临时目录在系统 temp，
-    // 与临时 userData 同级但互不包含；夹具全部自清。
     let cloudMirrorWrites = false
     let cloudMirrorPause = false
     let mirrorDir: string | null = null
@@ -3916,8 +3913,6 @@ export async function runSmokeTest(): Promise<void> {
       })()`)) === true
 
     // 存储卡片：信任状措辞精确到「任务数据」、点击直达备份区、页脚不再重复。
-    // 此处镜像必为关（默认），断言的是镜像关态文案；镜像开态的中英标题
-    // 字面量在下方 cloudMirrorSettingsFits 里逐份断言（双份同步维护）。
     // 故意压矮窗口制造面板溢出，让「滚动到位」成为真断言而非恒真。
     let storageCardWorks = false
     if (mainWindow) {
@@ -4123,9 +4118,6 @@ export async function runSmokeTest(): Promise<void> {
       }
     }
 
-    // 云端镜像设置行：启用态 × 五档窗口 × 中英，面板与备份卡都必须一屏，
-    // 镜像行完整落在卡内，状态槽保持单行 ellipsis（长路径/长时间只截断不折行）；
-    // 侧栏存储卡片同场验镜像开态标题（中英字面量双份，随字典同步维护）。
     let cloudMirrorSettingsFits = false
     if (mainWindow) {
       const originalSize = mainWindow.getSize()
@@ -4144,8 +4136,6 @@ export async function runSmokeTest(): Promise<void> {
           }
         }, 3000)
 
-        // cardTitle：镜像开态侧栏存储卡片标题的期望字面量（中英双份，
-        // 与 nav.ts / en.ts 的 nav.storage.titleMirrored 逐字同步维护）。
         const mirrorAt = async (w: number, h: number, cardTitle: string) => {
           mainWindow!.setSize(w, h)
           await settledFrames(mainWindow!.webContents)
@@ -4156,7 +4146,6 @@ export async function runSmokeTest(): Promise<void> {
             const panel = await waitFor(() => document.querySelector('.settings-panel'));
             if (!panel) return { fits: false, found: false };
             await sleep(400);
-            // 面板开合触发侧栏卡片的镜像状态刷新：开态必须换成本机 + 云端镜像。
             const storageCard = document.querySelector('.sidebar-storage');
             const cardMirrored = storageCard ? storageCard.textContent.includes(${JSON.stringify(cardTitle)}) : false;
             const row = panel.querySelector('.settings-mirror');
@@ -4207,10 +4196,10 @@ export async function runSmokeTest(): Promise<void> {
 
         const sizes: Array<[number, number]> = [[1024, 576], [980, 640], [683, 607], [1280, 840], [1280, 900]]
         const zh = []
-        for (const [w, h] of sizes) zh.push(await mirrorAt(w, h, '任务数据本机 + 云端镜像'))
+        for (const [w, h] of sizes) zh.push(await mirrorAt(w, h, '任务数据本机 + 网盘备份'))
         await switchTo('English')
         const en = []
-        for (const [w, h] of sizes) en.push(await mirrorAt(w, h, 'Task data on this device + cloud mirror'))
+        for (const [w, h] of sizes) en.push(await mirrorAt(w, h, 'Task data on this device + drive backup'))
         await switchTo('简体中文')
         console.log('CLOUD_MIRROR_SETTINGS_METRICS', JSON.stringify({ zh, en }))
         const all = [...zh, ...en]
