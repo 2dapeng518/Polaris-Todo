@@ -3,6 +3,7 @@ import type {
   AppTheme,
   AutoBackupListResult,
   AutoStartState,
+  CloudMirrorState,
   CreateProjectInput,
   CreateSubtaskInput,
   CreateTagInput,
@@ -60,6 +61,14 @@ const api: PolarisApi = {
     import: (name: string): Promise<ImportResult> => ipcRenderer.invoke('backups:import', name),
     saveAs: (name: string): Promise<ExportResult> => ipcRenderer.invoke('backups:save-as', name),
     openDataDir: (): Promise<OpenDataDirResult> => ipcRenderer.invoke('backups:open-data-dir')
+  },
+  mirror: {
+    getState: (): Promise<CloudMirrorState> => ipcRenderer.invoke('mirror:get-state'),
+    setEnabled: (enabled: boolean): Promise<CloudMirrorState> =>
+      ipcRenderer.invoke('mirror:set-enabled', enabled),
+    setFolder: (): Promise<CloudMirrorState> => ipcRenderer.invoke('mirror:set-folder'),
+    importFromCloud: (latest: boolean): Promise<ImportResult> =>
+      ipcRenderer.invoke('mirror:import-from-cloud', latest)
   },
   app: {
     getVersion: (): Promise<string> => ipcRenderer.invoke('app:get-version'),

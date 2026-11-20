@@ -94,6 +94,75 @@ export function setMeta(key: string, value: string): void {
   ).run(key, value)
 }
 
+/** 首启教学示例的 id 清单（meta `demo_seed_ids`）。缺失或损坏返回 null，
+ *  调用方按「不是全新库」处理——绝不在拿不准的时候删用户数据。 */
+export type DemoSeedIds = {
+  tasks: string[]
+  projects: string[]
+  tags: string[]
+  subtasks: string[]
+}
+
+const readStringArray = (value: unknown): string[] =>
+  Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : []
+
+export function listDemoSeedIds(): DemoSeedIds | null {
+  const raw = getMeta('demo_seed_ids')
+  if (!raw) return null
+  try {
+    const parsed = JSON.parse(raw) as Partial<DemoSeedIds>
+    return {
+      tasks: readStringArray(parsed.tasks),
+      projects: readStringArray(parsed.projects),
+      tags: readStringArray(parsed.tags),
+      subtasks: readStringArray(parsed.subtasks)
+    }
+  } catch {
+    return null
+  }
+}
+
+/** 云端恢复导入后清掉首启教学示例：只按记录的 id 精确删除，一个事务，
+ *  任务硬删（子任务靠外键级联，额外按 id 删一次是兜底），项目/标签随后。
+ *  keepIds 是「刚导入/已存在的行」——恢复同一份快照时这些 id 必须保留，
+ *  否则把快照里的示例行删干净会把库清空。返回是否真的删过。 */
+export function removeDemoSeedRows(keepIds?: ReadonlySet<string>): boolean {
+  const ids = listDemoSeedIds()
+  if (!ids) return false
+  if (ids.tasks.length + ids.projects.length + ids.tags.length + ids.subtasks.length === 0) {
+    return false
+  }
+  const keep = (id: string): boolean => keepIds?.has(id) === true
+  let removed = 0
+  const run = db.transaction(() => {
+    const deleteSubtask = db.prepare('DELETE FROM subtasks WHERE id = ?')
+    const deleteTask = db.prepare('DELETE FROM tasks WHERE id = ?')
+    const deleteProject = db.prepare('DELETE FROM projects WHERE id = ?')
+    const deleteTag = db.prepare('DELETE FROM tags WHERE id = ?')
+    for (const id of ids.subtasks) {
+      if (keep(id)) continue
+      removed += deleteSubtask.run(id).changes
+    }
+    for (const id of ids.tasks) {
+      if (keep(id)) continue
+      removed += deleteTask.run(id).changes
+    }
+    for (const id of ids.projects) {
+      if (keep(id)) continue
+      removed += deleteProject.run(id).changes
+    }
+    for (const id of ids.tags) {
+      if (keep(id)) continue
+      removed += deleteTag.run(id).changes
+    }
+    // 只删清单，不删 demo_seeded：后者负责阻止下次启动重新播种。
+    // 全部 id 都在 keepIds 里时清单仍然有效，未来仍可识别「仅示例」。
+    if (removed > 0) db.prepare('DELETE FROM meta WHERE key = ?').run('demo_seed_ids')
+  })
+  run()
+  return removed > 0
+}
+
 function migrate(): void {
   let version = db.pragma('user_version', { simple: true }) as number
 
@@ -326,10 +395,15 @@ function seedIfNeeded(): void {
   )
   const insertTag = db.prepare('INSERT INTO tags (id, name, created_at) VALUES (?, ?, ?)')
   const insertTaskTag = db.prepare('INSERT INTO task_tags (task_id, tag_id) VALUES (?, ?)')
+  // 首启种子的 id 清单：云端镜像的「本机只有教学示例」判定与恢复导入后的
+  // 清理都靠它。只是 meta 里的一个键，不需要迁移；旧库没有这个键就按
+  // 「不是全新库」处理（恢复提示宁可不出现，也绝不误删用户数据）。
+  const seedIds: DemoSeedIds = { tasks: [], projects: [], tags: [], subtasks: [] }
 
   const seed = db.transaction(() => {
     insertProject.run(polarisProjectId, 'Polaris', '#5EEAD4', 0, stamp, stamp)
     insertProject.run(personalProjectId, en ? 'Personal' : '个人', '#A78BFA', 1, stamp, stamp)
+    seedIds.projects.push(polarisProjectId, personalProjectId)
 
     // 首启种子是一组教学示例：每条任务演示一个功能，用法写在备注里，取代
     // 早期的泛型演示任务。英文镜像与中文种子同结构（偏移/时刻/优先级/完成态/
@@ -503,6 +577,7 @@ function seedIfNeeded(): void {
     const tagIds = new Map<string, string>()
     for (const task of tasks) {
       const taskId = randomUUID()
+      seedIds.tasks.push(taskId)
       insertTask.run(
         taskId,
         task.title,
@@ -518,13 +593,16 @@ function seedIfNeeded(): void {
         null
       )
       task.subtasks.forEach((subtask, index) => {
-        insertSubtask.run(randomUUID(), taskId, subtask.title, subtask.completed, index, stamp)
+        const subtaskId = randomUUID()
+        seedIds.subtasks.push(subtaskId)
+        insertSubtask.run(subtaskId, taskId, subtask.title, subtask.completed, index, stamp)
       })
       for (const name of task.tags) {
         let tagId = tagIds.get(name)
         if (!tagId) {
           tagId = randomUUID()
           insertTag.run(tagId, name, stamp)
+          seedIds.tags.push(tagId)
           tagIds.set(name, tagId)
         }
         insertTaskTag.run(taskId, tagId)
@@ -532,6 +610,10 @@ function seedIfNeeded(): void {
     }
 
     db.prepare('INSERT INTO meta (key, value) VALUES (?, ?)').run('demo_seeded', '1')
+    db.prepare('INSERT INTO meta (key, value) VALUES (?, ?)').run(
+      'demo_seed_ids',
+      JSON.stringify(seedIds)
+    )
   })
 
   seed()

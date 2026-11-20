@@ -33,6 +33,24 @@ export const settings = {
   'settings.mcpTokenRegenerate': '重置',
   'settings.mcpTokenRegenConfirm': '重置访问令牌？旧令牌立即失效，已配置的 MCP 客户端必须换用新令牌才能继续访问。',
   'settings.mcpTokenRegenerated': '已重置令牌，旧令牌已失效',
+  'settings.cloudMirror': '云端镜像',
+  // 状态行同时是描述行（与 MCP 行同形）：只在开关打开时才有意义的文案
+  // 都收在这一行里，条件变化不新增行。
+  'settings.cloudMirrorOff': '已关闭 · 开启后把任务快照写到同步文件夹',
+  'settings.cloudMirrorNoFolder': '未选择文件夹 · 点「选择」指定同步目录',
+  'settings.cloudMirrorPending': '有新改动，30 秒内写入',
+  'settings.cloudMirrorOn': '已镜像 · 最近写入 {time}',
+  'settings.cloudMirrorRecovery': '检测到云端备份，一键导入恢复',
+  // 隐私说明只进 title：快照是明文 JSON，同步上云由用户自己的网盘客户端完成；
+  // 措辞必须说清「会上云、但不是我传的」，不能让用户误以为数据绝不离开本机。
+  'settings.cloudMirrorPrivacy': '任务快照以明文 JSON 写入你选择的网盘文件夹，由你的网盘客户端自动同步上云；Polaris 本身不联网、不主动上传。',
+  'settings.cloudMirrorChoose': '选择',
+  'settings.cloudMirrorChooseTitle': '选择云端镜像文件夹',
+  'settings.cloudMirrorImport': '从云端导入',
+  'settings.cloudMirrorRecover': '一键恢复',
+  'settings.cloudMirrorImportDone': '已从云端导入：任务 +{tasks}（跳过 {tasksSkipped}），项目 +{projects}（跳过 {projectsSkipped}）',
+  'settings.cloudMirrorRecovered': '已从云端恢复，教学示例已清理',
+  'settings.cloudMirrorImportFailed': '从云端导入失败：{error}',
   'settings.backup': '数据备份',
   'settings.backupDesc': '导出全部项目与任务（含回收站）为 JSON；导入按 ID 合并，不覆盖现有数据',
   'settings.export': '导出备份',

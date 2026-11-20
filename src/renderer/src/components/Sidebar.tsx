@@ -52,6 +52,28 @@ export function Sidebar() {
   const [editColor, setEditColor] = useState(PROJECT_COLORS[0])
   const [deletingProject, setDeletingProject] = useState<Project | null>(null)
 
+  // 镜像感知的存储卡片：只取 enabled 一个布尔，不订阅整个 CloudMirrorState。
+  // 刷新时机 = 挂载 / 设置面板开合（镜像开关就在面板里）/ 窗口重新聚焦；
+  // 值没变时 setState 同值 bailout，React 不重渲染——没有轮询、没有渲染风暴。
+  const [mirrorEnabled, setMirrorEnabled] = useState(false)
+  useEffect(() => {
+    let cancelled = false
+    const refresh = () => {
+      window.polaris.mirror
+        .getState()
+        .then((state) => {
+          if (!cancelled) setMirrorEnabled(state.enabled)
+        })
+        .catch(() => {})
+    }
+    refresh()
+    window.addEventListener('focus', refresh)
+    return () => {
+      cancelled = true
+      window.removeEventListener('focus', refresh)
+    }
+  }, [settingsOpen])
+
   useEffect(() => {
     const openProjectForm = () => setAddingProject(true)
     // 托盘「设置」走主进程派发的固定事件，与侧栏按钮开的是同一个面板；
@@ -385,8 +407,9 @@ export function Sidebar() {
       <div className="sidebar-spacer" />
       </div>
 
-      {/* 信任状 + 出口：承诺任务数据不出本机，点一下直达备份，随时能带走。
-          主语是「任务数据」不是「应用」——更新检查会联网，措辞必须精确。 */}
+      {/* 信任状 + 出口：默认承诺任务数据仅存本机；镜像开启后承诺缩窄为
+          「本机 + 云端镜像」，不再夸大。主语是「任务数据」不是「应用」——
+          更新检查会联网，措辞必须精确。点击两态都直达备份区，行高不变。 */}
       <button
         className="sidebar-storage"
         title={t('nav.storage.titleAttr')}
@@ -397,9 +420,17 @@ export function Sidebar() {
         }}
       >
         <HardDrive size={16} strokeWidth={1.8} className="storage-icon" aria-hidden="true" />
-        <div>
-          <div className="storage-title">{t('nav.storage.title')}</div>
-          <div className="storage-subtitle">{t('nav.storage.subtitle')}</div>
+        <div className="storage-copy">
+          {/* 镜像态标题更长，单行 ellipsis 保行高；全文进 title 不丢信息。 */}
+          <div
+            className="storage-title"
+            title={mirrorEnabled ? t('nav.storage.titleMirrored') : undefined}
+          >
+            {t(mirrorEnabled ? 'nav.storage.titleMirrored' : 'nav.storage.title')}
+          </div>
+          <div className="storage-subtitle">
+            {t(mirrorEnabled ? 'nav.storage.subtitleMirrored' : 'nav.storage.subtitle')}
+          </div>
         </div>
       </button>
 
