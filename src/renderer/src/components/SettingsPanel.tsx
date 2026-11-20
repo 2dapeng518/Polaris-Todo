@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { Check, ChevronDown, X } from './Icon'
-import type { AutoBackupItem, AutoStartState, GlobalHotkeyState, McpState, UpdateState } from '@shared/types'
+import type { AutoBackupItem, AutoStartState, CloudMirrorState, GlobalHotkeyState, McpState, UpdateState } from '@shared/types'
 import { THEME_META, THEME_ORDER } from '@shared/themes'
 
 import { themeDesc, themeLabel } from '@shared/i18n'
@@ -103,6 +103,16 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
     running: false,
     endpoint: 'http://127.0.0.1:3737/mcp'
   })
+  // 云端镜像：开关/目录/最近写入全是主进程权威，渲染层只消费快照。
+  // 状态行与 MCP 行同形，条件变化只替换文案、不增行。
+  const [mirror, setMirror] = useState<CloudMirrorState>({
+    enabled: false,
+    folder: null,
+    lastMirrorAt: null,
+    pending: false,
+    recoveryAvailable: false
+  })
+  const [mirrorBusy, setMirrorBusy] = useState(false)
   // MCP 访问令牌：仅启用时展示；明文全量上屏（本机凭证，用户拍板不掩码），
   // 复制/重新生成走主进程 IPC，渲染层不落任何持久化。
   const [mcpToken, setMcpToken] = useState<string | null>(null)
@@ -148,6 +158,27 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
         ? t('settings.hotkeyOn', { accelerator: hotkey.accelerator })
         : t('settings.hotkeyOff')
   const hotkeyDescAlert = Boolean(hotkey.enabled && hotkey.error)
+
+  // 镜像状态行：错误 > 关闭 > 云端恢复提示 > 未选目录 > 待写 > 已镜像。
+  // 时间戳跟随界面语言；解析失败就退回「待写」，绝不显示 Invalid Date。
+  const mirrorWhen =
+    mirror.lastMirrorAt && Number.isFinite(Date.parse(mirror.lastMirrorAt))
+      ? formatBackupWhen(Date.parse(mirror.lastMirrorAt), locale)
+      : ''
+  const mirrorDesc = mirror.error
+    ? mirror.error
+    : !mirror.enabled
+      ? t('settings.cloudMirrorOff')
+      : mirror.recoveryAvailable
+        ? t('settings.cloudMirrorRecovery')
+        : !mirror.folder
+          ? t('settings.cloudMirrorNoFolder')
+          : mirror.pending || !mirrorWhen
+            ? t('settings.cloudMirrorPending')
+            : t('settings.cloudMirrorOn', { time: mirrorWhen })
+  // 恢复入口只在镜像开启时出现：关闭态点「从云端导入」应走普通文件选择，
+  // 而不是悄悄用镜像目录里的 latest.json。
+  const recoveryOffered = mirror.enabled && mirror.recoveryAvailable
 
   // 更新弹窗可能叠在设置面板上（「查看更新」）：焦点陷阱让位，别互相抢。
   useFocusTrap(panelRef, open && !paletteOpen && !updateDialogOpen, panelRef)
@@ -268,6 +299,15 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
         }
       })
 
+    window.polaris.mirror
+      .getState()
+      .then((value) => {
+        if (!cancelled) setMirror(value)
+      })
+      .catch((error) => {
+        if (!cancelled) setMirror((current) => ({ ...current, error: String(error) }))
+      })
+
     return () => {
       cancelled = true
     }
@@ -360,6 +400,65 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
       }
     } catch {
       setMcp((current) => ({ ...current, enabled: !next }))
+    }
+  }
+
+  const toggleMirror = async () => {
+    if (mirrorBusy) return
+    const next = !mirror.enabled
+    setMirror((current) => ({ ...current, enabled: next, error: undefined }))
+    setMirrorBusy(true)
+    try {
+      setMirror(await window.polaris.mirror.setEnabled(next))
+    } catch (error) {
+      setMirror((current) => ({ ...current, enabled: !next, error: String(error) }))
+    } finally {
+      setMirrorBusy(false)
+    }
+  }
+
+  const chooseMirrorFolder = async () => {
+    if (mirrorBusy) return
+    setMirrorBusy(true)
+    try {
+      setMirror(await window.polaris.mirror.setFolder())
+    } catch (error) {
+      setMirror((current) => ({ ...current, error: String(error) }))
+    } finally {
+      setMirrorBusy(false)
+    }
+  }
+
+  // 从云端导入：反馈落备份区同一条状态行（卡内吸收，零增高）。
+  // 恢复路径（镜像是全新库的唯一来源）由主进程顺带清教学示例；
+  // 导入成功后刷新两个独立存储，并重取镜像状态（恢复提示应消失）。
+  const importFromCloud = async (latest: boolean) => {
+    setBackupBusy(true)
+    setBackupError(null)
+    setBackupStatus(null)
+    try {
+      const result = await window.polaris.mirror.importFromCloud(latest)
+      if (result.ok) {
+        setBackupStatus(
+          result.demoSeedsRemoved
+            ? t('settings.cloudMirrorRecovered')
+            : t('settings.cloudMirrorImportDone', {
+                tasks: result.tasksImported ?? 0,
+                tasksSkipped: result.tasksSkipped ?? 0,
+                projects: result.projectsImported ?? 0,
+                projectsSkipped: result.projectsSkipped ?? 0
+              })
+        )
+        await useTaskStore.getState().load()
+        await useTaskStore.getState().loadTrash()
+        setMirror(await window.polaris.mirror.getState())
+      } else if (!result.canceled && result.error) {
+        setBackupError(t('settings.cloudMirrorImportFailed', { error: result.error }))
+      }
+    } catch (error) {
+      setBackupError(t('settings.cloudMirrorImportFailed', { error: String(error) }))
+    } finally {
+      setBackupBusy(false)
     }
   }
 
@@ -752,8 +851,61 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
                   </motion.div>
                 )}
               </AnimatePresence>
+
+              {/* 云端镜像单行：标题 + 从云端导入 / 选择文件夹 + 开关。
+                  状态行与 MCP 行同形（错误替换描述、单行 ellipsis），
+                  条件变化零增行；放在备份卡底部，卡高由右列定价、
+                  contain:size 吸收，展开手风琴也不改外几何。 */}
+              <div className="settings-mirror">
+                <div className="settings-row">
+                  <div className="settings-mirror-main">
+                    <div className="settings-row-title settings-mirror-title">
+                      <span title={t('settings.cloudMirrorPrivacy')}>{t('settings.cloudMirror')}</span>
+                      <button
+                        type="button"
+                        className="mirror-import-link"
+                        disabled={backupBusy}
+                        title={recoveryOffered ? t('settings.cloudMirrorRecover') : t('settings.cloudMirrorImport')}
+                        onClick={() => void importFromCloud(recoveryOffered)}
+                      >
+                        {recoveryOffered
+                          ? t('settings.cloudMirrorRecover')
+                          : t('settings.cloudMirrorImport')}
+                      </button>
+                    </div>
+                    <div
+                      className={`settings-row-desc settings-mirror-status ${mirror.error ? 'is-error' : ''}`}
+                      role={mirror.error ? 'alert' : undefined}
+                      title={mirrorDesc}
+                    >
+                      {mirrorDesc}
+                    </div>
+                  </div>
+                  <div className="settings-mirror-actions">
+                    <button
+                      className="backup-btn backup-btn--small settings-mirror-choose"
+                      disabled={mirrorBusy}
+                      title={t('settings.cloudMirrorChooseTitle')}
+                      onClick={() => void chooseMirrorFolder()}
+                    >
+                      {t('settings.cloudMirrorChoose')}
+                    </button>
+                    <button
+                      role="switch"
+                      aria-checked={mirror.enabled}
+                      aria-label={t('settings.cloudMirror')}
+                      className={`switch ${mirror.enabled ? 'on' : ''}`}
+                      disabled={mirrorBusy}
+                      onClick={() => void toggleMirror()}
+                    >
+                      <span className="switch-thumb" />
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
 
+            {/* 右列：MCP + 常规设置同一列；备份卡展开时这一列钉死行高。 */}
             <div className="settings-side">
             <div className="settings-section settings-section--mcp">
               {/* 组名即开关行标题：省掉冗余标题行（「本地 MCP 服务」+「启用服务」

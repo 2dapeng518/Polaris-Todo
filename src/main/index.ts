@@ -1,6 +1,6 @@
 import { app, BrowserWindow, dialog, ipcMain, nativeImage, screen, shell, type WebContents } from 'electron'
 import log from 'electron-log/main'
-import { join } from 'node:path'
+import { join, resolve } from 'node:path'
 import { mkdir, readFile, readdir, rename, stat, unlink, writeFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import { randomUUID } from 'node:crypto'
@@ -19,6 +19,16 @@ import {
 import { csvExportFromBackup } from '../shared/csvExport'
 import { registerIpc } from './ipc'
 import { disposeMcp, getMcpState, getMcpToken, initMcp, regenerateMcpToken, setMcpEnabled } from './mcp'
+import {
+  disposeMirror,
+  flushMirrorNow,
+  getMirrorState,
+  importMirrorFile,
+  initMirror,
+  mirrorLatestPath,
+  setMirrorEnabled,
+  setMirrorFolderPath
+} from './mirror'
 import { describeTrayCheck, disposeUpdater, initUpdater, manualCheckForUpdates } from './updater'
 import {
   disposeGlobalHotkey,
@@ -721,6 +731,90 @@ app.whenReady().then(() => {
     }
   })
 
+  // 云端镜像（L0 单设备）：设置页开关 / 选目录 / 从云端导入。
+  // 开关与目录的语义都在 mirror.ts（唯一 owner），这里只做载荷类型检查、
+  // 原生对话框与复用 backupSchema 的导入入口——与 app:set-mcp 同一手检风格。
+  ipcMain.handle('mirror:get-state', () => getMirrorState())
+
+  ipcMain.handle('mirror:set-enabled', (_event, enabled: unknown) => {
+    if (typeof enabled !== 'boolean') return getMirrorState()
+    return setMirrorEnabled(enabled)
+  })
+
+  ipcMain.handle('mirror:set-folder', async (_event, folder: unknown) => {
+    // 可选路径参数是测试受控入口（预加载层不暴露）；真实 UI 不传参，走原生目录
+    // 对话框。任何来源的路径都仍要过 mirror.ts 的可用性守卫。
+    if (folder != null && typeof folder !== 'string') return getMirrorState()
+    if (typeof folder === 'string') return setMirrorFolderPath(folder)
+    const current = await getMirrorState()
+    // 预填顺序：当前镜像目录 → %OneDrive%\PolarisSync（环境变量存在才建；
+    // 建不出来也照样把候选路径交给对话框，用户可改）。
+    let defaultPath = current.folder ?? undefined
+    if (!defaultPath) {
+      const oneDrive = process.env['OneDrive']
+      if (oneDrive) {
+        const candidate = join(oneDrive, 'PolarisSync')
+        await mkdir(candidate, { recursive: true }).catch(() => {})
+        defaultPath = candidate
+      }
+    }
+    const picked = await showOpenDialogSafe({
+      title: translate(getCurrentLocale(), 'native.mirrorFolderTitle'),
+      defaultPath,
+      properties: ['openDirectory', 'createDirectory']
+    })
+    if (picked.canceled || !picked.filePaths[0]) return getMirrorState()
+    return setMirrorFolderPath(picked.filePaths[0])
+  })
+
+  ipcMain.handle('mirror:import-from-cloud', async (_event, latest: unknown) => {
+    const useLatest = latest === true
+    let source: string
+    if (useLatest) {
+      const latestPath = mirrorLatestPath()
+      if (!latestPath) {
+        return { ok: false, error: translate(getCurrentLocale(), 'settings.cloudMirrorNoFolder') }
+      }
+      // 先给缺文件一个明确文案；importMirrorFile 的「不是文件」对恢复路径太含糊。
+      try {
+        if (!(await stat(latestPath)).isFile()) {
+          return { ok: false, error: translate(getCurrentLocale(), 'mirror.noBackup') }
+        }
+      } catch {
+        return { ok: false, error: translate(getCurrentLocale(), 'mirror.noBackup') }
+      }
+      source = latestPath
+    } else {
+      const folder = (await getMirrorState()).folder
+      const picked = await showOpenDialogSafe({
+        title: translate(getCurrentLocale(), 'native.mirrorImportTitle'),
+        defaultPath: folder ?? undefined,
+        filters: [
+          { name: translate(getCurrentLocale(), 'native.jsonFilter'), extensions: ['json'] }
+        ],
+        properties: ['openFile']
+      })
+      if (picked.canceled || !picked.filePaths[0]) return { ok: false, canceled: true }
+      source = picked.filePaths[0]
+    }
+    // 只有镜像自己的 latest.json 走「恢复」语义（顺带清教学示例）；
+    // 手动挑的其他备份保持纯 additive 合并。
+    const latestPath = mirrorLatestPath()
+    const clearDemo = latestPath !== null && resolve(source) === resolve(latestPath)
+    const result = await importMirrorFile(source, backupSchema, IMPORT_JSON_MAX_BYTES, clearDemo)
+    // 恢复后立刻把合并结果写回镜像，别让云端下一轮同步覆盖成旧快照。
+    // flushMirrorNow 会解除恢复守卫；这里顺带把「本目录已写过」的印记落下。
+    if (
+      result.ok &&
+      ((result.tasksImported ?? 0) > 0 ||
+        (result.projectsImported ?? 0) > 0 ||
+        result.demoSeedsRemoved === true)
+    ) {
+      await flushMirrorNow()
+    }
+    return result
+  })
+
   // 启动页先于主窗口创建：页面极小，先画出来；主窗口加载并行进行，互不阻塞。
   // 自启（--hidden）要静默进托盘，三个测试模式要保持确定性，均跳过。
   // 生产构建里 __POLARIS_HARNESS__ 恒 false，harness 恒为 false，
@@ -747,6 +841,9 @@ app.whenReady().then(() => {
   startReminderScheduler()
   // 窗口和托盘就绪后再注册：处理器要靠 showMainWindow 把窗口叫出来。
   initMcp()
+  // 云端镜像：只写快照到用户选的同步文件夹（或 %OneDrive%\PolarisSync），
+  // 写修订变化去抖 30s；关闭时惰性，不产生任何目录访问。
+  initMirror({ buildBackupPayload, writeFileAtomic })
   // 在线更新：未打包（dev/冒烟/截图）时完全惰性，不发网络请求。
   initUpdater({
     getWindow: () => mainWindow,
@@ -801,6 +898,7 @@ app.on('will-quit', () => {
   // 全局热键是进程级资源，退出时显式注销，别留给下一个实例。
   disposeGlobalHotkey()
   disposeMcp()
+  disposeMirror()
   disposeUpdater()
   screen.removeAllListeners('display-metrics-changed')
 })

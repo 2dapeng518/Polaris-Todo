@@ -1,4 +1,4 @@
-import { app, ipcMain, powerMonitor, type BrowserWindow } from 'electron'
+import { app, ipcMain, Notification, powerMonitor, type BrowserWindow } from 'electron'
 import { autoUpdater } from 'electron-updater'
 import log from 'electron-log/main'
 import type { UpdateState, UpdateStatus } from '../shared/types'
@@ -161,6 +161,17 @@ export function describeTrayCheck(state: UpdateState, locale: Locale = 'zh-CN'):
   }
 }
 
+/** 点「立即重启」进入安装前的系统通知文案。纯函数，harness 直接断言中英字面量。
+ *  投递用 Electron Notification 而非 showTrayBalloon：托盘随进程退出销毁，
+ *  气泡会跟着没；Notification 进 Windows 操作中心，进程退了通知还在，
+ *  正好覆盖「窗口消失、等待装完」的那几秒。 */
+export function installingNotice(version: string, locale: Locale = 'zh-CN'): { title: string; body: string } {
+  return {
+    title: translate(locale, 'updater.installingTitle', { version }),
+    body: translate(locale, 'updater.installingBody')
+  }
+}
+
 /** 窗口聚焦 / 系统唤醒时的补查：应用常驻托盘，4 小时兜底轮询太粗，
  *  发版后用户一打开窗口就该尽快发现新版本；休眠期间 setInterval 不走，
  *  唤醒也必须补一次。30 分钟节流，频繁切焦点不会打爆 GitHub。 */
@@ -275,9 +286,13 @@ export function initUpdater(options: {
       return
     }
     options.onBeforeInstall()
+    // 先发系统通知告知「窗口会消失几秒、装好自动重开」，别让用户以为崩了。
+    const notice = installingNotice(latestVersion ?? app.getVersion(), getCurrentLocale())
+    new Notification({ title: notice.title, body: notice.body }).show()
+    // 缓 ~800ms 再退出：系统通知投递是异步的，立刻 quit 会把 toast 一起带走。
     // isSilent=true：/S 静默安装，不弹 NSIS 向导（含用户/目录选择页）；
     // isForceRunAfter=true：装完自动拉起新版。按机器安装的老用户仍会有一次 UAC 确认。
-    autoUpdater.quitAndInstall(true, true)
+    setTimeout(() => autoUpdater.quitAndInstall(true, true), 800)
   })
 
   if (!supported()) return

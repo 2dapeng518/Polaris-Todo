@@ -155,6 +155,8 @@ export type ImportResult = {
   tagsSkipped?: number
   taskTagsImported?: number
   taskTagsSkipped?: number
+  /** 云端镜像恢复时是否顺带清掉了首启教学示例。 */
+  demoSeedsRemoved?: boolean
   error?: string
 }
 
@@ -206,6 +208,19 @@ export type McpState = {
   enabled: boolean
   running: boolean
   endpoint: string
+  error?: string
+}
+
+/** L0 单设备云端镜像的状态：只写不读的滚动快照。
+ *  enabled 是用户意图（持久化），folder 为 null 表示尚未选择；
+ *  pending 表示开关打开后还有写修订尚未落盘；recoveryAvailable 只在
+ *  「本机只有首启教学示例 + 镜像文件夹已有 latest.json」时为 true。 */
+export type CloudMirrorState = {
+  enabled: boolean
+  folder: string | null
+  lastMirrorAt: string | null
+  pending: boolean
+  recoveryAvailable: boolean
   error?: string
 }
 
@@ -290,6 +305,17 @@ export type PolarisApi = {
     saveAs: (name: string) => Promise<ExportResult>
     /** 用系统文件管理器打开 userData 目录；harness 构建下恒为未打开。 */
     openDataDir: () => Promise<OpenDataDirResult>
+  }
+  mirror: {
+    /** 只读状态；recoveryAvailable 会顺带探测镜像文件夹里的 latest.json。 */
+    getState: () => Promise<CloudMirrorState>
+    /** 开启/关闭镜像；开启时立即写一份（无文件夹且无默认目录时保持待写）。 */
+    setEnabled: (enabled: boolean) => Promise<CloudMirrorState>
+    /** 选择镜像文件夹（原生目录对话框；参数不暴露，取消即保持原样）。 */
+    setFolder: () => Promise<CloudMirrorState>
+    /** 从镜像文件夹导入 latest.json；latest 为 true 时默认最新快照，
+     *  false 时弹文件对话框。导入按 ID 合并，绝不覆盖本地数据。 */
+    importFromCloud: (latest: boolean) => Promise<ImportResult>
   }
   app: {
     getVersion: () => Promise<string>

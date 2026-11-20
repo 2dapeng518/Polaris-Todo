@@ -27,6 +27,7 @@ const { isPurgeable } = await import('../src/shared/retention.ts')
 const { buildCustomRecurrence, nextMonthlyClamped, nextOccurrence, parseCustomRecurrence } = await import('../src/shared/recurrence.ts')
 const { CSV_EXPORT_HEADERS, buildCsvExport, csvExportFromBackup, csvField, formatCsvDue } = await import('../src/shared/csvExport.ts')
 const { isAutoBackupFileName } = await import('../src/shared/backupNames.ts')
+const { shouldMirror } = await import('../src/shared/mirror.ts')
 
 let fail = 0
 const assert = (cond, msg) => { if (!cond) { fail++; console.log('  FAIL ' + msg) } else console.log('  PASS ' + msg) }
@@ -471,6 +472,40 @@ const retentionTable = [
 for (const [deletedAt, nowIso, want] of retentionTable) {
   const got = isPurgeable(deletedAt, new Date(nowIso))
   assert(got === want, `isPurgeable(${JSON.stringify(deletedAt)}, ${nowIso}) = ${want}` + (got === want ? '' : `（实得 ${got}）`))
+}
+
+console.log('=== 云端镜像去抖门控真值表（与 assertions.ts runMirrorAssertions 逐字镜像） ===')
+{
+  const base = {
+    enabled: true,
+    folder: 'C:\\PolarisSync',
+    dirty: true,
+    lastAttemptAt: 1_000_000,
+    now: 1_030_000,
+    minGapMs: 30_000
+  }
+  // [说明, 输入, 期望]
+  const mirrorTable = [
+    ['关闭不写', { ...base, enabled: false }, false],
+    ['无改动不写', { ...base, dirty: false }, false],
+    ['未选目录不写', { ...base, folder: null }, false],
+    ['空目录不写', { ...base, folder: '' }, false],
+    ['纯空白目录不写', { ...base, folder: '   ' }, false],
+    ['从未尝试立即写', { ...base, lastAttemptAt: null }, true],
+    ['恰好满间隔写', { ...base, lastAttemptAt: 1_000_000, now: 1_030_000 }, true],
+    ['差 1ms 不写', { ...base, lastAttemptAt: 1_000_001, now: 1_030_000 }, false],
+    ['时钟回拨放行', { ...base, lastAttemptAt: 1_030_001, now: 1_030_000 }, true],
+    ['坏时间戳放行', { ...base, lastAttemptAt: Number.NaN }, true],
+    ['坏 now 放行', { ...base, now: Number.NaN }, true],
+    ['坏间隔放行', { ...base, minGapMs: Number.NaN }, true],
+    ['负间隔放行', { ...base, minGapMs: -1 }, true],
+    ['零间隔立即写', { ...base, minGapMs: 0 }, true],
+    ['目录带空白仍算已选', { ...base, folder: ' C:\\PolarisSync ', lastAttemptAt: null }, true]
+  ]
+  for (const [label, input, want] of mirrorTable) {
+    const got = shouldMirror(input)
+    assert(got === want, `shouldMirror(${label}) = ${want}` + (got === want ? '' : `（实得 ${got}）`))
+  }
 }
 
 console.log('=== 重复规则：月度钳制真值表（本地墙钟，期望字面量） ===')

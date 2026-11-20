@@ -23,13 +23,21 @@ import {
   listSubtasks,
   listTasks,
   purgeExpiredDeleted,
+  setMeta,
   updateSubtask,
   updateTask
 } from '../db'
 import { registerIpc, registerTaskCreate } from '../ipc'
 import { request as httpRequest } from 'node:http'
 import { getMcpState, MCP_ENDPOINT, MCP_PORT, setMcpEnabled } from '../mcp'
-import { describeTrayCheck } from '../updater'
+import {
+  getMirrorState,
+  MIRROR_MIN_GAP_MS,
+  setMirrorEnabled,
+  setMirrorFolderPath,
+  setMirrorMinGapMs
+} from '../mirror'
+import { describeTrayCheck, installingNotice } from '../updater'
 import {
   estimateEtaSeconds,
   formatBytes,
@@ -50,6 +58,7 @@ import { settledFrames, waitForCondition } from './util'
 import {
   runBackupNameAssertions,
   runCustomRecurrenceAssertions,
+  runMirrorAssertions,
   runParseAssertions,
   runRecurrenceAssertions,
   runRetentionAssertions
@@ -432,7 +441,7 @@ export async function runSmokeTest(): Promise<void> {
       await window.polaris.tasks.remove(recurringTask.id);
 
       // ---------- quick-add natural-language parsing ----------
-      const quickEl = document.querySelector('.quick-add input');
+      let quickEl = document.querySelector('.quick-add input');
       const chipCount = () => document.querySelectorAll('.qa-chip').length;
       const noticeCount = () => document.querySelectorAll('.qa-notice').length;
       const enter = (el) => el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
@@ -451,6 +460,18 @@ export async function runSmokeTest(): Promise<void> {
       );
 
       window.__polarisParseNow = '2026-11-12T10:30:00';
+      // 注入时钟必须立刻生效：QuickAdd 的 now 是 useMemo(readNow, [nowTick])，
+      // 只在重挂载或 60s tick 时重读——注入后不重挂载的话，chip 预览仍按挂载时
+      // 的真实时钟解析（提交却用注入时钟），真实日期一旦越过注入周，「下周三」
+      // 两边解析到不同日子，chip 标签断言就偶发红。视图往返（统计不挂 QuickAdd）
+      // 强制重挂载，让 readNow 在挂载帧读到注入值；断言语义与期望字面量不变。
+      [...document.querySelectorAll('.nav-item')]
+        .find((el) => el.textContent.includes('统计')).click();
+      await sleep(250);
+      [...document.querySelectorAll('.nav-item')]
+        .find((el) => el.textContent.includes('今天')).click();
+      await sleep(350);
+      quickEl = document.querySelector('.quick-add input');
       quickEl.blur();
       quickEl.focus();
       const expectedDue = new Date(2026, 10, 18, 15, 0).toISOString();
@@ -465,6 +486,7 @@ export async function runSmokeTest(): Promise<void> {
 
       // (b) chip label and the collapsed-height identity
       const dueLabel = document.querySelector('.qa-chip')?.textContent?.trim();
+      const duePast = document.querySelector('.qa-chip')?.classList.contains('past') ?? null;
       const shellEl = document.querySelector('.quick-add-shell');
       const stripEl = document.querySelector('.quick-add-parse');
       const parseDueCorrect = dueLabel === expectedLabel;
@@ -1014,6 +1036,10 @@ export async function runSmokeTest(): Promise<void> {
       return {
         parseChipsShown,
         parseDueCorrect,
+        // 诊断字段：失败时直接从结果 JSON 看到实际 chip 标签与过期标记，
+        // 不必再盲猜是时钟注入没生效还是标签格式变了。
+        parseDueLabel: dueLabel ?? null,
+        parseDuePast: duePast,
         parseShellHeight,
         parseShellMetrics,
         parseUndoKeepsText,
@@ -1150,6 +1176,7 @@ export async function runSmokeTest(): Promise<void> {
     const parseAssertions = runParseAssertions()
     const retentionOk = runRetentionAssertions()
     const backupNameOk = runBackupNameAssertions()
+    const mirrorGateOk = runMirrorAssertions()
 
     // 本地 MCP：开启 → 经 IPC 取 bearer token → initialize / tools/list / tools/call
     // 真实 HTTP 往返 → 401 矩阵（无/错 token）→ regenerate 作废旧 token → 关闭后拒连。
@@ -1288,6 +1315,77 @@ export async function runSmokeTest(): Promise<void> {
       mcpWorks = mcpWorks && refused
     }
 
+    // 云端镜像 L0：真实开启 → 建任务 → 去抖后 latest.json 含该任务；
+    // 再移走文件夹 → 状态暂停但应用仍能建/读任务。临时目录在系统 temp，
+    // 与临时 userData 同级但互不包含；夹具全部自清。
+    let cloudMirrorWrites = false
+    let cloudMirrorPause = false
+    let mirrorDir: string | null = null
+    const mirrorFixtureIds: string[] = []
+    try {
+      const dir = await mkdtemp(join(app.getPath('temp'), 'polaris-mirror-'))
+      mirrorDir = dir
+      setMirrorMinGapMs(60)
+      await setMirrorFolderPath(dir)
+      await setMirrorEnabled(true)
+      const fixture = createTask({ title: '冒烟云端镜像任务' })
+      mirrorFixtureIds.push(fixture.id)
+      const latest = join(dir, 'latest.json')
+      const mirrored = await waitForCondition(async () => {
+        try {
+          const snapshot = JSON.parse(await readFile(latest, 'utf8')) as {
+            schemaVersion?: number
+            tasks?: Array<{ id?: string; title?: string }>
+          }
+          return (
+            snapshot.schemaVersion === 3 &&
+            Array.isArray(snapshot.tasks) &&
+            snapshot.tasks.some(
+              (task) => task.id === fixture.id && task.title === '冒烟云端镜像任务'
+            )
+          )
+        } catch {
+          return false
+        }
+      }, 6000)
+      cloudMirrorWrites = mirrored
+      if (!cloudMirrorWrites) {
+        console.error('CLOUD_MIRROR_WRITES_FAIL', JSON.stringify({ latest, state: await getMirrorState() }))
+      }
+
+      // 文件夹被外部移走：开关保持开、状态给出不可用错误，应用仍能正常建/读任务。
+      await rm(dir, { recursive: true, force: true })
+      const paused = await getMirrorState()
+      const probe = createTask({ title: '冒烟云端镜像暂停探针' })
+      mirrorFixtureIds.push(probe.id)
+      const appStillWorks = getTask(probe.id)?.title === '冒烟云端镜像暂停探针'
+      cloudMirrorPause =
+        paused.enabled === true &&
+        typeof paused.error === 'string' &&
+        paused.error.includes(dir) &&
+        appStillWorks
+      if (!cloudMirrorPause) {
+        console.error('CLOUD_MIRROR_PAUSE_FAIL', JSON.stringify({ paused, appStillWorks }))
+      }
+    } catch (error) {
+      console.error('CLOUD_MIRROR_ERROR', error)
+    } finally {
+      await setMirrorEnabled(false).catch(() => {})
+      await setMirrorFolderPath(null).catch(() => {})
+      setMirrorMinGapMs(MIRROR_MIN_GAP_MS)
+      // 临时 profile 也把 meta 印记清干净，避免影响后续设置页契约检查。
+      setMeta('cloud_mirror_last', '')
+      setMeta('cloud_mirror_error', '')
+      for (const id of mirrorFixtureIds) {
+        try {
+          deleteTask(id)
+          deleteTaskForever(id)
+        } catch {
+          // 夹具可能已被硬删；逐条清理互不影响。
+        }
+      }
+      if (mirrorDir) await rm(mirrorDir, { recursive: true, force: true }).catch(() => {})
+    }
 
     const recurrenceOk = runRecurrenceAssertions()
     const customRecurrenceOk = runCustomRecurrenceAssertions()
@@ -3818,6 +3916,8 @@ export async function runSmokeTest(): Promise<void> {
       })()`)) === true
 
     // 存储卡片：信任状措辞精确到「任务数据」、点击直达备份区、页脚不再重复。
+    // 此处镜像必为关（默认），断言的是镜像关态文案；镜像开态的中英标题
+    // 字面量在下方 cloudMirrorSettingsFits 里逐份断言（双份同步维护）。
     // 故意压矮窗口制造面板溢出，让「滚动到位」成为真断言而非恒真。
     let storageCardWorks = false
     if (mainWindow) {
@@ -4018,6 +4118,129 @@ export async function runSmokeTest(): Promise<void> {
         if (!settingsNoScrollMcp) console.error('SETTINGS_NO_SCROLL_MCP_FAIL', JSON.stringify({ zh, en }))
       } finally {
         setMcpEnabled(false)
+        mainWindow.setSize(originalSize[0], originalSize[1])
+        await settledFrames(mainWindow.webContents)
+      }
+    }
+
+    // 云端镜像设置行：启用态 × 五档窗口 × 中英，面板与备份卡都必须一屏，
+    // 镜像行完整落在卡内，状态槽保持单行 ellipsis（长路径/长时间只截断不折行）；
+    // 侧栏存储卡片同场验镜像开态标题（中英字面量双份，随字典同步维护）。
+    let cloudMirrorSettingsFits = false
+    if (mainWindow) {
+      const originalSize = mainWindow.getSize()
+      let fitsDir: string | null = null
+      try {
+        fitsDir = await mkdtemp(join(app.getPath('temp'), 'polaris-mirror-fit-'))
+        setMirrorMinGapMs(60)
+        await setMirrorFolderPath(fitsDir)
+        await setMirrorEnabled(true)
+        const latest = join(fitsDir, 'latest.json')
+        await waitForCondition(async () => {
+          try {
+            return (await readFile(latest, 'utf8')).length > 0
+          } catch {
+            return false
+          }
+        }, 3000)
+
+        // cardTitle：镜像开态侧栏存储卡片标题的期望字面量（中英双份，
+        // 与 nav.ts / en.ts 的 nav.storage.titleMirrored 逐字同步维护）。
+        const mirrorAt = async (w: number, h: number, cardTitle: string) => {
+          mainWindow!.setSize(w, h)
+          await settledFrames(mainWindow!.webContents)
+          return mainWindow!.webContents.executeJavaScript(`(async () => {
+            ${pageHelpers}
+            await waitFor(() => !document.querySelector('.settings-panel'));
+            document.querySelector('.settings-item').click();
+            const panel = await waitFor(() => document.querySelector('.settings-panel'));
+            if (!panel) return { fits: false, found: false };
+            await sleep(400);
+            // 面板开合触发侧栏卡片的镜像状态刷新：开态必须换成本机 + 云端镜像。
+            const storageCard = document.querySelector('.sidebar-storage');
+            const cardMirrored = storageCard ? storageCard.textContent.includes(${JSON.stringify(cardTitle)}) : false;
+            const row = panel.querySelector('.settings-mirror');
+            const card = panel.querySelector('.settings-section--backup');
+            const sw = row ? row.querySelector('[role="switch"]') : null;
+            const status = row ? row.querySelector('.settings-mirror-status') : null;
+            if (!row || !card || !sw || !status) return { fits: false, found: true, row: false };
+            const pr = panel.getBoundingClientRect();
+            const rr = row.getBoundingClientRect();
+            const cr = card.getBoundingClientRect();
+            const cs = getComputedStyle(status);
+            const result = {
+              fits: panel.scrollHeight <= panel.clientHeight + 1,
+              found: true,
+              row: true,
+              cardMirrored,
+              rowVisible: rr.height > 0 && rr.bottom <= pr.bottom + 1,
+              rowInsideCard: rr.top >= cr.top - 1 && rr.bottom <= cr.bottom + 1,
+              cardFits: card.scrollHeight <= card.clientHeight + 1,
+              oneLine: cs.whiteSpace === 'nowrap' && cs.textOverflow === 'ellipsis',
+              switchOn: sw.getAttribute('aria-checked') === 'true',
+              status: status.textContent ?? '',
+              scrollHeight: panel.scrollHeight,
+              clientHeight: panel.clientHeight,
+              cardScrollHeight: card.scrollHeight,
+              cardClientHeight: card.clientHeight
+            };
+            document.querySelector('.settings-panel .detail-close')?.click();
+            await sleep(250);
+            return result;
+          })()`)
+        }
+
+        const switchTo = async (label: string) => {
+          await mainWindow!.webContents.executeJavaScript(`(async () => {
+            ${pageHelpers}
+            document.querySelector('.settings-item').click();
+            const panel = await waitFor(() => document.querySelector('.settings-panel'));
+            await sleep(350);
+            panel.querySelector('.settings-language-select').click();
+            await sleep(250);
+            [...panel.querySelectorAll('.settings-language-option')].find((o) => o.textContent.includes(${JSON.stringify(label)}))?.click();
+            await sleep(350);
+            document.querySelector('.settings-panel .detail-close')?.click();
+            await sleep(250);
+          })()`)
+        }
+
+        const sizes: Array<[number, number]> = [[1024, 576], [980, 640], [683, 607], [1280, 840], [1280, 900]]
+        const zh = []
+        for (const [w, h] of sizes) zh.push(await mirrorAt(w, h, '任务数据本机 + 云端镜像'))
+        await switchTo('English')
+        const en = []
+        for (const [w, h] of sizes) en.push(await mirrorAt(w, h, 'Task data on this device + cloud mirror'))
+        await switchTo('简体中文')
+        console.log('CLOUD_MIRROR_SETTINGS_METRICS', JSON.stringify({ zh, en }))
+        const all = [...zh, ...en]
+        cloudMirrorSettingsFits = all.every(
+          (r) =>
+            r?.fits === true &&
+            r?.cardMirrored === true &&
+            r?.rowVisible === true &&
+            r?.rowInsideCard === true &&
+            r?.cardFits === true &&
+            r?.oneLine === true &&
+            r?.switchOn === true &&
+            typeof r?.status === 'string' &&
+            r.status.length > 0
+        )
+        if (!cloudMirrorSettingsFits) {
+          console.error('CLOUD_MIRROR_SETTINGS_FAIL', JSON.stringify({ zh, en }))
+        }
+      } catch (error) {
+        console.error('CLOUD_MIRROR_SETTINGS_ERROR', error)
+      } finally {
+        // 中途失败也要把界面语言拨回中文，后面的设置页/居中契约按中文断言。
+        await mainWindow.webContents
+          .executeJavaScript("window.__polarisSetLocale?.('zh-CN')")
+          .catch(() => {})
+        await setMirrorEnabled(false).catch(() => {})
+        setMirrorMinGapMs(MIRROR_MIN_GAP_MS)
+        setMeta('cloud_mirror_last', '')
+        setMeta('cloud_mirror_error', '')
+        if (fitsDir) await rm(fitsDir, { recursive: true, force: true }).catch(() => {})
         mainWindow.setSize(originalSize[0], originalSize[1])
         await settledFrames(mainWindow.webContents)
       }
@@ -4950,6 +5173,17 @@ export async function runSmokeTest(): Promise<void> {
       shouldAutoCheck(1_000_000, 2_799_999, 1_800_000) === false &&
       shouldAutoCheck(1_000_000, 999_999, 1_800_000) === true &&
       shouldAutoCheck(Number.NaN, 1_000_000, 1_800_000) === true
+    // 立即重启前的系统通知文案：中英期望值全部写死字面量，不经被测代码反算。
+    // 真实 Notification 弹出只在打包版可达（dev 走 notReady 早退分支），属手动验证项。
+    const installingZh = installingNotice('0.4.893')
+    const installingEn = installingNotice('0.4.893', 'en')
+    const updateInstallingNotice =
+      installingZh.title === 'Polaris 正在更新到 v0.4.893' &&
+      installingZh.body === '正在后台安装，窗口会消失几秒钟，装好后自动重新打开。' &&
+      installingEn.title === 'Polaris is updating to v0.4.893' &&
+      installingEn.body ===
+        'Installing in the background. The window will disappear for a few seconds and reopen automatically when done.'
+    if (!updateInstallingNotice) console.error('UPDATE_INSTALLING_NOTICE_FAIL', JSON.stringify({ installingZh, installingEn }))
     // 下载进度格式化与速度平滑：期望值全部写死字面量，不经过被测函数反算。
     const UPDATE_MB = 1024 * 1024
     const updateFormatTable =
@@ -5395,6 +5629,10 @@ export async function runSmokeTest(): Promise<void> {
       confirmDescribedBy: confirmDescribedBy === true,
       trashFocusLands: trashFocusLands === true,
       retentionTable: retentionOk === true,
+      cloudMirrorGateTable: mirrorGateOk === true,
+      cloudMirrorWrites: cloudMirrorWrites === true,
+      cloudMirrorPause: cloudMirrorPause === true,
+      cloudMirrorSettingsFits: cloudMirrorSettingsFits === true,
       mcpWorks,
       mcpAuthRejects: mcpAuthRejects === true,
       mcpTokenRegenerate: mcpTokenRegenerate === true,
@@ -5468,6 +5706,7 @@ export async function runSmokeTest(): Promise<void> {
       focusRevisionGate: focusRevisionGate === true,
       subtaskFieldRollback: subtaskFieldRollback === true,
       updateLogicTable: updateLogicTable === true,
+      updateInstallingNotice: updateInstallingNotice === true,
       updateFormatTable: updateFormatTable === true,
       updateSettingsCheck: updateSettingsCheck === true,
       updateDialogFlow: updateDialogFlow === true,
@@ -5512,6 +5751,10 @@ export async function runSmokeTest(): Promise<void> {
           confirmDescribedBy,
           trashFocusLands,
           retentionTable: retentionOk,
+          cloudMirrorGateTable: mirrorGateOk,
+          cloudMirrorWrites,
+          cloudMirrorPause,
+          cloudMirrorSettingsFits,
           mcpWorks,
           mcpAuthRejects,
           mcpTokenRegenerate,
@@ -5575,6 +5818,7 @@ export async function runSmokeTest(): Promise<void> {
           focusRevisionGate,
           subtaskFieldRollback,
           updateLogicTable,
+          updateInstallingNotice,
           updateFormatTable,
           updateSettingsCheck,
           updateDialogFlow,

@@ -2,8 +2,9 @@
 // 期望值全部写字面量，绝不经过被测代码重算——否则是拿实现测实现。
 // 只在 harness 构建里存在；shared 纯函数照常 import，不依赖窗口。
 //
-// ⚠️ 同步维护：parse / retention / recurrence（含自定义往返）的表已逐字镜像到
-// scripts/verify-pure.mjs（plain Node 秒级快速层，CI 已挂）。
+// ⚠️ 同步维护：parse / retention / recurrence（含自定义往返）/ mirror（云端镜像
+// 去抖门控）的表已逐字镜像到 scripts/verify-pure.mjs（plain Node 秒级快速层，
+// CI 已挂）。
 // 这里的原断言保留（E2E 仍跑）；任何一处改表，另一处必须跟着改。
 // CSV 导入功能已移除；导出守卫在 smoke.ts（csvExportWorks）与 verify-pure 导出表。
 
@@ -19,6 +20,7 @@ import {
 } from '../db'
 import { dismissKeys, formatParsedDue, parseQuickAdd, pruneDismissed } from '../../shared/quickAddParse'
 import { isPurgeable } from '../../shared/retention'
+import { shouldMirror } from '../../shared/mirror'
 import { isAutoBackupFileName } from '../../shared/backupNames'
 import {
   buildCustomRecurrence,
@@ -584,6 +586,55 @@ export function runBackupNameAssertions(): boolean {
     if (got !== want) {
       ok = false
       console.error('BACKUP_NAME_CASE_FAIL', JSON.stringify({ name, got, want }))
+    }
+  }
+  return ok
+}
+
+// 云端镜像去抖门控真值表：enabled + dirty + folder + 距上次尝试满 minGap 才写；
+// 时钟回拨/坏时间戳/坏参数一律放行——宁可多写一份快照，也不让一次系统改时间
+// 或坏参数把镜像永久冻住。与 scripts/verify-pure.mjs 逐字镜像。
+export function runMirrorAssertions(): boolean {
+  type Case = {
+    enabled: boolean
+    folder: string | null
+    dirty: boolean
+    lastAttemptAt: number | null
+    now: number
+    minGapMs: number
+  }
+  const base: Case = {
+    enabled: true,
+    folder: 'C:\\PolarisSync',
+    dirty: true,
+    lastAttemptAt: 1_000_000,
+    now: 1_030_000,
+    minGapMs: 30_000
+  }
+  // [说明, 输入, 期望]
+  const table: Array<[string, Case, boolean]> = [
+    ['关闭不写', { ...base, enabled: false }, false],
+    ['无改动不写', { ...base, dirty: false }, false],
+    ['未选目录不写', { ...base, folder: null }, false],
+    ['空目录不写', { ...base, folder: '' }, false],
+    ['纯空白目录不写', { ...base, folder: '   ' }, false],
+    ['从未尝试立即写', { ...base, lastAttemptAt: null }, true],
+    ['恰好满间隔写', { ...base, lastAttemptAt: 1_000_000, now: 1_030_000 }, true],
+    ['差 1ms 不写', { ...base, lastAttemptAt: 1_000_001, now: 1_030_000 }, false],
+    ['时钟回拨放行', { ...base, lastAttemptAt: 1_030_001, now: 1_030_000 }, true],
+    ['坏时间戳放行', { ...base, lastAttemptAt: Number.NaN }, true],
+    ['坏 now 放行', { ...base, now: Number.NaN }, true],
+    ['坏间隔放行', { ...base, minGapMs: Number.NaN }, true],
+    ['负间隔放行', { ...base, minGapMs: -1 }, true],
+    ['零间隔立即写', { ...base, minGapMs: 0 }, true],
+    ['目录带空白仍算已选', { ...base, folder: ' C:\\PolarisSync ', lastAttemptAt: null }, true]
+  ]
+  let ok = true
+  for (const [label, input, want] of table) {
+    const got = shouldMirror(input)
+    if (got !== want) {
+      ok = false
+      console.error('MIRROR_GATE_CASE_FAIL', JSON.stringify({ label, input, got, want }))
     }
   }
   return ok
