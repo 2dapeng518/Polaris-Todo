@@ -3239,9 +3239,11 @@ export async function runSmokeTest(): Promise<void> {
       if (backupProjectId) deleteProject(backupProjectId)
     }
 
-    // 自动备份列表（设置页 E2E）：fixture 备份落盘 → 标题行展开列表 → 行内「导入」
-    // 合并回库；路径穿越入参拒绝；openDataDir 在 harness 恒不真开资源管理器；
-    // 「另存为」只断言存在——原生保存对话框无自动化，不点。
+    // 自动备份列表（设置页 E2E，模态版）：fixture 备份落盘 → 点固定行 [管理…]
+    // 开对话框 → 断言列表行（newest first）→ 行内「导入」合并回库（反馈落
+    // 对话框常驻槽）；路径穿越入参拒绝；openDataDir 在 harness 恒不真开资源
+    // 管理器；「另存为」只断言存在——原生保存对话框无自动化，不点；
+    // Esc 只关对话框、面板存活；开/关模态前后面板几何逐像素不变（零抖动）。
     let autoBackupListWorks = false
     const autoBackupFixtureName = 'polaris-auto-2026-11-19T02-00-00-000Z.json'
     let autoBackupFixtureId: string | null = null
@@ -3269,28 +3271,56 @@ export async function runSmokeTest(): Promise<void> {
           const panel = await waitFor(() => document.querySelector('.settings-panel'));
           if (!panel) return { opened: false };
           await sleep(450);
-          const toggle = panel.querySelector('.auto-backup-toggle');
-          if (!toggle) return { opened: true, toggle: false };
-          toggle.click();
+          const manage = panel.querySelector('.auto-backup-manage');
+          if (!manage) return { opened: true, manage: false };
+          // 零抖动快照：面板外框 / 内容高度 / 页脚顶边，开模态前后必须全等。
+          const snap = () => ({
+            ph: panel.getBoundingClientRect().height,
+            sh: panel.scrollHeight,
+            ftop: panel.querySelector('.settings-footer').getBoundingClientRect().top
+          });
+          const before = snap();
+          manage.click();
+          const dialog = await waitFor(() => document.querySelector('.backup-dialog-panel'));
+          if (!dialog) return { opened: true, manage: true, dialog: false };
           const row = await waitFor(() =>
-            panel.querySelector('.auto-backup-row[data-backup-name="${autoBackupFixtureName}"]')
+            dialog.querySelector('.auto-backup-row[data-backup-name="${autoBackupFixtureName}"]')
           );
-          if (!row) return { opened: true, toggle: true, row: false };
+          if (!row) return { opened: true, manage: true, dialog: true, row: false };
+          await sleep(300);
+          const during = snap();
+          // newest first：文件名即时间戳，整列必须按名字降序（不依赖目录里
+          // 是否还有更新的真实自动备份，断言排序语义本身）。
+          const rowNames = [...dialog.querySelectorAll('.auto-backup-row')].map((r) => r.getAttribute('data-backup-name'));
+          const sortedDesc = rowNames.length > 0 && rowNames.every((n, i) => i === 0 || rowNames[i - 1] >= n);
           const rowButtons = row.querySelectorAll('button');
           const saveAsPresent = rowButtons.length === 2;
           rowButtons[0].click();
+          // 反馈落对话框常驻槽（默认是合并语义说明，导入完成文案替换进槽）。
           const status = await waitFor(() => {
-            const el = panel.querySelector('.settings-section--backup .settings-hint');
-            return el && el.textContent ? el.textContent : null;
+            const el = dialog.querySelector('.backup-dialog-slot');
+            const text = el ? el.textContent : '';
+            return text && text.includes('导入完成') ? text : null;
           });
           const traversal = await window.polaris.backups.import('../../evil.json');
           const openDir = await window.polaris.backups.openDataDir();
+          // Esc 只关对话框：React 在根停传播，面板的 window 监听不抢关。
+          dialog.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+          const escClosed = await waitFor(() => !document.querySelector('.backup-dialog-panel'));
+          await sleep(300);
+          const after = snap();
+          const panelAlive = Boolean(document.querySelector('.settings-panel'));
           document.querySelector('.settings-panel .detail-close')?.click();
           await sleep(250);
+          const eq = (a, b) => a.ph === b.ph && a.sh === b.sh && a.ftop === b.ftop;
           return {
-            opened: true, toggle: true, row: true, saveAsPresent, status,
+            opened: true, manage: true, dialog: true, row: true, saveAsPresent, status,
+            sortedDesc,
             traversalOk: traversal.ok === false,
-            openDirOpened: openDir.opened === true
+            openDirOpened: openDir.opened === true,
+            escClosed: Boolean(escClosed),
+            panelAlive,
+            zeroShift: eq(before, during) && eq(before, after)
           };
         })()`)
         const backInDb = listTasks().some((t) => t.id === autoBackupFixtureId)
@@ -3298,9 +3328,13 @@ export async function runSmokeTest(): Promise<void> {
           listResult?.row === true &&
           listResult?.saveAsPresent === true &&
           typeof listResult?.status === 'string' &&
+          listResult?.sortedDesc === true &&
           backInDb &&
           listResult?.traversalOk === true &&
-          listResult?.openDirOpened === false
+          listResult?.openDirOpened === false &&
+          listResult?.escClosed === true &&
+          listResult?.panelAlive === true &&
+          listResult?.zeroShift === true
         if (!autoBackupListWorks) console.error('AUTO_BACKUP_LIST_FAIL', JSON.stringify({ listResult, backInDb }))
       }
     } catch (error) {
@@ -4196,10 +4230,10 @@ export async function runSmokeTest(): Promise<void> {
 
         const sizes: Array<[number, number]> = [[1024, 576], [980, 640], [683, 607], [1280, 840], [1280, 900]]
         const zh = []
-        for (const [w, h] of sizes) zh.push(await mirrorAt(w, h, '任务数据本机 + 网盘备份'))
+        for (const [w, h] of sizes) zh.push(await mirrorAt(w, h, '任务数据本机 + 网盘自动保存'))
         await switchTo('English')
         const en = []
-        for (const [w, h] of sizes) en.push(await mirrorAt(w, h, 'Task data on this device + drive backup'))
+        for (const [w, h] of sizes) en.push(await mirrorAt(w, h, 'Task data on this device + drive autosave'))
         await switchTo('简体中文')
         console.log('CLOUD_MIRROR_SETTINGS_METRICS', JSON.stringify({ zh, en }))
         const all = [...zh, ...en]
@@ -4434,8 +4468,9 @@ export async function runSmokeTest(): Promise<void> {
     }
 
     // 设置页 v2 布局（1024×576 实机档）：命名两列左数据备份/右 MCP+常规设置
-    // （固定内容钉行高，备份卡 contain:size 吸收展开）、语言下拉上移主题标题行、
-    // 关于页脚折叠展开挂载/收起卸载。
+    // （固定内容钉行高，备份卡 contain:size 吸收状态行）、语言下拉上移主题
+    // 标题行、关于页脚折叠展开挂载/收起卸载；自动备份列表是模态语义——
+    // [管理…] 开对话框盖面板，卡内不再内联展开，开关前后面板高度不变。
     let settingsLayoutV2 = false
     if (mainWindow) {
       const originalSize = mainWindow.getSize()
@@ -4466,10 +4501,29 @@ export async function runSmokeTest(): Promise<void> {
           const expandedOk = Boolean(expanded) && toggle?.getAttribute('aria-expanded') === 'true';
           toggle?.click();
           const collapsed = await waitFor(() => !panel.querySelector('.about-credits'));
+          // 备份列表模态语义：[管理…] 开对话框（overlay 盖面板），卡内永远
+          // 没有内联展开体；Esc 关对话框、面板存活且高度全程不变。
+          const manage = panel.querySelector('.auto-backup-manage');
+          const managePresent = Boolean(manage);
+          const phBefore = panel.getBoundingClientRect().height;
+          manage?.click();
+          const dialog = await waitFor(() => document.querySelector('.backup-dialog-panel'));
+          const modalOpened = Boolean(dialog);
+          // 对话框 DOM 挂在面板内（ConfirmDialog 同范式）：内联展开体 = 面板里
+          // 不属于对话框的列表/展开体，必须一个都没有。
+          const noInlineBody = !panel.querySelector('.auto-backup-body') &&
+            [...panel.querySelectorAll('.auto-backup-list')].every((el) => el.closest('.backup-dialog-panel'));
+          const phDuring = panel.getBoundingClientRect().height;
+          dialog?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+          const modalClosed = await waitFor(() => !document.querySelector('.backup-dialog-panel'));
+          await sleep(250);
+          const phAfter = panel.getBoundingClientRect().height;
+          const modalStable = phBefore === phDuring && phBefore === phAfter;
           document.querySelector('.settings-panel .detail-close')?.click();
           await sleep(250);
           return {
             found: true, langInHead, cols, balanced, expandedOk, collapsed,
+            managePresent, modalOpened, noInlineBody, modalClosed: Boolean(modalClosed), modalStable,
             // 高度预算复核日志：CSS 注释里的实测数字以此为据。
             panelSH: panel.scrollHeight,
             backupH: backupCard ? backupCard.getBoundingClientRect().height : -1,
@@ -4483,7 +4537,12 @@ export async function runSmokeTest(): Promise<void> {
           layout?.cols === true &&
           layout?.balanced === true &&
           layout?.expandedOk === true &&
-          layout?.collapsed === true
+          layout?.collapsed === true &&
+          layout?.managePresent === true &&
+          layout?.modalOpened === true &&
+          layout?.noInlineBody === true &&
+          layout?.modalClosed === true &&
+          layout?.modalStable === true
         if (!settingsLayoutV2) console.error('SETTINGS_LAYOUT_V2_FAIL', JSON.stringify(layout))
       } finally {
         mainWindow.setSize(originalSize[0], originalSize[1])
@@ -4544,10 +4603,11 @@ export async function runSmokeTest(): Promise<void> {
       }
     }
 
-    // 设置页备份零抖动（1024×576 实机档）：左列备份卡 contain:size + stretch
-    // 吸收手风琴展开高度——展开/收起前后面板内容高度、页脚顶边、外框、右列
-    // 高度逐像素相等，且行真渲染在卡内（非恒真）。3 份 fixture 触发列表分支，
-    // 量完即清。用户报障根因（展开撑高右列→左卡拉伸/页脚跳）的回归守卫。
+    // 设置页备份零抖动（1024×576 实机档，模态版）：列表住对话框后，开/关
+    // [管理…] 模态前后面板内容高度、页脚顶边、外框、右列/备份卡高度逐像素
+    // 相等，且行真渲染在对话框列表内（非恒真）、首行免滚可见。3 份 fixture
+    // 触发列表分支，量完即清。用户报障根因（内联展开撑高→左卡拉伸/页脚跳）
+    // 的回归守卫——现在从构造上消失，契约钉死不许回潮。
     let settingsBackupNoShift = false
     if (mainWindow) {
       const originalSize = mainWindow.getSize()
@@ -4589,21 +4649,20 @@ export async function runSmokeTest(): Promise<void> {
             cardH: backupCard.getBoundingClientRect().height
           });
           const before = snap();
-          panel.querySelector('.auto-backup-toggle')?.click();
-          const rows = await waitFor(() => panel.querySelectorAll('.auto-backup-row').length >= 3, 8000);
+          panel.querySelector('.auto-backup-manage')?.click();
+          const dialog = await waitFor(() => document.querySelector('.backup-dialog-panel'));
+          if (!dialog) return { found: true, cards: true, dialog: false };
+          const rows = await waitFor(() => dialog.querySelectorAll('.auto-backup-row').length >= 3, 8000);
           if (!rows) {
-            // 诊断塞返回值：IPC 直调 vs DOM 状态，定位是列表没取到还是没展开。
+            // 诊断塞返回值：IPC 直调 vs DOM 状态，定位是列表没取到还是没开模态。
             const dbg = await window.polaris.backups.list();
             return {
-              found: true, cards: true, rows: false,
-              expanded: panel.querySelector('.auto-backup-toggle')?.getAttribute('aria-expanded'),
-              body: Boolean(panel.querySelector('.auto-backup-body')),
-              err: panel.querySelector('.settings-section--backup .settings-error')?.textContent ?? null,
-              rowCount: panel.querySelectorAll('.auto-backup-row').length,
-              rowNames: [...panel.querySelectorAll('.auto-backup-row')].map((r) => r.getAttribute('data-backup-name')),
+              found: true, cards: true, dialog: true, rows: false,
+              err: dialog.querySelector('.settings-error')?.textContent ?? null,
+              rowCount: dialog.querySelectorAll('.auto-backup-row').length,
+              rowNames: [...dialog.querySelectorAll('.auto-backup-row')].map((r) => r.getAttribute('data-backup-name')),
               panels: document.querySelectorAll('.settings-panel').length,
-              bodies: document.querySelectorAll('.auto-backup-body').length,
-              emptyHint: panel.querySelector('.auto-backup-body .settings-hint')?.textContent ?? null,
+              emptyHint: dialog.querySelector('.backup-dialog-empty')?.textContent ?? null,
               listOk: dbg.ok,
               listCount: dbg.items ? dbg.items.length : -1,
               listDetail: dbg.items ? dbg.items.map((i) => i.name) : dbg.error
@@ -4611,31 +4670,38 @@ export async function runSmokeTest(): Promise<void> {
           }
           await sleep(300);
           const open = snap();
-          const cardRect = backupCard.getBoundingClientRect();
-          const list = panel.querySelector('.auto-backup-list');
+          const dlgRect = dialog.getBoundingClientRect();
+          const list = dialog.querySelector('.auto-backup-list');
           const listRect = list ? list.getBoundingClientRect() : null;
-          const rowRects = [...panel.querySelectorAll('.auto-backup-row')].map((r) => r.getBoundingClientRect());
-          // 收容契约：行住在列表滚动内容里（横向不出卡、纵向不出列表
-          // scrollHeight），首行免滚可见。列表超高卡内滚动是设计行为
-          // （576 档卡高 207px 装不下三行），不要求全行可见。
-          const rowsInCard = Boolean(listRect) && rowRects.every((r) =>
-            r.left >= cardRect.left - 1 && r.right <= cardRect.right + 1 &&
+          const rowRects = [...dialog.querySelectorAll('.auto-backup-row')].map((r) => r.getBoundingClientRect());
+          // 收容契约：行住在对话框列表滚动内容里（横向不出对话框、纵向不出
+          // 列表 scrollHeight），首行免滚可见。列表超高对话框内滚动是设计
+          // 行为（max-height 帽），不要求全行可见。
+          const rowsInDialog = Boolean(listRect) && rowRects.every((r) =>
+            r.left >= dlgRect.left - 1 && r.right <= dlgRect.right + 1 &&
             r.top >= listRect.top - 1 && r.bottom <= listRect.top + list.scrollHeight + 1);
-          const firstRowVisible = rowRects.length > 0 && rowRects[0].bottom <= cardRect.bottom + 1;
-          panel.querySelector('.auto-backup-toggle')?.click();
-          await waitFor(() => !panel.querySelector('.auto-backup-body'));
+          const firstRowVisible = rowRects.length > 0 && Boolean(listRect) &&
+            rowRects[0].bottom <= Math.min(dlgRect.bottom, listRect.top + list.clientHeight) + 1;
+          // 卡内永远没有内联展开体：列表只住对话框（对话框 DOM 挂在面板内，
+          // ConfirmDialog 同范式，按 closest 排除对话框子树）。
+          const noInline = !panel.querySelector('.auto-backup-body') &&
+            [...panel.querySelectorAll('.auto-backup-list')].every((el) => el.closest('.backup-dialog-panel'));
+          dialog.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+          await waitFor(() => !document.querySelector('.backup-dialog-panel'));
           await sleep(300);
           const closed = snap();
           document.querySelector('.settings-panel .detail-close')?.click();
           await sleep(250);
           const eq = (a, b) =>
-            a.sh === b.sh && a.ftop === b.ftop && a.ph === b.ph && a.cw === b.cw && a.sideH === b.sideH;
+            a.sh === b.sh && a.ftop === b.ftop && a.ph === b.ph && a.cw === b.cw && a.sideH === b.sideH && a.cardH === b.cardH;
           return {
             found: true,
             cards: true,
+            dialog: true,
             rows: true,
-            rowsInCard,
+            rowsInDialog,
             firstRowVisible,
+            noInline,
             balanced: Math.abs(open.cardH - open.sideH) <= 2,
             openStable: eq(before, open),
             closedStable: eq(before, closed)
@@ -4644,9 +4710,11 @@ export async function runSmokeTest(): Promise<void> {
         settingsBackupNoShift =
           stable?.found === true &&
           stable?.cards === true &&
+          stable?.dialog === true &&
           stable?.rows === true &&
-          stable?.rowsInCard === true &&
+          stable?.rowsInDialog === true &&
           stable?.firstRowVisible === true &&
+          stable?.noInline === true &&
           stable?.balanced === true &&
           stable?.openStable === true &&
           stable?.closedStable === true

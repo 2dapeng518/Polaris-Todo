@@ -13,17 +13,8 @@ import { useUpdateStore } from '../stores/useUpdateStore'
 import { useT, useLocale, type Translate } from '../stores/useLocaleStore'
 import { LanguageSelect } from './LanguageSelect'
 import { ConfirmDialog } from './ConfirmDialog'
+import { BackupListDialog, formatBackupWhen } from './BackupListDialog'
 import { useFocusTrap } from '../lib/useFocusTrap'
-
-/** 备份行时间戳跟随界面语言；大小给人类可读单位，列表不解析文件内容。 */
-function formatBackupWhen(mtimeMs: number, locale: string): string {
-  return new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' }).format(mtimeMs)
-}
-
-function formatBackupSize(bytes: number): string {
-  if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
-  return `${Math.max(1, Math.round(bytes / 1024))} KB`
-}
 
 /** 自适应短掩码：前缀照露 + 头 k 位 hex + … + 尾 k 位 hex，k 随盒宽填满整盒
     （用户 16:2x「填充满」），clamp [4,32]——窄盒保底头 4 尾 4（用户 15:33）。
@@ -87,9 +78,10 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
   const [backupBusy, setBackupBusy] = useState(false)
   const [backupStatus, setBackupStatus] = useState<string | null>(null)
   const [backupError, setBackupError] = useState<string | null>(null)
-  // 自动备份折叠块：默认收起不占高度；每次展开重读列表（目录可能被
-  // 外部改动），缓存只供收起态的计数展示。
-  const [autoBackupOpen, setAutoBackupOpen] = useState(false)
+  // 自动备份管理对话框（用户拍板：内联手风琴改模态，根除展开撑高抖动）：
+  // 备份卡只留固定一行「自动备份 · 共 N 份 [管理…]」，列表住对话框。
+  // 每次打开重读列表（目录可能被外部改动），缓存只供固定行的计数展示。
+  const [backupDialogOpen, setBackupDialogOpen] = useState(false)
   const [autoBackups, setAutoBackups] = useState<AutoBackupItem[] | null>(null)
   const [autoBackupError, setAutoBackupError] = useState<string | null>(null)
   const [closeToTray, setCloseToTray] = useState(true)
@@ -176,13 +168,13 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
             : t('settings.cloudMirrorOn', { time: mirrorWhen })
   const recoveryOffered = mirror.enabled && mirror.recoveryAvailable
 
-  // 更新弹窗可能叠在设置面板上（「查看更新」）：焦点陷阱让位，别互相抢。
-  useFocusTrap(panelRef, open && !paletteOpen && !updateDialogOpen, panelRef)
+  // 更新弹窗/自动备份对话框可能叠在设置面板上：焦点陷阱让位，别互相抢。
+  useFocusTrap(panelRef, open && !paletteOpen && !updateDialogOpen && !backupDialogOpen, panelRef)
 
   // 真·垂直居中：顶边距按面板实测高度实时算 (vh - h) / 2，启用 MCP 长高时
   // overlay 的 padding-top 走 180ms 过渡平滑 glide——既居中美观，又没有旧
   // 「内容一长高就重新居中」的瞬移抖动。offsetHeight 不吃入场弹簧的 scale。
-  // 高度来源全确定（手风琴被卡吸收 / 关于是浮层 / 状态行常驻 / 错误零增行），
+  // 高度来源全确定（备份列表住模态 / 关于是浮层 / 状态行常驻 / 错误零增行），
   // 唯一变高源是 MCP 开关，glide 覆盖它。
   useLayoutEffect(() => {
     if (!open) return
@@ -304,6 +296,10 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
         if (!cancelled) setMirror((current) => ({ ...current, error: String(error) }))
       })
 
+    // 固定行计数：打开面板即取一次列表（廉价元数据 IPC），「共 N 份」
+    // 第一时间上屏；失败静默（计数缺席不占行），打开对话框时会重读并报错误。
+    void loadAutoBackups()
+
     return () => {
       cancelled = true
     }
@@ -319,9 +315,9 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
       setBackupStatus(null)
       setBackupError(null)
       setAutoBackupError(null)
-      // 手风琴随面板关闭收起：重开回到收起态，一屏守卫量的永远是收起态。
-      // 列表缓存保留供收起态计数；展开时重读防幽灵行。
-      setAutoBackupOpen(false)
+      // 对话框随面板关闭卸载：重开回到固定行，一屏守卫量的永远是干净态。
+      // 列表缓存保留供固定行计数；打开对话框时重读防幽灵行。
+      setBackupDialogOpen(false)
     }
     return () => {
       if (mcpNoticeTimer.current) {
@@ -338,6 +334,11 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
     if (!open || paletteOpen) return
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return
+      // 备份对话框正常在 React 根就停掉 Esc；这里兜底焦点漏在对话框外的情形。
+      if (backupDialogOpen) {
+        setBackupDialogOpen(false)
+        return
+      }
       if (aboutOpen) {
         setAboutOpen(false)
         return
@@ -346,7 +347,7 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [open, paletteOpen, onClose, aboutOpen])
+  }, [open, paletteOpen, onClose, aboutOpen, backupDialogOpen])
 
   const toggleAutoStart = async () => {
     if (busy || !autoStart.supported) return
@@ -573,16 +574,15 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
     }
   }
 
-  // 先取列表再展开：本地 IPC 毫秒级，避免「先撑开空壳、行随后弹出」的
-  // 两段式跳高。每次展开都重读——目录可能被外部改动（数据目录里删文件、
-  // 新一轮自动备份），拿旧缓存会渲染幽灵行；缓存只供收起态计数展示。
-  const toggleAutoBackup = async () => {
-    if (autoBackupOpen) {
-      setAutoBackupOpen(false)
-      return
-    }
+  // 先取列表再开模态：本地 IPC 毫秒级，对话框带着数据打开，没有「先开
+  // 空壳、行随后弹出」的两段式跳高。每次打开都重读——目录可能被外部改动
+  // （数据目录里删文件、新一轮自动备份），拿旧缓存会渲染幽灵行；缓存只供
+  // 固定行计数展示。顺手清掉备份区旧反馈，对话框反馈槽从干净态开始。
+  const openBackupDialog = async () => {
+    setBackupStatus(null)
+    setBackupError(null)
     await loadAutoBackups()
-    setAutoBackupOpen(true)
+    setBackupDialogOpen(true)
   }
 
   // 与 handleImport 完全同语义：合并非破坏，计数进同一条状态行，刷新两个存储。
@@ -741,29 +741,25 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
 
             </div>
 
-            {/* 左列「数据备份」：唯一会变高的组（手风琴/状态行）。两列档里
-                contain:size + stretch 让展开高度被卡框吸收、列表卡内滚动，
-                行高由右列固定内容决定——展开/收起外几何逐像素不变。 */}
+            {/* 左列「数据备份」：内容固定（状态行被 contain:size 卡框吸收），
+                行高由右列固定内容决定。自动备份列表住模态对话框，任何状态
+                备份卡高度恒定——设置面板几何不随备份列表变化。 */}
             <div className="settings-section settings-section--backup">
-              {/* 折叠开关进标题行右侧：收起态零增高，一屏守卫的高度预算不动。 */}
+              {/* 管理入口进标题行右侧：固定一行「自动备份 · 共 N 份 [管理…]」，
+                  点击开模态；计数缺席/落字都在同一行，零增高。 */}
               <div className="settings-group-label settings-group-label--split">
                 <span>{t('settings.backup')}</span>
                 <button
-                  className="auto-backup-toggle"
-                  aria-expanded={autoBackupOpen}
+                  className="auto-backup-manage"
+                  aria-haspopup="dialog"
                   title={t('settings.autoBackupDesc')}
-                  onClick={() => void toggleAutoBackup()}
+                  onClick={() => void openBackupDialog()}
                 >
                   <span>
                     {t('settings.autoBackup')}
                     {autoBackups !== null && ` · ${t('settings.autoBackupCount', { count: autoBackups.length })}`}
                   </span>
-                  <ChevronDown
-                    size={12}
-                    strokeWidth={1.8}
-                    aria-hidden="true"
-                    className={`settings-about-chev${autoBackupOpen ? ' open' : ''}`}
-                  />
+                  <span className="auto-backup-manage-cta">{t('settings.autoBackupManage')}</span>
                 </button>
               </div>
               <div className="settings-row-desc" title={t('settings.backupDesc')}>
@@ -796,55 +792,6 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
               {backupError && (
                 <div className="settings-error" role="alert">{backupError}</div>
               )}
-              {/* 自动备份手风琴：开关在标题行，这里收起时什么都不渲染。
-                  24h/21 份/合并语义的说明进开关 title 提示——展开态卡内
-                  余高要留给列表首行（576 档卡高 207px，说明占行会把首行
-                  挤出卡外，settingsBackupNoShift 的首行免滚断言钉死）。 */}
-              <AnimatePresence initial={false}>
-                {autoBackupOpen && (
-                  <motion.div
-                    className="auto-backup-body"
-                    initial={{ opacity: 0, y: 6 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: 6 }}
-                    transition={{ duration: 0.14, ease: 'easeOut' }}
-                  >
-                    {autoBackupError && (
-                      <div className="settings-error" role="alert">{autoBackupError}</div>
-                    )}
-                    {autoBackups !== null && autoBackups.length === 0 && (
-                      <div className="settings-hint">{t('settings.autoBackupEmpty')}</div>
-                    )}
-                    {autoBackups !== null && autoBackups.length > 0 && (
-                      <ul className="auto-backup-list">
-                        {autoBackups.map((item) => (
-                          <li key={item.name} className="auto-backup-row" data-backup-name={item.name}>
-                            <span className="auto-backup-when">{formatBackupWhen(item.mtimeMs, locale)}</span>
-                            <span className="auto-backup-size">{formatBackupSize(item.sizeBytes)}</span>
-                            <span className="auto-backup-row-actions">
-                              <button
-                                className="backup-btn backup-btn--small"
-                                disabled={backupBusy}
-                                onClick={() => void handleAutoBackupImport(item.name)}
-                              >
-                                {t('settings.autoBackupImport')}
-                              </button>
-                              <button
-                                className="backup-btn backup-btn--small"
-                                disabled={backupBusy}
-                                onClick={() => void handleAutoBackupSaveAs(item.name)}
-                              >
-                                {t('settings.autoBackupSaveAs')}
-                              </button>
-                            </span>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </motion.div>
-                )}
-              </AnimatePresence>
-
               <div className="settings-mirror">
                 <div className="settings-row">
                   <div className="settings-mirror-main">
@@ -1125,6 +1072,24 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
                 {updateErrorDetail ?? (updateStatusVisible && update ? updateStatusText(update, t) : '')}
               </div>
             </div>
+
+            {/* 自动备份管理对话框：列表/导入/另存为全住这里，overlay 盖设置
+                面板，开关全程不动面板几何（settingsBackupNoShift 钉死）。
+                导入/另存为复用备份区同一套 handler 与状态行，语义不变。 */}
+            <AnimatePresence>
+              {backupDialogOpen && (
+                <BackupListDialog
+                  items={autoBackups}
+                  loadError={autoBackupError}
+                  busy={backupBusy}
+                  status={backupStatus}
+                  error={backupError}
+                  onImport={(name) => void handleAutoBackupImport(name)}
+                  onSaveAs={(name) => void handleAutoBackupSaveAs(name)}
+                  onClose={() => setBackupDialogOpen(false)}
+                />
+              )}
+            </AnimatePresence>
 
             {/* 重新生成令牌的二次确认：旧客户端配置立即失效，属破坏性动作。
                 ConfirmDialog 自带焦点陷阱（压在面板陷阱之上）并在 React 根

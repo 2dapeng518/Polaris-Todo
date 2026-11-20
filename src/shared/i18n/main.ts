@@ -31,8 +31,8 @@ export const main = {
   // 导入文件大小上限（readFile 前的 stat 检查）。
   'native.importTooLarge': '备份文件超过 {limit} MB 上限，已拒绝读取。',
   'native.invalidBackupName': '非法的备份文件名，已拒绝。',
-  'native.mirrorFolderTitle': '选择网盘备份文件夹',
-  'native.mirrorImportTitle': '从网盘备份导入',
+  'native.mirrorFolderTitle': '选择数据自动保存文件夹',
+  'native.mirrorImportTitle': '从网盘保存文件恢复',
   'mirror.folderUnavailable': '备份文件夹不可用：{path}',
   'mirror.writeFailed': '写入备份失败：{error}',
   'mirror.folderInvalid': '该文件夹不可用，请选择其他目录（不能是 Polaris 数据目录或其上级目录）',
