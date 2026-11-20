@@ -1079,8 +1079,7 @@ textarea {
   overscroll-behavior: contain;
 }
 
-/* 事实卡，不是状态灯：文案随镜像开关换措辞（仅存本机 / 本机 + 云端镜像），
-   但仍是静态事实陈述。不要加健康点、role="status" 或 aria-live。 */
+/* 不要加健康点、role="status" 或 aria-live。 */
 /* 存储卡片是可点的信任状：按钮重置 + hover 微亮，直达设置备份区。 */
 .sidebar-storage {
   display: flex;
@@ -5345,8 +5344,7 @@ textarea {
   max-height: none;
 }
 
-/* 云端镜像单行：与 MCP 行同形（标题 + 状态槽 + 动作），贴卡底。
-   状态槽单行 ellipsis，错误/恢复提示只换文案不增行；顶部细分隔线
+/* 状态槽单行 ellipsis，错误/恢复提示只换文案不增行；顶部细分隔线
    让它在备份卡里自成一组，但共享同一卡框，不增加设置页行高。
    选择按钮收成 24px 高，与 22px 开关同一视觉档。 */
 .settings-mirror {

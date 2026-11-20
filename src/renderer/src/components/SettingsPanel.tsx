@@ -103,7 +103,6 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
     running: false,
     endpoint: 'http://127.0.0.1:3737/mcp'
   })
-  // 云端镜像：开关/目录/最近写入全是主进程权威，渲染层只消费快照。
   // 状态行与 MCP 行同形，条件变化只替换文案、不增行。
   const [mirror, setMirror] = useState<CloudMirrorState>({
     enabled: false,
@@ -159,7 +158,6 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
         : t('settings.hotkeyOff')
   const hotkeyDescAlert = Boolean(hotkey.enabled && hotkey.error)
 
-  // 镜像状态行：错误 > 关闭 > 云端恢复提示 > 未选目录 > 待写 > 已镜像。
   // 时间戳跟随界面语言；解析失败就退回「待写」，绝不显示 Invalid Date。
   const mirrorWhen =
     mirror.lastMirrorAt && Number.isFinite(Date.parse(mirror.lastMirrorAt))
@@ -176,8 +174,6 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
           : mirror.pending || !mirrorWhen
             ? t('settings.cloudMirrorPending')
             : t('settings.cloudMirrorOn', { time: mirrorWhen })
-  // 恢复入口只在镜像开启时出现：关闭态点「从云端导入」应走普通文件选择，
-  // 而不是悄悄用镜像目录里的 latest.json。
   const recoveryOffered = mirror.enabled && mirror.recoveryAvailable
 
   // 更新弹窗可能叠在设置面板上（「查看更新」）：焦点陷阱让位，别互相抢。
@@ -429,9 +425,6 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
     }
   }
 
-  // 从云端导入：反馈落备份区同一条状态行（卡内吸收，零增高）。
-  // 恢复路径（镜像是全新库的唯一来源）由主进程顺带清教学示例；
-  // 导入成功后刷新两个独立存储，并重取镜像状态（恢复提示应消失）。
   const importFromCloud = async (latest: boolean) => {
     setBackupBusy(true)
     setBackupError(null)
@@ -852,10 +845,6 @@ export function SettingsPanel({ open, onClose, scrollTo = null }: SettingsPanelP
                 )}
               </AnimatePresence>
 
-              {/* 云端镜像单行：标题 + 从云端导入 / 选择文件夹 + 开关。
-                  状态行与 MCP 行同形（错误替换描述、单行 ellipsis），
-                  条件变化零增行；放在备份卡底部，卡高由右列定价、
-                  contain:size 吸收，展开手风琴也不改外几何。 */}
               <div className="settings-mirror">
                 <div className="settings-row">
                   <div className="settings-mirror-main">

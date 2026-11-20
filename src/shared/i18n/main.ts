@@ -31,14 +31,14 @@ export const main = {
   // 导入文件大小上限（readFile 前的 stat 检查）。
   'native.importTooLarge': '备份文件超过 {limit} MB 上限，已拒绝读取。',
   'native.invalidBackupName': '非法的备份文件名，已拒绝。',
-  'native.mirrorFolderTitle': '选择云端镜像文件夹',
-  'native.mirrorImportTitle': '从云端备份导入',
-  'mirror.folderUnavailable': '镜像文件夹不可用：{path}',
-  'mirror.writeFailed': '写入镜像失败：{error}',
+  'native.mirrorFolderTitle': '选择网盘备份文件夹',
+  'native.mirrorImportTitle': '从网盘备份导入',
+  'mirror.folderUnavailable': '备份文件夹不可用：{path}',
+  'mirror.writeFailed': '写入备份失败：{error}',
   'mirror.folderInvalid': '该文件夹不可用，请选择其他目录（不能是 Polaris 数据目录或其上级目录）',
   'mirror.importNotFile': '所选路径不是文件',
   'mirror.invalidJson': '文件不是有效的 JSON',
   'mirror.invalidBackup': '不是有效的 Polaris 备份文件',
-  'mirror.noBackup': '镜像文件夹里还没有 latest.json，无法恢复'
+  'mirror.noBackup': '备份文件夹里还没有 latest.json，无法恢复'
 
 }

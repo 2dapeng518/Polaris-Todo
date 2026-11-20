@@ -407,9 +407,6 @@ export function Sidebar() {
       <div className="sidebar-spacer" />
       </div>
 
-      {/* 信任状 + 出口：默认承诺任务数据仅存本机；镜像开启后承诺缩窄为
-          「本机 + 云端镜像」，不再夸大。主语是「任务数据」不是「应用」——
-          更新检查会联网，措辞必须精确。点击两态都直达备份区，行高不变。 */}
       <button
         className="sidebar-storage"
         title={t('nav.storage.titleAttr')}
@@ -421,7 +418,6 @@ export function Sidebar() {
       >
         <HardDrive size={16} strokeWidth={1.8} className="storage-icon" aria-hidden="true" />
         <div className="storage-copy">
-          {/* 镜像态标题更长，单行 ellipsis 保行高；全文进 title 不丢信息。 */}
           <div
             className="storage-title"
             title={mirrorEnabled ? t('nav.storage.titleMirrored') : undefined}

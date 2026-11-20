@@ -122,10 +122,6 @@ export function listDemoSeedIds(): DemoSeedIds | null {
   }
 }
 
-/** 云端恢复导入后清掉首启教学示例：只按记录的 id 精确删除，一个事务，
- *  任务硬删（子任务靠外键级联，额外按 id 删一次是兜底），项目/标签随后。
- *  keepIds 是「刚导入/已存在的行」——恢复同一份快照时这些 id 必须保留，
- *  否则把快照里的示例行删干净会把库清空。返回是否真的删过。 */
 export function removeDemoSeedRows(keepIds?: ReadonlySet<string>): boolean {
   const ids = listDemoSeedIds()
   if (!ids) return false
@@ -395,9 +391,6 @@ function seedIfNeeded(): void {
   )
   const insertTag = db.prepare('INSERT INTO tags (id, name, created_at) VALUES (?, ?, ?)')
   const insertTaskTag = db.prepare('INSERT INTO task_tags (task_id, tag_id) VALUES (?, ?)')
-  // 首启种子的 id 清单：云端镜像的「本机只有教学示例」判定与恢复导入后的
-  // 清理都靠它。只是 meta 里的一个键，不需要迁移；旧库没有这个键就按
-  // 「不是全新库」处理（恢复提示宁可不出现，也绝不误删用户数据）。
   const seedIds: DemoSeedIds = { tasks: [], projects: [], tags: [], subtasks: [] }
 
   const seed = db.transaction(() => {

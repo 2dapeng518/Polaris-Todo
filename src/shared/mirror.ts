@@ -1,5 +1,4 @@
-// 云端镜像的写入门控：纯函数、时钟注入，与 shared/update.ts 的
-// shouldAutoCheck 同一范式。真值表在 scripts/verify-pure.mjs 与
+// 真值表在 scripts/verify-pure.mjs 与
 // src/main/harness/assertions.ts 双份维护，改一处必须同步另一处。
 //
 // 语义：开启 + 有活 + 文件夹非空 + 距上次尝试满最小间隔才写。

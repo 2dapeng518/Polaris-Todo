@@ -731,7 +731,6 @@ app.whenReady().then(() => {
     }
   })
 
-  // 云端镜像（L0 单设备）：设置页开关 / 选目录 / 从云端导入。
   // 开关与目录的语义都在 mirror.ts（唯一 owner），这里只做载荷类型检查、
   // 原生对话框与复用 backupSchema 的导入入口——与 app:set-mcp 同一手检风格。
   ipcMain.handle('mirror:get-state', () => getMirrorState())
@@ -841,8 +840,6 @@ app.whenReady().then(() => {
   startReminderScheduler()
   // 窗口和托盘就绪后再注册：处理器要靠 showMainWindow 把窗口叫出来。
   initMcp()
-  // 云端镜像：只写快照到用户选的同步文件夹（或 %OneDrive%\PolarisSync），
-  // 写修订变化去抖 30s；关闭时惰性，不产生任何目录访问。
   initMirror({ buildBackupPayload, writeFileAtomic })
   // 在线更新：未打包（dev/冒烟/截图）时完全惰性，不发网络请求。
   initUpdater({
