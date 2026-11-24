@@ -1,6 +1,8 @@
 // 侧栏与导航。
 export const nav = {
   'nav.views': '视图',
+  'nav.collapseSidebar': '收起侧栏',
+  'nav.expandSidebar': '展开侧栏',
   'nav.projects': '项目',
   'nav.tags': '标签',
   'nav.newProject': '新建项目',
@@ -12,11 +14,6 @@ export const nav = {
   'nav.deleteProjectNamed': '删除项目 {name}',
   'nav.deleteProjectConfirm': '删除项目「{name}」？该项目下的任务会移到「无项目」，项目本身无法恢复。',
   'nav.deleteTagNamed': '删除标签 {name}',
-  'nav.storage.title': '任务数据仅存本机',
-  'nav.storage.subtitle': '自动保存 · 点击备份',
-  'nav.storage.titleMirrored': '任务数据本机 + 网盘自动保存',
-  'nav.storage.subtitleMirrored': '自动保存 · 写入网盘文件夹',
-  'nav.storage.titleAttr': '打开数据备份',
   'nav.view.today': '今天',
   'nav.view.upcoming': '即将到来',
   'nav.view.calendar': '日历',

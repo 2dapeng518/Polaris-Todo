@@ -19,6 +19,9 @@ export interface HarnessContext {
   revealQuickCapture: () => Promise<void>
   revealSettings: () => Promise<void>
   checkUpdatesFromTray: () => Promise<void>
+  // 设置窗口句柄：设置是独立的子窗口（单例），没开着时为 null。冒烟对设置的
+  // 所有操作都经它拿到 webContents 再执行脚本——主窗口里已经没有设置面板。
+  getSettingsWindow: () => BrowserWindow | null
 }
 
 let current: HarnessContext | null = null

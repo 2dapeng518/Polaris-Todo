@@ -15,7 +15,6 @@ import {
 } from '../db'
 import { dismissKeys, formatParsedDue, parseQuickAdd, pruneDismissed } from '../../shared/quickAddParse'
 import { isPurgeable } from '../../shared/retention'
-import { shouldMirror } from '../../shared/mirror'
 import { isAutoBackupFileName } from '../../shared/backupNames'
 import {
   buildCustomRecurrence,
@@ -581,52 +580,6 @@ export function runBackupNameAssertions(): boolean {
     if (got !== want) {
       ok = false
       console.error('BACKUP_NAME_CASE_FAIL', JSON.stringify({ name, got, want }))
-    }
-  }
-  return ok
-}
-
-export function runMirrorAssertions(): boolean {
-  type Case = {
-    enabled: boolean
-    folder: string | null
-    dirty: boolean
-    lastAttemptAt: number | null
-    now: number
-    minGapMs: number
-  }
-  const base: Case = {
-    enabled: true,
-    folder: 'C:\\PolarisSync',
-    dirty: true,
-    lastAttemptAt: 1_000_000,
-    now: 1_030_000,
-    minGapMs: 30_000
-  }
-  // [说明, 输入, 期望]
-  const table: Array<[string, Case, boolean]> = [
-    ['关闭不写', { ...base, enabled: false }, false],
-    ['无改动不写', { ...base, dirty: false }, false],
-    ['未选目录不写', { ...base, folder: null }, false],
-    ['空目录不写', { ...base, folder: '' }, false],
-    ['纯空白目录不写', { ...base, folder: '   ' }, false],
-    ['从未尝试立即写', { ...base, lastAttemptAt: null }, true],
-    ['恰好满间隔写', { ...base, lastAttemptAt: 1_000_000, now: 1_030_000 }, true],
-    ['差 1ms 不写', { ...base, lastAttemptAt: 1_000_001, now: 1_030_000 }, false],
-    ['时钟回拨放行', { ...base, lastAttemptAt: 1_030_001, now: 1_030_000 }, true],
-    ['坏时间戳放行', { ...base, lastAttemptAt: Number.NaN }, true],
-    ['坏 now 放行', { ...base, now: Number.NaN }, true],
-    ['坏间隔放行', { ...base, minGapMs: Number.NaN }, true],
-    ['负间隔放行', { ...base, minGapMs: -1 }, true],
-    ['零间隔立即写', { ...base, minGapMs: 0 }, true],
-    ['目录带空白仍算已选', { ...base, folder: ' C:\\PolarisSync ', lastAttemptAt: null }, true]
-  ]
-  let ok = true
-  for (const [label, input, want] of table) {
-    const got = shouldMirror(input)
-    if (got !== want) {
-      ok = false
-      console.error('MIRROR_GATE_CASE_FAIL', JSON.stringify({ label, input, got, want }))
     }
   }
   return ok

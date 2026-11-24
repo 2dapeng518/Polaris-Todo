@@ -1,6 +1,6 @@
 import { app, BrowserWindow, dialog, ipcMain, nativeImage, screen, shell, type WebContents } from 'electron'
 import log from 'electron-log/main'
-import { join, resolve } from 'node:path'
+import { join } from 'node:path'
 import { mkdir, readFile, readdir, rename, stat, unlink, writeFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import { randomUUID } from 'node:crypto'
@@ -12,24 +12,37 @@ import {
   getWriteRevision,
   importBackup,
 
+  closeDatabase,
+  detectExternalDbChange,
   initDatabase,
   purgeExpiredDeleted,
-  setMeta
+  setMeta,
+  writeDbSyncStamp
 } from './db'
 import { csvExportFromBackup } from '../shared/csvExport'
 import { registerIpc } from './ipc'
 import { disposeMcp, getMcpState, getMcpToken, initMcp, regenerateMcpToken, setMcpEnabled } from './mcp'
 import {
-  disposeMirror,
-  flushMirrorNow,
-  getMirrorState,
-  importMirrorFile,
-  initMirror,
-  mirrorLatestPath,
-  setMirrorEnabled,
-  setMirrorFolderPath
-} from './mirror'
-import { describeTrayCheck, disposeUpdater, initUpdater, manualCheckForUpdates } from './updater'
+  applyDataDirectory,
+  cancelDataDirectoryOffer,
+  flushDataLocationOnQuit,
+  getDataDirectory,
+  getDataLocationState,
+  initDataLocation,
+  resetDataDirectory,
+  resolveDataDirectory,
+  setDataDirectoryOffer
+} from './dataLocation'
+import { describeTrayCheck, disposeUpdater, initUpdater, manualCheckForUpdates, refreshUpdateState } from './updater'
+import {
+  applySettingsWindowTheme,
+  closeSettingsWindow,
+  getSettingsWindow,
+  initSettingsWindow,
+  isSettingsWebContents,
+  openSettingsWindow,
+  settingsSectionFrom
+} from './settingsWindow'
 import {
   disposeGlobalHotkey,
   getGlobalHotkeyState,
@@ -215,15 +228,28 @@ function buildBackupPayload(): BackupData {
   }
 }
 
-// 启动自动备份：userData/backups/ 里最新一份超过 24h（或不存在）才写一份，
-// 复用导出序列化 + 原子写，保留最近 21 份（对齐 Csv 的保留份数）。
-// 失败只留痕，不阻塞启动。
+// 自动备份：启动时 + 运行期每小时兜底检查，最新一份超过设定周期（或不存在）
+// 才写一份，复用导出序列化 + 原子写，保留最近 21 份（对齐 Csv 的保留份数）。
+// 周期可配（meta auto_backup_interval_hours，0 = 关闭），存 meta 表不进迁移；
+// 运行期兜底修掉「托盘长驻几天不重启就不备份」的空窗。失败只留痕，不阻塞启动。
 const AUTO_BACKUP_KEEP = 21
-const AUTO_BACKUP_INTERVAL_MS = 24 * 60 * 60 * 1000
+const AUTO_BACKUP_INTERVAL_META = 'auto_backup_interval_hours'
+const AUTO_BACKUP_INTERVAL_CHOICES = [0, 12, 24, 72, 168]
+const AUTO_BACKUP_CHECK_MS = 60 * 60 * 1000
+
+function readAutoBackupIntervalHours(): number {
+  // 没设置过（键不存在）要落到默认档：getMeta 对缺失键返回 null，而 Number(null)
+  // 是 0，直接转会把「从未设置」当成用户选了「关闭」，自动备份静默停摆。
+  const stored = getMeta(AUTO_BACKUP_INTERVAL_META)
+  const raw = stored ? Number(stored) : NaN
+  return AUTO_BACKUP_INTERVAL_CHOICES.includes(raw) ? raw : 24
+}
 
 async function runAutoBackup(): Promise<void> {
   try {
-    const dir = join(app.getPath('userData'), 'backups')
+    const intervalHours = readAutoBackupIntervalHours()
+    if (intervalHours <= 0) return
+    const dir = join(getDataDirectory(), 'backups')
     await mkdir(dir, { recursive: true })
     const listBackups = async (): Promise<string[]> =>
       (await readdir(dir))
@@ -233,13 +259,13 @@ async function runAutoBackup(): Promise<void> {
     const latest = existing[existing.length - 1]
     if (latest) {
       const info = await stat(join(dir, latest))
-      if (Date.now() - info.mtimeMs < AUTO_BACKUP_INTERVAL_MS) return
+      if (Date.now() - info.mtimeMs < intervalHours * 60 * 60 * 1000) return
     }
     // 文件名用 ISO 时间戳（冒号/点换成连字符，Windows 合法），字典序即时间序。
     const stamp = new Date().toISOString().replace(/[:.]/g, '-')
     const backupName = `${AUTO_BACKUP_PREFIX}${stamp}.json`
     await writeFileAtomic(join(dir, backupName), JSON.stringify(buildBackupPayload(), null, 2))
-    // 里程碑留痕：备份写成才记一条，跳过（24h 内已有）不记，不刷屏。
+    // 里程碑留痕：备份写成才记一条，跳过（周期内已有）不记，不刷屏。
     log.info('Polaris auto backup written:', backupName)
     const after = await listBackups()
     for (const name of after.slice(0, Math.max(0, after.length - AUTO_BACKUP_KEEP))) {
@@ -252,6 +278,42 @@ async function runAutoBackup(): Promise<void> {
 
 let mainWindow: BrowserWindow | null = null
 let isQuitting = false
+
+// 数据目录切换后的自动重启：延迟让 invoke 响应与状态文案先落地（同 updater
+// install 的延迟节奏）。harness 构建不真重启，保持冒烟确定性。
+// relaunch 自带 --polaris-relaunch-wait 旗标：Electron 在旧主进程退出的瞬间
+// 就拉起新实例，而旧实例的 GPU/工具等子进程往往还要几百毫秒才死透——新实例
+// 的渲染进程会与它们在同一个默认 userData 上抢 GPU 缓存 / Local Storage 锁，
+// 首帧后整体僵死。带旗标的实例在启动最前面同步等旧进程退场，再请求单实例
+// 锁、走正常启动链。
+// dev（electron-vite）下自动重启无法闭环，只能保持运行 + 待重启状态行：
+// - app.quit() 会连带 electron-vite 与 vite server 一起退场，relaunch 拉起的
+//   孤儿实例继承的 ELECTRON_RENDERER_URL 指向已死端口，两扇窗只能加载错误页
+//   /空白（用户实测；"splash painted" 实为错误页首帧，chainWaitMs 卡满竞速
+//   兜底）。
+// - electron-vite 的主进程热重启是可选项（dev -w），且其重启是 child.kill()
+//   硬杀——will-quit 不触发，退出收拢链（checkpoint / 关库 / 指纹）全部跳过，
+//   下次启动误报「数据文件在应用外被改动」；为一次数据切换给整个 dev 工作流
+//   引入 -w 不值当。
+// 所以 dev 下切换后保持运行，状态行如实显示「重启后生效」，数据指针已落盘，
+// 开发者手动重启 dev 即在新位置换库。打包版走完整自动重启（见下方 relaunch）。
+let relaunchTimer: NodeJS.Timeout | null = null
+function scheduleRelaunch(state: { pendingRestart: boolean }): void {
+  if (relaunchTimer) clearTimeout(relaunchTimer)
+  relaunchTimer = null
+  if (!state.pendingRestart) return
+  if (__POLARIS_HARNESS__) return
+  if (!app.isPackaged) return
+  relaunchTimer = setTimeout(() => {
+    app.relaunch({ args: [RELAUNCH_WAIT_ARG, ...process.argv.slice(1)] })
+    isQuitting = true
+    app.quit()
+  }, 800)
+}
+
+const RELAUNCH_WAIT_ARG = '--polaris-relaunch-wait'
+const RELAUNCH_WAIT_MS = 2000
+const isRelaunchBoot = process.argv.includes(RELAUNCH_WAIT_ARG)
 
 // 关窗是否驻留托盘（meta 持久化，默认开）。关掉后关窗=退出应用，提醒随之停止。
 const closeToTrayEnabled = (): boolean => getMeta('close_to_tray') !== '0'
@@ -271,6 +333,13 @@ if (__POLARIS_HARNESS__) {
 const withLocale = (url: string): string =>
   `${url}${url.includes('?') ? '&' : '?'}locale=${getCurrentLocale()}`
 
+// relaunch 启动的实例先等旧实例彻底退场（子进程释放 GPU 缓存 / Local Storage
+// 锁），再请求锁、走启动链。Atomics.wait 是启动期的一次性阻塞：此刻尚无窗口
+// 与异步任务，等待本身无副作用；旧实例退场通常 <1s，2s 足够宽。
+if (isRelaunchBoot) {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, RELAUNCH_WAIT_MS)
+  log.info('relaunch boot: previous instance exit grace elapsed')
+}
 const gotSingleInstanceLock = app.requestSingleInstanceLock()
 if (!gotSingleInstanceLock) {
   app.quit()
@@ -336,6 +405,8 @@ function createWindow(): void {
   mainWindow.on('close', (event) => {
     if (!isQuitting && closeToTrayEnabled()) {
       event.preventDefault()
+      // 设置窗口是主窗口的子窗口：主窗口进托盘时它一并收起，不独自留在屏幕上。
+      closeSettingsWindow()
       mainWindow?.hide()
     }
   })
@@ -367,7 +438,8 @@ function createWindow(): void {
           writeFileAtomic,
           revealQuickCapture,
           revealSettings,
-          checkUpdatesFromTray
+          checkUpdatesFromTray,
+          getSettingsWindow
         })
       })
       .catch((error: unknown) => {
@@ -395,8 +467,7 @@ function showMainWindow(): void {
 
 // 主进程 → 渲染层的动作统一走这条路：先按现有路径唤起窗口，等页面可执行，
 // 再用 executeJavaScript 派发一个固定字符串事件，不插值、不加 IPC。
-// 全局热键（polaris:quick-add）和托盘「设置」（polaris:open-settings）共用，
-// 不许出现第二条聚焦/唤起路径。
+// 目前只有全局热键（polaris:quick-add）走这条路；不许出现第二条聚焦/唤起路径。
 async function revealAndDispatch(script: string): Promise<void> {
   showMainWindow()
   if (!mainWindow || mainWindow.isDestroyed()) return
@@ -432,9 +503,11 @@ async function revealQuickCapture(): Promise<void> {
   )
 }
 
-// 托盘「设置」：唤起窗口后让侧栏打开设置面板（不滚动到任何分区）。
+// 托盘「设置」：先唤起主窗口，再打开设置窗口（设置窗口是主窗口的子窗口，
+// 不能在没有可见属主的情况下独自出现）。已开着就唤到前台，不叠第二扇。
 async function revealSettings(): Promise<void> {
-  await revealAndDispatch("window.dispatchEvent(new CustomEvent('polaris:open-settings'))")
+  showMainWindow()
+  openSettingsWindow()
 }
 
 // 托盘「检查更新」：手动检查永远给答案 —— 气泡负责「已是最新/失败/不支持」
@@ -455,22 +528,36 @@ app.on('second-instance', () => {
   }
 })
 
-// 文件对话框的父窗安全包装：mainWindow 可能为 null（已销毁/尚未创建），
-// 此时走无父窗重载，不用非空断言。
+// 原生文件对话框的父窗：谁发起就挂在谁上面——设置窗口里点导出/导入/选目录，
+// 对话框是设置窗口的模态框，主窗口照常可用；发起方不是窗口（或已销毁）时
+// 退回主窗口，主窗口也可能为 null，此时走无父窗重载，不用非空断言。
+function ownerWindowOf(contents?: WebContents): BrowserWindow | null {
+  const owner = contents ? BrowserWindow.fromWebContents(contents) : null
+  if (owner && !owner.isDestroyed()) return owner
+  return mainWindow && !mainWindow.isDestroyed() ? mainWindow : null
+}
+
 function showOpenDialogSafe(
-  options: Electron.OpenDialogOptions
+  options: Electron.OpenDialogOptions,
+  contents?: WebContents
 ): Promise<Electron.OpenDialogReturnValue> {
-  return mainWindow && !mainWindow.isDestroyed()
-    ? dialog.showOpenDialog(mainWindow, options)
-    : dialog.showOpenDialog(options)
+  const owner = ownerWindowOf(contents)
+  return owner ? dialog.showOpenDialog(owner, options) : dialog.showOpenDialog(options)
 }
 
 function showSaveDialogSafe(
-  options: Electron.SaveDialogOptions
+  options: Electron.SaveDialogOptions,
+  contents?: WebContents
 ): Promise<Electron.SaveDialogReturnValue> {
-  return mainWindow && !mainWindow.isDestroyed()
-    ? dialog.showSaveDialog(mainWindow, options)
-    : dialog.showSaveDialog(options)
+  const owner = ownerWindowOf(contents)
+  return owner ? dialog.showSaveDialog(owner, options) : dialog.showSaveDialog(options)
+}
+
+// 全局设置（主题/语言）的写回属主：主窗口，或设置窗口（用户在那里点色样、
+// 换语言）。提醒窗口只读跟随，回传的同步值一律不回写。
+function ownsGlobalSettings(contents: WebContents): boolean {
+  if (mainWindow && !mainWindow.isDestroyed() && contents === mainWindow.webContents) return true
+  return isSettingsWebContents(contents)
 }
 
 app.whenReady().then(() => {
@@ -479,8 +566,15 @@ app.whenReady().then(() => {
   // 启动里程碑：版本 + 是否打包 + userData 位置，一条定位用户机器环境。
   log.info(`Polaris ${app.getVersion()} starting (packaged: ${app.isPackaged}, userData: ${app.getPath('userData')})`)
 
+  // 数据目录先于建库解析：指针文件在默认 userData，指向 polaris.db 的家。
+  // 指针不可用时回退默认并记 fallback（后面有一次性提示框），建库照常。
+  const dataDirectory = resolveDataDirectory()
+  // 外部变更检测（开库之前）：指纹与磁盘现状不一致 = 文件在上次退出后被
+  // 外部动过（其他设备的网盘同步 / 上次未正常退出）。无指纹（首次运行/
+  // 刚换数据目录）返回 null，不构成信号。
+  const externalDbChange = detectExternalDbChange(dataDirectory)
   // 损坏库会被改名隔离并重建空库；quarantinedPath 非空时启动后告知用户。
-  const { quarantinedPath } = initDatabase()
+  const { quarantinedPath } = initDatabase(dataDirectory)
   // Missed retention windows are caught up on launch, same as missed reminders.
   purgeExpiredDeleted(new Date().toISOString())
   initAppTheme()
@@ -491,8 +585,8 @@ app.whenReady().then(() => {
 
   ipcMain.handle('app:set-locale', (event, locale: string) => {
     if (locale !== 'zh-CN' && locale !== 'en') return getCurrentLocale()
-    // 只有主窗口拥有全局语言；提醒窗口回传自身同步值时不回写。
-    if (!mainWindow || event.sender !== mainWindow.webContents) return getCurrentLocale()
+    // 只有主窗口与设置窗口拥有全局语言；提醒窗口回传自身同步值时不回写。
+    if (!ownsGlobalSettings(event.sender)) return getCurrentLocale()
     setCurrentLocale(locale)
     updateTrayLocale(locale)
     return locale
@@ -500,25 +594,37 @@ app.whenReady().then(() => {
 
   ipcMain.handle('app:set-theme', (event, theme: string) => {
     if (!isAppTheme(theme)) return
-    // Only the main window owns the global theme; a reminder window echoing its
-    // own synced value must not write it back.
-    if (!mainWindow || event.sender !== mainWindow.webContents) return
+    // Only the main window and the settings window own the global theme; a
+    // reminder window echoing its own synced value must not write it back.
+    if (!ownsGlobalSettings(event.sender)) return
     setCurrentTheme(theme)
 
     for (const window of BrowserWindow.getAllWindows()) {
       window.setBackgroundColor(themeBackgroundColor(theme))
     }
 
-    mainWindow.setTitleBarOverlay({
+    mainWindow?.setTitleBarOverlay({
       color: '#00000000',
       symbolColor: THEME_SYMBOL_COLOR[themeFamily(theme)],
       height: 48
     })
+    applySettingsWindowTheme(theme)
   })
+
+  // 设置窗口（分类载荷按 shared/settings.ts 注册表白名单，手检无 zod）：
+  // 打开 = 单例唤起 + 切页；关闭 = Esc / harness。窗口生命周期全在 settingsWindow.ts。
+  ipcMain.handle('app:open-settings', (_event, section: unknown) => {
+    openSettingsWindow(settingsSectionFrom(section))
+  })
+
+  ipcMain.handle('app:close-settings', () => closeSettingsWindow())
+
+  // 重装后 localStorage 为空，渲染层据此回填 meta 权威值（见 ThemeSync）。
+  ipcMain.handle('app:get-theme', () => getCurrentTheme())
 
   // CSV 导出：Csv 规范列 + 本应用扩展列（shared/csvExport），活任务一键
   // 导出供备份/搬家；回收站不随 CSV 走；子任务走 INDENT 2 紧随父任务。
-  ipcMain.handle('data:export-csv', async () => {
+  ipcMain.handle('data:export-csv', async (event) => {
     try {
       const text = csvExportFromBackup(exportBackup())
       const stamp = new Date().toISOString().slice(0, 10).replace(/-/g, '')
@@ -528,7 +634,7 @@ app.whenReady().then(() => {
         filters: [
           { name: translate(getCurrentLocale(), 'native.csvFilter'), extensions: ['csv'] }
         ]
-      })
+      }, event.sender)
       if (target.canceled || !target.filePath) return { saved: false }
       await writeFileAtomic(target.filePath, text)
       return { saved: true, path: target.filePath }
@@ -589,7 +695,7 @@ app.whenReady().then(() => {
   // 单行主键 SELECT。渲染层 focus 时先比对它，变了才全量重拉（迁移 7 触发器维护）。
   ipcMain.handle('data:revision', () => getWriteRevision())
 
-  ipcMain.handle('data:export', async () => {
+  ipcMain.handle('data:export', async (event) => {
     try {
       // 与启动自动备份共用同一份序列化（buildBackupPayload），不新造格式。
       const backup = buildBackupPayload()
@@ -600,7 +706,7 @@ app.whenReady().then(() => {
         filters: [
           { name: translate(getCurrentLocale(), 'native.jsonFilter'), extensions: ['json'] }
         ]
-      })
+      }, event.sender)
       if (target.canceled || !target.filePath) return { saved: false }
       await writeFileAtomic(target.filePath, JSON.stringify(backup, null, 2))
       return { saved: true, path: target.filePath }
@@ -609,7 +715,7 @@ app.whenReady().then(() => {
     }
   })
 
-  ipcMain.handle('data:import', async () => {
+  ipcMain.handle('data:import', async (event) => {
     try {
       const source = await showOpenDialogSafe({
         title: translate(getCurrentLocale(), 'native.importTitle'),
@@ -617,7 +723,7 @@ app.whenReady().then(() => {
         filters: [
           { name: translate(getCurrentLocale(), 'native.jsonFilter'), extensions: ['json'] }
         ]
-      })
+      }, event.sender)
       if (source.canceled || !source.filePaths[0]) return { ok: false, canceled: true }
       // readFile 前先查大小：超过 50MB 明确拒绝，不整文件读进内存。
       const info = await stat(source.filePaths[0])
@@ -641,7 +747,7 @@ app.whenReady().then(() => {
   // ---------- 自动备份管理（设置页备份区） ----------
   // list 只读元数据不解析内容，列备份是廉价操作；导入/另存以文件名为唯一入口，
   // isAutoBackupFileName 在 join 之前拒绝路径穿越，渲染层拿不到 backups 之外的文件。
-  const backupsDir = (): string => join(app.getPath('userData'), 'backups')
+  const backupsDir = (): string => join(getDataDirectory(), 'backups')
 
   const assertAutoBackupName = (name: unknown): string => {
     if (typeof name !== 'string' || !isAutoBackupFileName(name)) {
@@ -690,7 +796,7 @@ app.whenReady().then(() => {
     }
   })
 
-  ipcMain.handle('backups:save-as', async (_event, name: unknown) => {
+  ipcMain.handle('backups:save-as', async (event, name: unknown) => {
     try {
       const fileName = assertAutoBackupName(name)
       const filePath = join(backupsDir(), fileName)
@@ -709,7 +815,7 @@ app.whenReady().then(() => {
         filters: [
           { name: translate(getCurrentLocale(), 'native.jsonFilter'), extensions: ['json'] }
         ]
-      })
+      }, event.sender)
       if (target.canceled || !target.filePath) return { saved: false }
       await writeFileAtomic(target.filePath, await readFile(filePath, 'utf8'))
       return { saved: true, path: target.filePath }
@@ -723,96 +829,88 @@ app.whenReady().then(() => {
     // 生产构建 __POLARIS_HARNESS__ 恒 false，此分支被编译期消除。
     if (__POLARIS_HARNESS__) return { opened: false }
     try {
-      // openPath 成功返回空串，失败返回系统错误原文。
-      const error = await shell.openPath(app.getPath('userData'))
+      // openPath 成功返回空串，失败返回系统错误原文。打开的是数据目录
+      // （polaris.db 所在），自定义位置时跟随数据目录而非 userData。
+      const error = await shell.openPath(getDataDirectory())
       return error ? { opened: false, error } : { opened: true }
     } catch (error) {
       return { opened: false, error: String(error) }
     }
   })
 
-  // 开关与目录的语义都在 mirror.ts（唯一 owner），这里只做载荷类型检查、
-  // 原生对话框与复用 backupSchema 的导入入口——与 app:set-mcp 同一手检风格。
-  ipcMain.handle('mirror:get-state', () => getMirrorState())
-
-  ipcMain.handle('mirror:set-enabled', (_event, enabled: unknown) => {
-    if (typeof enabled !== 'boolean') return getMirrorState()
-    return setMirrorEnabled(enabled)
-  })
-
-  ipcMain.handle('mirror:set-folder', async (_event, folder: unknown) => {
-    // 可选路径参数是测试受控入口（预加载层不暴露）；真实 UI 不传参，走原生目录
-    // 对话框。任何来源的路径都仍要过 mirror.ts 的可用性守卫。
-    if (folder != null && typeof folder !== 'string') return getMirrorState()
-    if (typeof folder === 'string') return setMirrorFolderPath(folder)
-    const current = await getMirrorState()
-    // 预填顺序：当前镜像目录 → %OneDrive%\PolarisSync（环境变量存在才建；
-    // 建不出来也照样把候选路径交给对话框，用户可改）。
-    let defaultPath = current.folder ?? undefined
-    if (!defaultPath) {
-      const oneDrive = process.env['OneDrive']
-      if (oneDrive) {
-        const candidate = join(oneDrive, 'PolarisSync')
-        await mkdir(candidate, { recursive: true }).catch(() => {})
-        defaultPath = candidate
-      }
-    }
-    const picked = await showOpenDialogSafe({
-      title: translate(getCurrentLocale(), 'native.mirrorFolderTitle'),
-      defaultPath,
-      properties: ['openDirectory', 'createDirectory']
-    })
-    if (picked.canceled || !picked.filePaths[0]) return getMirrorState()
-    return setMirrorFolderPath(picked.filePaths[0])
-  })
-
-  ipcMain.handle('mirror:import-from-cloud', async (_event, latest: unknown) => {
-    const useLatest = latest === true
-    let source: string
-    if (useLatest) {
-      const latestPath = mirrorLatestPath()
-      if (!latestPath) {
-        return { ok: false, error: translate(getCurrentLocale(), 'settings.cloudMirrorNoFolder') }
-      }
-      // 先给缺文件一个明确文案；importMirrorFile 的「不是文件」对恢复路径太含糊。
-      try {
-        if (!(await stat(latestPath)).isFile()) {
-          return { ok: false, error: translate(getCurrentLocale(), 'mirror.noBackup') }
-        }
-      } catch {
-        return { ok: false, error: translate(getCurrentLocale(), 'mirror.noBackup') }
-      }
-      source = latestPath
-    } else {
-      const folder = (await getMirrorState()).folder
-      const picked = await showOpenDialogSafe({
-        title: translate(getCurrentLocale(), 'native.mirrorImportTitle'),
-        defaultPath: folder ?? undefined,
-        filters: [
-          { name: translate(getCurrentLocale(), 'native.jsonFilter'), extensions: ['json'] }
-        ],
-        properties: ['openFile']
+  // 逐份删除：门禁与 list/import 同源（只接受自动备份文件名，杜绝路径穿越
+  // 与误删手动导出）；失败带原因原文，成功幂等（文件不存在也算删除完成）。
+  ipcMain.handle('backups:delete', async (_event, name: unknown) => {
+    try {
+      const filePath = join(backupsDir(), assertAutoBackupName(name))
+      await unlink(filePath).catch((error: NodeJS.ErrnoException) => {
+        if (error.code !== 'ENOENT') throw error
       })
-      if (picked.canceled || !picked.filePaths[0]) return { ok: false, canceled: true }
-      source = picked.filePaths[0]
+      return { deleted: true }
+    } catch (error) {
+      return { deleted: false, error: String(error) }
     }
-    // 只有镜像自己的 latest.json 走「恢复」语义（顺带清教学示例）；
-    // 手动挑的其他备份保持纯 additive 合并。
-    const latestPath = mirrorLatestPath()
-    const clearDemo = latestPath !== null && resolve(source) === resolve(latestPath)
-    const result = await importMirrorFile(source, backupSchema, IMPORT_JSON_MAX_BYTES, clearDemo)
-    // 恢复后立刻把合并结果写回镜像，别让云端下一轮同步覆盖成旧快照。
-    // flushMirrorNow 会解除恢复守卫；这里顺带把「本目录已写过」的印记落下。
-    if (
-      result.ok &&
-      ((result.tasksImported ?? 0) > 0 ||
-        (result.projectsImported ?? 0) > 0 ||
-        result.demoSeedsRemoved === true)
-    ) {
-      await flushMirrorNow()
-    }
-    return result
   })
+
+  // 自动备份周期：meta 表持久化（不进迁移），只接受预设档位；非法值原样
+  // 返回当前生效值，渲染层无需先读再写。
+  ipcMain.handle('backups:get-interval', () => readAutoBackupIntervalHours())
+
+  ipcMain.handle('backups:set-interval', (_event, hours: unknown) => {
+    if (typeof hours === 'number' && AUTO_BACKUP_INTERVAL_CHOICES.includes(hours)) {
+      setMeta(AUTO_BACKUP_INTERVAL_META, String(hours))
+      log.info('Polaris auto backup interval set:', hours)
+    }
+    return readAutoBackupIntervalHours()
+  })
+
+  ipcMain.handle('app:open-notices-dir', async () => {
+    // 与 backups:open-data-dir 同一套 harness 门控。NOTICE 与 licenses/ 经
+    // extraResources 落在安装目录 resources/（=process.resourcesPath）；
+    // 开发态两份都在仓库根（app.getAppPath()），打包前后都能打开。
+    if (__POLARIS_HARNESS__) return { opened: false }
+    try {
+      const base = app.isPackaged ? process.resourcesPath : app.getAppPath()
+      const error = await shell.openPath(join(base, 'licenses'))
+      return error ? { opened: false, error } : { opened: true }
+    } catch (error) {
+      return { opened: false, error: String(error) }
+    }
+  })
+
+  // ---------- 数据存放位置（设置页备份区） ----------
+  // 语义都在 dataLocation.ts（唯一 owner），这里只做对话框、调度与重启，
+  // 手检无 zod。set 的可选路径参数是测试受控入口（预加载层
+  // 不暴露）；apply/reset 之后 scheduleRelaunch 自动重启生效。
+  initDataLocation({ writeFileAtomic })
+
+  ipcMain.handle('data-location:get', () => getDataLocationState())
+
+  ipcMain.handle('data-location:set', async (event, directory: unknown) => {
+    if (directory != null && typeof directory !== 'string') return getDataLocationState()
+    if (typeof directory === 'string') return setDataDirectoryOffer(directory)
+    const picked = await showOpenDialogSafe({
+      title: translate(getCurrentLocale(), 'native.dataLocationTitle'),
+      defaultPath: getDataDirectory(),
+      properties: ['openDirectory', 'createDirectory']
+    }, event.sender)
+    if (picked.canceled || !picked.filePaths[0]) return getDataLocationState()
+    return setDataDirectoryOffer(picked.filePaths[0])
+  })
+
+  ipcMain.handle('data-location:apply', async () => {
+    const state = await applyDataDirectory()
+    scheduleRelaunch(state)
+    return state
+  })
+
+  ipcMain.handle('data-location:reset', async () => {
+    const state = await resetDataDirectory()
+    scheduleRelaunch(state)
+    return state
+  })
+
+  ipcMain.handle('data-location:cancel', () => cancelDataDirectoryOffer())
 
   // 启动页先于主窗口创建：页面极小，先画出来；主窗口加载并行进行，互不阻塞。
   // 自启（--hidden）要静默进托盘，三个测试模式要保持确定性，均跳过。
@@ -830,6 +928,15 @@ app.whenReady().then(() => {
     openSplashWindow(getCurrentTheme(), app.getVersion(), () => mainWindow)
   }
 
+  // 设置窗口以主窗口为父：在主窗口建出之前装配，句柄经 getter 延迟取。
+  initSettingsWindow({
+    getMainWindow: () => mainWindow,
+    showMainWindow,
+    // 设置窗口关掉后主窗口的更新弹窗副本才可能露出来：补推一次快照，
+    // 让「在设置里点过稍后/跳过」的版本把被盖住的那份一并收起。
+    onClosed: () => refreshUpdateState()
+  })
+
   createWindow()
   createTray({
     onOpen: showMainWindow,
@@ -840,10 +947,14 @@ app.whenReady().then(() => {
   startReminderScheduler()
   // 窗口和托盘就绪后再注册：处理器要靠 showMainWindow 把窗口叫出来。
   initMcp()
-  initMirror({ buildBackupPayload, writeFileAtomic })
   // 在线更新：未打包（dev/冒烟/截图）时完全惰性，不发网络请求。
   initUpdater({
     getWindow: () => mainWindow,
+    // 设置窗口也收快照：关于页的状态行与更新弹窗都在那里（它盖在主窗口上方）。
+    getExtraWindows: () => {
+      const settings = getSettingsWindow()
+      return settings ? [settings] : []
+    },
     onBeforeInstall: () => {
       // quitAndInstall 要真退出：掀掉「关窗驻托盘」的拦路标记。
       isQuitting = true
@@ -867,9 +978,40 @@ app.whenReady().then(() => {
     })
   }
 
+  // 数据目录回退告知：指针存在但目标不可用，本次启动跑在默认位置。
+  // locale 此刻尚未初始化（initAppLocale 在建库之后），正文双语并列展示，
+  // 与隔离通知同一模式；具体回退原因已进日志。
+  if (getDataLocationState().error) {
+    const fallbackDetail = (locale: Locale): string => translate(locale, 'dataLocation.fallback')
+    void dialog.showMessageBox({
+      type: 'warning',
+      title: translate(getCurrentLocale(), 'dataLocation.fallbackTitle'),
+      message: translate(getCurrentLocale(), 'dataLocation.fallbackTitle'),
+      detail: `${fallbackDetail('zh-CN')}\n\n${fallbackDetail('en')}`
+    })
+  }
+
+  // 外部变更告知：数据文件在上次退出后被外部修改（其他设备同步 / 未正常
+  // 退出），本次启动以磁盘上的文件为准。locale 未就绪，双语并列展示；
+  // 隔离重建时数据库的故事已由隔离对话框讲过，这里让位不再叠加。
+  if (externalDbChange === true && !quarantinedPath) {
+    const externalDetail = (locale: Locale): string => translate(locale, 'dataLocation.externalChange')
+    void dialog.showMessageBox({
+      type: 'warning',
+      title: translate(getCurrentLocale(), 'dataLocation.externalChangeTitle'),
+      message: translate(getCurrentLocale(), 'dataLocation.externalChangeTitle'),
+      detail: `${externalDetail('zh-CN')}\n\n${externalDetail('en')}`
+    })
+  }
+
   // 启动自动备份：超过 24h 才写，失败只留痕。测试模式跳过，保持 harness
   // 的临时 profile 确定性（与 splash/updater 的惰性约定一致）。
-  if (!harness) void runAutoBackup()
+  if (!harness) {
+    void runAutoBackup()
+    // 运行期兜底：托盘长驻不重启也会按设定周期补备份（每小时廉价检查一次，
+    // readdir + stat，周期未到即返回）。
+    setInterval(() => void runAutoBackup(), AUTO_BACKUP_CHECK_MS)
+  }
 
   app.on('activate', () => {
     showMainWindow()
@@ -892,12 +1034,19 @@ app.on('before-quit', () => {
 })
 
 app.on('will-quit', () => {
+  // 数据目录切换的最后一刻写入先收尾（同步 checkpoint + 覆盖复制），
+  // flush 依赖仍打开的 db 句柄，必须排最前。
+  flushDataLocationOnQuit()
   // 全局热键是进程级资源，退出时显式注销，别留给下一个实例。
   disposeGlobalHotkey()
   disposeMcp()
-  disposeMirror()
   disposeUpdater()
   screen.removeAllListeners('display-metrics-changed')
+  // 最后才关库：显式 checkpoint + 关闭——SQLite 收尾删掉 -wal/-shm 旁车，数据目录只剩单个
+  // polaris.db，网盘同步不再有三件套版本错位；随后记录收拢后的指纹供
+  // 下次启动做外部变更检测。关库失败只留痕，进程照常退出。
+  closeDatabase()
+  writeDbSyncStamp()
 })
 
 app.on('window-all-closed', () => {

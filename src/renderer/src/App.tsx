@@ -10,6 +10,7 @@ import { TitleBar } from './components/TitleBar'
 import { UndoToast } from './components/UndoToast'
 import { UpdateDialog } from './components/UpdateDialog'
 import { useTaskStore } from './stores/useTaskStore'
+import { useSidebarStore } from './stores/useSidebarStore'
 import { useT } from './stores/useLocaleStore'
 import { subscribeUpdateStore } from './stores/useUpdateStore'
 
@@ -22,6 +23,8 @@ export default function App() {
   const inspectorOpen = useTaskStore((state) =>
     state.tasks.some((task) => task.id === state.selectedTaskId)
   )
+  // 侧栏收起态落在 app-body 上：网格首列的宽度变量与侧栏内文字的显隐都挂在它下面。
+  const sidebarCollapsed = useSidebarStore((state) => state.collapsed)
 
   // trash 拉取只挂在主窗口（App）上：提醒窗口走 ReminderView 自己的 load()，
   // 不经过这里，所以弹窗不会触发 list-deleted 附带的 purge 写操作。
@@ -59,7 +62,9 @@ export default function App() {
             <span>{t('app.loading')}</span>
           </div>
         ) : (
-          <div className={`app-body${inspectorOpen ? ' has-inspector' : ''}`}>
+          <div
+            className={`app-body${inspectorOpen ? ' has-inspector' : ''}${sidebarCollapsed ? ' sidebar-collapsed' : ''}`}
+          >
             <Sidebar />
             <TaskView />
             <TaskDetail />

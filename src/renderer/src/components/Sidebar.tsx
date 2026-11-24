@@ -1,12 +1,28 @@
 import { Fragment, useEffect, useMemo, useState, type FormEvent } from 'react'
-import { BarChart3, CalendarClock, CalendarDays, CheckCircle2, Grid2x2, HardDrive, ListTodo, Pencil, Plus, Settings2, Sun, Tag, Trash2 } from './Icon'
+import {
+  BarChart3,
+  CalendarClock,
+  CalendarDays,
+  CheckCircle2,
+  Grid2x2,
+  Info,
+  ListTodo,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Pencil,
+  Plus,
+  Settings2,
+  Sun,
+  Tag,
+  Trash2
+} from './Icon'
 import { AnimatePresence, motion } from 'motion/react'
 import type { AppView, Project } from '@shared/types'
 import type { MessageKey } from '@shared/i18n'
 import { useTaskStore } from '../stores/useTaskStore'
 import { useT } from '../stores/useLocaleStore'
 import { isTodayOrOverdue, isUpcoming } from '../lib/dates'
-import { SettingsPanel } from './SettingsPanel'
+import { useSidebarStore } from '../stores/useSidebarStore'
 import { ConfirmDialog } from './ConfirmDialog'
 
 /* 排序即工作流：时间轴（现在→接下来→俯瞰）→ 任务轴（分轻重→全集→归档）
@@ -44,51 +60,30 @@ export function Sidebar() {
   const [addingProject, setAddingProject] = useState(false)
   const [projectName, setProjectName] = useState('')
   const [projectColor, setProjectColor] = useState(PROJECT_COLORS[0])
-  const [settingsOpen, setSettingsOpen] = useState(false)
-  // 侧栏存储卡片进来时直达备份区；普通「设置」入口不滚动。
-  const [settingsScrollTarget, setSettingsScrollTarget] = useState<'backup' | null>(null)
+  // 侧栏收起态：只剩图标，横向空间让给任务区（默认展开，选择记在 localStorage）。
+  const collapsed = useSidebarStore((state) => state.collapsed)
+  const setCollapsed = useSidebarStore((state) => state.setCollapsed)
+  const toggleCollapsed = useSidebarStore((state) => state.toggleCollapsed)
   const [editingProject, setEditingProject] = useState<Project | null>(null)
   const [editName, setEditName] = useState('')
   const [editColor, setEditColor] = useState(PROJECT_COLORS[0])
   const [deletingProject, setDeletingProject] = useState<Project | null>(null)
 
-  // 镜像感知的存储卡片：只取 enabled 一个布尔，不订阅整个 CloudMirrorState。
-  // 刷新时机 = 挂载 / 设置面板开合（镜像开关就在面板里）/ 窗口重新聚焦；
-  // 值没变时 setState 同值 bailout，React 不重渲染——没有轮询、没有渲染风暴。
-  const [mirrorEnabled, setMirrorEnabled] = useState(false)
   useEffect(() => {
-    let cancelled = false
-    const refresh = () => {
-      window.polaris.mirror
-        .getState()
-        .then((state) => {
-          if (!cancelled) setMirrorEnabled(state.enabled)
-        })
-        .catch(() => {})
+    const openProjectForm = () => {
+      // 收起态放不下项目表单：先展开侧栏再开表单。
+      if (useSidebarStore.getState().collapsed) useSidebarStore.getState().setCollapsed(false)
+      setAddingProject(true)
     }
-    refresh()
-    window.addEventListener('focus', refresh)
-    return () => {
-      cancelled = true
-      window.removeEventListener('focus', refresh)
-    }
-  }, [settingsOpen])
-
-  useEffect(() => {
-    const openProjectForm = () => setAddingProject(true)
-    // 托盘「设置」走主进程派发的固定事件，与侧栏按钮开的是同一个面板；
-    // 清掉滚动目标，避免带上一次存储卡片留下的 backup 定位。
-    const openSettings = () => {
-      setSettingsScrollTarget(null)
-      setSettingsOpen(true)
-    }
+    // 设置与关于住在独立的设置窗口里（主进程单例窗口，app:open-settings）：
+    // 侧栏按钮与托盘「设置」开的是同一扇，这里不再有面板态需要同步。
     window.addEventListener('polaris:new-project', openProjectForm)
-    window.addEventListener('polaris:open-settings', openSettings)
-    return () => {
-      window.removeEventListener('polaris:new-project', openProjectForm)
-      window.removeEventListener('polaris:open-settings', openSettings)
-    }
+    return () => window.removeEventListener('polaris:new-project', openProjectForm)
   }, [])
+
+  // 设置与关于：独立的设置窗口（主窗口的子窗口），关于直接定位到关于页。
+  const openSettings = () => void window.polaris.app.openSettings()
+  const openAbout = () => void window.polaris.app.openSettings('about')
 
   // 计数只在 tasks/trashedTasks 变化时重算：侧栏每次渲染（切视图、开设置、
   // 编辑项目表单的每次击键）都跑 8 次全表 filter 是白烧 CPU。
@@ -141,6 +136,8 @@ export function Sidebar() {
   }
 
   const beginEdit = (project: Project) => {
+    // 收起态放不下项目表单：先展开侧栏再开表单。
+    if (collapsed) setCollapsed(false)
     setEditingProject(project)
     setEditName(project.name)
     setEditColor(project.color)
@@ -180,7 +177,23 @@ export function Sidebar() {
     <aside className="sidebar">
       <div className="sidebar-scroll">
       <nav className="nav-section" aria-label={t('nav.views')}>
-        <div className="nav-label">{t('nav.views')}</div>
+        <div className="nav-label">
+          <span className="nav-label-text">{t('nav.views')}</span>
+          {/* 侧栏收起开关：贴在「视图」标签行右端；收起后这一行只剩它自己，居中。 */}
+          <button
+            className="sidebar-collapse"
+            onClick={toggleCollapsed}
+            aria-label={collapsed ? t('nav.expandSidebar') : t('nav.collapseSidebar')}
+            title={collapsed ? t('nav.expandSidebar') : t('nav.collapseSidebar')}
+            aria-expanded={!collapsed}
+          >
+            {collapsed ? (
+              <PanelLeftOpen size={14} aria-hidden="true" />
+            ) : (
+              <PanelLeftClose size={14} aria-hidden="true" />
+            )}
+          </button>
+        </div>
         {NAV_ITEMS.map((item) => {
           const Icon = item.icon
           const active = view === item.view && !projectFilter && !tagFilter
@@ -191,6 +204,7 @@ export function Sidebar() {
               className={`nav-item ${active ? 'active' : ''}`}
               onClick={() => setView(item.view)}
               aria-current={active ? 'page' : undefined}
+              title={collapsed ? t(item.label) : undefined}
             >
               {active && (
                 <motion.span
@@ -211,11 +225,15 @@ export function Sidebar() {
 
       <nav className="nav-section projects-section" aria-label={t('nav.projects')}>
         <div className="nav-label">
-          <span>{t('nav.projects')}</span>
+          <span className="nav-label-text">{t('nav.projects')}</span>
           <span className="nav-label-count">{projects.length}</span>
           <button
             className="project-add"
-            onClick={() => setAddingProject((value) => !value)}
+            onClick={() => {
+              // 收起态放不下项目表单：点「+」先把侧栏展开再开表单。
+              if (collapsed && !addingProject) setCollapsed(false)
+              setAddingProject((value) => !value)
+            }}
             aria-label={t('nav.newProject')}
             title={t('nav.newProject')}
           >
@@ -321,7 +339,11 @@ export function Sidebar() {
           }
 
           return (
-            <div key={project.id} className={`nav-item project-item ${active ? 'active' : ''}`}>
+            <div
+              key={project.id}
+              className={`nav-item project-item ${active ? 'active' : ''}`}
+              title={collapsed ? project.name : undefined}
+            >
               {active && (
                 <motion.span
                   layoutId="nav-active"
@@ -364,7 +386,7 @@ export function Sidebar() {
       {tags.length > 0 && (
         <nav className="nav-section tags-section" aria-label={t('nav.tags')}>
           <div className="nav-label">
-            <span>{t('nav.tags')}</span>
+            <span className="nav-label-text">{t('nav.tags')}</span>
             <span className="nav-label-count">{tags.length}</span>
           </div>
           {tags.map((tag) => {
@@ -385,6 +407,10 @@ export function Sidebar() {
                   aria-pressed={active}
                 >
                   <Tag size={13} strokeWidth={1.8} className="tag-nav-icon" aria-hidden="true" />
+                  {/* 收起态用标签首字代替图标（多个标签才分得清）；展开态不显示。 */}
+                  <span className="tag-initial" aria-hidden="true">
+                    {tag.name.trim().charAt(0)}
+                  </span>
                   <span className="nav-text">{tag.name}</span>
                   <span className="nav-count">{count}</span>
                 </button>
@@ -407,48 +433,25 @@ export function Sidebar() {
       <div className="sidebar-spacer" />
       </div>
 
-      <button
-        className="sidebar-storage"
-        title={t('nav.storage.titleAttr')}
-        aria-haspopup="dialog"
-        onClick={() => {
-          setSettingsScrollTarget('backup')
-          setSettingsOpen(true)
-        }}
-      >
-        <HardDrive size={16} strokeWidth={1.8} className="storage-icon" aria-hidden="true" />
-        <div className="storage-copy">
-          <div
-            className="storage-title"
-            title={mirrorEnabled ? t('nav.storage.titleMirrored') : undefined}
-          >
-            {t(mirrorEnabled ? 'nav.storage.titleMirrored' : 'nav.storage.title')}
-          </div>
-          <div className="storage-subtitle">
-            {t(mirrorEnabled ? 'nav.storage.subtitleMirrored' : 'nav.storage.subtitle')}
-          </div>
-        </div>
-      </button>
-
-      <button
-        className="nav-item settings-item"
-        title={t('common.settings')}
-        aria-haspopup="dialog"
-        aria-expanded={settingsOpen}
-        onClick={() => setSettingsOpen(true)}
-      >
-        <Settings2 size={16} strokeWidth={1.8} className="nav-icon" aria-hidden="true" />
-        <span className="nav-text">{t('common.settings')}</span>
-      </button>
-
-      <SettingsPanel
-        open={settingsOpen}
-        scrollTo={settingsScrollTarget}
-        onClose={() => {
-          setSettingsOpen(false)
-          setSettingsScrollTarget(null)
-        }}
-      />
+      {/* 底部固定入口：设置 + 关于（收起态只剩图标，文字进 title 提示）。 */}
+      <div className="sidebar-foot">
+        <button
+          className="nav-item settings-item"
+          title={collapsed ? t('common.settings') : undefined}
+          onClick={openSettings}
+        >
+          <Settings2 size={16} strokeWidth={1.8} className="nav-icon" aria-hidden="true" />
+          <span className="nav-text">{t('common.settings')}</span>
+        </button>
+        <button
+          className="nav-item about-item"
+          title={collapsed ? t('common.about') : undefined}
+          onClick={openAbout}
+        >
+          <Info size={16} strokeWidth={1.8} className="nav-icon" aria-hidden="true" />
+          <span className="nav-text">{t('common.about')}</span>
+        </button>
+      </div>
 
       <AnimatePresence>
         {deletingProject && (

@@ -6,6 +6,7 @@ import { useTaskStore } from '../stores/useTaskStore'
 import { useUpdateStore } from '../stores/useUpdateStore'
 import { useT, useLocale } from '../stores/useLocaleStore'
 import { useFocusTrap } from '../lib/useFocusTrap'
+import { useOverlayClose } from '../lib/useOverlayClose'
 import { estimateEtaSeconds, formatBytes, formatEta, formatSpeed } from '@shared/update'
 
 // 软件更新弹窗：发现新版本 → 下载进度 → 下载完成三态一体，
@@ -25,6 +26,8 @@ export function UpdateDialog() {
 
   // 默认焦点落「稍后」：Enter 不会直接把应用重启掉。
   useFocusTrap(panelRef, open && !paletteOpen, laterRef)
+  // 设置窗口的 Esc 兜底栈：焦点漏在弹窗外时，窗口级 Esc 只收起本弹窗（= 稍后）。
+  useOverlayClose(open && !paletteOpen, dismissDialog)
 
   useEffect(() => {
     if (open && paletteOpen) dismissDialog()

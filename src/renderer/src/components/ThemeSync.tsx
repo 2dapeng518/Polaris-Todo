@@ -43,6 +43,30 @@ export function ThemeSync() {
     return () => window.removeEventListener('storage', onStorage)
   }, [])
 
+  // 重装/换 profile 后 localStorage 为空：从主进程 meta 权威值回填（meta 在
+  // 数据库内，随数据存放位置走）。只在存储键缺失（全新 profile）时触发，
+  // 正常启动不产生第二次往返，也不与内联脚本/存储事件打架。setTheme 会把
+  // 值写回 localStorage，并向主进程回显同值（setCurrentTheme 幂等）。
+  useEffect(() => {
+    let stored: string | null = null
+    try {
+      stored = localStorage.getItem('polaris-theme')
+    } catch {
+      return
+    }
+    if (stored !== null) return
+    void window.polaris.app
+      .getTheme()
+      .then((value) => {
+        if (isAppTheme(value) && localStorage.getItem('polaris-theme') === null) {
+          useThemeStore.getState().setTheme(value)
+        }
+      })
+      .catch((error) => {
+        console.error('Failed to restore theme from the main process:', error)
+      })
+  }, [])
+
   // 冒烟测试用的确定性主题注入钩子（与 __polarisParseNow 同一约定）：
   // 仅调用 store，不引入任何特权；正常使用时也安全无害。
   useEffect(() => {

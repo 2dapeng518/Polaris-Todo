@@ -2,7 +2,7 @@ import Database from 'better-sqlite3'
 import { app } from 'electron'
 import log from 'electron-log/main'
 import { randomUUID } from 'node:crypto'
-import { existsSync, mkdirSync, renameSync } from 'node:fs'
+import { copyFileSync, existsSync, mkdirSync, readFileSync, renameSync, statSync, unlinkSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { nextOccurrence } from '../shared/recurrence'
 import { isPurgeable } from '../shared/retention'
@@ -27,12 +27,16 @@ import type {
 } from '../shared/types'
 
 let db: Database.Database
+// 当前打开的库文件路径：迁移/恢复复制（backupDbTo / checkpointCopyDbSync）用，
+// initDatabase 由 index.ts 传入目录，db.ts 不感知指针文件。
+let dbFilePath = ''
 
 /** initDatabase 的结果：quarantinedPath 非空表示原库已损坏并被改名隔离，
  *  当前运行的是重建的空库——调用方（whenReady 链）据此在启动后告知用户。 */
 export type InitDatabaseResult = { quarantinedPath: string | null }
 
 function openAndMigrate(dbPath: string): void {
+  dbFilePath = dbPath
   db = new Database(dbPath)
   db.pragma('journal_mode = WAL')
   db.pragma('foreign_keys = ON')
@@ -40,8 +44,7 @@ function openAndMigrate(dbPath: string): void {
   seedIfNeeded()
 }
 
-export function initDatabase(): InitDatabaseResult {
-  const directory = app.getPath('userData')
+export function initDatabase(directory: string): InitDatabaseResult {
   mkdirSync(directory, { recursive: true })
   const dbPath = join(directory, 'polaris.db')
   try {
@@ -76,6 +79,88 @@ export function initDatabase(): InitDatabaseResult {
     // 隔离位置写进日志：用户报告「数据没了」时按这份路径找回原库。
     log.error('Polaris database quarantined to:', corruptPath)
     return { quarantinedPath: corruptPath }
+  }
+}
+
+/** 在线一致性备份到目标路径：better-sqlite3 backup API 对运行中的库做完整
+ *  快照（含 WAL 内容），复制期间读写照常。目标是数据目录切换的复制路径，
+ *  先清掉目标三件套（残留旧库/-wal 会污染新快照）。 */
+export async function backupDbTo(destPath: string): Promise<void> {
+  for (const suffix of ['', '-wal', '-shm']) {
+    const stale = `${destPath}${suffix}`
+    if (existsSync(stale)) unlinkSync(stale)
+  }
+  await db.backup(destPath)
+}
+
+/** 退出兜底：同步 checkpoint 把 WAL 收进主库，再临时文件 + rename 覆盖复制。
+ *  will-quit 里同步调用——异步 API 在退出钩子里不保证跑完。 */
+export function checkpointCopyDbSync(destPath: string): void {
+  db.pragma('wal_checkpoint(TRUNCATE)')
+  const tempPath = `${destPath}.quit-tmp`
+  copyFileSync(dbFilePath, tempPath)
+  renameSync(tempPath, destPath)
+}
+
+/** 退出收尾：显式 checkpoint 把 WAL 收进主库并关闭连接。SQLite 关闭最后一个
+ *  连接时会删掉 -wal/-shm 旁车，数据目录只剩单个 polaris.db——网盘同步的
+ *  数据目录不再有三件套版本错位（同步是按文件粒度的，旁车必然错位）。
+ *  必须在所有可能摸库的模块（定时器/监听）停掉之后调用。 */
+export function closeDatabase(): void {
+  try {
+    db.pragma('wal_checkpoint(TRUNCATE)')
+    db.close()
+  } catch (error) {
+    log.error('Polaris database close failed:', error)
+  }
+}
+
+// 同步指纹旁车：紧挨 polaris.db 存放，记录收拢后的（大小 + mtime）。存库外的
+// 原因是比对发生在开库之前——库还打不开时就要能读到上一次的指纹。
+const SYNC_STAMP_SUFFIX = '.sync-stamp'
+
+/** 退出收尾后记录指纹。db 未开/路径缺失时静默跳过——指纹缺失的后果只是
+ *  下次启动少一次比对机会，绝不能反过来挡住退出。 */
+export function writeDbSyncStamp(): void {
+  writeSyncStampAt(dbFilePath)
+}
+
+/** 为指定库文件写指纹：数据目录切换 / 恢复默认由应用自己把库复制到目标
+ *  位置，而目标旁可能残留旧指纹（如恢复默认时默认目录里上一次退出写的），
+ *  复制出的新文件必然与之不符——下次启动会误报「外部修改」。应用自己
+ *  落盘的每个目标库副本都要随写随记，让外部修改检测只对真正的应用外改动
+ *  诚实触发（其他设备的网盘同步 / 手动改文件 / 未正常退出）。 */
+export function writeSyncStampAt(dbPath: string): void {
+  try {
+    const info = statSync(dbPath)
+    writeFileSync(
+      `${dbPath}${SYNC_STAMP_SUFFIX}`,
+      JSON.stringify(
+        { size: info.size, mtimeMs: info.mtimeMs, quitAt: new Date().toISOString() },
+        null,
+        2
+      )
+    )
+  } catch (error) {
+    log.warn('Polaris database sync stamp write failed:', error)
+  }
+}
+
+/** 启动检测（开库之前调用）：指纹与磁盘现状不一致 = 文件在应用之外被动过
+ *  （其他设备的网盘同步 / 上次未正常退出）。返回 null = 无指纹可比（首次
+ *  运行或刚换了数据目录），不构成变更信号。 */
+export function detectExternalDbChange(directory: string): boolean | null {
+  try {
+    const dbPath = join(directory, 'polaris.db')
+    const stamp = JSON.parse(readFileSync(`${dbPath}${SYNC_STAMP_SUFFIX}`, 'utf8')) as {
+      size?: number
+      mtimeMs?: number
+    }
+    if (typeof stamp.size !== 'number' || typeof stamp.mtimeMs !== 'number') return null
+    const info = statSync(dbPath)
+    return info.size !== stamp.size || info.mtimeMs !== stamp.mtimeMs
+  } catch {
+    return null
   }
 }
 

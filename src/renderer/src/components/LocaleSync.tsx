@@ -29,6 +29,29 @@ export function LocaleSync() {
     return () => window.removeEventListener('storage', onStorage)
   }, [])
 
+  // 重装/换 profile 后 localStorage 为空：从主进程 meta 权威值回填（meta 在
+  // 数据库内，随数据存放位置走）。只在存储键缺失时触发；setLocale 写回
+  // localStorage，语言从此与 meta 一致。
+  useEffect(() => {
+    let stored: string | null = null
+    try {
+      stored = localStorage.getItem(LOCALE_STORAGE_KEY)
+    } catch {
+      return
+    }
+    if (stored !== null) return
+    void window.polaris.app
+      .getLocale()
+      .then((value) => {
+        if (isLocale(value) && localStorage.getItem(LOCALE_STORAGE_KEY) === null) {
+          useLocaleStore.getState().setLocale(value)
+        }
+      })
+      .catch((error) => {
+        console.error('Failed to restore locale from the main process:', error)
+      })
+  }, [])
+
   // 冒烟用的确定性语言注入钩子（与 __polarisSetTheme 同一约定）。
   useEffect(() => {
     window.__polarisSetLocale = (value: string) => {

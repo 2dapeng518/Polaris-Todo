@@ -1,8 +1,10 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { motion } from 'motion/react'
 import type { AutoBackupItem } from '@shared/types'
 import { useTaskStore } from '../stores/useTaskStore'
 import { useFocusTrap } from '../lib/useFocusTrap'
+import { useOverlayClose } from '../lib/useOverlayClose'
+import { ConfirmDialog } from './ConfirmDialog'
 import { useT, useLocale } from '../stores/useLocaleStore'
 
 /** 备份行时间戳跟随界面语言；大小给人类可读单位，列表不解析文件内容。
@@ -17,31 +19,48 @@ export function formatBackupSize(bytes: number): string {
 }
 
 type BackupListDialogProps = {
-  /** 打开前已由设置页重读 backups:list（newest first）；null 只在读取失败时出现。 */
   items: AutoBackupItem[] | null
   loadError: string | null
   busy: boolean
-  /** 导入/另存为的反馈：与备份卡共用同一份状态，落对话框常驻槽可见。 */
+  /** 导入/另存为/删除的反馈：与备份卡共用同一份状态，落对话框常驻槽可见。 */
   status: string | null
   error: string | null
+  /** 当前自动备份周期（小时；0 = 关闭），设置页打开对话框时拉取并持有。 */
+  intervalHours: number
+  onIntervalChange: (hours: number) => void
   onImport: (name: string) => void
   onSaveAs: (name: string) => void
+  onDelete: (name: string) => void
   onClose: () => void
 }
+
+// 周期预设档位：与主进程白名单（AUTO_BACKUP_INTERVAL_CHOICES）一一对应，
+// 0 = 关闭自动备份。label 走 i18n，选项本身是协议面数字。
+const INTERVAL_CHOICES = [
+  { hours: 0, labelKey: 'settings.autoBackupIntervalOff' },
+  { hours: 12, labelKey: 'settings.autoBackupInterval12' },
+  { hours: 24, labelKey: 'settings.autoBackupInterval24' },
+  { hours: 72, labelKey: 'settings.autoBackupInterval72' },
+  { hours: 168, labelKey: 'settings.autoBackupInterval168' }
+] as const
 
 // 自动备份管理对话框（用户拍板：列表从内联手风琴改模态，根除展开撑高抖动）。
 // 复用 ConfirmDialog/UpdateDialog 范式：confirm-overlay 盖设置面板（80 > 70）、
 // 焦点陷阱、Esc 在 React 根停传播只关自己、点外关闭。列表对话框内滚动不裁切，
 // 设置面板几何全程不动。导入/另存语义不变（additive 合并 / 原生保存对话框），
-// 文件名门禁仍由主进程 isAutoBackupFileName 把守。
+// 文件名门禁仍由主进程 isAutoBackupFileName 把守；删除走同一门禁 + 对话框内
+// 二次确认。周期 chips 即点即存（meta），运行期兜底定时器每次重读 meta 生效。
 export function BackupListDialog({
   items,
   loadError,
   busy,
   status,
   error,
+  intervalHours,
+  onIntervalChange,
   onImport,
   onSaveAs,
+  onDelete,
   onClose
 }: BackupListDialogProps) {
   const t = useT()
@@ -49,9 +68,12 @@ export function BackupListDialog({
   const panelRef = useRef<HTMLDivElement>(null)
   const closeRef = useRef<HTMLButtonElement>(null)
   const paletteOpen = useTaskStore((state) => state.paletteOpen)
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
 
-  // 默认焦点落「关闭」：Enter 不会直接触发导入。
+  // 默认焦点落「关闭」：Enter 不会直接触发导入/删除。
   useFocusTrap(panelRef, !paletteOpen, closeRef)
+  // 设置窗口的 Esc 兜底栈：焦点漏在对话框外时，窗口级 Esc 只关掉本对话框。
+  useOverlayClose(!paletteOpen, onClose)
 
   // Ctrl+K 不触发 pointerdown，命令面板抢占时对话框自己让位。
   useEffect(() => {
@@ -60,7 +82,7 @@ export function BackupListDialog({
 
   const title = t('settings.autoBackupDialogTitle', { count: items?.length ?? 0 })
   // 反馈槽常驻占位：默认落合并语义说明（单行 ellipsis + title 全文），
-  // 导入/另存为的结果替换进槽——对话框高度恒定，反馈不撑出第二段跳高。
+  // 导入/另存/删除/周期的结果替换进槽——对话框高度恒定，反馈不撑出第二段跳高。
   const slotText = error ?? status ?? t('settings.autoBackupDesc')
 
   return (
@@ -95,6 +117,23 @@ export function BackupListDialog({
       >
         <div className="backup-dialog-title">{title}</div>
 
+        <div className="backup-interval-row">
+          <span className="backup-interval-label">{t('settings.autoBackupInterval')}</span>
+          <div className="backup-interval-chips" role="group" aria-label={t('settings.autoBackupInterval')}>
+            {INTERVAL_CHOICES.map((choice) => (
+              <button
+                key={choice.hours}
+                className={`backup-interval-chip${intervalHours === choice.hours ? ' is-active' : ''}`}
+                aria-pressed={intervalHours === choice.hours}
+                disabled={busy}
+                onClick={() => onIntervalChange(choice.hours)}
+              >
+                {t(choice.labelKey)}
+              </button>
+            ))}
+          </div>
+        </div>
+
         {loadError && (
           <div className="settings-error" role="alert">{loadError}</div>
         )}
@@ -124,6 +163,13 @@ export function BackupListDialog({
                   >
                     {t('settings.autoBackupSaveAs')}
                   </button>
+                  <button
+                    className="backup-btn backup-btn--small backup-btn--danger"
+                    disabled={busy}
+                    onClick={() => setConfirmDelete(item.name)}
+                  >
+                    {t('settings.autoBackupDelete')}
+                  </button>
                 </span>
               </li>
             ))}
@@ -143,6 +189,18 @@ export function BackupListDialog({
             {t('settings.autoBackupClose')}
           </button>
         </div>
+
+        {confirmDelete && (
+          <ConfirmDialog
+            message={t('settings.autoBackupDeleteConfirm')}
+            confirmLabel={t('settings.autoBackupDelete')}
+            onConfirm={() => {
+              setConfirmDelete(null)
+              onDelete(confirmDelete)
+            }}
+            onClose={() => setConfirmDelete(null)}
+          />
+        )}
       </motion.div>
     </motion.div>
   )

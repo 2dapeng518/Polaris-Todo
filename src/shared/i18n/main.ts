@@ -31,14 +31,16 @@ export const main = {
   // 导入文件大小上限（readFile 前的 stat 检查）。
   'native.importTooLarge': '备份文件超过 {limit} MB 上限，已拒绝读取。',
   'native.invalidBackupName': '非法的备份文件名，已拒绝。',
-  'native.mirrorFolderTitle': '选择数据自动保存文件夹',
-  'native.mirrorImportTitle': '从网盘保存文件恢复',
-  'mirror.folderUnavailable': '备份文件夹不可用：{path}',
-  'mirror.writeFailed': '写入备份失败：{error}',
-  'mirror.folderInvalid': '该文件夹不可用，请选择其他目录（不能是 Polaris 数据目录或其上级目录）',
-  'mirror.importNotFile': '所选路径不是文件',
-  'mirror.invalidJson': '文件不是有效的 JSON',
-  'mirror.invalidBackup': '不是有效的 Polaris 备份文件',
-  'mirror.noBackup': '备份文件夹里还没有 latest.json，无法恢复'
-
+  'native.dataLocationTitle': '选择数据存放位置',
+  // 数据存放位置：启动回退对话框（locale 未就绪，双语并列，同 dbCorrupt 模式）。
+  'dataLocation.fallbackTitle': '数据目录不可用，已回退默认位置',
+  'dataLocation.fallback':
+    '自定义数据目录不可用（已被移动、删除或无法访问），应用已回退到默认位置。\n如需恢复，请在「设置 → 数据备份 → 数据存放位置」重新指定原目录。',
+  'dataLocation.samePath': '新位置与当前数据目录相同',
+  'dataLocation.invalid': '所选路径不是可用的文件夹（无法创建或不可写入）',
+  'dataLocation.copyFailed': '切换数据目录失败：{error}',
+  // 外部变更检测：指纹与磁盘现状不一致（其他设备同步 / 上次未正常退出）。
+  'dataLocation.externalChangeTitle': '检测到数据文件被外部修改',
+  'dataLocation.externalChange':
+    '数据库文件在上次退出后发生了变化（可能是其他设备的网盘同步，或上次未正常退出）。本次启动以磁盘上的文件为准；如发现数据缺失，可在「设置 → 数据备份」中从自动备份或快照恢复。'
 }

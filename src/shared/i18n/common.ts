@@ -9,6 +9,7 @@ export const common = {
   'common.dismiss': '关闭提示',
   'common.search': '搜索',
   'common.settings': '设置',
+  'common.about': '关于',
   'common.undo': '撤销',
   'common.today': '今天',
   'app.skip': '跳到主内容',

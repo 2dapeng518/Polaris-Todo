@@ -11,8 +11,11 @@ import { getCurrentLocale } from './locale'
 // publish），客户端只认 Release 资产里的 latest.yml：比对 semver → 后台下载
 // （blockmap 差量）→ 用户确认后 quitAndInstall。NSIS 按用户安装，更新不弹 UAC。
 //
-// 状态快照单向推给主窗口（update:state），渲染层不自己推算进度；
-// 「跳过此版本」记在 meta，自动检查命中它保持安静，手动检查永远给答案。
+// 状态快照单向推给窗口（update:state：主窗口 + 开着的设置窗口），渲染层不自己
+// 推算进度；「跳过此版本」记在 meta，自动检查命中它保持安静，手动检查永远给答案。
+// 「稍后」记在本次运行的内存里（dismissedVersion）：设置成了独立窗口后，弹窗
+// 副本在每个窗口各有一份，「稍后」必须跨窗口一致，否则在设置里点过稍后、关掉
+// 设置窗口，主窗口里被盖住的那份又会冒出来。
 // 开发/未打包环境没有更新通道：status = unsupported，绝不发网络请求，
 // 冒烟与截图模式因此完全确定。
 
@@ -30,7 +33,9 @@ let releaseNotes: string | null = null
 let lastError: string | null = null
 let timer: NodeJS.Timeout | null = null
 let lastCheckAt: number | null = null
+let dismissedVersion: string | null = null
 let getWindow: (() => BrowserWindow | null) | null = null
+let getExtraWindows: (() => BrowserWindow[]) | null = null
 let initialized = false
 
 function supported(): boolean {
@@ -48,14 +53,22 @@ function state(): UpdateState {
     bytesPerSecond,
     releaseNotes,
     skippedVersion: getMeta(META_SKIPPED),
+    dismissedVersion,
     error: lastError
   }
 }
 
+/** 向所有挂着更新界面的窗口补推一次当前快照（设置窗口关闭时调用）。 */
+export function refreshUpdateState(): void {
+  push()
+}
+
 function push(): void {
-  const window = getWindow?.()
-  if (!window || window.isDestroyed()) return
-  window.webContents.send('update:state', state())
+  const windows = [getWindow?.() ?? null, ...(getExtraWindows?.() ?? [])]
+  for (const window of windows) {
+    if (!window || window.isDestroyed()) continue
+    window.webContents.send('update:state', state())
+  }
 }
 
 function patch(next: Partial<{
@@ -82,8 +95,10 @@ function patch(next: Partial<{
 /** 检查更新。结果既走返回值（设置页手动检查要立刻拿到答案，
  *  包括被跳过的版本），也走事件推送（自动检查驱动弹窗）。
  *  「跳过此版本」的安静规则由渲染层用 shouldSurfaceUpdate 执行：
- *  主进程只报告事实，不打扰与否是展示层的决定。 */
-async function check(): Promise<UpdateState> {
+ *  主进程只报告事实，不打扰与否是展示层的决定。
+ *  manual：用户主动问就重新给机会——清掉本次运行的「稍后」记账。 */
+async function check(manual = false): Promise<UpdateState> {
+  if (manual) dismissedVersion = null
   if (!supported()) return state()
   if (status === 'checking' || status === 'downloading') return state()
   // 发起即记时（含失败）：节流闸按「上次发起」算，网络坏了也不至于
@@ -111,7 +126,7 @@ async function check(): Promise<UpdateState> {
 /** 托盘菜单的手动检查入口：与设置页脚走同一个 check()，结果只走返回值，
  *  气泡文案与是否唤起窗口由调用方按 describeTrayCheck 决定。 */
 export function manualCheckForUpdates(): Promise<UpdateState> {
-  return check()
+  return check(true)
 }
 
 export interface TrayCheckFeedback {
@@ -182,12 +197,15 @@ function wakeCheck(): void {
 
 export function initUpdater(options: {
   getWindow: () => BrowserWindow | null
+  /** 额外收快照的窗口（开着的设置窗口）；可为空数组。 */
+  getExtraWindows?: () => BrowserWindow[]
   /** quitAndInstall 前把主窗口的「关闭即驻托盘」拦路标记掀掉。 */
   onBeforeInstall: () => void
 }): void {
   if (initialized) return
   initialized = true
   getWindow = options.getWindow
+  getExtraWindows = options.getExtraWindows ?? null
 
   autoUpdater.autoDownload = true
   // 用户没点「立即重启」也没关系：下次正常退出时静默装上。
@@ -268,7 +286,7 @@ export function initUpdater(options: {
 
   ipcMain.handle('update:get-state', () => state())
 
-  ipcMain.handle('update:check', () => check())
+  ipcMain.handle('update:check', () => check(true))
 
   ipcMain.handle('update:skip', (_event, version: unknown) => {
     // 跳过的是渲染层正在展示的版本，由调用方指明；只接受版本号形状的短字符串。
@@ -277,6 +295,14 @@ export function initUpdater(options: {
     }
     push()
     return state()
+  })
+
+  // 「稍后」只记账不推送：本窗口的弹窗由渲染层自己收起；别的窗口那份副本
+  // 等下一次快照（设置窗口关闭时的补推 / 后续下载进度）带上来再收。
+  ipcMain.handle('update:dismiss', (_event, version: unknown) => {
+    if (typeof version === 'string' && /^\d+\.\d+\.\d+(?:[-+][\w.-]+)?$/.test(version) && version.length <= 50) {
+      dismissedVersion = version
+    }
   })
 
   ipcMain.handle('update:install', () => {

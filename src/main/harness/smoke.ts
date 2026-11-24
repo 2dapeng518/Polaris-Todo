@@ -2,9 +2,9 @@
 // 断言全部具名进 checks map，输出协议 POLARIS_SMOKE_RESULT/FAILED/ERROR 不变。
 // 只在 harness 构建里存在；index.ts 的模块作用量经 HarnessContext 注入。
 
-import { app, globalShortcut, ipcMain, type NativeImage } from 'electron'
+import { app, BrowserWindow, globalShortcut, ipcMain, type NativeImage } from 'electron'
 import { join } from 'node:path'
-import { mkdir, mkdtemp, readFile, readdir, rm, unlink } from 'node:fs/promises'
+import { copyFile, mkdir, mkdtemp, readFile, readdir, rm, stat, unlink, utimes } from 'node:fs/promises'
 import { randomUUID } from 'node:crypto'
 import {
   createProject,
@@ -15,6 +15,7 @@ import {
   deleteTag,
   deleteTask,
   deleteTaskForever,
+  detectExternalDbChange,
   exportBackup,
   getMeta,
   getTask,
@@ -25,18 +26,20 @@ import {
   purgeExpiredDeleted,
   setMeta,
   updateSubtask,
-  updateTask
+  updateTask,
+  writeDbSyncStamp
 } from '../db'
 import { registerIpc, registerTaskCreate } from '../ipc'
 import { request as httpRequest } from 'node:http'
 import { getMcpState, MCP_ENDPOINT, MCP_PORT, setMcpEnabled } from '../mcp'
 import {
-  getMirrorState,
-  MIRROR_MIN_GAP_MS,
-  setMirrorEnabled,
-  setMirrorFolderPath,
-  setMirrorMinGapMs
-} from '../mirror'
+  applyDataDirectory,
+  cancelDataDirectoryOffer,
+  getDataLocationState,
+  markPointerForTest,
+  resetDataDirectory,
+  setDataDirectoryOffer
+} from '../dataLocation'
 import { describeTrayCheck, installingNotice } from '../updater'
 import {
   estimateEtaSeconds,
@@ -55,10 +58,10 @@ import { getTrayMenuLabels } from '../tray'
 import { CSV_EXPORT_HEADERS, csvExportFromBackup, formatCsvDue } from '../../shared/csvExport'
 import { harnessContext } from './context'
 import { settledFrames, waitForCondition } from './util'
+import { closeSettingsAndSettle, openSettingsFor, showSettingsSection, withSettings } from './settings'
 import {
   runBackupNameAssertions,
   runCustomRecurrenceAssertions,
-  runMirrorAssertions,
   runParseAssertions,
   runRecurrenceAssertions,
   runRetentionAssertions
@@ -97,7 +100,8 @@ function resetTaskIpc(): void {
 }
 
 export async function runSmokeTest(): Promise<void> {
-  const { mainWindow, backupSchema, writeFileAtomic, revealQuickCapture, revealSettings, checkUpdatesFromTray } = harnessContext()
+  const { mainWindow, backupSchema, writeFileAtomic, revealQuickCapture, revealSettings, checkUpdatesFromTray, getSettingsWindow } =
+    harnessContext()
   if (!mainWindow) {
     app.exit(1)
     return
@@ -333,40 +337,8 @@ export async function runSmokeTest(): Promise<void> {
       await waitFor(() => document.querySelector('.footer-version'));
       const footerVersion = document.querySelector('.footer-version').textContent.trim();
 
-      // 设置面板底部的版本号必须来自主进程，渲染层不得写死。这里只取 DOM 文本，
-      // 期望值由主进程侧的 app.getVersion() 提供（见下方 ok 断言）。
-      document.querySelector('.settings-item').click();
-      await waitFor(() => document.querySelector('.settings-version'));
-      const settingsVersion = document.querySelector('.settings-version').textContent.trim();
-      // 版本号被页脚预热缓存后，面板一挂载 .settings-version 就在，入场弹簧动画还在飞。
-      // AnimatePresence 在入场中途收到退出会把节点留住，于是等不到卸载。
-      // 等一个真实 UI 状态（不透明度到 1 = 入场结束），而不是加魔法 sleep。
-      await waitFor(() => {
-        const panel = document.querySelector('.settings-panel');
-        return panel && Number(getComputedStyle(panel).opacity) === 1;
-      });
-      document.querySelector('.settings-panel .detail-close').click();
-      await waitFor(() => !document.querySelector('.settings-panel'));
-      await sleep(200);
-
-      // 真实用户手速：面板刚挂载就点关闭，入场动画仍在飞。上面那条等入场结束，
-      // 测的是稳定态；这条专测「入场中途退出」，AnimatePresence 若留住节点就会红。
-      // 用有界轮询记录布尔值而不是 waitFor 抛错，避免卡住时整套断言一起丢失。
-      document.querySelector('.settings-item').click();
-      await waitFor(() => document.querySelector('.settings-panel .detail-close'));
-      document.querySelector('.settings-panel .detail-close').click();
-      let fastClosed = false;
-      for (let i = 0; i < 60; i++) {
-        if (!document.querySelector('.settings-panel')) { fastClosed = true; break; }
-        await sleep(50);
-      }
-      const settingsFastClose = fastClosed;
-      if (!fastClosed) {
-        // 兜底关掉，避免遮罩挡住后续断言；失败已由 settingsFastClose 记录。
-        document.querySelector('.settings-panel .detail-close')?.click();
-        await sleep(400);
-      }
-      await sleep(200);
+      // 设置已搬进独立窗口：版本号（关于页）、Esc 关窗、单例不叠窗改由主进程侧
+      // 经真实侧栏入口断言（见下方 settingsWindow* 段），主窗口这里不再碰设置。
 
       const noticeTitle = '重复提示 ' + Date.now();
       const noticeDue = new Date(Date.now() + 60 * 60 * 1000).toISOString();
@@ -1100,8 +1072,6 @@ export async function runSmokeTest(): Promise<void> {
         themePaletteWorks,
         themePaletteDetail,
         autoStartTested,
-        settingsVersion,
-        settingsFastClose,
         footerVersion,
         recurrenceTested,
         recurrenceNoticeTested,
@@ -1176,7 +1146,6 @@ export async function runSmokeTest(): Promise<void> {
     const parseAssertions = runParseAssertions()
     const retentionOk = runRetentionAssertions()
     const backupNameOk = runBackupNameAssertions()
-    const mirrorGateOk = runMirrorAssertions()
 
     // 本地 MCP：开启 → 经 IPC 取 bearer token → initialize / tools/list / tools/call
     // 真实 HTTP 往返 → 401 矩阵（无/错 token）→ regenerate 作废旧 token → 关闭后拒连。
@@ -1313,75 +1282,6 @@ export async function runSmokeTest(): Promise<void> {
         refused = true
       }
       mcpWorks = mcpWorks && refused
-    }
-
-    let cloudMirrorWrites = false
-    let cloudMirrorPause = false
-    let mirrorDir: string | null = null
-    const mirrorFixtureIds: string[] = []
-    try {
-      const dir = await mkdtemp(join(app.getPath('temp'), 'polaris-mirror-'))
-      mirrorDir = dir
-      setMirrorMinGapMs(60)
-      await setMirrorFolderPath(dir)
-      await setMirrorEnabled(true)
-      const fixture = createTask({ title: '冒烟云端镜像任务' })
-      mirrorFixtureIds.push(fixture.id)
-      const latest = join(dir, 'latest.json')
-      const mirrored = await waitForCondition(async () => {
-        try {
-          const snapshot = JSON.parse(await readFile(latest, 'utf8')) as {
-            schemaVersion?: number
-            tasks?: Array<{ id?: string; title?: string }>
-          }
-          return (
-            snapshot.schemaVersion === 3 &&
-            Array.isArray(snapshot.tasks) &&
-            snapshot.tasks.some(
-              (task) => task.id === fixture.id && task.title === '冒烟云端镜像任务'
-            )
-          )
-        } catch {
-          return false
-        }
-      }, 6000)
-      cloudMirrorWrites = mirrored
-      if (!cloudMirrorWrites) {
-        console.error('CLOUD_MIRROR_WRITES_FAIL', JSON.stringify({ latest, state: await getMirrorState() }))
-      }
-
-      // 文件夹被外部移走：开关保持开、状态给出不可用错误，应用仍能正常建/读任务。
-      await rm(dir, { recursive: true, force: true })
-      const paused = await getMirrorState()
-      const probe = createTask({ title: '冒烟云端镜像暂停探针' })
-      mirrorFixtureIds.push(probe.id)
-      const appStillWorks = getTask(probe.id)?.title === '冒烟云端镜像暂停探针'
-      cloudMirrorPause =
-        paused.enabled === true &&
-        typeof paused.error === 'string' &&
-        paused.error.includes(dir) &&
-        appStillWorks
-      if (!cloudMirrorPause) {
-        console.error('CLOUD_MIRROR_PAUSE_FAIL', JSON.stringify({ paused, appStillWorks }))
-      }
-    } catch (error) {
-      console.error('CLOUD_MIRROR_ERROR', error)
-    } finally {
-      await setMirrorEnabled(false).catch(() => {})
-      await setMirrorFolderPath(null).catch(() => {})
-      setMirrorMinGapMs(MIRROR_MIN_GAP_MS)
-      // 临时 profile 也把 meta 印记清干净，避免影响后续设置页契约检查。
-      setMeta('cloud_mirror_last', '')
-      setMeta('cloud_mirror_error', '')
-      for (const id of mirrorFixtureIds) {
-        try {
-          deleteTask(id)
-          deleteTaskForever(id)
-        } catch {
-          // 夹具可能已被硬删；逐条清理互不影响。
-        }
-      }
-      if (mirrorDir) await rm(mirrorDir, { recursive: true, force: true }).catch(() => {})
     }
 
     const recurrenceOk = runRecurrenceAssertions()
@@ -2984,11 +2884,15 @@ export async function runSmokeTest(): Promise<void> {
         step = 'cascade';
         tagRow().querySelector('.project-action-danger').click();
         if (!(await waitFor(() => document.querySelectorAll('[data-tag-name]').length === 0))) throw new Error('chips survived tag delete');
-        const sectionGone = document.querySelectorAll('.tag-item').length === 0;
+        // 首启教学示例自带标签（示例/入门），侧栏标签区不会整段清空——
+        // 断言语义收敛到「冒烟标签行已消失」，其余标签行的存在不参与判定。
+        const tagRowGone = ![...document.querySelectorAll('.tag-item')].some((el) =>
+          el.textContent.includes('冒烟标签')
+        );
         const tagsLeft = (await window.polaris.tags.list()).filter((t) => t.name === '冒烟标签').length;
         return {
-          ok: countText === '2' && filterRows && sectionGone && tagsLeft === 0,
-          step, countText, filterRows, sectionGone, tagsLeft
+          ok: countText === '2' && filterRows && tagRowGone && tagsLeft === 0,
+          step, countText, filterRows, tagRowGone, tagsLeft
         };
       } catch (error) {
         return { step, error: String(error) };
@@ -3241,13 +3145,15 @@ export async function runSmokeTest(): Promise<void> {
 
     // 自动备份列表（设置页 E2E，模态版）：fixture 备份落盘 → 点固定行 [管理…]
     // 开对话框 → 断言列表行（newest first）→ 行内「导入」合并回库（反馈落
-    // 对话框常驻槽）；路径穿越入参拒绝；openDataDir 在 harness 恒不真开资源
+    // 对话框常驻槽）；全新 profile 周期默认 24（主进程读值 + 界面选中档）；路径穿越入参拒绝；openDataDir 在 harness 恒不真开资源
     // 管理器；「另存为」只断言存在——原生保存对话框无自动化，不点；
     // Esc 只关对话框、面板存活；开/关模态前后面板几何逐像素不变（零抖动）。
     let autoBackupListWorks = false
     const autoBackupFixtureName = 'polaris-auto-2026-11-19T02-00-00-000Z.json'
+    const autoBackupFixture2Name = 'polaris-auto-2026-11-19T01-00-00-000Z.json'
     let autoBackupFixtureId: string | null = null
     let autoBackupFixturePath: string | null = null
+    let autoBackupFixture2Path: string | null = null
     try {
       const fixtureTask = createTask({ title: '冒烟自动备份任务' })
       autoBackupFixtureId = fixtureTask.id
@@ -3261,23 +3167,23 @@ export async function runSmokeTest(): Promise<void> {
       await mkdir(autoBackupDir, { recursive: true })
       autoBackupFixturePath = join(autoBackupDir, autoBackupFixtureName)
       await writeFileAtomic(autoBackupFixturePath, JSON.stringify(payload, null, 2))
+      // 第二份夹具专供删除链路：确认框 → 危险钮 → 文件真被 unlink。
+      autoBackupFixture2Path = join(autoBackupDir, autoBackupFixture2Name)
+      await writeFileAtomic(autoBackupFixture2Path, JSON.stringify(payload, null, 2))
       // 先删掉 fixture 任务，合并导入才有得插（已存在的 ID 会跳过）。
       deleteTask(fixtureTask.id)
       deleteTaskForever(fixtureTask.id)
-      if (mainWindow) {
-        const listResult = await mainWindow.webContents.executeJavaScript(`(async () => {
+      {
+        // 设置是独立窗口：脚本在设置窗口的 webContents 里跑（withSettings 经
+        // 真实侧栏入口开窗、切到数据页、收尾关窗），断言结构不变。
+        const listResult = await withSettings('data', null, (settings) => settings.webContents.executeJavaScript(`(async () => {
           ${pageHelpers}
-          document.querySelector('.settings-item').click();
-          const panel = await waitFor(() => document.querySelector('.settings-panel'));
-          if (!panel) return { opened: false };
-          await sleep(450);
-          const manage = panel.querySelector('.auto-backup-manage');
-          if (!manage) return { opened: true, manage: false };
-          // 零抖动快照：面板外框 / 内容高度 / 页脚顶边，开模态前后必须全等。
+          const manage = await waitFor(() => document.querySelector('.auto-backup-manage'));
+          if (!manage) return { opened: false };
+          // 零抖动快照：数据页外框 / 内容高度，开模态前后必须全等。
           const snap = () => ({
-            ph: panel.getBoundingClientRect().height,
-            sh: panel.scrollHeight,
-            ftop: panel.querySelector('.settings-footer').getBoundingClientRect().top
+            ph: document.querySelector('.settings-page').getBoundingClientRect().height,
+            sh: document.querySelector('.settings-page').scrollHeight
           });
           const before = snap();
           manage.click();
@@ -3293,8 +3199,9 @@ export async function runSmokeTest(): Promise<void> {
           // 是否还有更新的真实自动备份，断言排序语义本身）。
           const rowNames = [...dialog.querySelectorAll('.auto-backup-row')].map((r) => r.getAttribute('data-backup-name'));
           const sortedDesc = rowNames.length > 0 && rowNames.every((n, i) => i === 0 || rowNames[i - 1] >= n);
-          const rowButtons = row.querySelectorAll('button');
-          const saveAsPresent = rowButtons.length === 2;
+          const rowButtons = [...row.querySelectorAll('button')];
+          const rowLabels = rowButtons.map((b) => b.textContent);
+          const rowActionsOk = rowLabels.includes('导入') && rowLabels.includes('另存为') && rowLabels.includes('删除');
           rowButtons[0].click();
           // 反馈落对话框常驻槽（默认是合并语义说明，导入完成文案替换进槽）。
           const status = await waitFor(() => {
@@ -3302,40 +3209,87 @@ export async function runSmokeTest(): Promise<void> {
             const text = el ? el.textContent : '';
             return text && text.includes('导入完成') ? text : null;
           });
+          // 周期 chips：5 档即点即存——slot 反馈 + meta 回读双确认。
+          const chips = [...dialog.querySelectorAll('.backup-interval-chip')];
+          const chipsOk = chips.length === 5;
+          // 全新 profile 没设置过周期：必须读回默认 24，界面选中的也是「24 小时」
+          // （回归：缺失键曾被读成 0 = 关闭，自动备份静默停摆）。
+          const intervalDefault = (await window.polaris.backups.getInterval()) === 24;
+          const intervalDefaultChip = chips[2]?.getAttribute('aria-pressed') === 'true';
+          chips[1]?.click();
+          const intervalSaved = await waitFor(() => {
+            const el = dialog.querySelector('.backup-dialog-slot');
+            const text = el ? el.textContent : '';
+            return text && text.includes('备份周期已更新') ? true : null;
+          });
+          const intervalStored = (await window.polaris.backups.getInterval()) === 12;
+          // 逐份删除：点删除 → 嵌套确认框 → 危险钮 → 行消失 + slot 反馈 + 文件真被删。
+          const row2 = dialog.querySelector('.auto-backup-row[data-backup-name="${autoBackupFixture2Name}"]');
+          const deleteBtn = row2 ? [...row2.querySelectorAll('button')].find((b) => b.textContent === '删除') : null;
+          deleteBtn?.click();
+          const confirmPanel = await waitFor(() => document.querySelector('.backup-dialog-panel .confirm-panel'));
+          document.querySelector('.backup-dialog-panel .confirm-panel .confirm-actions .detail-popover-danger')?.click();
+          const row2Gone = await waitFor(() => (!dialog.querySelector('.auto-backup-row[data-backup-name="${autoBackupFixture2Name}"]') ? true : null));
+          const deleteStatus = await waitFor(() => {
+            const el = dialog.querySelector('.backup-dialog-slot');
+            const text = el ? el.textContent : '';
+            return text && text.includes('已删除备份') ? true : null;
+          });
+          // 周期还原默认档，不留测试痕迹。
+          chips[2]?.click();
+          const intervalRestored = (await window.polaris.backups.getInterval()) === 24;
           const traversal = await window.polaris.backups.import('../../evil.json');
           const openDir = await window.polaris.backups.openDataDir();
-          // Esc 只关对话框：React 在根停传播，面板的 window 监听不抢关。
+          // Esc 只关对话框：React 在根停传播，设置窗口的 window Esc 兜底不抢关整扇窗口。
           dialog.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
           const escClosed = await waitFor(() => !document.querySelector('.backup-dialog-panel'));
           await sleep(300);
           const after = snap();
-          const panelAlive = Boolean(document.querySelector('.settings-panel'));
-          document.querySelector('.settings-panel .detail-close')?.click();
-          await sleep(250);
-          const eq = (a, b) => a.ph === b.ph && a.sh === b.sh && a.ftop === b.ftop;
+          const windowAlive = Boolean(document.querySelector('.settings-window'));
+          // 整页窗口里反馈行（导入完成/错误）合法地改变页面高度——旧「定高卡」
+          // 契约已随浮层退役；这里只钉「开/关模态本身不位移页面」。
+          const eq = (a, b) => a.ph === b.ph && a.sh === b.sh;
           return {
-            opened: true, manage: true, dialog: true, row: true, saveAsPresent, status,
-            sortedDesc,
+            opened: true, manage: true, dialog: true, row: true, rowActionsOk, status,
+            sortedDesc, chipsOk, intervalDefault, intervalDefaultChip,
+            intervalSaved: Boolean(intervalSaved), intervalStored,
+            deleteConfirm: Boolean(confirmPanel), row2Gone: Boolean(row2Gone),
+            deleteStatus: Boolean(deleteStatus), intervalRestored,
             traversalOk: traversal.ok === false,
             openDirOpened: openDir.opened === true,
             escClosed: Boolean(escClosed),
-            panelAlive,
-            zeroShift: eq(before, during) && eq(before, after)
+            windowAlive,
+            zeroShift: eq(before, during)
           };
         })()`)
+        )
         const backInDb = listTasks().some((t) => t.id === autoBackupFixtureId)
+        // fixture2 是删除链路的验收：行消失之外，磁盘文件必须真被 unlink。
+        const fixture2Gone = autoBackupFixture2Path
+          ? !(await stat(autoBackupFixture2Path).catch(() => null))
+          : false
         autoBackupListWorks =
           listResult?.row === true &&
-          listResult?.saveAsPresent === true &&
+          listResult?.rowActionsOk === true &&
           typeof listResult?.status === 'string' &&
           listResult?.sortedDesc === true &&
+          listResult?.chipsOk === true &&
+          listResult?.intervalDefault === true &&
+          listResult?.intervalDefaultChip === true &&
+          listResult?.intervalSaved === true &&
+          listResult?.intervalStored === true &&
+          listResult?.deleteConfirm === true &&
+          listResult?.row2Gone === true &&
+          listResult?.deleteStatus === true &&
+          listResult?.intervalRestored === true &&
+          fixture2Gone &&
           backInDb &&
           listResult?.traversalOk === true &&
           listResult?.openDirOpened === false &&
           listResult?.escClosed === true &&
-          listResult?.panelAlive === true &&
+          listResult?.windowAlive === true &&
           listResult?.zeroShift === true
-        if (!autoBackupListWorks) console.error('AUTO_BACKUP_LIST_FAIL', JSON.stringify({ listResult, backInDb }))
+        if (!autoBackupListWorks) console.error('AUTO_BACKUP_LIST_FAIL', JSON.stringify({ listResult, backInDb, fixture2Gone }))
       }
     } catch (error) {
       console.error('AUTO_BACKUP_LIST_ERROR', error)
@@ -3345,6 +3299,241 @@ export async function runSmokeTest(): Promise<void> {
         deleteTaskForever(autoBackupFixtureId)
       }
       if (autoBackupFixturePath) await unlink(autoBackupFixturePath).catch(() => {})
+      if (autoBackupFixture2Path) await unlink(autoBackupFixture2Path).catch(() => {})
+    }
+
+    // 数据存放位置（主进程直驱 + 设置页 E2E）：复制（空目录）/ 采用（已有库）
+    // 两条 apply 语义、指针读写、pendingRestart 状态行、恢复默认入口与确认
+    // 取消链路。真实重启无法在单进程冒烟里发生——重启后的状态经
+    // markPointerForTest 模拟（只翻会话旗标，不碰磁盘/activeDir）。原生目录
+    // 对话框无自动化：确认弹框走「取消」路径，
+    // 「确定」的迁移语义由主进程直驱 apply 覆盖。
+    let dataLocationWorks = false
+    const dataLocationFixtureIds: string[] = []
+    const dataLocationDirs: string[] = []
+    try {
+      // no-op 前置：未自定义时 resetDataDirectory 必须原样返回，不触发任何复制。
+      const noopBefore = await resetDataDirectory()
+      const noopReset = noopBefore.pendingRestart === false
+
+      const dataLocFixture = createTask({ title: '冒烟数据位置任务' })
+      dataLocationFixtureIds.push(dataLocFixture.id)
+      // fixture 自动备份：复制路径必须把它带到新位置（备份目录跟随数据目录）。
+      const backupPayload = {
+        schemaVersion: 3,
+        app: 'polaris',
+        exportedAt: new Date().toISOString(),
+        ...exportBackup()
+      }
+      const dataLocBackupName = 'polaris-auto-2026-11-21T00-00-00-000Z.json'
+      const sourceBackups = join(app.getPath('userData'), 'backups')
+      await mkdir(sourceBackups, { recursive: true })
+      const dataLocBackupPath = join(sourceBackups, dataLocBackupName)
+      await writeFileAtomic(dataLocBackupPath, JSON.stringify(backupPayload, null, 2))
+      const userDataDb = join(app.getPath('userData'), 'polaris.db')
+      const dataLocPointerPath = join(app.getPath('userData'), 'data-location.json')
+      const readPointer = async (): Promise<string | null> => {
+        try {
+          const parsed = JSON.parse(await readFile(dataLocPointerPath, 'utf8')) as {
+            directory?: string
+          }
+          return typeof parsed.directory === 'string' ? parsed.directory : null
+        } catch {
+          return null
+        }
+      }
+
+      // ---- 复制路径：空目录 → 在线备份当前库过去 + backups 跟随 + 指针落盘。
+      //      会话仍在默认位置（isCustom=false、path=userData），重启前不变。 ----
+      const targetA = await mkdtemp(join(app.getPath('temp'), 'polaris-dataloc-a-'))
+      dataLocationDirs.push(targetA)
+      const offerA = setDataDirectoryOffer(targetA)
+      const offerAOk = offerA.offered === targetA && offerA.offeredAdopt === false
+      const appliedA = await applyDataDirectory()
+      let copiedDb = false
+      try {
+        copiedDb = (await readFile(join(targetA, 'polaris.db'))).length > 0
+      } catch {
+        copiedDb = false
+      }
+      let copiedBackup = false
+      try {
+        copiedBackup = (await readFile(join(targetA, 'backups', dataLocBackupName), 'utf8')).includes(
+          '冒烟数据位置任务'
+        )
+      } catch {
+        copiedBackup = false
+      }
+      const dataLocProbe = createTask({ title: '冒烟数据位置探针' })
+      dataLocationFixtureIds.push(dataLocProbe.id)
+      const liveStillWorks = getTask(dataLocProbe.id)?.title === '冒烟数据位置探针'
+      const copyOk =
+        offerAOk &&
+        appliedA.pendingRestart === true &&
+        appliedA.isCustom === false &&
+        appliedA.path === app.getPath('userData') &&
+        (await readPointer()) === targetA &&
+        copiedDb &&
+        copiedBackup &&
+        liveStillWorks
+
+      // ---- UI #1：pendingRestart 状态行替换文案；未自定义时不出现「恢复默认」。
+      //      literals 与 settings.dataLocation* zh 词典同步维护。 ----
+      let uiPending = false
+      {
+        // 设置是独立窗口：脚本在设置窗口的数据页里跑（withSettings 负责开/切/关）。
+        const pendingResult = await withSettings('data', null, (settings) => settings.webContents.executeJavaScript(`(async () => {
+          ${pageHelpers}
+          const row = await waitFor(() => document.querySelector('.settings-dataloc'));
+          if (!row) return { opened: false };
+          const status = row.querySelector('.settings-dataloc-path');
+          const buttons = [...row.querySelectorAll('button')];
+          return {
+            opened: true,
+            row: true,
+            statusText: status ? status.textContent : '',
+            hasChange: buttons.some((b) => b.textContent === '更改'),
+            hasReset: buttons.some((b) => b.textContent === '恢复默认')
+          };
+        })()`)
+        )
+        uiPending =
+          pendingResult?.opened === true &&
+          pendingResult.row === true &&
+          pendingResult.hasChange === true &&
+          pendingResult.hasReset === false &&
+          typeof pendingResult.statusText === 'string' &&
+          pendingResult.statusText.includes('重启后生效')
+        if (!uiPending) console.error('DATA_LOCATION_UI_PENDING_FAIL', JSON.stringify(pendingResult))
+      }
+
+      // ---- 采用路径：目标已有库 → 不覆盖不复制；指针改写；backups 不跟随。 ----
+      const targetB = await mkdtemp(join(app.getPath('temp'), 'polaris-dataloc-b-'))
+      dataLocationDirs.push(targetB)
+      const adoptedDb = join(targetB, 'polaris.db')
+      await copyFile(userDataDb, adoptedDb)
+      const adoptedBefore = await readFile(adoptedDb)
+      const offerB = setDataDirectoryOffer(targetB)
+      const adoptApplied = await applyDataDirectory()
+      const adoptedAfter = await readFile(adoptedDb)
+      let adoptBackupsUntouched = true
+      try {
+        await readFile(join(targetB, 'backups', dataLocBackupName), 'utf8')
+        adoptBackupsUntouched = false
+      } catch {
+        adoptBackupsUntouched = true
+      }
+      const adoptOk =
+        offerB.offered === targetB &&
+        offerB.offeredAdopt === true &&
+        adoptApplied.pendingRestart === true &&
+        (await readPointer()) === targetB &&
+        adoptedBefore.equals(adoptedAfter) &&
+        adoptBackupsUntouched
+
+      // ---- UI #2：模拟重启后指针生效（只翻旗标）→「恢复默认」出现；确认框
+      //      走「取消」：对话框关、面板活、磁盘指针原样（取消语义零副作用）。----
+      markPointerForTest(targetB)
+      let uiResetCancel = false
+      {
+        const resetResult = await withSettings('data', null, (settings) => settings.webContents.executeJavaScript(`(async () => {
+          ${pageHelpers}
+          const row = await waitFor(() => document.querySelector('.settings-dataloc'));
+          if (!row) return { opened: false };
+          const buttons = [...row.querySelectorAll('button')];
+          const reset = buttons.find((b) => b.textContent === '恢复默认');
+          if (!reset) return { opened: true, hasReset: false };
+          reset.click();
+          const dialog = await waitFor(() => document.querySelector('.confirm-panel'));
+          if (!dialog) return { opened: true, hasReset: true, dialog: false };
+          const message = dialog.querySelector('.confirm-message')?.textContent ?? '';
+          const cancel = dialog.querySelector('.confirm-actions button');
+          cancel.click();
+          const closed = await waitFor(() => !document.querySelector('.confirm-panel'));
+          await sleep(250);
+          return {
+            opened: true,
+            hasReset: true,
+            dialog: true,
+            message,
+            closed: Boolean(closed),
+            windowAlive: Boolean(document.querySelector('.settings-window'))
+          };
+        })()`)
+        )
+        uiResetCancel =
+          resetResult?.opened === true &&
+          resetResult.hasReset === true &&
+          resetResult.dialog === true &&
+          typeof resetResult.message === 'string' &&
+          resetResult.message.includes('默认位置') &&
+          resetResult.closed === true &&
+          resetResult.windowAlive === true &&
+          (await readPointer()) === targetB
+        if (!uiResetCancel) console.error('DATA_LOCATION_UI_RESET_FAIL', JSON.stringify(resetResult))
+      }
+      markPointerForTest(null)
+
+      // ---- offer 生命周期：取消清空；同路径与文件路径都被拒且不产生 offer。----
+      const targetC = await mkdtemp(join(app.getPath('temp'), 'polaris-dataloc-c-'))
+      dataLocationDirs.push(targetC)
+      const offerC = setDataDirectoryOffer(targetC)
+      const offerCSet = offerC.offered === targetC
+      const offerCCancelled = cancelDataDirectoryOffer()
+      const cancelOk = offerCSet && offerCCancelled.offered === undefined
+      const sameState = setDataDirectoryOffer(app.getPath('userData'))
+      const sameOk = typeof sameState.error === 'string' && sameState.offered === undefined
+      const invalidState = setDataDirectoryOffer(userDataDb)
+      const invalidOk =
+        typeof invalidState.error === 'string' && invalidState.offered === undefined
+
+      dataLocationWorks =
+        noopReset && copyOk && uiPending && adoptOk && uiResetCancel && cancelOk && sameOk && invalidOk
+      if (!dataLocationWorks) {
+        console.error(
+          'DATA_LOCATION_FAIL',
+          JSON.stringify({ noopReset, copyOk, uiPending, adoptOk, uiResetCancel, cancelOk, sameOk, invalidOk })
+        )
+      }
+    } finally {
+      // 会话旗标与磁盘指针都还原：后续设置页契约检查按默认状态测量。
+      markPointerForTest(null)
+      await unlink(join(app.getPath('userData'), 'data-location.json')).catch(() => {})
+      for (const id of dataLocationFixtureIds) {
+        try {
+          deleteTask(id)
+          deleteTaskForever(id)
+        } catch {
+          // 夹具可能已被硬删；逐条清理互不影响。
+        }
+      }
+      await unlink(join(app.getPath('userData'), 'backups', 'polaris-auto-2026-11-21T00-00-00-000Z.json')).catch(() => {})
+      for (const dir of dataLocationDirs) {
+        await rm(dir, { recursive: true, force: true }).catch(() => {})
+      }
+    }
+
+    // db 同步指纹：首启无 stamp → null；盖章后未变 → false；外部改动 mtime → true。
+    // will-quit 的「checkpoint + 关库 + 盖章」链路无法在单进程冒烟里驱动，
+    // 读写函数直驱；stamp 收尾清理，不给后续段落留污染。
+    let dbSyncStampWorks = false
+    try {
+      const firstRead = detectExternalDbChange(app.getPath('userData'))
+      writeDbSyncStamp()
+      const unchanged = detectExternalDbChange(app.getPath('userData')) === false
+      // 外部改动：把 db 的 mtime 拨回过去，指纹（收拢时刻的 mtime）必然不再匹配。
+      await utimes(
+        join(app.getPath('userData'), 'polaris.db'),
+        new Date(2020, 0, 1),
+        new Date(2020, 0, 1)
+      )
+      const changed = detectExternalDbChange(app.getPath('userData')) === true
+      dbSyncStampWorks = firstRead === null && unchanged && changed
+      if (!dbSyncStampWorks) {
+        console.error('DB_SYNC_STAMP_FAIL', JSON.stringify({ firstRead, unchanged, changed }))
+      }
+    } finally {
+      await unlink(join(app.getPath('userData'), 'polaris.db.sync-stamp')).catch(() => {})
     }
 
     // 重复任务继承：完成后旧实例保留自己的勾选，新实例复制全部步骤但全部重置为未完成。
@@ -3928,386 +4117,230 @@ export async function runSmokeTest(): Promise<void> {
       })()`).catch(() => {})
     }
 
-    // 关于署名区：设置面板展示字体/图标许可（OFL 可见署名义务）。
+    // 关于署名区：设置窗口「关于」页展示字体/图标许可（OFL 可见署名义务）。
     const aboutCreditsShown =
-      (await mainWindow?.webContents.executeJavaScript(`(async () => {
-        ${pageHelpers}
-        document.querySelector('.settings-item').click();
-        const panel = await waitFor(() => document.querySelector('.settings-panel'));
-        if (!panel) return false;
-        await sleep(300);
-        // 关于收进页脚折叠：先展开再验署名（OFL 可见署名义务，展开可达即满足）。
-        panel.querySelector('.settings-about-toggle')?.click();
-        const credits = await waitFor(() => document.querySelector('.about-credits'));
-        const text = credits ? credits.textContent : '';
-        const ok = text.includes('Lucide') && text.includes('OFL') && text.includes('Inter');
-        document.querySelector('.settings-panel .detail-close')?.click();
-        await sleep(300);
-        return ok;
-      })()`)) === true
-
-    // 存储卡片：信任状措辞精确到「任务数据」、点击直达备份区、页脚不再重复。
-    // 故意压矮窗口制造面板溢出，让「滚动到位」成为真断言而非恒真。
-    let storageCardWorks = false
-    if (mainWindow) {
-      const originalSize = mainWindow.getSize()
-      mainWindow.setSize(1280, 620)
-      await settledFrames(mainWindow.webContents)
-      const cardResult = await mainWindow.webContents.executeJavaScript(`(async () => {
-        ${pageHelpers}
-        const card = document.querySelector('.sidebar-storage');
-        if (!card) return { found: false };
-        const wording = card.textContent.includes('任务数据仅存本机');
-        card.click();
-        const panel = await waitFor(() => document.querySelector('.settings-panel'));
-        if (!panel) return { found: true, wording, opened: false };
-        await sleep(900);
-        const backup = panel.querySelector('.backup-actions');
-        const pr = panel.getBoundingClientRect();
-        const br = backup ? backup.getBoundingClientRect() : null;
-        const scrolled = br ? br.top >= pr.top && br.bottom <= pr.bottom + 1 : false;
-        const footerDup = panel.querySelector('.settings-footer').textContent.includes('数据仅保存在本机');
-        document.querySelector('.settings-panel .detail-close')?.click();
-        // 等旧面板退场动画走完再重开，否则量到的是还挂在 DOM 里的旧节点。
-        await waitFor(() => !document.querySelector('.settings-panel'));
-        document.querySelector('.settings-item').click();
-        const panel2 = await waitFor(() => document.querySelector('.settings-panel'));
-        await sleep(450);
-        const topOnNormal = panel2 ? panel2.scrollTop <= 2 : false;
-        document.querySelector('.settings-panel .detail-close')?.click();
-        await sleep(250);
-        return { found: true, wording, opened: true, scrolled, footerDup, topOnNormal };
-      })()`)
-      storageCardWorks =
-        cardResult?.found === true &&
-        cardResult?.wording === true &&
-        cardResult?.opened === true &&
-        cardResult?.scrolled === true &&
-        cardResult?.footerDup === false &&
-        cardResult?.topOnNormal === true
-      if (!storageCardWorks) console.error('STORAGE_CARD_FAIL', JSON.stringify(cardResult))
-      mainWindow.setSize(originalSize[0], originalSize[1])
-      await settledFrames(mainWindow.webContents)
-    }
-
-    // 设置面板一屏守卫：默认 840（两列回流）与 900（单列）两档都量。
-    // 必须点过「检查更新」让状态行出现再量——用户真实场景带着状态行，空面板量了不算。
-    // 热键被外部程序占用时面板会多一条冲突错误行；两档预算都吞得下，守卫不因热键状态翻红。
-    let settingsFitsDefault = false
-    if (mainWindow) {
-      const win = mainWindow
-      const originalSize = win.getSize()
-      const fitAt = async (h: number) => {
-        win.setSize(1280, h)
-        await settledFrames(win.webContents)
-        return win.webContents.executeJavaScript(`(async () => {
+      (await withSettings('about', false, async (settings) =>
+        settings.webContents.executeJavaScript(`(async () => {
           ${pageHelpers}
-          document.querySelector('.settings-item').click();
-          const panel = await waitFor(() => document.querySelector('.settings-panel'));
-          if (!panel) return { fits: false, found: false };
-          await sleep(350);
-          panel.querySelector('.update-footer-btn')?.click();
-          await sleep(350);
-          const result = {
-            fits: panel.scrollHeight <= panel.clientHeight + 1,
-            found: true,
-            statusShown: Boolean(panel.querySelector('.update-footer-status')),
-            scrollHeight: panel.scrollHeight,
-            clientHeight: panel.clientHeight
-          };
-          document.querySelector('.settings-panel .detail-close')?.click();
-          await sleep(250);
-          return result;
+          const credits = await waitFor(() => document.querySelector('.about-credits'));
+          const text = credits ? credits.textContent : '';
+          return text.includes('Lucide') && text.includes('OFL') && text.includes('Inter');
         })()`)
-      }
-      const fit840 = await fitAt(840)
-      const fit900 = await fitAt(900)
-      console.log('SETTINGS_FIT_METRICS', JSON.stringify({ fit840, fit900 }))
-      settingsFitsDefault =
-        fit840?.fits === true && fit840?.statusShown === true && fit900?.fits === true && fit900?.statusShown === true
-      if (!settingsFitsDefault) console.error('SETTINGS_FIT_FAIL', JSON.stringify({ fit840, fit900 }))
-      win.setSize(originalSize[0], originalSize[1])
-      await settledFrames(win.webContents)
-    }
+      )) === true
 
-    // 最小窗口（980×640）+ 状态行：低窗口两列回流必须一屏全显、末行可见。
-    let settingsFitsCompact = false
-    if (mainWindow) {
-      const originalSize = mainWindow.getSize()
-      mainWindow.setSize(980, 640)
-      await settledFrames(mainWindow.webContents)
-      const compactFitResult = await mainWindow.webContents.executeJavaScript(`(async () => {
-        ${pageHelpers}
-        document.querySelector('.settings-item').click();
-        const panel = await waitFor(() => document.querySelector('.settings-panel'));
-        if (!panel) return { fits: false, found: false };
-        await sleep(350);
-        panel.querySelector('.update-footer-btn')?.click();
-        await sleep(350);
-        const pr = panel.getBoundingClientRect();
-        const hint = panel.querySelector('.update-footer-status');
-        const last = hint ? hint.getBoundingClientRect().bottom : panel.querySelector('.settings-footer').getBoundingClientRect().bottom;
-        const result = {
-          fits: panel.scrollHeight <= panel.clientHeight + 1,
-          found: true,
-          lastVisible: last <= pr.bottom + 1,
-          grid: getComputedStyle(panel).display === 'grid',
-          scrollHeight: panel.scrollHeight,
-          clientHeight: panel.clientHeight
-        };
-        document.querySelector('.settings-panel .detail-close')?.click();
-        await sleep(250);
-        return result;
-      })()`)
-      settingsFitsCompact =
-        compactFitResult?.fits === true && compactFitResult?.lastVisible === true && compactFitResult?.grid === true
-      if (!settingsFitsCompact) console.error('SETTINGS_COMPACT_FAIL', JSON.stringify(compactFitResult))
-      mainWindow.setSize(originalSize[0], originalSize[1])
-      await settledFrames(mainWindow.webContents)
-    }
-
-    // 设置页一屏守卫（MCP 启用最坏态，中英双语 × 五档窗口）：用户报障根因是
-    // MCP 启用态令牌块把内容顶出帽外产生上下滚动。现统一两列布局 + 主题色样
-    // 横条与标题同行 + 令牌明文全量折行 + 说明并入常驻槽，各档 scrollHeight
-    // 必须 <= clientHeight（含 683×607 用户实宽档与 900 高窗口档）。
-    let settingsNoScrollMcp = false
-    if (mainWindow) {
-      const originalSize = mainWindow.getSize()
+    // 设置窗口适配（独立子窗口）：MCP 启用最坏态 + 最小窗档（720×520），中英
+    // 两轮五页横向零溢出（纵向滚动是窗口的设计行为，不算失败）；令牌掩码
+    // k 封顶 12——头尾各 ≤12 hex、中段 ≥37 位永不上屏，盒按内容收窄，反馈槽
+    // 吃中间余宽、复制/重置右对齐同一行。旧浮层的一屏守卫/居中/两列布局契约
+    // 随面板一起退役，这里只钉独立窗口仍要守的规矩。
+    let settingsWindowFits = false
+    {
       setMcpEnabled(true)
       try {
-        const noScrollAt = async (w: number, h: number) => {
-          mainWindow!.setSize(w, h)
-          await settledFrames(mainWindow!.webContents)
-          return mainWindow!.webContents.executeJavaScript(`(async () => {
+        const settings = await openSettingsFor('mcp')
+        if (settings) {
+          settings.setSize(720, 520)
+          await settledFrames(settings.webContents)
+          const mcpPage = await settings.webContents.executeJavaScript(`(async () => {
             ${pageHelpers}
-            await waitFor(() => !document.querySelector('.settings-panel'));
-            document.querySelector('.settings-item').click();
-            const panel = await waitFor(() => document.querySelector('.settings-panel'));
-            if (!panel) return { fits: false, found: false };
-            await sleep(400);
-            const box = await waitFor(() => panel.querySelector('.mcp-token-box'));
-            if (!box) return { fits: false, found: true, token: false };
-            panel.querySelector('.update-footer-btn')?.click();
-            await sleep(350);
-            const pr = panel.getBoundingClientRect();
-            const last = panel.querySelector('.update-footer-status').getBoundingClientRect().bottom;
+            const box = await waitFor(() => document.querySelector('.mcp-token-box'));
+            if (!box) return { found: false };
+            await sleep(250);
             const full = await window.polaris.app.getMcpToken();
-            const mm = (box.textContent ?? '').match(/^sk-([0-9a-f]+)…([0-9a-f]+)$/);
-            const mk = mm ? mm[1].length : 0;
-            const maskOk = Boolean(mm) && mm[1].length === mm[2].length && mk >= 4 &&
-              box.textContent !== full &&
-              !(box.textContent ?? '').includes(full.slice(3 + mk, full.length - mk));
-            const result = {
-              fits: panel.scrollHeight <= panel.clientHeight + 1,
+            const boxText = box.textContent ?? '';
+            const m = boxText.match(/^sk-([0-9a-f]+)…([0-9a-f]+)$/);
+            const k = m ? m[2].length : 0;
+            const row = box.closest('.mcp-token-row');
+            const slot = row ? row.querySelector('.mcp-token-slot') : null;
+            const actions = row ? row.querySelector('.mcp-token-actions') : null;
+            const boxRect = box.getBoundingClientRect();
+            const rowRect = row ? row.getBoundingClientRect() : null;
+            const actRect = actions ? actions.getBoundingClientRect() : null;
+            const slotRect = slot ? slot.getBoundingClientRect() : null;
+            const buttons = actions ? [...actions.querySelectorAll('.backup-btn')].map((b) => b.textContent) : [];
+            const content = document.querySelector('.settings-content');
+            return {
               found: true,
-              token: true,
-              maskOk,
-              lastVisible: last <= pr.bottom + 1,
-              scrollHeight: panel.scrollHeight,
-              clientHeight: panel.clientHeight
+              maskShape: Boolean(m),
+              middleHidden: Boolean(m) && m[1].length === k && k >= 4 && k <= 12 &&
+                !boxText.includes(full.slice(3 + k, full.length - k)),
+              maskNotFull: boxText !== full,
+              singleLine: box.scrollHeight <= box.clientHeight + 1,
+              boxContentWidth: boxRect.width > 0 && boxRect.width < 260,
+              slotBetween: Boolean(slotRect) && Boolean(actRect) && slotRect.right <= actRect.left + 1 && slotRect.left >= boxRect.right - 1,
+              actionsFlush: Boolean(actRect) && Boolean(rowRect) && Math.abs(actRect.right - rowRect.right) <= 1,
+              sameRow: Boolean(actRect) && Math.abs(actRect.top - boxRect.top) <= 2,
+              slotOneLine: Boolean(slot) && slot.scrollHeight <= slot.clientHeight + 1,
+              buttonsExact: buttons.length === 2 && buttons[0] === '复制' && buttons[1] === '重置',
+              noHOverflow: Boolean(content) && content.scrollWidth <= content.clientWidth + 1
             };
-            document.querySelector('.settings-panel .detail-close')?.click();
-            await sleep(250);
-            return result;
           })()`)
-        }
-        const sizes: Array<[number, number]> = [[1024, 576], [980, 640], [683, 607], [1280, 840], [1280, 900]]
-        const zh = []
-        for (const [w, h] of sizes) zh.push(await noScrollAt(w, h))
-        // 英文经真实 UI 路径切换（语言下拉），量完切回中文。
-        await mainWindow.webContents.executeJavaScript(`(async () => {
-          ${pageHelpers}
-          document.querySelector('.settings-item').click();
-          const panel = await waitFor(() => document.querySelector('.settings-panel'));
-          await sleep(350);
-          panel.querySelector('.settings-language-select').click();
-          await sleep(250);
-          [...panel.querySelectorAll('.settings-language-option')].find((o) => o.textContent.includes('English'))?.click();
-          await sleep(350);
-          document.querySelector('.settings-panel .detail-close')?.click();
-          await sleep(250);
-        })()`)
-        const en = []
-        for (const [w, h] of sizes) en.push(await noScrollAt(w, h))
-        await mainWindow.webContents.executeJavaScript(`(async () => {
-          ${pageHelpers}
-          document.querySelector('.settings-item').click();
-          const panel = await waitFor(() => document.querySelector('.settings-panel'));
-          await sleep(350);
-          panel.querySelector('.settings-language-select').click();
-          await sleep(250);
-          [...panel.querySelectorAll('.settings-language-option')].find((o) => o.textContent.includes('简体中文'))?.click();
-          await sleep(350);
-          document.querySelector('.settings-panel .detail-close')?.click();
-          await sleep(250);
-        })()`)
-        console.log('SETTINGS_NO_SCROLL_MCP_METRICS', JSON.stringify({ zh, en }))
-        const all = [...zh, ...en]
-        settingsNoScrollMcp = all.every((r) => r?.fits === true && r?.maskOk === true && r?.lastVisible === true)
-        if (!settingsNoScrollMcp) console.error('SETTINGS_NO_SCROLL_MCP_FAIL', JSON.stringify({ zh, en }))
-      } finally {
-        setMcpEnabled(false)
-        mainWindow.setSize(originalSize[0], originalSize[1])
-        await settledFrames(mainWindow.webContents)
-      }
-    }
-
-    let cloudMirrorSettingsFits = false
-    if (mainWindow) {
-      const originalSize = mainWindow.getSize()
-      let fitsDir: string | null = null
-      try {
-        fitsDir = await mkdtemp(join(app.getPath('temp'), 'polaris-mirror-fit-'))
-        setMirrorMinGapMs(60)
-        await setMirrorFolderPath(fitsDir)
-        await setMirrorEnabled(true)
-        const latest = join(fitsDir, 'latest.json')
-        await waitForCondition(async () => {
-          try {
-            return (await readFile(latest, 'utf8')).length > 0
-          } catch {
-            return false
+          const pageFits: Array<boolean> = []
+          for (const lang of ['zh-CN', 'en'] as const) {
+            if (lang === 'en') {
+              // 英文经真实下拉切换（外观页），量完切回中文。
+              await showSettingsSection('appearance')
+              await settings.webContents.executeJavaScript(`(async () => {
+                ${pageHelpers}
+                document.querySelector('.settings-language-select')?.click();
+                await sleep(250);
+                [...document.querySelectorAll('.settings-language-option')].find((o) => o.textContent.includes('English'))?.click();
+                await sleep(350);
+              })()`)
+            }
+            for (const section of ['appearance', 'general', 'data', 'mcp', 'about'] as const) {
+              await showSettingsSection(section)
+              const ok = await settings.webContents.executeJavaScript(`(() => {
+                const content = document.querySelector('.settings-content');
+                const page = document.querySelector('.settings-page');
+                return Boolean(content) && content.scrollWidth <= content.clientWidth + 1 &&
+                  page?.getAttribute('data-settings-page') === '${section}';
+              })()`)
+              pageFits.push(ok === true)
+            }
           }
-        }, 3000)
-
-        const mirrorAt = async (w: number, h: number, cardTitle: string) => {
-          mainWindow!.setSize(w, h)
-          await settledFrames(mainWindow!.webContents)
-          return mainWindow!.webContents.executeJavaScript(`(async () => {
+          await showSettingsSection('appearance')
+          await settings.webContents.executeJavaScript(`(async () => {
             ${pageHelpers}
-            await waitFor(() => !document.querySelector('.settings-panel'));
-            document.querySelector('.settings-item').click();
-            const panel = await waitFor(() => document.querySelector('.settings-panel'));
-            if (!panel) return { fits: false, found: false };
-            await sleep(400);
-            const storageCard = document.querySelector('.sidebar-storage');
-            const cardMirrored = storageCard ? storageCard.textContent.includes(${JSON.stringify(cardTitle)}) : false;
-            const row = panel.querySelector('.settings-mirror');
-            const card = panel.querySelector('.settings-section--backup');
-            const sw = row ? row.querySelector('[role="switch"]') : null;
-            const status = row ? row.querySelector('.settings-mirror-status') : null;
-            if (!row || !card || !sw || !status) return { fits: false, found: true, row: false };
-            const pr = panel.getBoundingClientRect();
-            const rr = row.getBoundingClientRect();
-            const cr = card.getBoundingClientRect();
-            const cs = getComputedStyle(status);
-            const result = {
-              fits: panel.scrollHeight <= panel.clientHeight + 1,
-              found: true,
-              row: true,
-              cardMirrored,
-              rowVisible: rr.height > 0 && rr.bottom <= pr.bottom + 1,
-              rowInsideCard: rr.top >= cr.top - 1 && rr.bottom <= cr.bottom + 1,
-              cardFits: card.scrollHeight <= card.clientHeight + 1,
-              oneLine: cs.whiteSpace === 'nowrap' && cs.textOverflow === 'ellipsis',
-              switchOn: sw.getAttribute('aria-checked') === 'true',
-              status: status.textContent ?? '',
-              scrollHeight: panel.scrollHeight,
-              clientHeight: panel.clientHeight,
-              cardScrollHeight: card.scrollHeight,
-              cardClientHeight: card.clientHeight
-            };
-            document.querySelector('.settings-panel .detail-close')?.click();
+            document.querySelector('.settings-language-select')?.click();
             await sleep(250);
-            return result;
-          })()`)
-        }
-
-        const switchTo = async (label: string) => {
-          await mainWindow!.webContents.executeJavaScript(`(async () => {
-            ${pageHelpers}
-            document.querySelector('.settings-item').click();
-            const panel = await waitFor(() => document.querySelector('.settings-panel'));
+            document.querySelector('[data-language-index="0"]')?.click();
             await sleep(350);
-            panel.querySelector('.settings-language-select').click();
-            await sleep(250);
-            [...panel.querySelectorAll('.settings-language-option')].find((o) => o.textContent.includes(${JSON.stringify(label)}))?.click();
-            await sleep(350);
-            document.querySelector('.settings-panel .detail-close')?.click();
-            await sleep(250);
           })()`)
+          await closeSettingsAndSettle()
+          settingsWindowFits =
+            mcpPage?.found === true && mcpPage?.maskShape === true && mcpPage?.middleHidden === true &&
+            mcpPage?.maskNotFull === true && mcpPage?.singleLine === true && mcpPage?.boxContentWidth === true &&
+            mcpPage?.slotBetween === true && mcpPage?.actionsFlush === true && mcpPage?.sameRow === true &&
+            mcpPage?.slotOneLine === true && mcpPage?.buttonsExact === true && mcpPage?.noHOverflow === true &&
+            pageFits.every((v) => v === true)
+          if (!settingsWindowFits) console.error('SETTINGS_WINDOW_FITS_FAIL', JSON.stringify({ mcpPage, pageFits }))
         }
-
-        const sizes: Array<[number, number]> = [[1024, 576], [980, 640], [683, 607], [1280, 840], [1280, 900]]
-        const zh = []
-        for (const [w, h] of sizes) zh.push(await mirrorAt(w, h, '任务数据本机 + 网盘自动保存'))
-        await switchTo('English')
-        const en = []
-        for (const [w, h] of sizes) en.push(await mirrorAt(w, h, 'Task data on this device + drive autosave'))
-        await switchTo('简体中文')
-        console.log('CLOUD_MIRROR_SETTINGS_METRICS', JSON.stringify({ zh, en }))
-        const all = [...zh, ...en]
-        cloudMirrorSettingsFits = all.every(
-          (r) =>
-            r?.fits === true &&
-            r?.cardMirrored === true &&
-            r?.rowVisible === true &&
-            r?.rowInsideCard === true &&
-            r?.cardFits === true &&
-            r?.oneLine === true &&
-            r?.switchOn === true &&
-            typeof r?.status === 'string' &&
-            r.status.length > 0
-        )
-        if (!cloudMirrorSettingsFits) {
-          console.error('CLOUD_MIRROR_SETTINGS_FAIL', JSON.stringify({ zh, en }))
-        }
-      } catch (error) {
-        console.error('CLOUD_MIRROR_SETTINGS_ERROR', error)
       } finally {
-        // 中途失败也要把界面语言拨回中文，后面的设置页/居中契约按中文断言。
-        await mainWindow.webContents
-          .executeJavaScript("window.__polarisSetLocale?.('zh-CN')")
-          .catch(() => {})
-        await setMirrorEnabled(false).catch(() => {})
-        setMirrorMinGapMs(MIRROR_MIN_GAP_MS)
-        setMeta('cloud_mirror_last', '')
-        setMeta('cloud_mirror_error', '')
-        if (fitsDir) await rm(fitsDir, { recursive: true, force: true }).catch(() => {})
-        mainWindow.setSize(originalSize[0], originalSize[1])
-        await settledFrames(mainWindow.webContents)
+        setMcpEnabled(false)
       }
     }
 
-    // 设置页真·垂直居中（用户拍板居中更美观）：顶边距 = (vh - 面板高) / 2，
-    // MCP 启停长高走 180ms glide 不瞬移。两档窗口 × MCP 关/开四态量
-    // 上下留白逐像素相等（±2px 吞过渡落定误差）。
-    let settingsCentered = false
-    if (mainWindow) {
-      const originalSize = mainWindow.getSize()
-      try {
-        const centeredAt = async (w: number, h: number, mcpOn: boolean) => {
-          setMcpEnabled(mcpOn)
-          mainWindow!.setSize(w, h)
-          await settledFrames(mainWindow!.webContents)
-          return mainWindow!.webContents.executeJavaScript(`(async () => {
-            ${pageHelpers}
-            await waitFor(() => !document.querySelector('.settings-panel'));
-            document.querySelector('.settings-item').click();
-            const panel = await waitFor(() => document.querySelector('.settings-panel'));
-            if (!panel) return { ok: false };
-            await sleep(450);
-            const r = panel.getBoundingClientRect();
-            const top = r.top;
-            const bottomGap = innerHeight - r.bottom;
-            document.querySelector('.settings-panel .detail-close')?.click();
-            await sleep(250);
-            return { ok: Math.abs(top - bottomGap) <= 2, top, bottomGap };
-          })()`)
+    // 设置窗口布局与关于页：左导航右内容、五个分类、「关于」钉在导航末尾、
+    // 窗口标题随语言；关于页品牌行的版本号来自主进程 app.getVersion()
+    // （渲染层不得写死——期望值由主进程侧提供，不经渲染层反算）。
+    let settingsWindowLayout = false
+    {
+      const layout = await withSettings('general', null, (settings) =>
+        settings.webContents.executeJavaScript(`(async () => {
+          ${pageHelpers}
+          const nav = document.querySelector('.settings-nav');
+          const content = document.querySelector('.settings-content');
+          if (!nav || !content) return { found: false };
+          const navRect = nav.getBoundingClientRect();
+          const contentRect = content.getBoundingClientRect();
+          const navItems = [...nav.querySelectorAll('.settings-nav-item')];
+          const labels = navItems.map((b) => b.textContent);
+          const aboutItem = nav.querySelector('[data-settings-section="about"]');
+          const dataItem = nav.querySelector('[data-settings-section="data"]');
+          const aboutPinned = aboutItem && dataItem
+            ? aboutItem.getBoundingClientRect().top > dataItem.getBoundingClientRect().bottom
+            : false;
+          return {
+            found: true,
+            navLeft: navRect.right <= contentRect.left + 1,
+            fiveSections: labels.length === 5 && labels.includes('关于'),
+            aboutPinned,
+            generalTitle: document.querySelector('.settings-page-title')?.textContent === '常规',
+            navTitle: document.querySelector('.settings-nav-title')?.textContent === '设置',
+            docTitle: document.title.includes('设置')
+          };
+        })()`)
+      )
+      const about = await withSettings('about', null, (settings) =>
+        settings.webContents.executeJavaScript(`(async () => {
+          ${pageHelpers}
+          const versionEl = await waitFor(() => document.querySelector('.about-brand-version'));
+          const credits = await waitFor(() => document.querySelector('.about-credits'));
+          const actions = [...document.querySelectorAll('.settings-card-actions .backup-btn')].map((b) => b.textContent);
+          return {
+            version: versionEl ? versionEl.textContent : '',
+            creditsOk: Boolean(credits),
+            noticesAction: actions.includes('打开声明目录')
+          };
+        })()`)
+      )
+      settingsWindowLayout =
+        layout?.found === true && layout?.navLeft === true && layout?.fiveSections === true &&
+        layout?.aboutPinned === true && layout?.generalTitle === true && layout?.navTitle === true &&
+        layout?.docTitle === true &&
+        about?.version === app.getVersion() && about?.creditsOk === true && about?.noticesAction === true
+      if (!settingsWindowLayout) console.error('SETTINGS_WINDOW_LAYOUT_FAIL', JSON.stringify({ layout, about }))
+    }
+
+    // 设置窗口生命周期：单例（侧栏再点「设置」/「关于」不叠第二扇，「关于」把
+    // 已开的窗口切到关于页——经主进程的固定字符串切页事件）；窗口级 Esc 关窗
+    // （无浮层挂着时）；关掉后还能经真实侧栏入口再开。
+    let settingsWindowLifecycle = false
+    {
+      const settings = await openSettingsFor('appearance')
+      if (settings) {
+        await mainWindow!.webContents.executeJavaScript(`document.querySelector('.settings-item')?.click()`)
+        await new Promise((resolve) => setTimeout(resolve, 300))
+        await mainWindow!.webContents.executeJavaScript(`document.querySelector('.about-item')?.click()`)
+        const switchedToAbout = await waitForCondition(async () => {
+          const window = getSettingsWindow()
+          if (!window) return false
+          return window.webContents.executeJavaScript(
+            `Boolean(document.querySelector('.settings-page[data-settings-page="about"]'))`
+          )
+        }, 4000)
+        // 单例：两个入口各点一次后，全应用仍只有一扇设置窗口（URL hash 认门）。
+        const singleton =
+          BrowserWindow.getAllWindows().filter(
+            (window) => !window.isDestroyed() && window.webContents.getURL().includes('#/settings')
+          ).length === 1
+        await settings.webContents.executeJavaScript(
+          `window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))`
+        )
+        const escClosed = await waitForCondition(() => !getSettingsWindow(), 4000)
+        const reopened = await openSettingsFor('general')
+        await closeSettingsAndSettle()
+        settingsWindowLifecycle = switchedToAbout === true && singleton && escClosed && Boolean(reopened)
+        if (!settingsWindowLifecycle) {
+          console.error('SETTINGS_WINDOW_LIFECYCLE_FAIL', JSON.stringify({ switchedToAbout, singleton, escClosed, reopened: Boolean(reopened) }))
         }
-        const cases = []
-        for (const [w, h] of [[1024, 674], [980, 640]] as Array<[number, number]>) {
-          cases.push(await centeredAt(w, h, false))
-          cases.push(await centeredAt(w, h, true))
-        }
-        console.log('SETTINGS_CENTERED_METRICS', JSON.stringify(cases))
-        settingsCentered = cases.every((c) => c?.ok === true)
-        if (!settingsCentered) console.error('SETTINGS_CENTERED_FAIL', JSON.stringify(cases))
-      } finally {
-        setMcpEnabled(false)
-        mainWindow.setSize(originalSize[0], originalSize[1])
-        await settledFrames(mainWindow.webContents)
       }
+    }
+
+    // 侧栏收起/展开（主窗口）：60px 图标栏、文字视觉隐藏但留在文档里（无障碍
+    // 名称与断言仍可读）、收起态给 title 悬停提示、再点展开按原宽复位。
+    let sidebarCollapseWorks = false
+    {
+      const collapse = await mainWindow!.webContents.executeJavaScript(`(async () => {
+        ${pageHelpers}
+        const btn = document.querySelector('.sidebar-collapse');
+        if (!btn) return { found: false };
+        const sidebar = document.querySelector('.sidebar');
+        const before = sidebar.getBoundingClientRect().width;
+        const expandedOk = !document.querySelector('.app-body').classList.contains('sidebar-collapsed') && before > 200;
+        btn.click();
+        const collapsed = await waitFor(() => document.querySelector('.app-body').classList.contains('sidebar-collapsed'));
+        await sleep(320);
+        const after = sidebar.getBoundingClientRect().width;
+        const text = document.querySelector('.settings-item .nav-text');
+        const textHidden = Boolean(text) && getComputedStyle(text).position === 'absolute' && text.textContent === '设置';
+        const titleSet = document.querySelector('.settings-item').getAttribute('title') === '设置';
+        const aboutTitle = document.querySelector('.about-item')?.getAttribute('title') === '关于';
+        const dot = document.querySelector('.project-dot');
+        const dotBigger = dot ? dot.getBoundingClientRect().width >= 9 : false;
+        btn.click();
+        const restored = await waitFor(() => !document.querySelector('.app-body').classList.contains('sidebar-collapsed'));
+        await sleep(320);
+        const widthBack = Math.abs(sidebar.getBoundingClientRect().width - before) <= 1;
+        return { found: true, expandedOk, collapsed: Boolean(collapsed), narrow: Math.abs(after - 60) <= 1, textHidden, titleSet, aboutTitle, dotBigger, restored: Boolean(restored), widthBack };
+      })()`)
+      sidebarCollapseWorks =
+        collapse?.found === true && collapse?.expandedOk === true && collapse?.collapsed === true &&
+        collapse?.narrow === true && collapse?.textHidden === true && collapse?.titleSet === true &&
+        collapse?.aboutTitle === true && collapse?.dotBigger === true && collapse?.restored === true &&
+        collapse?.widthBack === true
+      if (!sidebarCollapseWorks) console.error('SIDEBAR_COLLAPSE_FAIL', JSON.stringify(collapse))
     }
 
     // CSV 导出守卫：导入功能已移除，导出 CSV 独立成钮占原网格 cell。
@@ -4319,20 +4352,14 @@ export async function runSmokeTest(): Promise<void> {
     let csvFixtureProject: string | null = null
     let csvFixtureTag: string | null = null
     try {
-      const ui = await mainWindow?.webContents.executeJavaScript(`(async () => {
-        ${pageHelpers}
-        await waitFor(() => !document.querySelector('.settings-panel'));
-        document.querySelector('.settings-item').click();
-        const panel = await waitFor(() => document.querySelector('.settings-panel'));
-        if (!panel) return { found: false };
-        await sleep(400);
-        const buttons = [...panel.querySelectorAll('.backup-actions > .backup-btn')].map((b) => b.textContent);
-        const noSplit = !panel.querySelector('.backup-btn-split');
-        const noPop = !panel.querySelector('.csv-help');
-        document.querySelector('.settings-panel .detail-close')?.click();
-        await sleep(250);
-        return { found: true, buttons, noSplit, noPop };
-      })()`)
+      const ui = await withSettings('data', null, (settings) =>
+        settings.webContents.executeJavaScript(`(() => {
+          const buttons = [...document.querySelectorAll('.backup-actions > .backup-btn')].map((b) => b.textContent);
+          const noSplit = !document.querySelector('.backup-btn-split');
+          const noPop = !document.querySelector('.csv-help');
+          return { found: true, buttons, noSplit, noPop };
+        })()`)
+      )
       const project = createProject({ name: '冒烟CSV项目', color: '#5EEAD4' })
       csvFixtureProject = project.id
       const tag = createTag({ name: '冒烟CSV标签' })
@@ -4378,242 +4405,11 @@ export async function runSmokeTest(): Promise<void> {
       if (csvFixtureTag) deleteTag(csvFixtureTag)
     }
 
-    // 设置页零抖动：用户实机低分辨率档（1024×576）下，固定短掩码（头 4 尾 4）
-    // （前缀 + 头 4 + … + 尾 4，中段照藏、与按钮同行），用法说明住常驻反馈槽单行，
-    // 检查更新结果落槽不得改变面板内容高度。
-    // scrollHeight/页脚顶边是内容位移判别器（面板被 max-height 封顶时外框不变，只看外框会漏判）。
-    let settingsNoShift = false
-    if (mainWindow) {
-      const originalSize = mainWindow.getSize()
-      mainWindow.setSize(1024, 576)
-      await settledFrames(mainWindow.webContents)
-      setMcpEnabled(true)
-      try {
-        const noShift = await mainWindow.webContents.executeJavaScript(`(async () => {
-          ${pageHelpers}
-          document.querySelector('.settings-item').click();
-          const panel = await waitFor(() => document.querySelector('.settings-panel'));
-          if (!panel) return { found: false };
-          await sleep(400);
-          const tokenBox = await waitFor(() => panel.querySelector('code[aria-label="访问令牌"]'));
-          if (!tokenBox) return { found: true, token: false };
-          const contentH = () => panel.scrollHeight;
-          const footerTop = () => panel.querySelector('.settings-footer').getBoundingClientRect().top;
-          const boxText = tokenBox.textContent ?? '';
-          const fullToken = await window.polaris.app.getMcpToken();
-          const tokenRow = tokenBox.parentElement;
-          const rowButtons = [...tokenRow.querySelectorAll('.backup-btn')].map((b) => b.textContent);
-          const actions = tokenRow.querySelector('.mcp-token-actions');
-          const slot = panel.querySelector('.mcp-token-slot');
-          const beforeCheck = contentH(); const beforeFooter = footerTop();
-          const beforeBoxH = tokenBox.getBoundingClientRect().height;
-          panel.querySelector('.update-footer-btn')?.click();
-          const answered = await waitFor(() => (panel.querySelector('.update-footer-status')?.textContent ?? '').length > 0);
-          await sleep(150);
-          const afterCheck = contentH(); const afterFooter = footerTop();
-          const afterBoxH = tokenBox.getBoundingClientRect().height;
-          document.querySelector('.settings-panel .detail-close')?.click();
-          await sleep(250);
-          // 自适应短掩码：sk- 前缀 + 头 k+3 字符 + … + 尾 k hex（k≥4 保底头 4 尾 4，
-          // 随盒宽填满整盒 ≥80% 内宽），中段照藏；盒 flex:1 整行两端对齐。
-          // 正则组抓的是 hex（不含 sk- 前缀）：头尾组各 k 位；含前缀的头字符数 = k+3。
-          const m = boxText.match(/^sk-([0-9a-f]+)…([0-9a-f]+)$/)
-          const k = m ? m[2].length : 0
-          const middleHidden = Boolean(m) && m[1].length === k && k >= 4 &&
-            !boxText.includes(fullToken.slice(3 + k, fullToken.length - k))
-          const fillRatio = tokenBox.scrollWidth / Math.max(1, tokenBox.clientWidth)
-          const boxRect = tokenBox.getBoundingClientRect();
-          const rowRect = tokenRow.getBoundingClientRect();
-          const actRect = actions ? actions.getBoundingClientRect() : null;
-          return {
-            found: true,
-            token: true,
-            maskShape: Boolean(m),
-            middleHidden,
-            maskNotFull: boxText !== fullToken,
-            singleLine: tokenBox.scrollHeight <= tokenBox.clientHeight + 1 && boxRect.height <= 32,
-            fillsRow: fillRatio >= 0.8,
-            // 两端对齐契约：盒左缘==行左缘、盒右缘+8 间距==按钮组左缘、
-            // 按钮组右缘==行右缘（flex:1 吃掉剩余宽，中间无死白）。
-            flushRow: Boolean(actRect) && Math.abs(boxRect.left - rowRect.left) <= 1 &&
-              Math.abs(boxRect.right + 8 - actRect.left) <= 2 &&
-              Math.abs(actRect.right - rowRect.right) <= 1,
-            sameRow: Boolean(actRect) && Math.abs(actRect.top - boxRect.top) <= 2,
-            boxHeightStable: beforeBoxH === afterBoxH,
-            slotOneLine: Boolean(slot) && slot.scrollHeight <= slot.clientHeight + 1,
-            buttonsExact: rowButtons.length === 2 && rowButtons[0] === '复制' && rowButtons[1] === '重置',
-            updateStable: Boolean(answered) && beforeCheck === afterCheck && beforeFooter === afterFooter
-          };
-        })()`)
-        settingsNoShift =
-          noShift?.found === true &&
-          noShift?.token === true &&
-          noShift?.maskShape === true &&
-          noShift?.middleHidden === true &&
-          noShift?.maskNotFull === true &&
-          noShift?.singleLine === true &&
-          noShift?.fillsRow === true &&
-          noShift?.flushRow === true &&
-          noShift?.sameRow === true &&
-          noShift?.boxHeightStable === true &&
-          noShift?.slotOneLine === true &&
-          noShift?.buttonsExact === true &&
-          noShift?.updateStable === true
-        if (!settingsNoShift) console.error('SETTINGS_NO_SHIFT_FAIL', JSON.stringify(noShift))
-      } finally {
-        setMcpEnabled(false)
-        mainWindow.setSize(originalSize[0], originalSize[1])
-        await settledFrames(mainWindow.webContents)
-      }
-    }
-
-    // 设置页 v2 布局（1024×576 实机档）：命名两列左数据备份/右 MCP+常规设置
-    // （固定内容钉行高，备份卡 contain:size 吸收状态行）、语言下拉上移主题
-    // 标题行、关于页脚折叠展开挂载/收起卸载；自动备份列表是模态语义——
-    // [管理…] 开对话框盖面板，卡内不再内联展开，开关前后面板高度不变。
-    let settingsLayoutV2 = false
-    if (mainWindow) {
-      const originalSize = mainWindow.getSize()
-      mainWindow.setSize(1024, 576)
-      await settledFrames(mainWindow.webContents)
-      try {
-        const layout = await mainWindow.webContents.executeJavaScript(`(async () => {
-          ${pageHelpers}
-          document.querySelector('.settings-item').click();
-          const panel = await waitFor(() => document.querySelector('.settings-panel'));
-          if (!panel) return { found: false };
-          await sleep(400);
-          const backupCard = panel.querySelector('.settings-section--backup');
-          const mcp = panel.querySelector('.settings-section--mcp');
-          const head = panel.querySelector('.settings-theme-head');
-          const langInHead = Boolean(head && head.querySelector('.settings-language-select'));
-          // 换位契约：备份卡在左、MCP（右列上半）在右。
-          const cols = backupCard && mcp
-            ? backupCard.getBoundingClientRect().right <= mcp.getBoundingClientRect().left + 1
-            : false;
-          const side = panel.querySelector('.settings-side');
-          const balanced = backupCard && side
-            ? Math.abs(backupCard.getBoundingClientRect().height - side.getBoundingClientRect().height) <= 2
-            : false;
-          const toggle = panel.querySelector('.settings-about-toggle');
-          toggle?.click();
-          const expanded = await waitFor(() => panel.querySelector('.about-credits'));
-          const expandedOk = Boolean(expanded) && toggle?.getAttribute('aria-expanded') === 'true';
-          toggle?.click();
-          const collapsed = await waitFor(() => !panel.querySelector('.about-credits'));
-          // 备份列表模态语义：[管理…] 开对话框（overlay 盖面板），卡内永远
-          // 没有内联展开体；Esc 关对话框、面板存活且高度全程不变。
-          const manage = panel.querySelector('.auto-backup-manage');
-          const managePresent = Boolean(manage);
-          const phBefore = panel.getBoundingClientRect().height;
-          manage?.click();
-          const dialog = await waitFor(() => document.querySelector('.backup-dialog-panel'));
-          const modalOpened = Boolean(dialog);
-          // 对话框 DOM 挂在面板内（ConfirmDialog 同范式）：内联展开体 = 面板里
-          // 不属于对话框的列表/展开体，必须一个都没有。
-          const noInlineBody = !panel.querySelector('.auto-backup-body') &&
-            [...panel.querySelectorAll('.auto-backup-list')].every((el) => el.closest('.backup-dialog-panel'));
-          const phDuring = panel.getBoundingClientRect().height;
-          dialog?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
-          const modalClosed = await waitFor(() => !document.querySelector('.backup-dialog-panel'));
-          await sleep(250);
-          const phAfter = panel.getBoundingClientRect().height;
-          const modalStable = phBefore === phDuring && phBefore === phAfter;
-          document.querySelector('.settings-panel .detail-close')?.click();
-          await sleep(250);
-          return {
-            found: true, langInHead, cols, balanced, expandedOk, collapsed,
-            managePresent, modalOpened, noInlineBody, modalClosed: Boolean(modalClosed), modalStable,
-            // 高度预算复核日志：CSS 注释里的实测数字以此为据。
-            panelSH: panel.scrollHeight,
-            backupH: backupCard ? backupCard.getBoundingClientRect().height : -1,
-            sideH: side ? side.getBoundingClientRect().height : -1
-          };
-        })()`)
-        console.log('SETTINGS_LAYOUT_METRICS', JSON.stringify(layout))
-        settingsLayoutV2 =
-          layout?.found === true &&
-          layout?.langInHead === true &&
-          layout?.cols === true &&
-          layout?.balanced === true &&
-          layout?.expandedOk === true &&
-          layout?.collapsed === true &&
-          layout?.managePresent === true &&
-          layout?.modalOpened === true &&
-          layout?.noInlineBody === true &&
-          layout?.modalClosed === true &&
-          layout?.modalStable === true
-        if (!settingsLayoutV2) console.error('SETTINGS_LAYOUT_V2_FAIL', JSON.stringify(layout))
-      } finally {
-        mainWindow.setSize(originalSize[0], originalSize[1])
-        await settledFrames(mainWindow.webContents)
-      }
-    }
-
-    // 设置页四边等距 + 叉号右缘对齐（用户报障左右/上下不一致、拍板四边统一）：
-    // both-edges 滚动条槽 + 状态槽脱流住页脚上方行间隙后，四边有效留白
-    // 逐像素相等（24 档，±1 吞槽宽亚像素漂移）；关闭钮是主题横条末项，右缘
-    // 与右列卡片右缘同基线，标题左缘与备份卡左缘同基线，叉号与语言下拉同行
-    // 居中。三档窗口（含 683×607 实机窄档）量完即关。
-    let settingsSymmetricEdges = false
-    if (mainWindow) {
-      const originalSize = mainWindow.getSize()
-      try {
-        const cases = []
-        for (const [w, h] of [[1024, 576], [683, 607], [1280, 900]] as Array<[number, number]>) {
-          mainWindow.setSize(w, h)
-          await settledFrames(mainWindow.webContents)
-          cases.push(await mainWindow.webContents.executeJavaScript(`(async () => {
-            ${pageHelpers}
-            await waitFor(() => !document.querySelector('.settings-panel'));
-            document.querySelector('.settings-item').click();
-            const panel = await waitFor(() => document.querySelector('.settings-panel'));
-            if (!panel) return { ok: false };
-            await sleep(400);
-            const pr = panel.getBoundingClientRect();
-            const backup = panel.querySelector('.settings-section--backup').getBoundingClientRect();
-            const mcp = panel.querySelector('.settings-section--mcp').getBoundingClientRect();
-            const close = panel.querySelector('.detail-close').getBoundingClientRect();
-            const lang = panel.querySelector('.settings-language-select').getBoundingClientRect();
-            const title = panel.querySelector('.settings-title').getBoundingClientRect();
-            const head = panel.querySelector('.settings-header').getBoundingClientRect();
-            const foot = panel.querySelector('.settings-footer').getBoundingClientRect();
-            const leftInset = backup.left - pr.left;
-            const rightInset = pr.right - mcp.right;
-            const topInset = head.top - pr.top;
-            const bottomInset = pr.bottom - foot.bottom;
-            const closeFlush = Math.abs(close.right - mcp.right) <= 1;
-            const titleFlush = Math.abs(title.left - backup.left) <= 1;
-            const rowAligned = Math.abs((close.top + close.bottom) / 2 - (lang.top + lang.bottom) / 2) <= 2;
-            document.querySelector('.settings-panel .detail-close')?.click();
-            await sleep(250);
-            return {
-              ok: Math.abs(leftInset - rightInset) <= 1 && Math.abs(topInset - bottomInset) <= 1 &&
-                Math.abs(leftInset - topInset) <= 1 && closeFlush && titleFlush && rowAligned,
-              leftInset, rightInset, topInset, bottomInset, closeRight: close.right, mcpRight: mcp.right
-            };
-          })()`))
-        }
-        console.log('SETTINGS_SYMMETRIC_METRICS', JSON.stringify(cases))
-        settingsSymmetricEdges = cases.every((c) => c?.ok === true)
-        if (!settingsSymmetricEdges) console.error('SETTINGS_SYMMETRIC_FAIL', JSON.stringify(cases))
-      } finally {
-        mainWindow.setSize(originalSize[0], originalSize[1])
-        await settledFrames(mainWindow.webContents)
-      }
-    }
-
-    // 设置页备份零抖动（1024×576 实机档，模态版）：列表住对话框后，开/关
-    // [管理…] 模态前后面板内容高度、页脚顶边、外框、右列/备份卡高度逐像素
-    // 相等，且行真渲染在对话框列表内（非恒真）、首行免滚可见。3 份 fixture
-    // 触发列表分支，量完即清。用户报障根因（内联展开撑高→左卡拉伸/页脚跳）
-    // 的回归守卫——现在从构造上消失，契约钉死不许回潮。
+    // 设置页备份零抖动（独立窗口版）：列表住对话框，开/关 [管理…] 模态前后
+    // 数据页外框/内容高度逐像素相等；行真渲染在对话框列表内（非恒真）、首行
+    // 免滚可见、页面里没有内联展开体。3 份 fixture 触发列表分支，量完即清。
     let settingsBackupNoShift = false
-    if (mainWindow) {
-      const originalSize = mainWindow.getSize()
-      mainWindow.setSize(1024, 576)
-      await settledFrames(mainWindow.webContents)
-      // 名字必须过 isAutoBackupFileName 锚定正则（polaris-auto- + ISO 连字符时间戳）。
+    {
       const noShiftFixtureNames = [
         'polaris-auto-2026-11-19T00-00-01-000Z.json',
         'polaris-auto-2026-11-19T00-00-02-000Z.json',
@@ -4624,44 +4420,27 @@ export async function runSmokeTest(): Promise<void> {
         const noShiftBackupDir = join(app.getPath('userData'), 'backups')
         await mkdir(noShiftBackupDir, { recursive: true })
         for (const name of noShiftFixtureNames) {
-          const p = join(noShiftBackupDir, name)
-          await writeFileAtomic(p, JSON.stringify({ schemaVersion: 3, app: 'polaris', tasks: [], projects: [] }))
-          noShiftFixturePaths.push(p)
+          const fixturePath = join(noShiftBackupDir, name)
+          await writeFileAtomic(fixturePath, JSON.stringify({ schemaVersion: 3, app: 'polaris', tasks: [], projects: [] }))
+          noShiftFixturePaths.push(fixturePath)
         }
-        const stable = await mainWindow.webContents.executeJavaScript(`(async () => {
+        const stable = await withSettings('data', null, (settings) => settings.webContents.executeJavaScript(`(async () => {
           ${pageHelpers}
-          // 等上一块面板退场动画走完再重开，否则量到还挂在 DOM 里的旧节点
-          // （storageCard 同款坑：旧节点上的点击随退场卸载，行永远等不到）。
-          await waitFor(() => !document.querySelector('.settings-panel'));
-          document.querySelector('.settings-item').click();
-          const panel = await waitFor(() => document.querySelector('.settings-panel'));
-          if (!panel) return { found: false };
-          await sleep(400);
-          const backupCard = panel.querySelector('.settings-section--backup');
-          const side = panel.querySelector('.settings-side');
-          if (!backupCard || !side) return { found: true, cards: false };
-          const snap = () => ({
-            sh: panel.scrollHeight,
-            ftop: panel.querySelector('.settings-footer').getBoundingClientRect().top,
-            ph: panel.getBoundingClientRect().height,
-            cw: panel.clientWidth,
-            sideH: side.getBoundingClientRect().height,
-            cardH: backupCard.getBoundingClientRect().height
-          });
+          const page = document.querySelector('.settings-page');
+          if (!page) return { found: false };
+          const snap = () => ({ ph: page.getBoundingClientRect().height, sh: page.scrollHeight });
           const before = snap();
-          panel.querySelector('.auto-backup-manage')?.click();
+          document.querySelector('.auto-backup-manage')?.click();
           const dialog = await waitFor(() => document.querySelector('.backup-dialog-panel'));
-          if (!dialog) return { found: true, cards: true, dialog: false };
+          if (!dialog) return { found: true, dialog: false };
           const rows = await waitFor(() => dialog.querySelectorAll('.auto-backup-row').length >= 3, 8000);
           if (!rows) {
-            // 诊断塞返回值：IPC 直调 vs DOM 状态，定位是列表没取到还是没开模态。
             const dbg = await window.polaris.backups.list();
             return {
-              found: true, cards: true, dialog: true, rows: false,
+              found: true, dialog: true, rows: false,
               err: dialog.querySelector('.settings-error')?.textContent ?? null,
               rowCount: dialog.querySelectorAll('.auto-backup-row').length,
               rowNames: [...dialog.querySelectorAll('.auto-backup-row')].map((r) => r.getAttribute('data-backup-name')),
-              panels: document.querySelectorAll('.settings-panel').length,
               emptyHint: dialog.querySelector('.backup-dialog-empty')?.textContent ?? null,
               listOk: dbg.ok,
               listCount: dbg.items ? dbg.items.length : -1,
@@ -4674,144 +4453,67 @@ export async function runSmokeTest(): Promise<void> {
           const list = dialog.querySelector('.auto-backup-list');
           const listRect = list ? list.getBoundingClientRect() : null;
           const rowRects = [...dialog.querySelectorAll('.auto-backup-row')].map((r) => r.getBoundingClientRect());
-          // 收容契约：行住在对话框列表滚动内容里（横向不出对话框、纵向不出
-          // 列表 scrollHeight），首行免滚可见。列表超高对话框内滚动是设计
-          // 行为（max-height 帽），不要求全行可见。
+          // 收容契约：行住在对话框列表滚动内容里，首行免滚可见；列表超高
+          // 对话框内滚动是设计行为（max-height 帽），不要求全行可见。
           const rowsInDialog = Boolean(listRect) && rowRects.every((r) =>
             r.left >= dlgRect.left - 1 && r.right <= dlgRect.right + 1 &&
             r.top >= listRect.top - 1 && r.bottom <= listRect.top + list.scrollHeight + 1);
           const firstRowVisible = rowRects.length > 0 && Boolean(listRect) &&
             rowRects[0].bottom <= Math.min(dlgRect.bottom, listRect.top + list.clientHeight) + 1;
-          // 卡内永远没有内联展开体：列表只住对话框（对话框 DOM 挂在面板内，
-          // ConfirmDialog 同范式，按 closest 排除对话框子树）。
-          const noInline = !panel.querySelector('.auto-backup-body') &&
-            [...panel.querySelectorAll('.auto-backup-list')].every((el) => el.closest('.backup-dialog-panel'));
+          // 页面里永远没有内联展开体：列表只住对话框（按 closest 排除其子树）。
+          const noInline = !document.querySelector('.auto-backup-body') &&
+            [...document.querySelectorAll('.auto-backup-list')].every((el) => el.closest('.backup-dialog-panel'));
           dialog.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
           await waitFor(() => !document.querySelector('.backup-dialog-panel'));
           await sleep(300);
           const closed = snap();
-          document.querySelector('.settings-panel .detail-close')?.click();
-          await sleep(250);
-          const eq = (a, b) =>
-            a.sh === b.sh && a.ftop === b.ftop && a.ph === b.ph && a.cw === b.cw && a.sideH === b.sideH && a.cardH === b.cardH;
+          const eq = (a, b) => a.ph === b.ph && a.sh === b.sh;
           return {
             found: true,
-            cards: true,
             dialog: true,
             rows: true,
             rowsInDialog,
             firstRowVisible,
             noInline,
-            balanced: Math.abs(open.cardH - open.sideH) <= 2,
             openStable: eq(before, open),
             closedStable: eq(before, closed)
           };
         })()`)
+        )
         settingsBackupNoShift =
           stable?.found === true &&
-          stable?.cards === true &&
           stable?.dialog === true &&
           stable?.rows === true &&
           stable?.rowsInDialog === true &&
           stable?.firstRowVisible === true &&
           stable?.noInline === true &&
-          stable?.balanced === true &&
           stable?.openStable === true &&
           stable?.closedStable === true
         if (!settingsBackupNoShift) console.error('SETTINGS_BACKUP_NO_SHIFT_FAIL', JSON.stringify(stable))
       } finally {
-        for (const p of noShiftFixturePaths) await unlink(p).catch(() => {})
-        mainWindow.setSize(originalSize[0], originalSize[1])
-        await settledFrames(mainWindow.webContents)
+        for (const fixturePath of noShiftFixturePaths) await unlink(fixturePath).catch(() => {})
       }
     }
-
-    // 设置页顶边锚定（1280×843 实机比例）：展开/收起关于时面板顶边与页脚顶边
-    // 纹丝不动——旧垂直居中在内容长高瞬间重新居中 = 用户实机报障的抖动根因；
-    // 现顶边按名义高度锁死，展开只向下生长（grew 证明真的长高了，不是恒真）。
-    let settingsAboutStable = false
-    if (mainWindow) {
-      const originalSize = mainWindow.getSize()
-      mainWindow.setSize(1280, 843)
-      await settledFrames(mainWindow.webContents)
-      try {
-        const stable = await mainWindow.webContents.executeJavaScript(`(async () => {
-          ${pageHelpers}
-          document.querySelector('.settings-item').click();
-          const panel = await waitFor(() => document.querySelector('.settings-panel'));
-          if (!panel) return { found: false };
-          await sleep(450);
-          const top = () => panel.getBoundingClientRect().top;
-          const ftop = () => panel.querySelector('.settings-footer').getBoundingClientRect().top;
-          const height = () => panel.getBoundingClientRect().height;
-          // 横向判别器：滚动条槽常驻后 clientWidth 与主题卡宽展开前后必须逐像素不变
-          // （旧版滚动条突现挤窄 10px → 全片重排，是顶边锚定之后残留的横向抖动）。
-          const cw = () => panel.clientWidth;
-          const tw = () => panel.querySelector('.theme-option').getBoundingClientRect().width;
-          const before = top(); const fbefore = ftop(); const hbefore = height();
-          const cbefore = cw(); const tbefore = tw();
-          const shbefore = panel.scrollHeight;
-          const toggle = panel.querySelector('.settings-about-toggle');
-          toggle?.click();
-          await waitFor(() => panel.querySelector('.about-credits'));
-          await sleep(350);
-          const openTop = top(); const openF = ftop(); const hopen = height();
-          const copen = cw(); const topen = tw();
-          const shopen = panel.scrollHeight;
-          toggle?.click();
-          await waitFor(() => !panel.querySelector('.about-credits'));
-          await sleep(350);
-          const closedTop = top(); const closedF = ftop();
-          const cclosed = cw(); const tclosed = tw();
-          document.querySelector('.settings-panel .detail-close')?.click();
-          await sleep(250);
-          return {
-            found: true,
-            // 浮层契约：展开后面板外框与内容高度逐像素不变（旧流内折叠会增高
-            // → 超帽出滚动条 → 收起 clamp scrollTop 跳视，根因已除）。
-            heightStable: Math.abs(hopen - hbefore) <= 1 && shopen === shbefore,
-            openStable: Math.abs(openTop - before) <= 1 && Math.abs(openF - fbefore) <= 1,
-            closedStable: Math.abs(closedTop - before) <= 1 && Math.abs(closedF - fbefore) <= 1,
-            widthStable: copen === cbefore && cclosed === cbefore &&
-              Math.abs(topen - tbefore) <= 0.5 && Math.abs(tclosed - tbefore) <= 0.5
-          };
-        })()`)
-        settingsAboutStable =
-          stable?.found === true &&
-          stable?.heightStable === true &&
-          stable?.openStable === true &&
-          stable?.closedStable === true &&
-          stable?.widthStable === true
-        if (!settingsAboutStable) console.error('SETTINGS_ABOUT_STABLE_FAIL', JSON.stringify(stable))
-      } finally {
-        mainWindow.setSize(originalSize[0], originalSize[1])
-        await settledFrames(mainWindow.webContents)
-      }
-    }
-
 
     // 托盘驻留开关：默认开；UI 往返持久化；开启时关窗=隐藏而非退出。
     let trayToggleWorks = false
     try {
       const defaultOn = await mainWindow?.webContents.executeJavaScript(`window.polaris.app.getCloseToTray()`)
-      const uiRoundTrip = await mainWindow?.webContents.executeJavaScript(`(async () => {
-        ${pageHelpers}
-        document.querySelector('.settings-item').click();
-        const panel = await waitFor(() => document.querySelector('.settings-panel'));
-        if (!panel) return false;
-        await sleep(300);
-        const sel = '.settings-panel .switch[aria-label="关闭窗口后驻留托盘"]';
-        const sw = document.querySelector(sel);
-        if (!sw) return false;
-        const initial = sw.getAttribute('aria-checked') === 'true';
-        sw.click(); await sleep(200);
-        const afterOff = await window.polaris.app.getCloseToTray();
-        const offChecked = document.querySelector(sel).getAttribute('aria-checked') === 'false';
-        document.querySelector(sel).click(); await sleep(200);
-        const afterOn = await window.polaris.app.getCloseToTray();
-        document.querySelector('.settings-panel .detail-close')?.click(); await sleep(250);
-        return initial === true && afterOff === false && offChecked && afterOn === true;
-      })()`)
+      const uiRoundTrip = await withSettings('general', false, async (settings) =>
+        settings.webContents.executeJavaScript(`(async () => {
+          ${pageHelpers}
+          const sel = '.switch[aria-label="关闭窗口后驻留托盘"]';
+          const sw = document.querySelector(sel);
+          if (!sw) return false;
+          const initial = sw.getAttribute('aria-checked') === 'true';
+          sw.click(); await sleep(200);
+          const afterOff = await window.polaris.app.getCloseToTray();
+          const offChecked = document.querySelector(sel).getAttribute('aria-checked') === 'false';
+          document.querySelector(sel).click(); await sleep(200);
+          const afterOn = await window.polaris.app.getCloseToTray();
+          return initial === true && afterOff === false && offChecked && afterOn === true;
+        })()`)
+      )
       mainWindow?.close()
       const hiddenAlive = await waitForCondition(
         () => Boolean(mainWindow) && !mainWindow!.isDestroyed() && !mainWindow!.isVisible(),
@@ -4846,7 +4548,9 @@ export async function runSmokeTest(): Promise<void> {
         labels[3] === '退出'
       if (!trayMenuEntries) console.error('TRAY_MENU_FAIL', JSON.stringify(labels))
 
-      // 先藏窗口再走真实托盘路径：唤起 + 开面板要一次完成。
+      // 先藏窗口再走真实托盘路径：唤起主窗口 + 打开设置窗口要一次完成
+      // （设置是主窗口的子窗口，主窗口不可见时不该独自出现）。全应用只有
+      // 一扇设置窗口（URL hash 认门），量完关掉收尾。
       mainWindow?.hide()
       await revealSettings()
       const wokeForSettings = await waitForCondition(
@@ -4854,18 +4558,22 @@ export async function runSmokeTest(): Promise<void> {
         2000,
         50
       )
-      if (mainWindow) await settledFrames(mainWindow.webContents)
-      const settingsOpened = await mainWindow!.webContents.executeJavaScript(`(async () => {
-        ${pageHelpers}
-        const panel = await waitFor(() => document.querySelector('.settings-panel'));
-        if (!panel) return false;
-        await sleep(300);
-        panel.querySelector('.detail-close')?.click();
-        const closed = await waitFor(() => !document.querySelector('.settings-panel'));
-        return Boolean(closed);
-      })()`)
-      traySettingsOpens = wokeForSettings === true && settingsOpened === true
-      if (!traySettingsOpens) console.error('TRAY_SETTINGS_FAIL', JSON.stringify({ wokeForSettings, settingsOpened }))
+      // 窗口创建是同步的，但 URL 要等导航开始才认得出 hash：先等它就绪再数。
+      const settingsOpened = await waitForCondition(
+        () => {
+          const window = getSettingsWindow()
+          return Boolean(window) && window!.webContents.getURL().includes('#/settings')
+        },
+        4000,
+        50
+      )
+      const settingsWindowCount =
+        BrowserWindow.getAllWindows().filter(
+          (window) => !window.isDestroyed() && window.webContents.getURL().includes('#/settings')
+        ).length
+      await closeSettingsAndSettle()
+      traySettingsOpens = wokeForSettings === true && settingsOpened === true && settingsWindowCount === 1
+      if (!traySettingsOpens) console.error('TRAY_SETTINGS_FAIL', JSON.stringify({ wokeForSettings, settingsOpened, settingsWindowCount }))
 
       const feedbackBase = {
         currentVersion: '0.0.1',
@@ -4946,12 +4654,7 @@ export async function runSmokeTest(): Promise<void> {
         const navEn = await waitFor(() => navTexts().includes('Today') && navTexts().includes('Upcoming'));
         const viewTitleEn = await waitFor(() => document.querySelector('.view-title')?.textContent === 'Today');
         const eyebrowEn = document.querySelector('.view-eyebrow')?.textContent || '';
-        document.querySelector('.settings-item')?.click();
-        const panelEn = await waitFor(() => document.querySelector('.settings-panel'));
-        const settingsTitleEn = panelEn ? panelEn.querySelector('.settings-title')?.textContent || '' : '';
-        document.querySelector('.settings-panel .detail-close')?.click();
-        const closedEn = await waitFor(() => !document.querySelector('.settings-panel'));
-        return { navEn, viewTitleEn, eyebrowEn, settingsTitleEn, closedEn, langEn: document.documentElement.lang };
+        return { navEn, viewTitleEn, eyebrowEn, langEn: document.documentElement.lang };
       })()`)
       const trayEn = await waitForCondition(() => {
         const labels = getTrayMenuLabels()
@@ -4962,6 +4665,11 @@ export async function runSmokeTest(): Promise<void> {
           labels[3] === 'Quit'
         )
       }, 3000, 50)
+      // 托盘已是英文 = 主进程权威 locale 已落地，这时开设置窗口，首帧语言
+      // （URL ?locale=）才是确定的英文；导航标题即语言守卫的取样点。
+      const settingsNavTitleEn = await withSettings('appearance', '', (settings) =>
+        settings.webContents.executeJavaScript(`document.querySelector('.settings-nav-title')?.textContent ?? ''`)
+      )
       const zh = await mainWindow!.webContents.executeJavaScript(`(async () => {
         ${pageHelpers}
         const navTexts = () => [...document.querySelectorAll('.nav-section .nav-item .nav-text')].map((node) => node.textContent || '');
@@ -4979,8 +4687,7 @@ export async function runSmokeTest(): Promise<void> {
       languageSwitchWorks =
         en?.navEn === true &&
         en?.viewTitleEn === true &&
-        en?.closedEn === true &&
-        en?.settingsTitleEn === 'Settings' &&
+        settingsNavTitleEn === 'Settings' &&
         en?.langEn === 'en' &&
         /^[A-Z][a-z]{2} \d{1,2} · [A-Z][a-z]+$/.test(String(en?.eyebrowEn)) &&
         trayEn === true &&
@@ -5000,46 +4707,43 @@ export async function runSmokeTest(): Promise<void> {
     // 点选选项走真实 setLocale 路径，Esc 只收菜单不收设置面板。
     let languageMenuThemed = false
     try {
-      const menuResult = await mainWindow!.webContents.executeJavaScript(`(async () => {
-        ${pageHelpers}
-        document.querySelector('.settings-item')?.click();
-        const panel = await waitFor(() => document.querySelector('.settings-panel'));
-        if (!panel) return { found: false };
-        const trigger = panel.querySelector('.settings-language-select');
-        if (!trigger) return { trigger: false };
-        trigger.click();
-        const menu = await waitFor(() => document.querySelector('.settings-language-menu'));
-        if (!menu) return { menu: false };
-        // 令牌对照：临时节点吃 var(--panel-bg)，与菜单实际背景逐字节比。
-        const probe = document.createElement('div');
-        probe.style.background = 'var(--panel-bg)';
-        document.body.appendChild(probe);
-        const tokenBg = getComputedStyle(probe).backgroundColor;
-        probe.remove();
-        const menuBg = getComputedStyle(menu).backgroundColor;
-        const themed = menuBg === tokenBg && menuBg !== 'rgb(255, 255, 255)';
-        const options = [...menu.querySelectorAll('.settings-language-option')];
-        const twoOptions = options.length === 2 && options[0].getAttribute('aria-selected') === 'true';
-        // 点英文选项：真实点击路径切语言，菜单收起，触发器文案跟随。
-        options[1].click();
-        const switchedEn = await waitFor(() => document.documentElement.lang === 'en' && !document.querySelector('.settings-language-menu'));
-        const triggerEn = panel.querySelector('.settings-language-select')?.textContent?.includes('English') === true;
-        // 再切回中文复原，避免影响后续断言。
-        panel.querySelector('.settings-language-select').click();
-        const menu2 = await waitFor(() => document.querySelector('.settings-language-menu'));
-        menu2?.querySelector('[data-language-index="0"]')?.click();
-        const switchedZh = await waitFor(() => document.documentElement.lang === 'zh-CN');
-        // Esc 只收菜单：在聚焦选项上派发 Escape，面板必须还在。
-        panel.querySelector('.settings-language-select').click();
-        const menu3 = await waitFor(() => document.querySelector('.settings-language-menu'));
-        const activeOption = menu3?.querySelector('.settings-language-option.is-active');
-        activeOption?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
-        const escClosedMenu = await waitFor(() => !document.querySelector('.settings-language-menu'));
-        const panelStillOpen = Boolean(document.querySelector('.settings-panel'));
-        document.querySelector('.settings-panel .detail-close')?.click();
-        const closed = await waitFor(() => !document.querySelector('.settings-panel'));
-        return { found: true, themed, menuBg, tokenBg, twoOptions, switchedEn, triggerEn, switchedZh, escClosedMenu, panelStillOpen, closed };
-      })()`)
+      const menuResult = await withSettings('appearance', null, (settings) =>
+        settings.webContents.executeJavaScript(`(async () => {
+          ${pageHelpers}
+          const trigger = document.querySelector('.settings-language-select');
+          if (!trigger) return { found: false };
+          trigger.click();
+          const menu = await waitFor(() => document.querySelector('.settings-language-menu'));
+          if (!menu) return { found: true, menu: false };
+          // 令牌对照：临时节点吃 var(--panel-bg)，与菜单实际背景逐字节比。
+          const probe = document.createElement('div');
+          probe.style.background = 'var(--panel-bg)';
+          document.body.appendChild(probe);
+          const tokenBg = getComputedStyle(probe).backgroundColor;
+          probe.remove();
+          const menuBg = getComputedStyle(menu).backgroundColor;
+          const themed = menuBg === tokenBg && menuBg !== 'rgb(255, 255, 255)';
+          const options = [...menu.querySelectorAll('.settings-language-option')];
+          const twoOptions = options.length === 2 && options[0].getAttribute('aria-selected') === 'true';
+          // 点英文选项：真实点击路径切语言，菜单收起，触发器文案跟随。
+          options[1].click();
+          const switchedEn = await waitFor(() => document.documentElement.lang === 'en' && !document.querySelector('.settings-language-menu'));
+          const triggerEn = document.querySelector('.settings-language-select')?.textContent?.includes('English') === true;
+          // 再切回中文复原，避免影响后续断言。
+          document.querySelector('.settings-language-select').click();
+          const menu2 = await waitFor(() => document.querySelector('.settings-language-menu'));
+          menu2?.querySelector('[data-language-index="0"]')?.click();
+          const switchedZh = await waitFor(() => document.documentElement.lang === 'zh-CN');
+          // Esc 只收菜单：在聚焦选项上派发 Escape，设置窗口必须还在。
+          document.querySelector('.settings-language-select').click();
+          const menu3 = await waitFor(() => document.querySelector('.settings-language-menu'));
+          const activeOption = menu3?.querySelector('.settings-language-option.is-active');
+          activeOption?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+          const escClosedMenu = await waitFor(() => !document.querySelector('.settings-language-menu'));
+          const windowStillOpen = Boolean(document.querySelector('.settings-window'));
+          return { found: true, themed, menuBg, tokenBg, twoOptions, switchedEn, triggerEn, switchedZh, escClosedMenu, windowStillOpen };
+        })()`)
+      )
       languageMenuThemed =
         menuResult?.found === true &&
         menuResult?.themed === true &&
@@ -5048,8 +4752,7 @@ export async function runSmokeTest(): Promise<void> {
         menuResult?.triggerEn === true &&
         menuResult?.switchedZh === true &&
         menuResult?.escClosedMenu === true &&
-        menuResult?.panelStillOpen === true &&
-        menuResult?.closed === true
+        menuResult?.windowStillOpen === true
       if (!languageMenuThemed) console.error('LANGUAGE_MENU_FAIL', JSON.stringify(menuResult))
     } catch (error) {
       console.error('LANGUAGE_MENU_ERROR', error)
@@ -5065,42 +4768,46 @@ export async function runSmokeTest(): Promise<void> {
     let hotkeyWakesAndFocuses = false
     try {
       const initial = getGlobalHotkeyState()
+      // 环境预检：加速键已被其他程序占用（截图工具 / PowerToys / 电脑管家 /
+      // 音乐播放器等都可能占 Ctrl+Alt+P）时，下面三个断言必然红——显式打一
+      // 行醒目提示，免得从 FAILED 数组里猜环境原因。
+      if (initial.registered === false) {
+        console.error(
+          'HOTKEY_ENV_OCCUPIED Ctrl+Alt+P 已被其他程序占用（设置行会显示冲突错误），' +
+            'hotkeyDefaultOn / hotkeySettingsRoundTrip / hotkeyConflictDegrades 将因此失败；' +
+            '请在占用程序里改键或退出后重跑。'
+        )
+      }
       hotkeyDefaultOn =
         initial.enabled === true &&
         initial.registered === true &&
         initial.accelerator === 'Ctrl+Alt+P' &&
         getMeta('global_hotkey') === null
 
-      const roundTrip = await mainWindow?.webContents.executeJavaScript(`(async () => {
-        ${pageHelpers}
-        document.querySelector('.settings-item').click();
-        const panel = await waitFor(() => document.querySelector('.settings-panel'));
-        if (!panel) return { found: false };
-        await sleep(300);
-        const rowOf = () => [...document.querySelectorAll('.settings-panel .settings-row')].find((el) => el.textContent.includes('全局热键快速添加'));
-        const row = rowOf();
-        const sw = row ? row.querySelector('.switch') : null;
-        const described = row ? row.textContent.includes('Ctrl+Alt+P') : false;
-        const initialChecked = sw ? sw.getAttribute('aria-checked') === 'true' : false;
-        if (!sw) {
-          document.querySelector('.settings-panel .detail-close')?.click();
+      const roundTrip = await withSettings('general', null, (settings) =>
+        settings.webContents.executeJavaScript(`(async () => {
+          ${pageHelpers}
+          const rowOf = () => [...document.querySelectorAll('.settings-row')].find((el) => el.textContent.includes('全局快速添加'));
+          const row = rowOf();
+          const sw = row ? row.querySelector('.switch') : null;
+          const described = row ? row.textContent.includes('Ctrl+Alt+P') : false;
+          const initialChecked = sw ? sw.getAttribute('aria-checked') === 'true' : false;
+          if (!sw) {
+            return { found: true, described, initialChecked, off: null, offChecked: false, on: null, onChecked: false };
+          }
+          sw.click();
           await sleep(250);
-          return { found: true, described, initialChecked, off: null, offChecked: false, on: null, onChecked: false };
-        }
-        sw.click();
-        await sleep(250);
-        const off = await window.polaris.app.getGlobalHotkey();
-        const offSwitch = document.querySelector('.settings-panel .switch[aria-label="全局热键快速添加"]');
-        const offChecked = offSwitch ? offSwitch.getAttribute('aria-checked') === 'false' : false;
-        offSwitch?.click();
-        await sleep(250);
-        const on = await window.polaris.app.getGlobalHotkey();
-        const onSwitch = document.querySelector('.settings-panel .switch[aria-label="全局热键快速添加"]');
-        const onChecked = onSwitch ? onSwitch.getAttribute('aria-checked') === 'true' : false;
-        document.querySelector('.settings-panel .detail-close')?.click();
-        await sleep(250);
-        return { found: true, described, initialChecked, off, offChecked, on, onChecked };
-      })()`)
+          const off = await window.polaris.app.getGlobalHotkey();
+          const offSwitch = document.querySelector('.switch[aria-label="全局快速添加"]');
+          const offChecked = offSwitch ? offSwitch.getAttribute('aria-checked') === 'false' : false;
+          offSwitch?.click();
+          await sleep(250);
+          const on = await window.polaris.app.getGlobalHotkey();
+          const onSwitch = document.querySelector('.switch[aria-label="全局快速添加"]');
+          const onChecked = onSwitch ? onSwitch.getAttribute('aria-checked') === 'true' : false;
+          return { found: true, described, initialChecked, off, offChecked, on, onChecked };
+        })()`)
+      )
 
       // meta 持久化单独验证：关掉写 '0' 且立刻注销，再打开写 '1' 并重新注册。
       setGlobalHotkeyEnabled(false)
@@ -5130,27 +4837,22 @@ export async function runSmokeTest(): Promise<void> {
       setGlobalHotkeyEnabled(false)
       const occupied = globalShortcut.register(GLOBAL_HOTKEY_ACCELERATOR, () => {})
       const conflict = setGlobalHotkeyEnabled(true)
-      const conflictUi = await mainWindow?.webContents.executeJavaScript(`(async () => {
-        ${pageHelpers}
-        document.querySelector('.settings-item').click();
-        const panel = await waitFor(() => document.querySelector('.settings-panel'));
-        if (!panel) return false;
-        await sleep(300);
-        const row = [...document.querySelectorAll('.settings-panel .settings-row')].find((el) => el.textContent.includes('全局热键快速添加'));
-        const sw = row ? row.querySelector('.switch') : null;
-        // 冲突文案替换行描述落同一行（is-error + role=alert + title 全文），
-        // 不再挂独立 .settings-error 行——条件行零增高是一屏契约的一部分。
-        const desc = row ? row.querySelector('.settings-row-desc') : null;
-        const ok = Boolean(sw) && sw.getAttribute('aria-checked') === 'true' &&
-          Boolean(desc) && desc.classList.contains('is-error') &&
-          desc.getAttribute('role') === 'alert' &&
-          desc.textContent.includes('被其他程序占用') &&
-          (desc.getAttribute('title') ?? '').includes('被其他程序占用') &&
-          !document.querySelector('.settings-panel .settings-error');
-        document.querySelector('.settings-panel .detail-close')?.click();
-        await sleep(250);
-        return ok;
-      })()`)
+      const conflictUi = await withSettings('general', false, async (settings) =>
+        settings.webContents.executeJavaScript(`(async () => {
+          ${pageHelpers}
+          const row = [...document.querySelectorAll('.settings-row')].find((el) => el.textContent.includes('全局快速添加'));
+          const sw = row ? row.querySelector('.switch') : null;
+          // 冲突文案替换行描述落同一行（is-error + role=alert + title 全文），
+          // 不再挂独立 .settings-error 行。
+          const desc = row ? row.querySelector('.settings-row-desc') : null;
+          return Boolean(sw) && sw.getAttribute('aria-checked') === 'true' &&
+            Boolean(desc) && desc.classList.contains('is-error') &&
+            desc.getAttribute('role') === 'alert' &&
+            desc.textContent.includes('被其他程序占用') &&
+            (desc.getAttribute('title') ?? '').includes('被其他程序占用') &&
+            !document.querySelector('.settings-error');
+        })()`)
+      )
       globalShortcut.unregister(GLOBAL_HOTKEY_ACCELERATOR)
       setGlobalHotkeyEnabled(false)
       const recovered = setGlobalHotkeyEnabled(true)
@@ -5297,24 +4999,21 @@ export async function runSmokeTest(): Promise<void> {
 
       // 先做手动检查：此时渲染层还是真实快照（dev = unsupported），
       // 答案必须确定且不弹窗；合成快照之后会覆盖渲染层状态，不能反过来。
-      const manualCheck = await wc.executeJavaScript(`(async () => {
-        ${pageHelpers}
-        document.querySelector('.settings-item').click();
-        const panel = await waitFor(() => document.querySelector('.settings-panel'));
-        if (!panel) return { found: false };
-        await sleep(300);
-        const btn = [...panel.querySelectorAll('.update-footer-btn')].find((b) => b.textContent === '检查更新');
-        btn?.click();
-        const answered = await waitFor(() => {
-          const line = document.querySelector('.update-footer-status');
-          return line && line.textContent.includes('当前环境不提供在线更新') ? line : null;
-        });
-        const state = await window.polaris.update.getState();
-        const noDialog = !document.querySelector('.update-panel');
-        document.querySelector('.settings-panel .detail-close')?.click();
-        await sleep(250);
-        return { found: Boolean(btn), answered: Boolean(answered), unsupported: state?.status === 'unsupported', noDialog };
-      })()`)
+      // 检查入口在设置窗口的「关于」页（独立窗口自己的更新状态行）。
+      const manualCheck = await withSettings('about', null, (settings) =>
+        settings.webContents.executeJavaScript(`(async () => {
+          ${pageHelpers}
+          const btn = [...document.querySelectorAll('.update-action')].find((b) => b.textContent === '检查更新');
+          btn?.click();
+          const answered = await waitFor(() => {
+            const line = document.querySelector('.settings-update-status');
+            return line && line.textContent.includes('当前环境不提供在线更新') ? line : null;
+          });
+          const state = await window.polaris.update.getState();
+          const noDialog = !document.querySelector('.update-panel');
+          return { found: Boolean(btn), answered: Boolean(answered), unsupported: state?.status === 'unsupported', noDialog };
+        })()`)
+      )
       updateSettingsCheck =
         manualCheck?.found === true &&
         manualCheck?.answered === true &&
@@ -5421,27 +5120,45 @@ export async function runSmokeTest(): Promise<void> {
         await sleep(450);
         return !document.querySelector('.update-panel');
       })()`)
-      // 设置页页脚「查看更新」重开 → 「跳过此版本」关闭并持久化。
-      const skipViaSettings = await wc.executeJavaScript(`(async () => {
-        ${pageHelpers}
-        document.querySelector('.settings-item').click();
-        const panel = await waitFor(() => document.querySelector('.settings-panel'));
-        if (!panel) return { found: false };
-        await sleep(300);
-        const statusLine = panel.querySelector('.update-footer-status');
-        const desc = statusLine ? statusLine.textContent.includes('99.0.0 已就绪') : false;
-        const viewBtn = [...panel.querySelectorAll('.update-footer-btn')].find((b) => b.textContent === '查看更新');
-        if (!viewBtn) { document.querySelector('.settings-panel .detail-close')?.click(); return { found: false }; }
-        viewBtn.click();
-        const dlg = await waitFor(() => document.querySelector('.update-panel'));
-        const reopened = Boolean(dlg);
-        const skipBtn = [...document.querySelectorAll('.update-panel button')].find((b) => b.textContent === '跳过此版本');
-        skipBtn?.click();
-        const closed = (await waitFor(() => !document.querySelector('.update-panel'))) === true;
-        document.querySelector('.settings-panel .detail-close')?.click();
-        await sleep(250);
-        return { found: true, desc, reopened, closed };
-      })()`)
+      // 设置窗口关于页「查看更新」重开 → 「跳过此版本」关闭并持久化。
+      // 设置窗口的 store 只收主进程推送/IPC 回执：合成快照先直接发给它
+      // （dismissedVersion 忠实还原「稍后」已记账的状态——真实推送带它），
+      // 「查看更新」负责重开弹窗。
+      const skipViaSettings = await withSettings('about', null, async (settings) => {
+        settings.webContents.send('update:state', {
+          status: 'downloaded',
+          currentVersion: app.getVersion(),
+          latestVersion: '99.0.0',
+          percent: 100,
+          transferred: null,
+          total: null,
+          bytesPerSecond: null,
+          releaseNotes: '修复若干问题\n提升稳定性',
+          skippedVersion: getMeta('update_skipped_version'),
+          dismissedVersion: '99.0.0',
+          error: null
+        })
+        return settings.webContents.executeJavaScript(`(async () => {
+          ${pageHelpers}
+          // 快照经 IPC 落地后 React 重渲染是异步的：状态行与按钮都要轮询等，
+          // 不能发完快照就查一次 DOM。
+          const desc = await waitFor(() => {
+            const line = document.querySelector('.settings-update-status');
+            return line && line.textContent.includes('99.0.0 已就绪') ? true : null;
+          });
+          const viewBtn = await waitFor(() =>
+            [...document.querySelectorAll('.update-action')].find((b) => b.textContent === '查看更新')
+          );
+          if (!viewBtn) return { found: false };
+          viewBtn.click();
+          const dlg = await waitFor(() => document.querySelector('.update-panel'));
+          const reopened = Boolean(dlg);
+          const skipBtn = [...document.querySelectorAll('.update-panel button')].find((b) => b.textContent === '跳过此版本');
+          skipBtn?.click();
+          const closed = (await waitFor(() => !document.querySelector('.update-panel'))) === true;
+          return { found: true, desc: Boolean(desc), reopened, closed };
+        })()`)
+      })
       const skippedState = await wc.executeJavaScript(`window.polaris.update.getState()`)
       updateSkipPersists =
         skipViaSettings?.found === true &&
@@ -5614,8 +5331,6 @@ export async function runSmokeTest(): Promise<void> {
       themePaletteWorks: result.themePaletteWorks === true,
       autoStartTested: result.autoStartTested === true,
       // 期望值取自主进程，不经渲染层反算：写死的版本字符串会在这里露馅。
-      settingsVersion: result.settingsVersion === app.getVersion(),
-      settingsFastClose: result.settingsFastClose === true,
       footerVersion: result.footerVersion === app.getVersion(),
       recurrenceTested: result.recurrenceTested === true,
       recurrenceNoticeTested: result.recurrenceNoticeTested === true,
@@ -5686,10 +5401,6 @@ export async function runSmokeTest(): Promise<void> {
       confirmDescribedBy: confirmDescribedBy === true,
       trashFocusLands: trashFocusLands === true,
       retentionTable: retentionOk === true,
-      cloudMirrorGateTable: mirrorGateOk === true,
-      cloudMirrorWrites: cloudMirrorWrites === true,
-      cloudMirrorPause: cloudMirrorPause === true,
-      cloudMirrorSettingsFits: cloudMirrorSettingsFits === true,
       mcpWorks,
       mcpAuthRejects: mcpAuthRejects === true,
       mcpTokenRegenerate: mcpTokenRegenerate === true,
@@ -5717,6 +5428,8 @@ export async function runSmokeTest(): Promise<void> {
       customRepeatUiWorks: customRepeatUiWorks === true,
       backupRoundTripWorks: backupRoundTripWorks === true,
       autoBackupListWorks: autoBackupListWorks === true,
+      dataLocationWorks: dataLocationWorks === true,
+      dbSyncStampWorks: dbSyncStampWorks === true,
       atomicWriteWorks: atomicWriteWorks === true,
       scalingFrameWorks: scalingFrameWorks === true,
       lowResFits: lowResFits === true,
@@ -5730,17 +5443,12 @@ export async function runSmokeTest(): Promise<void> {
       largeListCompactTier: largeListCompactTier === true,
       mainFooterPinned: mainFooterPinned === true,
       aboutCreditsShown: aboutCreditsShown === true,
-      storageCardWorks: storageCardWorks === true,
-      settingsFitsDefault: settingsFitsDefault === true,
-      settingsFitsCompact: settingsFitsCompact === true,
-      settingsNoShift: settingsNoShift === true,
-      settingsNoScrollMcp: settingsNoScrollMcp === true,
-      settingsCentered: settingsCentered === true,
+      settingsWindowFits: settingsWindowFits === true,
+      settingsWindowLayout: settingsWindowLayout === true,
+      settingsWindowLifecycle: settingsWindowLifecycle === true,
+      sidebarCollapseWorks: sidebarCollapseWorks === true,
       csvExportWorks: csvExportWorks === true,
-      settingsLayoutV2: settingsLayoutV2 === true,
-      settingsSymmetricEdges: settingsSymmetricEdges === true,
       settingsBackupNoShift: settingsBackupNoShift === true,
-      settingsAboutStable: settingsAboutStable === true,
       trayToggleWorks: trayToggleWorks === true,
       trayMenuEntries: trayMenuEntries === true,
       traySettingsOpens: traySettingsOpens === true,
@@ -5808,10 +5516,6 @@ export async function runSmokeTest(): Promise<void> {
           confirmDescribedBy,
           trashFocusLands,
           retentionTable: retentionOk,
-          cloudMirrorGateTable: mirrorGateOk,
-          cloudMirrorWrites,
-          cloudMirrorPause,
-          cloudMirrorSettingsFits,
           mcpWorks,
           mcpAuthRejects,
           mcpTokenRegenerate,
@@ -5830,6 +5534,8 @@ export async function runSmokeTest(): Promise<void> {
           customRepeatUiWorks,
           backupRoundTripWorks,
           autoBackupListWorks,
+          dataLocationWorks,
+          dbSyncStampWorks,
           atomicWriteWorks,
           scalingFrameWorks,
           lowResFits,
@@ -5843,16 +5549,12 @@ export async function runSmokeTest(): Promise<void> {
           largeListCompactTier,
           mainFooterPinned,
           aboutCreditsShown,
-          storageCardWorks,
-          settingsFitsDefault,
-          settingsFitsCompact,
-          settingsNoScrollMcp,
-          settingsCentered,
+          settingsWindowFits,
+          settingsWindowLayout,
+          settingsWindowLifecycle,
+          sidebarCollapseWorks,
           csvExportWorks,
-          settingsNoShift,
-          settingsLayoutV2,
-          settingsSymmetricEdges,
-          settingsAboutStable,
+          settingsBackupNoShift,
           trayToggleWorks,
           trayMenuEntries,
           traySettingsOpens,

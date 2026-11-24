@@ -2,6 +2,7 @@ import { useEffect, useId, useRef } from 'react'
 import { motion } from 'motion/react'
 import { useTaskStore } from '../stores/useTaskStore'
 import { useFocusTrap } from '../lib/useFocusTrap'
+import { useOverlayClose } from '../lib/useOverlayClose'
 import { useT } from '../stores/useLocaleStore'
 
 type ConfirmDialogProps = {
@@ -24,6 +25,8 @@ export function ConfirmDialog({ message, confirmLabel, onConfirm, onClose }: Con
 
   // 默认焦点落在取消上：Enter 不会直接触发不可逆操作。
   useFocusTrap(panelRef, !paletteOpen, cancelRef)
+  // 设置窗口的 Esc 兜底栈：焦点漏在对话框外时，窗口级 Esc 只关掉本对话框。
+  useOverlayClose(!paletteOpen, onClose)
 
   // Ctrl+K 不会触发 pointerdown，面板打开时这里必须自己让位。
   useEffect(() => {

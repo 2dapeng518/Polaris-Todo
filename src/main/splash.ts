@@ -16,12 +16,14 @@ const SPLASH_HEIGHT = 400
 // 页面加载（字体/样式）不再吃掉动画预算（旧 2000ms 从建窗算，加载几百毫秒
 // 后动画只播到一半就被交接，用户报障「没转完就启动」）。
 // 3300ms = 轨道环第一整圈（spin 900ms 延迟 + 2400ms 周期）；汇聚 → 点亮 →
-// 字标/标语/状态落定链 1950ms 内完成，故交接时动画必已转完落定。
+// 字标/诗句/状态落定链 1950ms 播完。但 ready-to-show 可能落在样式未应用的
+// 首帧（dev 下样式经 splash.ts 模块注入），预算锚点因此可能早于动画真实
+// 起点——3300ms 只当保底下限，动画何时结束以页面自己的动画时钟为准：
+// 交接前等渲染层的动画播完旗标（__SPLASH_CHAIN_DONE，见 waitForChainDone），
+// 主窗口绝不早于动画结束出现。
 // 初始化更慢时不额外等——主窗口 ready-to-show 到了就交接（轨道环循环补位），
 // 动画不阻塞初始化本身；加载与动画并行，取两者较晚者。
 const MIN_VISIBLE_MS = 3300
-// 淡出时长取设计系统的 200ms standard 档。
-const FADE_MS = 200
 // 兜底：渲染层加载失败或卡死时，不能把用户永远挡在启动页后面。
 const FAILSAFE_MS = 12_000
 
@@ -121,7 +123,7 @@ export function hasSplashWindow(): boolean {
 }
 
 // 主窗口就绪（或主帧加载失败、或被托盘/第二实例唤起）时调用：
-// 补足最短可见时长后主窗口先 show，启动页置顶淡出，交叉过渡无空帧。
+// 交接由 scheduleHandoff 完成——先销毁启动页、再显示主窗口。
 export function revealMainWindow(mainWindow: BrowserWindow): void {
   reveal(mainWindow)
 }
@@ -135,8 +137,39 @@ function reveal(mainWindow: BrowserWindow | null): void {
   if (paintedAt > 0) scheduleHandoff()
 }
 
-// 补足「首帧起算的最短可见时长」后交接：主窗口先 show，启动页置顶淡出，
-// 交叉过渡无空帧。handoffTimer 单例防 ready-to-show 与 reveal 双路重复起计。
+// 等渲染层的动画播完旗标（splash.html 内联脚本在「一次性链尾 animationend +
+// 轨道环第一圈 animationiteration」都到齐后置 __SPLASH_CHAIN_DONE，页面侧另有
+// 从动画起跑起算的兜底）。3300ms 预算的锚点是 ready-to-show，可能早于动画
+// 真实起点（dev 样式迟到），所以交接前必须问一次渲染层——正常路径旗标早已
+// 置位，至多等一个轮询间隔；渲染层 pathology 时 1.5s 竞速兜底，绝不把用户
+// 卡在启动页后面。
+const CHAIN_DONE_WAIT_CAP_MS = 1500
+
+async function waitForChainDone(splash: BrowserWindow | null): Promise<number> {
+  const startedAt = Date.now()
+  if (!splash || splash.isDestroyed()) return 0
+  const ask = splash.webContents
+    .executeJavaScript(
+      `(function () {
+        if (window.__SPLASH_CHAIN_DONE) return true
+        return new Promise(function (resolve) {
+          var poll = setInterval(function () {
+            if (window.__SPLASH_CHAIN_DONE) {
+              clearInterval(poll)
+              resolve(true)
+            }
+          }, 50)
+        })
+      })()`
+    )
+    .then(() => true)
+    .catch(() => undefined)
+  await Promise.race([ask, new Promise<void>((resolve) => setTimeout(resolve, CHAIN_DONE_WAIT_CAP_MS))])
+  return Date.now() - startedAt
+}
+
+// 补足「首帧起算的最短可见时长」并等到动画播完后交接：先销毁启动页、再
+// 显示主窗口。handoffTimer 单例防 ready-to-show 与 reveal 双路重复起计。
 function scheduleHandoff(): void {
   if (handoffTimer) return
   const wait = Math.max(0, MIN_VISIBLE_MS - (Date.now() - paintedAt))
@@ -146,40 +179,25 @@ function scheduleHandoff(): void {
       clearTimeout(failsafe)
       failsafe = null
     }
-    const splash = splashWindow
-    const mainWindow = pendingMain
-    const mainShown = Boolean(mainWindow && !mainWindow.isDestroyed())
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      // 淡出期间保持启动页在主窗口之上，否则淡出会被新激活的主窗口盖住。
-      if (splash && !splash.isDestroyed()) splash.setAlwaysOnTop(true, 'floating')
-      mainWindow.show()
-      mainWindow.focus()
-    }
-    // 交接遥测：与 splash painted 日志的时间差即首帧起算的可见时长。
-    log.info('splash handoff:', { mainShown })
-    fadeOut(splash)
+    void (async () => {
+      // 主窗口出现前最后一道闸：等页面报「动画播完」（旗标正常路径早已置位）。
+      const chainWaitMs = await waitForChainDone(splashWindow)
+      const splash = splashWindow
+      const mainWindow = pendingMain
+      const mainShown = Boolean(mainWindow && !mainWindow.isDestroyed())
+      // 先撤启动页、再显主窗口，两步在同一轮事件循环里完成：合成器出的下一帧
+      // 里启动页已不存在，主界面与启动页永不同屏。不反过来（主窗口先 show、
+      // 宽限几帧再销毁启动页）：启动页只有 360×400，盖不住 1280×840 的主窗口，
+      // 主界面会在启动页四周露出来，正是「启动动画没结束就出现了程序界面」。
+      // 主窗口此时早已过 ready-to-show，首帧在显示之前就已画好，无需宽限。
+      if (splash && !splash.isDestroyed()) splash.destroy()
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.show()
+        mainWindow.focus()
+      }
+      // 交接遥测：与 splash painted 日志的时间差即首帧起算的可见时长；
+      // chainWaitMs > 0 说明动画被时钟锚点偏差拖到了预算之外（dev 常见）。
+      log.info('splash handoff:', { mainShown, chainWaitMs })
+    })()
   }, wait)
-}
-
-function fadeOut(splash: BrowserWindow | null): void {
-  if (!splash || splash.isDestroyed()) return
-  // 还没画出来就直接销毁，避免迟到的首帧以半透明状态闪现。
-  if (!splash.isVisible()) {
-    splash.destroy()
-    return
-  }
-
-  const start = Date.now()
-  const timer = setInterval(() => {
-    if (splash.isDestroyed()) {
-      clearInterval(timer)
-      return
-    }
-    const t = Math.min(1, (Date.now() - start) / FADE_MS)
-    splash.setOpacity(1 - t)
-    if (t >= 1) {
-      clearInterval(timer)
-      splash.destroy()
-    }
-  }, 16)
 }

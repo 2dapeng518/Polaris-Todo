@@ -54,7 +54,11 @@
           </div>
         </div>
         <h1 class="splash-name" translate="no">Polaris</h1>
-        <p class="splash-tagline">数据仅保存在本机</p>
+        <div class="splash-poem" id="splash-poem" hidden>
+          <p class="splash-poem-line"></p>
+          <p class="splash-poem-line"></p>
+          <span class="splash-poem-by"></span>
+        </div>
         <div class="splash-status" role="status">
           <span>正在启动…</span>
         </div>
@@ -71,6 +75,97 @@
         } catch (error) {
           /* 版本号缺席不影响启动动画其余部分。 */
         }
+      })()
+    </script>
+    <script>
+      // 启动诗句：每次启动从池里随机一首（页面加载即定格，不随动画中途换），
+      // 两句 + 落款，随 fade-up 依次显现。诗词是中文文化内容，与品牌名同列
+      // 不进 i18n 词典；文本解析失败时保持 hidden，不影响动画其余部分。
+      ;(function () {
+        try {
+          var pool = [
+            { lines: ['危楼高百尺', '手可摘星辰'], by: '李白 · 夜宿山寺' },
+            { lines: ['星垂平野阔', '月涌大江流'], by: '杜甫 · 旅夜书怀' },
+            { lines: ['天阶夜色凉如水', '卧看牵牛织女星'], by: '杜牧 · 秋夕' },
+            { lines: ['星汉灿烂', '若出其里'], by: '曹操 · 观沧海' },
+            { lines: ['天接云涛连晓雾', '星河欲转千帆舞'], by: '李清照 · 渔家傲' },
+            { lines: ['海上生明月', '天涯共此时'], by: '张九龄 · 望月怀远' },
+            { lines: ['明月松间照', '清泉石上流'], by: '王维 · 山居秋暝' },
+            { lines: ['行到水穷处', '坐看云起时'], by: '王维 · 终南别业' },
+            { lines: ['春江潮水连海平', '海上明月共潮生'], by: '张若虚 · 春江花月夜' },
+            { lines: ['采菊东篱下', '悠然见南山'], by: '陶渊明 · 饮酒' },
+            { lines: ['但愿人长久', '千里共婵娟'], by: '苏轼 · 水调歌头' },
+            { lines: ['晚来天欲雪', '能饮一杯无'], by: '白居易 · 问刘十九' },
+            { lines: ['疏影横斜水清浅', '暗香浮动月黄昏'], by: '林逋 · 山园小梅' },
+            { lines: ['月出惊山鸟', '时鸣春涧中'], by: '王维 · 鸟鸣涧' }
+          ]
+          var pick = pool[Math.floor(Math.random() * pool.length)]
+          var root = document.getElementById('splash-poem')
+          var lineEls = root.querySelectorAll('.splash-poem-line')
+          for (var i = 0; i < lineEls.length && i < pick.lines.length; i++) {
+            lineEls[i].textContent = pick.lines[i]
+          }
+          root.querySelector('.splash-poem-by').textContent = '—— ' + pick.by
+          root.hidden = false
+        } catch (error) {
+          /* 诗句缺席不影响启动动画其余部分。 */
+        }
+      })()
+    </script>
+    <script>
+      // 动画播完旗标：主进程交接前等它（见 splash.ts waitForChainDone），保证
+      // 主窗口不早于动画结束出现。「播完」= 一次性链尾（落款，1500ms 延迟 +
+      // 450ms）animationend，且轨道环转完第一整圈（900ms 延迟 + 2400ms 周期）。
+      // 两个时刻都按页面自己的动画时钟判定，样式何时生效都作数——按页面解析
+      // 起算的定时器在样式迟到时（dev 下样式经 splash.ts 模块注入）会早于动画
+      // 真实结束而放行。
+      ;(function () {
+        var chainEnded = false
+        var orbitEnded = false
+        var settle = function () {
+          if (chainEnded && orbitEnded) window.__SPLASH_CHAIN_DONE = true
+        }
+        var last = document.querySelector('.splash-poem-by')
+        var orbit = document.querySelector('.splash-orbit-spin')
+        if (last) {
+          last.addEventListener('animationend', function () {
+            chainEnded = true
+            settle()
+          })
+        }
+        if (orbit) {
+          // 常规下轨道环无限循环，每转完一圈发 animationiteration；reduced-motion
+          // 把时长压到 0.01ms、迭代数压到 1，动画直接结束，只有 animationend。
+          orbit.addEventListener('animationiteration', function () {
+            orbitEnded = true
+            settle()
+          })
+          orbit.addEventListener('animationend', function () {
+            orbitEnded = true
+            settle()
+          })
+        }
+        // 兜底：诗句缺席（hidden 无动画）或动画事件不来时不能卡死交接。定时
+        // 从动画链真正起跑（首个 animationstart）起算：链尾 1950ms、轨道第一圈
+        // 3300ms，各留余量。
+        var fallback = function () {
+          setTimeout(function () {
+            chainEnded = true
+            settle()
+          }, 2600)
+          setTimeout(function () {
+            orbitEnded = true
+            settle()
+          }, 3700)
+        }
+        document.addEventListener('animationstart', fallback, { once: true })
+        // 样式始终不来（页面损坏 / 开发服务器无响应）：4s 硬放行，绝不把用户
+        // 挡在启动页后面。
+        setTimeout(function () {
+          chainEnded = true
+          orbitEnded = true
+          settle()
+        }, 4000)
       })()
     </script>
     <script type="module" src="/src/splash.ts"></script>

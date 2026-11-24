@@ -63,6 +63,10 @@
   --radius-lg: 16px;
   --titlebar-height: 48px;
   --sidebar-width: 252px;
+  /* 侧栏当前宽度：默认 = 展开宽；app-body.sidebar-collapsed 把它换成图标栏宽。
+     网格首列与 .sidebar 同源取值，两处不会各说各话。 */
+  --sidebar-width-current: var(--sidebar-width);
+  --sidebar-width-collapsed: 60px;
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
@@ -106,7 +110,7 @@
   --on-accent: #ffffff;
   --accent-rgb: 15, 118, 110;
   --accent-2-rgb: 124, 58, 237;
-  --danger-rgb: 220, 38, 38;
+  --danger-rgb: 190, 18, 60;
   --priority-low-rgb: 79, 70, 229;
   --priority-mid-rgb: 217, 119, 6;
   --aurora-c-rgb: 219, 39, 119;
@@ -702,19 +706,26 @@ textarea {
   position: relative;
   z-index: 10;
   display: grid;
-  grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
+  grid-template-columns: var(--sidebar-width-current) minmax(0, 1fr);
   flex: 1;
   min-height: 0;
+  /* 侧栏收起/展开：首列宽度走 220ms 过渡（与检查器同一条缓动）。 */
+  transition: grid-template-columns 220ms var(--ease-out);
+}
+
+/* 侧栏收起态：首列换成图标栏宽度（60px，内宽 36px）。 */
+.app-body.sidebar-collapsed {
+  --sidebar-width-current: var(--sidebar-width-collapsed);
 }
 
 @media (min-width: 1180px) {
   .app-body {
-    grid-template-columns: var(--sidebar-width) minmax(0, 1fr) 0px;
+    grid-template-columns: var(--sidebar-width-current) minmax(0, 1fr) 0px;
     transition: grid-template-columns 220ms var(--ease-out);
   }
 
   .app-body.has-inspector {
-    grid-template-columns: var(--sidebar-width) minmax(0, 1fr) 360px;
+    grid-template-columns: var(--sidebar-width-current) minmax(0, 1fr) 360px;
   }
 }
 
@@ -725,7 +736,7 @@ textarea {
   flex: none;
   flex-direction: column;
   gap: var(--space-1);
-  width: var(--sidebar-width);
+  width: var(--sidebar-width-current);
   padding: var(--space-2) var(--space-3) var(--space-4);
   border-right: 1px solid var(--line);
   background: var(--sidebar-bg);
@@ -1079,59 +1090,135 @@ textarea {
   overscroll-behavior: contain;
 }
 
-/* 不要加健康点、role="status" 或 aria-live。 */
-/* 存储卡片是可点的信任状：按钮重置 + hover 微亮，直达设置备份区。 */
-.sidebar-storage {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  margin-bottom: 6px;
-  padding: 10px;
-  border: 1px solid var(--line);
-  border-radius: 11px;
-  background: var(--surface-1);
-  text-align: left;
-  font: inherit;
-  color: inherit;
-  cursor: default;
-}
-
-.sidebar-storage:hover {
-  border-color: var(--line-strong);
-  background: var(--surface-2);
-}
-
-.storage-icon {
+.sidebar-foot {
   flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* 侧栏收起开关：贴在「视图」标签行右端的安静小按钮，悬停才点亮。 */
+.sidebar-collapse {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  margin-left: auto;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
   color: var(--text-tertiary);
+  cursor: default;
+  transition:
+    color 0.16s,
+    background 0.16s;
 }
 
-/* 镜像态标题更长（尤其英文）：单行 ellipsis 钉死行高，全文进 title。
-   默认态文案本就放得下，视觉零变化。 */
-.storage-copy {
-  min-width: 0;
+.sidebar-collapse:hover {
+  background: rgba(var(--accent-rgb), 0.08);
+  color: var(--accent);
 }
 
-.storage-title {
+.sidebar-collapse:focus-visible {
+  outline-offset: -2px;
+}
+
+/* 标签首字：只在收起态显示——图标栏里多个标签才分得清。 */
+.tag-initial {
+  display: none;
+}
+
+/* ---------- 侧栏收起态 ---------- */
+/* 首列收到 60px，导航项变成居中的图标按钮。文字不用 display:none 而是视觉
+   隐藏：无障碍名称照旧来自 .nav-text，冒烟脚本读的文字/计数也还在文档里。 */
+.sidebar-collapsed .nav-text,
+.sidebar-collapsed .nav-count,
+.sidebar-collapsed .nav-label-count {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
   overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.sidebar-collapsed .nav-label {
+  justify-content: center;
+  padding: 4px 0 2px;
+}
+
+.sidebar-collapsed .nav-label-text {
+  display: none;
+}
+
+.sidebar-collapsed .sidebar-collapse {
+  width: 28px;
+  height: 28px;
+  margin-left: 0;
+}
+
+.sidebar-collapsed .nav-item {
+  justify-content: center;
+  gap: 0;
+  padding: 0;
+}
+
+.sidebar-collapsed .nav-icon {
+  opacity: 1;
+}
+
+.sidebar-collapsed .nav-divider {
+  margin: 4px 8px;
+}
+
+.sidebar-collapsed .projects-section {
+  margin-top: 6px;
+}
+
+.sidebar-collapsed .project-dot {
+  width: 9px;
+  height: 9px;
+}
+
+/* 收起态放不下编辑/删除两个按钮：要先展开侧栏（表单本来也要展开才放得下）。 */
+.sidebar-collapsed .project-actions {
+  display: none;
+}
+
+.sidebar-collapsed .project-add {
+  width: 28px;
+  height: 28px;
+  margin-left: 0;
+}
+
+.sidebar-collapsed .tags-section .nav-label {
+  display: none;
+}
+
+.sidebar-collapsed .tags-section {
+  padding-top: 0;
+}
+
+.sidebar-collapsed .tag-nav-icon {
+  display: none;
+}
+
+.sidebar-collapsed .tag-initial {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
   color: var(--text-secondary);
   font-size: 11px;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-
-.storage-subtitle {
-  overflow: hidden;
-  margin-top: 1px;
-  color: var(--text-tertiary);
-  font-size: 11px;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-
-.settings-item {
-  flex: none;
+  font-weight: 600;
+  line-height: 1;
 }
 
 /* ---------- main ---------- */
@@ -4158,7 +4245,11 @@ textarea {
 /* ---------- splash ---------- */
 
 /* 启动动画（splash.html 第二渲染入口）：光点汇聚 → 星点亮 → 轨道环行进
-   → 字标落定，约 2s 播完；主进程 MIN_VISIBLE_MS 补足到 2s 后淡出交接主窗口。
+   → 字标落定，一次性链 1950ms 播完；主进程交接 = max(主窗口就绪,
+   首帧后 3300ms, 动画播完旗标 __SPLASH_CHAIN_DONE)——旗标按页面自己的
+   动画时钟判定（链尾 animationend + 轨道环第一圈 animationiteration），
+   ready-to-show 锚点早于动画真实起点（dev 样式迟到）时由它补齐；交接时
+   先销毁启动页、再 show 主窗口（同一轮事件循环，主界面与启动页不同屏）。
    初始化更慢时轨道环持续旋转等待（加载指示允许循环，其余动画均一次性）。
    颜色全部复用本文件令牌，六主题对比度由 verify:themes 统一保证；
    reduced motion 由文件末尾的全局兜底直接渲染终态。 */
@@ -4266,11 +4357,36 @@ textarea {
   animation: splash-word 550ms var(--ease-out) 950ms both;
 }
 
-.splash-tagline {
-  margin: 6px 0 0;
+/* 启动诗句：随机一首（池在 splash.html 内联脚本），随动画节奏逐句显现——
+   字标落定后两句依次 fade-up，落款收尾，全部一次性不循环。文本由内联
+   脚本在首帧前填好，CSS 只负责节奏；宽字距呼应字标的 tracking settle。 */
+.splash-poem {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-top: 10px;
+}
+
+.splash-poem-line {
+  margin: 0;
   color: var(--text-secondary);
-  font-size: 12px;
-  animation: splash-fade-up 450ms var(--ease-out) 1200ms both;
+  font-size: 13px;
+  line-height: 1.7;
+  letter-spacing: 0.14em;
+  text-indent: 0.14em;
+  animation: splash-fade-up 450ms var(--ease-out) 1100ms both;
+}
+
+.splash-poem-line + .splash-poem-line {
+  animation-delay: 1300ms;
+}
+
+.splash-poem-by {
+  margin-top: 6px;
+  color: var(--text-tertiary);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  animation: splash-fade-up 450ms var(--ease-out) 1500ms both;
 }
 
 .splash-status {
@@ -4472,197 +4588,116 @@ textarea {
   color: var(--text);
 }
 
-/* ---------- settings ---------- */
-
-/* 真·垂直居中 + 平滑 glide：顶边距由 SettingsPanel 按面板实测高度实时写
-   (vh - h) / 2（ResizeObserver + window resize），启用 MCP 长高时 padding-top
-   走 180ms 过渡滑到新中心——居中美观且无瞬移抖动。560 仅作首帧前的兜底名义值。
-   关于浮层/手风琴/状态行都不改面板高度，故事实上只有 MCP 开关触发 glide。 */
-.settings-overlay {
-  --settings-inset-top: max(24px, calc((100vh - 560px) / 2));
-  transition: padding-top 0.18s var(--ease-out);
-  position: fixed;
-  z-index: 70;
-  inset: 0;
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  padding-top: var(--settings-inset-top);
-  background: var(--command-overlay);
-  backdrop-filter: blur(7px);
-}
-
-/* 统一两列布局（所有窗口高度）：旧单列变体在 >860 高窗口把内容叠到
-   881px（MCP 启用态），900 窗口帽 806 必滚；且跨 860 断点整片回流 = 抖动。
-   现一套命名 grid-area 布局通吃：header 左半 / 主题色样横条右半 /
-   备份左列 / 服务与常规右列 / 页脚与状态横跨。DOM 顺序 = 视觉顺序 = 焦点顺序。 */
-.settings-panel {
-  position: relative;
+/* ---------- 设置窗口 ---------- */
+/* 设置是独立的子窗口（main/settingsWindow.ts）：左侧分类导航 + 右侧当前分类，
+   每页只有一个分类。旧的浮层面板规则（settings-overlay 遮罩、两列 grid-area、
+   真垂直居中 glide、contain:size 行高预算、四边对称滚动条槽）已整体下线；
+   对话框（备份管理 / 确认框 / 更新弹窗）仍用 confirm-overlay 那套浮层词汇。 */
+.settings-window {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  grid-template-areas:
-    'header theme'
-    'backup side'
-    'footer footer';
-  /* 列距 16：最窄 635 面板档半幅 285.5px，主题横条 140 + 隙 8 + 语言 92
-     + 隙 8 + 关闭钮 28 = 276px 吞得下（关闭钮并入横条后不再额外让位）。 */
-  column-gap: 16px;
-  row-gap: 8px;
-  align-items: start;
-  width: min(760px, calc(100vw - 48px));
-  max-height: calc(100vh - var(--settings-inset-top) - 24px);
-  overflow-y: auto;
-  /* 滚动条槽常驻且左右对称（both-edges）：超帽出滚动条不挤窄内容 = 零横向
-     抖动；单侧 stable 曾让右留白比左多一个槽宽（用户报障左右不对称）。
-     四边等距 24（用户拍板统一节奏）：水平 1 边框 + 13 + 槽 10，垂直 1 + 23；
-     槽宽亚像素漂移 ≤1px 由对称断言容差吞。垂直不再大：536 低分辨率档
-     MCP 启用最坏态一屏契约只剩 8.5px 余量，30 等距会顶破。 */
-  scrollbar-gutter: stable both-edges;
-  padding: 23px 13px;
-  border: 1px solid var(--line-strong);
-  border-radius: 16px;
-  background: var(--command-bg);
-  box-shadow:
-    0 36px 90px rgba(var(--shadow-rgb), 0.65),
-    inset 0 1px 0 var(--inner-highlight);
+  grid-template-columns: 216px minmax(0, 1fr);
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg);
 }
 
-.settings-header {
-  grid-area: header;
+/* 顶部拖拽条：横跨整窗、透明，右上角归系统窗口按钮（titleBarOverlay 同高 48）。
+   层级压在浮层（80）之上：对话框开着时顶条仍可拖窗，点它也不会误触遮罩关闭。 */
+.settings-titlebar {
+  position: fixed;
+  z-index: 90;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: var(--titlebar-height);
+  -webkit-app-region: drag;
+}
+
+.settings-nav {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
+  flex-direction: column;
+  gap: 2px;
+  min-height: 0;
+  padding: 0 var(--space-2) var(--space-3);
+  border-right: 1px solid var(--line);
+  background: var(--sidebar-bg);
+  overflow-y: auto;
 }
 
-/* 关闭钮是主题横条的末项（order:3）：右缘与右列卡片右缘同基线，
-   不再绝对定位悬在「面板 padding / 滚动条槽 / 横条让位」三套基线之间。 */
-.settings-section--theme .detail-close {
-  order: 3;
+/* 标题住在拖拽条那一行里：纯文字、不可点，不与拖拽冲突。 */
+.settings-nav-title {
+  display: flex;
+  align-items: center;
+  flex: none;
+  height: var(--titlebar-height);
+  padding: 0 10px;
+  color: var(--text);
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.settings-nav-item {
   flex: none;
 }
 
-.settings-eyebrow {
-  color: var(--text-tertiary);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
+/* 「关于」与上面的分类之间留一段弹性空白，钉在导航末尾。 */
+.settings-nav-spacer {
+  flex: 1;
+  min-height: 12px;
 }
 
-.settings-title {
-  margin: 4px 0 0;
+.settings-content {
+  min-width: 0;
+  padding: calc(var(--titlebar-height) + var(--space-4)) var(--space-6) var(--space-6);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/* 页面是一个 inline-size 容器：窄窗口下主题卡从六列折成两行三列。 */
+.settings-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  max-width: 640px;
+  container-type: inline-size;
+}
+
+.settings-page-title {
+  margin: 0 0 var(--space-2);
   color: var(--text);
   font-family: var(--font-display);
-  font-size: 24px;
+  font-size: 20px;
   font-weight: 600;
-  letter-spacing: -0.02em;
-  text-wrap: balance;
+  letter-spacing: -0.01em;
 }
 
-/* 分组节奏：组内紧（行距 8）、组间松（16）。单列靠 margin，两列靠 grid gap。
-   紧凑档定位走命名 grid-area，不再依赖 nth-child——加节挪节不再静默错乱。 */
-.settings-section {
+/* 分组卡片：surface-1 底 + line 描边，半径 12（层级递减：窗口 → 卡 → 控件）。
+   卡内的行与行之间一道细分隔线。 */
+.settings-card {
   min-width: 0;
-  margin-top: 0;
+  padding: 4px 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface-1);
 }
 
-.settings-group-label {
-  margin-bottom: 8px;
+.settings-card-label {
+  margin-top: 10px;
+  margin-bottom: 4px;
   color: var(--text-tertiary);
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.06em;
 }
 
-.settings-section--behavior .settings-group-label {
-  margin-bottom: 0;
+.settings-card > .settings-row {
+  padding: 8px 0;
 }
 
-.settings-section--behavior {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.settings-section--behavior .settings-row {
-  margin-top: 0;
-}
-
-/* side 内部组间靠 gap，section 自身的单列 margin 不叠加。 */
-.settings-side .settings-section {
-  margin-top: 0;
-}
-
-/* 右列行描述单行 ellipsis：错误/不支持文案替换描述落同一行（全文进 title），
-   条件行零增高——中英各档高度完全确定，一屏守卫不靠余量赌文案长度。 */
-.settings-side .settings-row-desc {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.settings-row-desc.is-error {
-  color: var(--danger);
-}
-
-/* 分组卡片：行为 / MCP / 备份三组各自成卡，材质与主题选项卡同源
-   （surface-1 底 + line 描边），左列拉伸留下的余白被卡框收住，
-   不再是裸奔的大洞。半径 12 介于面板 16 与按钮 8 之间，层级递减。 */
-.settings-section--behavior,
-.settings-section--backup,
-.settings-side .settings-section {
-  padding: 7px 12px;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: var(--surface-1);
-}
-
-/* 卡内描述不再锁 290px：半宽列里让句子吃满卡宽，少折一行是一行。 */
-.settings-section--behavior .settings-row-desc,
-.settings-section--backup .settings-row-desc,
-.settings-side .settings-row-desc {
-  max-width: none;
-}
-
-/* 语言下拉上移到主题标题行右侧，省一整行高度。 */
-/* 主题节 = 标题同行右半：色样横条 + 语言下拉 + 关闭钮末项。只留色样
-   （名字/气质进 title），20px 六枚 + 4px 隙 = 140px，加语言 92 + 隙 8
-   + 关闭钮 28 + 隙 8 = 276px ≤ 最窄两列半幅 285.5px（635px 面板档）。 */
-.settings-section--theme {
-  grid-area: theme;
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 8px;
-  min-width: 0;
-}
-
-.settings-section--theme .settings-row-title {
-  display: none;
-}
-
-.settings-theme-head {
-  order: 2;
-  flex: none;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-}
-
-/* 右列「服务与常规」：MCP + 常规设置包成一个 grid 单元，内部组间 12。
-   两组内容固定（开关/令牌块条件行除外），钉死两列档行高；会变高的
-   备份卡独住左列，展开被卡框吸收（见媒体块 contain:size 契约）。 */
-/* 右列拉伸吃满行高（行高本就由它定价，stretch 只是保险）；
-   两列任何状态同高（balanced 断言钉备份卡 vs 右列）。 */
-.settings-side {
-  grid-area: side;
-  align-self: stretch;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  min-width: 0;
-  margin-top: 0;
+.settings-card > .settings-row + .settings-row {
+  border-top: 1px solid var(--line);
 }
 
 .settings-row {
@@ -4673,10 +4708,8 @@ textarea {
 }
 
 /* 文字列（首个 div）min-width:0：flex 子项默认 min-width:auto，单行 nowrap
-   的长错误描述（热键被占用等）会把整行撑出卡宽 → 面板出横滚动条、底留白
-   多一槽（热键冲突环境下 settingsSymmetricEdges 回归的根因，基线即有）。
-   归零后描述的 ellipsis 才真生效：错误行零增高也零增宽。只动文字列，
-   按钮组（第二个 div）不受影响；网盘行的 main 本就自带 min-width:0。 */
+   的长错误描述（热键被占用等）会把整行撑出卡宽 → 内容区出横滚动条。
+   归零后描述的 ellipsis / 换行才真生效；只动文字列，按钮组不受影响。 */
 .settings-row > div:first-child {
   min-width: 0;
 }
@@ -4687,7 +4720,6 @@ textarea {
 }
 
 .settings-row-desc {
-  max-width: 290px;
   margin-top: 1px;
   color: var(--text-tertiary);
   font-size: 11px;
@@ -4695,10 +4727,9 @@ textarea {
   text-wrap: pretty;
 }
 
-/* 主题节描述不再单独占行：整句进「颜色主题」标题的 title 提示，
-   每枚色样的名字+气质进各自 title——低窗口省 21px，信息不丢。 */
-
-/* 语言下拉沿用文本字段的柔和聚焦（淡边 + 浅光晕）。 */
+.settings-row-desc.is-error {
+  color: var(--danger);
+}
 
 /* 语言下拉整族：触发器 + 自绘菜单。原生 select 的弹出层由系统绘制，
    深色主题下仍是白底蓝高亮；自绘后背景/描边/悬停全走主题令牌。 */
@@ -4733,7 +4764,7 @@ textarea {
   color: var(--text-tertiary);
 }
 
-/* 菜单锚在行内绝对定位：设置面板自身滚动，跟着行滚即可，
+/* 菜单锚在行内绝对定位：设置窗口的内容区自身滚动，跟着行滚即可，
    不需要视口级重定位。 */
 .settings-language-menu {
   position: absolute;
@@ -4794,24 +4825,33 @@ textarea {
   box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.07);
 }
 
-/* 色样横条：六枚一排（旧 2×3 卡片网格低窗口吃 156px / 单列 210px，
-   是设置页超帽滚动的最大一块）。高窗口竖排带名字，低窗口只留色样
-   并与标题同行（见媒体块）；名字+气质描述统一进 title 提示。 */
+/* 主题六选一：六张小卡一排（色样 + 名字）。设置还是半幅浮层时只放得下六枚
+   20px 色样、名字藏在 title 里；独立窗口一页只有「外观」，名字回到卡面上，
+   气质描述仍进 title。窄窗口（页面 ≤520px）折成两行三列，英文名不挤。 */
 .theme-picker {
-  order: 1;
-  display: flex;
-  gap: 4px;
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
+  margin: 10px 0 12px;
+}
+
+@container (max-width: 520px) {
+  .theme-picker {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 
 .theme-option {
   position: relative;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  padding: 2px;
+  gap: 8px;
+  padding: 12px 2px 9px;
   border: 1px solid var(--line);
   border-radius: 10px;
-  background: var(--surface-1);
-  color: var(--text);
+  background: var(--surface-2);
+  color: var(--text-secondary);
   text-align: center;
   cursor: default;
   transition:
@@ -4840,38 +4880,36 @@ textarea {
 .theme-swatch {
   position: relative;
   flex: none;
-  width: 20px;
-  height: 20px;
+  width: 32px;
+  height: 32px;
   border: 1px solid var(--line-strong);
-  border-radius: 6px;
+  border-radius: 8px;
   overflow: hidden;
 }
 
 .theme-swatch-surface {
   position: absolute;
-  left: 3px;
-  right: 3px;
-  bottom: 3px;
-  height: 7px;
-  border-radius: 3px;
+  left: 5px;
+  right: 5px;
+  bottom: 5px;
+  height: 11px;
+  border-radius: 4px;
 }
 
 .theme-swatch-dot {
   position: absolute;
-  top: 4px;
-  right: 4px;
-  width: 5px;
-  height: 5px;
+  top: 6px;
+  right: 6px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
 }
 
-/* 对勾压色样右上角当徽章：横条没有横排余位放独立对勾列。
-   色样水平居中，故对勾以中线锚定，允许 2px 出血。 */
+/* 对勾压在卡片右上角当徽章。 */
 .theme-option > .theme-option-check {
   position: absolute;
-  top: 3px;
-  left: 50%;
-  margin-left: 0;
+  top: 4px;
+  right: 4px;
   display: grid;
   place-items: center;
   width: 12px;
@@ -4879,6 +4917,18 @@ textarea {
   border-radius: 50%;
   background: var(--accent);
   color: var(--on-accent);
+}
+
+.theme-option-name {
+  max-width: 100%;
+  overflow: hidden;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.theme-option.selected .theme-option-name {
+  color: var(--text);
 }
 
 /* ---------- 标题栏主题菜单 ---------- */
@@ -5010,11 +5060,6 @@ textarea {
   line-height: 1.45;
 }
 
-.settings-static {
-  color: var(--text-secondary);
-  font-size: 11px;
-}
-
 .settings-error {
   margin-top: 8px;
   color: var(--danger);
@@ -5027,9 +5072,8 @@ textarea {
   font-size: 11px;
 }
 
-/* 2×2 网格 + nowrap：半宽列里四连排会把「导入 CSV / 打开数据目录」
-   挤成钮内折行；网格每钮宽度充裕，中英都单行（最长 Open data folder
-   约 121px < 最窄档钮宽约 123px）。 */
+/* 2×2 网格 + nowrap：四连排在最窄窗口（内容区约 376px）里会把「打开数据
+   目录 / Open data folder」挤成钮内折行；网格每钮宽度充裕，中英都单行。 */
 .backup-actions {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -5064,7 +5108,8 @@ textarea {
   opacity: 0.4;
 }
 
-/* 按钮分级：导出实心（安全高频）、导入描边、重新生成危险色描边。 */
+/* 按钮分级：导出实心（安全高频）、导入/另存为描边、不可恢复的操作
+   （重新生成令牌、删除自动备份）危险色红字。 */
 .backup-btn--primary {
   background: var(--accent);
   border-color: var(--accent);
@@ -5081,35 +5126,9 @@ textarea {
   color: var(--danger);
 }
 
-/* 自动备份管理入口：固定一行住分组标题行右侧（「自动备份 · 共 N 份 [管理…]」），
-   点击开模态对话框——列表不再内联展开，任何状态备份卡高度恒定。 */
-.settings-group-label--split {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.auto-backup-manage {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 0;
-  border: none;
-  background: none;
-  color: var(--text-secondary);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  cursor: default;
-  transition: color 0.16s;
-}
-
-.auto-backup-manage:hover {
-  color: var(--accent);
-}
-
-/* 「管理…」常驻强调色：固定行里一眼可辨的可点部分。 */
+/* 自动备份管理入口：「自动备份 · 共 N 份」行的右侧一枚小按钮，点击开模态
+   对话框——列表不再内联展开。 */
+/* 「管理…」常驻强调色：这一行里一眼可辨的可点部分。 */
 .auto-backup-manage-cta {
   color: var(--accent);
 }
@@ -5169,17 +5188,17 @@ textarea {
   color: var(--danger);
 }
 
-/* 令牌块：短掩码 + 操作一行、反馈槽一行，共两行恒定。
-   用法说明住常驻反馈槽（单行），不再独立占行。 */
+/* 令牌块：住在开关行下方，一道分隔线隔开；掩码盒 / 反馈槽 / 操作三段同行。 */
 .mcp-token {
-  margin-top: 6px;
+  margin-top: 0;
+  padding: 8px 0 10px;
+  border-top: 1px solid var(--line);
 }
 
-/* 掩码与操作同行：掩码贴内容收窄居左，按钮右对齐吃剩余空间。 */
 .mcp-token-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   min-width: 0;
 }
 
@@ -5196,13 +5215,13 @@ textarea {
   flex: none;
 }
 
-/* 自适应短掩码盒：flex:1 吃掉行内剩余宽度（整行两端对齐，左贴卡左缘、
-   按钮组贴右缘，中间无死白）；盒内头尾各 k hex 由 JS 按盒宽算（等宽 0.6em
-   advance，k clamp [4,32] 保底头 4 尾 4）填满整盒单行 nowrap；中段照藏，
-   盒高恒一行不随状态跳。min-width:0 + ellipsis 兜底极窄卡。用法说明在 title。 */
+/* 自适应短掩码盒：宽度按「sk- + 头 12 + … + 尾 12」的内容定（等宽 0.6em
+   advance + 内边距与边框），头尾各 k hex 由 JS 按盒宽算、k clamp [4,12]——
+   旧面板的半幅盒宽天然只到 k≈12，独立窗口是整页宽，不封顶会把 64 位里的
+   61 位亮出来。中段照藏；盒高恒一行不随状态跳。用法说明在 title。 */
 .mcp-token-box {
-  flex: 1;
-  min-width: 0;
+  flex: none;
+  width: calc(28 * 0.6em + 20px);
   display: block;
   padding: 6px 8px;
   border: 1px solid var(--line);
@@ -5217,10 +5236,15 @@ textarea {
   text-overflow: ellipsis;
 }
 
-/* 常驻反馈槽：默认落单行用法说明，提示来了替换 2.6s 再还原。
-   nowrap + ellipsis 钉死单行（长错误全文进 title），槽高恒定 = 零抖动。 */
+/* 常驻反馈槽：默认落单行用法说明，提示来了替换 2.6s 再还原。吃掉掩码盒与
+   按钮组之间的余宽；nowrap + ellipsis 钉死单行（长错误全文进 title），
+   槽高恒定 = 零抖动。 */
 .mcp-token-slot {
+  flex: 1;
+  min-width: 0;
+  margin-top: 0;
   min-height: 1.5em;
+  line-height: 1.5;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -5253,172 +5277,120 @@ textarea {
 .about-credit-note {
   margin-top: 2px;
   color: var(--text-tertiary);
-  font-size: 10px;
+  font-size: 11px;
   line-height: 1.5;
 }
 
-/* 关于与许可：页脚上方浮层。绝对定位脱离布局流——展开不增高、不改滚动
-   状态，滚动容器收起时 clamp scrollTop 跳视的根因从构造上消失。
-   锚在页脚（position:relative）上随内容一起滚；向上弹出盖住组卡是_transient_
-   披露的预期行为。材质走 panel-bg + line-strong + 单层软阴影。 */
-.settings-about {
-  position: absolute;
-  bottom: calc(100% + 8px);
-  left: 0;
-  right: 0;
-  z-index: 5;
-  max-height: min(320px, 60vh);
-  overflow-y: auto;
-  padding: 12px 14px;
-  border: 1px solid var(--line-strong);
-  border-radius: 12px;
-  background: var(--panel-bg);
-  box-shadow: 0 12px 32px rgba(var(--shadow-rgb), 0.35);
-}
-
-.settings-about-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.settings-about-chev {
-  transform: rotate(-90deg);
-  transition: transform 0.16s;
-}
-
-.settings-about-chev.open {
-  transform: rotate(0deg);
-}
-
-.settings-footer {
-  grid-area: footer;
-  position: relative;
-  /* 与 row-gap 8 合出 18px 行间隙，收容脱流的状态单行槽（16.5px）。 */
-  margin-top: 10px;
-  padding-top: 8px;
-  border-top: 1px solid var(--line);
-  color: var(--text-tertiary);
-  font-size: 11px;
-  letter-spacing: 0.02em;
-}
-
-/* 版本号走等宽，与日期/时间数字同一套排版；父级的字距对数字不适用。 */
-.settings-version {
+/* 声明路径行：语言中立的技术串（同字体名先例，不进词典），mono 呈现。 */
+.about-credit-paths {
+  display: block;
+  margin-top: 2px;
   font-family: var(--font-mono);
-  letter-spacing: normal;
+  font-size: 11px;
 }
 
-/* 左列备份卡：contain:size 让 intrinsic 尺寸归零、不参与行高定价
-   （行高由右列固定内容钉死）；stretch 吃满整行高。状态行落字只填
-   卡内余白——外几何/页脚/右列逐像素不动（settingsBackupNoShift）。
-   自动备份列表已搬进模态对话框，卡内不再有展开体。
-   overflow-y:auto 是兜底（极长错误文案），滚动条槽常驻防横向抖动。 */
-.settings-section--backup {
-  grid-area: backup;
-  align-self: stretch;
+/* ---------- 设置窗口「关于」页 ---------- */
+/* 品牌行星标是设计系统放行的品牌渐变落点。 */
+.about-brand-card {
   display: flex;
   flex-direction: column;
-  contain: size;
-  min-height: 0;
-  overflow-y: auto;
-  scrollbar-gutter: stable;
+  gap: 4px;
+  padding: 16px;
 }
 
-/* 组描述最多两行（英文三行会挤占卡内余白），全文进 title 提示；
-   中文本就两行，视觉不变。 */
-.settings-section--backup > .settings-row-desc {
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+/* 品牌行：星标 + 名字（display 字体）+ mono 版本，About 页惯例语义。 */
+.about-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text);
 }
 
-/* 状态槽单行 ellipsis，错误/恢复提示只换文案不增行；顶部细分隔线
-   让它在备份卡里自成一组，但共享同一卡框，不增加设置页行高。
-   选择按钮收成 24px 高，与 22px 开关同一视觉档。 */
-.settings-mirror {
+.about-brand-star {
   flex: none;
-  margin-top: 8px;
-  padding-top: 8px;
-  border-top: 1px solid var(--line);
 }
 
-.settings-mirror .settings-row {
+.about-brand-name {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.about-brand-sep {
+  color: var(--text-tertiary);
+}
+
+/* 版本号归 mono（counts/timestamps 同类），随注脚色阶保持安静。 */
+.about-brand-version {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+/* 致谢卡：字体/图标行 + 声明路径 + 右下角「打开声明目录」。 */
+.settings-card .about-credits {
+  padding: 10px 0 2px;
+}
+
+.settings-card-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding: 2px 0 12px;
+}
+
+/* 数据存放位置：独立卡片里的一行（标题 + 路径同排，路径占余宽 ellipsis）。
+   行高不随状态文案变化，pendingRestart/错误只替换文案。 */
+.settings-dataloc .settings-row {
+  padding: 6px 0;
+}
+
+.settings-dataloc .settings-row {
   gap: 10px;
   align-items: center;
 }
 
-.settings-mirror-main {
+.settings-dataloc-main {
+  display: flex;
   flex: 1;
   min-width: 0;
-}
-
-.settings-mirror-title {
-  display: flex;
   align-items: baseline;
   gap: 8px;
-  min-width: 0;
-  white-space: nowrap;
 }
 
-.settings-mirror-title > span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.mirror-import-link {
+.settings-dataloc-title {
   flex: none;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--accent);
-  font: inherit;
-  font-size: 11px;
-  line-height: 1.2;
+  color: var(--text);
+  font-size: 13px;
   white-space: nowrap;
-  cursor: pointer;
 }
 
-.mirror-import-link:hover:not(:disabled) {
-  text-decoration: underline;
-}
-
-.mirror-import-link:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
-
-.settings-mirror-status {
-  max-width: none;
-  margin-top: 2px;
+.settings-dataloc-path {
+  flex: 1;
+  min-width: 0;
+  color: var(--text-tertiary);
+  font-size: 11px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.settings-mirror-actions {
+.settings-dataloc-path.is-error {
+  color: var(--danger);
+}
+
+/* 行内右侧动作组 + 24px 小按钮：备份卡内单行（数据存放位置）的布局与
+   尺寸语言；镜像行下线后只剩数据存放位置行使用。 */
+.settings-row-actions {
   display: flex;
   flex: none;
   align-items: center;
   gap: 6px;
 }
 
-.settings-mirror-choose {
+.settings-row-btn-sm {
   height: 24px;
   padding: 0 8px;
   font-size: 11px;
-}
-
-/* 状态槽脱流住页脚分隔线上方行间隙（footer margin-top 10 + row-gap 8 = 18
-   ≥ 单行 16.5）：旧 in-flow 末行让底留白 = 10+8+16.5 ≈ 34.5 vs 顶 10
-   （用户报障上下不对称）；脱流后上下留白各 10 逐像素对称，落槽仍零增高。 */
-.settings-footer .update-footer-status {
-  position: absolute;
-  bottom: calc(100% + 1px);
-  left: 0;
-  right: 0;
-  margin-top: 0;
 }
 
 .switch {
@@ -5463,10 +5435,9 @@ textarea {
 }
 
 /* ---------- confirm dialog ---------- */
-/* 彻底删除 / 清空回收站的二次确认。浮层词汇照 settings-overlay / settings-panel
-   （command-bg 玻璃 + 同一层阴影），层级压在设置面板（70）之上；命令面板（60）
-   在 app-body  stacking context 之外，但 paletteOpen 时对话框会自动关闭，
-   两者不会同场。 */
+/* 彻底删除 / 清空回收站的二次确认。浮层词汇是 command-bg 玻璃 + 同一层阴影；
+   命令面板（60）在 app-body  stacking context 之外，但 paletteOpen 时对话框
+   会自动关闭，两者不会同场。设置窗口里它们盖在整扇窗口上（顶条除外）。 */
 
 .confirm-overlay {
   position: fixed;
@@ -5517,9 +5488,9 @@ textarea {
 
 /* ---------- 自动备份管理对话框 ---------- */
 
-/* 复用 confirm-overlay/panel 浮层语言（80 压设置面板 70），加宽放
+/* 复用 confirm-overlay/panel 浮层语言，加宽放
    日期 + 大小 + 双按钮行。列表对话框内滚动（max-height 帽），21 份
-   也不裁切、不撑破视口；设置面板几何全程不动。 */
+   也不裁切、不撑破视口；设置窗口的页面几何全程不动。 */
 .backup-dialog-panel {
   width: min(480px, calc(100vw - 48px));
   max-height: calc(100vh - 96px);
@@ -5532,6 +5503,49 @@ textarea {
   color: var(--text);
   font-size: 15px;
   font-weight: 650;
+}
+
+/* 周期 chips：与主题色样同族的选择语言，即点即存（meta），无弹层。
+   选中态走 accent 淡底 + accent 文字，不是色块填充——安静分层。 */
+.backup-interval-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.backup-interval-label {
+  flex: none;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.backup-interval-chips {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.backup-interval-chip {
+  flex: 1;
+  padding: 4px 6px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-1);
+  color: var(--text-secondary);
+  font-size: 11px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.backup-interval-chip:hover {
+  background: var(--hover);
+}
+
+.backup-interval-chip.is-active {
+  border-color: rgba(var(--accent-rgb), 0.5);
+  background: rgba(var(--accent-rgb), 0.12);
+  color: var(--accent);
 }
 
 /* 列表自带滚动帽：行再多也在对话框内滚，首行免滚可见。 */
@@ -5783,44 +5797,35 @@ textarea {
   filter: none;
 }
 
-/* 页脚里的更新入口：内联文字按钮，默认零增高保住设置面板一屏。 */
-.update-footer-btn {
-  padding: 0;
-  border: none;
-  background: none;
-  color: var(--text-secondary);
-  font-size: inherit;
-  font-family: inherit;
-  cursor: default;
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
-
-.update-footer-btn:hover:not(:disabled) {
-  color: var(--text);
-}
-
-.update-footer-btn:disabled {
-  opacity: 0.5;
-}
-
-.update-footer-btn.ready {
+/* 关于页的更新入口：一枚小按钮（复用 backup-btn 的样子，已下载时换「查看
+   更新」并点亮强调色）；状态槽常驻一行，检查结果落槽不撑高页面——单行
+   ellipsis，长错误全文进 title。 */
+.update-action.ready {
+  border-color: rgba(var(--accent-rgb), 0.3);
   color: var(--accent);
 }
 
-/* 常驻占位槽：空槽也占一行高，检查结果落槽不撑面板（防重新居中抖动）。
-   错误细节复用同槽，is-error 只换色不加行；单行 ellipsis 钉死槽高
-   （长错误全文进 title），任何状态文案都不改面板高度。 */
-.update-footer-status {
-  margin-top: 6px;
+.settings-update-status {
+  display: block;
   min-height: 1.5em;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.update-footer-status.is-error {
+.settings-update-status.is-error {
   color: var(--danger);
+}
+
+/* 卡内的状态/错误行与按钮组：上下各留一口气，不贴卡边。 */
+.settings-card .backup-actions {
+  margin: 10px 0 12px;
+}
+
+.settings-card > .settings-hint,
+.settings-card > .settings-error {
+  margin-top: 10px;
+  margin-bottom: 10px;
 }
 
 /* ---------- stats ---------- */

@@ -8,8 +8,11 @@ import { writeFile } from 'node:fs/promises'
 import { createSplashWindow } from '../splash'
 import { THEME_ORDER } from '../../shared/themes'
 import { checkRemindersNow, dismissReminder, getReminderWindow } from '../reminders'
+import { setMcpEnabled } from '../mcp'
 import { getCurrentLocale } from '../locale'
+import type { SettingsSection } from '../../shared/settings'
 import { harnessContext } from './context'
+import { closeSettingsAndSettle, openSettingsFor } from './settings'
 
 // 截图脚本按文本找元素：中英文界面都要命中，候选词并列（中文在前，冒烟不受影响）。
 function findByText(selector: string, candidates: string[]): string {
@@ -27,19 +30,45 @@ async function captureTo(filename: string): Promise<void> {
   await writeFile(join(process.cwd(), filename), image.toPNG())
 }
 
-async function captureSettingsScreenshot(filename: string): Promise<void> {
+// 设置窗口各页的截图模式（light- 前缀变体同理）：设置是独立的子窗口，
+// 截的是它自己的 webContents，不是主窗口。
+const SETTINGS_SHOTS: Record<string, SettingsSection> = {
+  settings: 'appearance',
+  'settings-general': 'general',
+  'settings-data': 'data',
+  'settings-mcp': 'mcp',
+  'settings-about': 'about'
+}
+
+async function captureSettingsScreenshot(filename: string, section: SettingsSection): Promise<void> {
   const { mainWindow } = harnessContext()
   if (!mainWindow) return
 
-  await mainWindow.webContents.executeJavaScript(
-    `document.querySelector('.settings-item')?.click()`
-  )
-  await new Promise((resolve) => setTimeout(resolve, 700))
+  // MCP 页要连令牌块一起入镜：先经生产入口启用，拍完恢复关闭（meta 回到 off）。
+  const mcpShot = section === 'mcp'
+  if (mcpShot) setMcpEnabled(true)
+  try {
+    const settings = await openSettingsFor(section)
+    if (!settings) return
+    await new Promise((resolve) => setTimeout(resolve, 500))
+    const image = await settings.webContents.capturePage()
+    await writeFile(join(process.cwd(), filename), image.toPNG())
+  } finally {
+    await closeSettingsAndSettle()
+    if (mcpShot) setMcpEnabled(false)
+  }
+}
+
+// 侧栏收起态（仅深色档）：点真实的收起按钮，拍完点回去，profile 不留状态。
+async function captureSidebarCollapsedScreenshot(filename: string): Promise<void> {
+  const { mainWindow } = harnessContext()
+  if (!mainWindow) return
+
+  await mainWindow.webContents.executeJavaScript(`document.querySelector('.sidebar-collapse')?.click()`)
+  await new Promise((resolve) => setTimeout(resolve, 450))
   await captureTo(filename)
-  await mainWindow.webContents.executeJavaScript(
-    `document.querySelector('.detail-close')?.click()`
-  )
-  await new Promise((resolve) => setTimeout(resolve, 200))
+  await mainWindow.webContents.executeJavaScript(`document.querySelector('.sidebar-collapse')?.click()`)
+  await new Promise((resolve) => setTimeout(resolve, 300))
 }
 
 async function captureThemePaletteScreenshot(filename: string): Promise<void> {
@@ -389,7 +418,7 @@ export async function captureDemo(mode: string): Promise<void> {
         await captureTo(`screenshot-theme-${id}.png`)
         await captureThemeMenuScreenshot(`screenshot-theme-menu-${id}.png`)
       }
-      await captureSettingsScreenshot('screenshot-theme-picker.png')
+      await captureSettingsScreenshot('screenshot-theme-picker.png', 'appearance')
       await mainWindow.webContents.executeJavaScript(
         `window.__polarisSetTheme && window.__polarisSetTheme('dark')`
       )
@@ -440,8 +469,8 @@ export async function captureDemo(mode: string): Promise<void> {
         await captureReminderScreenshot('screenshot-light-reminder.png')
       } else if (mode === 'light-reminder-detail') {
         await captureReminderDetailScreenshot('screenshot-light-reminder-detail.png')
-      } else if (mode === 'light-settings') {
-        await captureSettingsScreenshot('screenshot-light-settings.png')
+      } else if (SETTINGS_SHOTS[mode.slice(6)]) {
+        await captureSettingsScreenshot(`screenshot-light-${mode.slice(6)}.png`, SETTINGS_SHOTS[mode.slice(6)])
       } else if (mode === 'light-theme-menu') {
         await captureThemeMenuScreenshot('screenshot-light-theme-menu.png')
       } else if (mode === 'light-palette-theme') {
@@ -492,8 +521,10 @@ export async function captureDemo(mode: string): Promise<void> {
       await captureReminderScreenshot('screenshot-reminder.png')
     } else if (mode === 'reminder-detail') {
       await captureReminderDetailScreenshot('screenshot-reminder-detail.png')
-    } else if (mode === 'settings') {
-      await captureSettingsScreenshot('screenshot-settings.png')
+    } else if (SETTINGS_SHOTS[mode]) {
+      await captureSettingsScreenshot(`screenshot-${mode}.png`, SETTINGS_SHOTS[mode])
+    } else if (mode === 'sidebar-collapsed') {
+      await captureSidebarCollapsedScreenshot('screenshot-sidebar-collapsed.png')
     } else if (mode === 'theme-menu') {
       await captureThemeMenuScreenshot('screenshot-theme-menu.png')
     } else if (mode === 'palette-theme') {
