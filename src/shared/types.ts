@@ -332,6 +332,8 @@ export type PolarisApi = {
     export: () => Promise<ExportResult>
     import: () => Promise<ImportResult>
     exportCsv: () => Promise<ExportResult>
+    /** 导出 RFC 5545 日历（.ics）：有日期的活任务 → VEVENT（全量单向出口）。 */
+    exportIcs: () => Promise<ExportResult>
   }
   backups: {
     /** 列出 userData/backups 下的自动备份（新→旧），只读元数据不解析内容。 */

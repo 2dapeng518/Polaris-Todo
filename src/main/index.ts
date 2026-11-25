@@ -20,6 +20,7 @@ import {
   writeDbSyncStamp
 } from './db'
 import { csvExportFromBackup } from '../shared/csvExport'
+import { icsExportFromBackup } from '../shared/icsExport'
 import { registerIpc } from './ipc'
 import { disposeMcp, getMcpState, getMcpToken, initMcp, regenerateMcpToken, setMcpEnabled } from './mcp'
 import {
@@ -661,6 +662,27 @@ app.whenReady().then(() => {
         defaultPath: `polaris-todo-${stamp}.csv`,
         filters: [
           { name: translate(getCurrentLocale(), 'native.csvFilter'), extensions: ['csv'] }
+        ]
+      }, event.sender)
+      if (target.canceled || !target.filePath) return { saved: false }
+      await writeFileAtomic(target.filePath, text)
+      return { saved: true, path: target.filePath }
+    } catch (error) {
+      return { saved: false, error: String(error) }
+    }
+  })
+
+  // ICS 导出（P4.2）：RFC 5545 日历交换格式（shared/icsExport），有日期的
+  // 活任务 → VEVENT；单向出口，回收站与无日期任务不随 ICS 走。
+  ipcMain.handle('data:export-ics', async (event) => {
+    try {
+      const { text } = icsExportFromBackup(exportBackup())
+      const stamp = new Date().toISOString().slice(0, 10).replace(/-/g, '')
+      const target = await showSaveDialogSafe({
+        title: translate(getCurrentLocale(), 'native.icsExportTitle'),
+        defaultPath: `polaris-calendar-${stamp}.ics`,
+        filters: [
+          { name: translate(getCurrentLocale(), 'native.icsFilter'), extensions: ['ics'] }
         ]
       }, event.sender)
       if (target.canceled || !target.filePath) return { saved: false }

@@ -80,6 +80,10 @@ export const settings = {
   'settings.csvExportTitle': '导出 Csv 格式 CSV（含项目 / 标签 / 子任务 / 完成态）',
   'settings.csvExported': '已导出 CSV 文件',
   'settings.csvExportFailed': '导出失败：{error}',
+  'settings.icsExport': '导出 ICS',
+  'settings.icsExportTitle': '导出 RFC 5545 日历文件（.ics，可导入日历应用或订阅）',
+  'settings.icsExported': '已导出 ICS 日历文件',
+  'settings.icsExportFailed': '导出失败：{error}',
 
   'settings.licenseLine': '以 MIT 许可发布',
   'settings.fontsValue': 'Inter · Manrope · Noto Sans SC · Geist Mono（均为 SIL OFL\u00A01.1）',

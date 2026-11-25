@@ -319,6 +319,10 @@ export const en: Messages = {
   'settings.csvExportTitle': 'Export a standard-format CSV (projects / tags / subtasks / completion included)',
   'settings.csvExported': 'CSV file exported',
   'settings.csvExportFailed': 'Export failed: {error}',
+  'settings.icsExport': 'Export ICS',
+  'settings.icsExportTitle': 'Export an RFC 5545 calendar file (.ics, importable into calendar apps or subscriptions)',
+  'settings.icsExported': 'ICS calendar file exported',
+  'settings.icsExportFailed': 'Export failed: {error}',
 
   'settings.licenseLine': 'Released under the MIT License',
   'settings.fontsValue': 'Inter · Manrope · Noto Sans SC · Geist Mono (all SIL OFL\u00A01.1)',
@@ -430,6 +434,8 @@ export const en: Messages = {
   'native.importTitle': 'Import backup',
   'native.csvFilter': 'CSV files',
   'native.csvExportTitle': 'Export CSV (Csv format)',
+  'native.icsExportTitle': 'Export ICS calendar',
+  'native.icsFilter': 'ICS calendar files',
   'native.jsonFilter': 'Polaris backup',
   'native.dbCorruptTitle': 'Database corrupted — quarantined',
   'native.dbCorruptDetail':

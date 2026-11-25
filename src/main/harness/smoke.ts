@@ -62,6 +62,7 @@ import { getCurrentTheme, themeBackgroundColor } from '../theme'
 import { checkRemindersNow, dismissReminder, getReminderWindow } from '../reminders'
 import { getTrayMenuLabels } from '../tray'
 import { CSV_EXPORT_HEADERS, csvExportFromBackup, formatCsvDue } from '../../shared/csvExport'
+import { icsExportFromBackup } from '../../shared/icsExport'
 import { harnessContext } from './context'
 import { settledFrames, waitForCondition } from './util'
 import { closeSettingsAndSettle, openSettingsFor, showSettingsSection, withSettings } from './settings'
@@ -4518,7 +4519,7 @@ export async function runSmokeTest(): Promise<void> {
         text.includes(wantDone + '\r\n')
       csvExportWorks =
         ui?.found === true && ui?.noSplit === true && ui?.noPop === true &&
-        JSON.stringify(ui?.buttons) === JSON.stringify(['导出备份', '导入备份', '导出 CSV', '打开数据目录']) &&
+        JSON.stringify(ui?.buttons) === JSON.stringify(['导出备份', '导入备份', '导出 CSV', '导出 ICS', '打开数据目录']) &&
         linesOk
       if (!csvExportWorks) console.error('CSV_EXPORT_FAIL', JSON.stringify({ ui, linesOk }))
     } catch (error) {
@@ -4530,6 +4531,62 @@ export async function runSmokeTest(): Promise<void> {
       }
       if (csvFixtureProject) deleteProject(csvFixtureProject)
       if (csvFixtureTag) deleteTag(csvFixtureTag)
+    }
+
+    // ICS 导出（P4.2）：主进程 fixture 与字面量逐行对比（同 csvExportWorks 的
+    // 模式）；同一段 UI 探针顺带确认第五钮在网格里（上面 csvExportWorks 已断言
+    // 按钮清单含「导出 ICS」，这里断言 ICS 文本本身）。
+    let icsExportWorks = false
+    const icsFixtureIds: string[] = []
+    try {
+      const due = new Date(2026, 11, 25, 9, 0, 0, 0)
+      const timed = createTask({
+        title: '冒烟ICS; 带分号',
+        dueAt: due.toISOString(),
+        startAt: due.toISOString(),
+        endAt: new Date(2026, 11, 25, 10, 30, 0, 0).toISOString(),
+        priority: 2
+      })
+      icsFixtureIds.push(timed.id)
+      updateTask({ id: timed.id, notes: '备注, 含逗号' })
+      const allDay = createTask({
+        title: '冒烟ICS全天',
+        dueAt: new Date(2026, 11, 26, 0, 0, 0, 0).toISOString(),
+        startAt: new Date(2026, 11, 26, 0, 0, 0, 0).toISOString(),
+        endAt: new Date(2026, 11, 27, 23, 59, 0, 0).toISOString(),
+        allDay: true
+      })
+      icsFixtureIds.push(allDay.id)
+      const done = createTask({ title: '冒烟ICS完成', dueAt: due.toISOString() })
+      icsFixtureIds.push(done.id)
+      updateTask({ id: done.id, completed: true })
+      const noDate = createTask({ title: '冒烟ICS无日期' })
+      icsFixtureIds.push(noDate.id)
+
+      const { text, count } = icsExportFromBackup(exportBackup())
+      // 冒烟时钟固定：DTSTAMP 用导出真实时刻，不能钉字面量，改用形状断言。
+      const stampShape = /^DTSTAMP:\d{8}T\d{6}Z$/m
+      // UTC 字面量：本机 UTC+8 → 2026-12-25 09:00 本地 = 20261225T010000Z。
+      // DTSTAMP 夹在 UID 与 DTSTART 之间，逐段断言（每段都是真实连续行序）。
+      const textOk =
+        text.startsWith('BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//Polaris//Polaris Todo//CN\r\nCALSCALE:GREGORIAN\r\nX-WR-CALNAME:Polaris\r\n') &&
+        text.endsWith('END:VCALENDAR\r\n') &&
+        stampShape.test(text) &&
+        text.includes(`UID:${timed.id}@polaris.local\r\n`) &&
+        text.includes('DTSTART:20261225T010000Z\r\nDTEND:20261225T023000Z\r\nSUMMARY:冒烟ICS\\; 带分号\r\nDESCRIPTION:备注\\, 含逗号\r\nPRIORITY:5\r\nSTATUS:CONFIRMED\r\n') &&
+        text.includes(`BEGIN:VEVENT\r\nUID:${allDay.id}@polaris.local\r\n`) &&
+        text.includes('DTSTART;VALUE=DATE:20261226\r\nDTEND;VALUE=DATE:20261228\r\nSUMMARY:冒烟ICS全天\r\nPRIORITY:0\r\nSTATUS:CONFIRMED\r\n') &&
+        text.includes('X-POLARIS-COMPLETED:TRUE') &&
+        !text.includes('冒烟ICS无日期')
+      icsExportWorks = textOk && count >= 3
+      if (!icsExportWorks) console.error('ICS_EXPORT_FAIL', JSON.stringify({ textOk, count, sample: text.slice(0, 400) }))
+    } catch (error) {
+      console.error('ICS_EXPORT_ERROR', error)
+    } finally {
+      for (const id of icsFixtureIds) {
+        deleteTask(id)
+        deleteTaskForever(id)
+      }
     }
 
     // 设置页备份零抖动（独立窗口版）：列表住对话框，开/关 [管理…] 模态前后
@@ -5838,6 +5895,7 @@ export async function runSmokeTest(): Promise<void> {
           matrixWorks,
           calendarWorks,
           calendarSuiteWorks,
+          icsExportWorks,
           parseGrammarTable: parseAssertions.grammar,
           parseInvariants: parseAssertions.invariants,
           parseFormatNull: parseAssertions.format,

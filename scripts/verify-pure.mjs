@@ -26,6 +26,7 @@ const { isPurgeable } = await import('../src/shared/retention.ts')
 // recurrence 经同一套 ts-resolve-hooks 解析（'rrule' 包依赖由钩子/Node 默认解析接住）。
 const { buildCustomRecurrence, nextMonthlyClamped, nextOccurrence, parseCustomRecurrence } = await import('../src/shared/recurrence.ts')
 const { CSV_EXPORT_HEADERS, buildCsvExport, csvExportFromBackup, csvField, formatCsvDue } = await import('../src/shared/csvExport.ts')
+const { buildIcsExport, icsDate, icsEscape, icsExportFromBackup, icsFold, icsInstant } = await import('../src/shared/icsExport.ts')
 const { isAutoBackupFileName } = await import('../src/shared/backupNames.ts')
 
 let fail = 0
@@ -740,6 +741,89 @@ console.log('=== 自定义重复：parse/build 往返真值表 ===')
   ].join('\r\n') + '\r\n'
   const aok = assembled === wantAssembled
   assert(aok, 'csvExportFromBackup：过滤回收站 + 项目/标签/子任务 join' + (aok ? '' : `（实得 ${JSON.stringify(assembled)}）`))
+}
+
+// ---------- ICS 导出：escaping + UTC 即刻 + 全天排他 DTEND + 优先级 + 过滤 + 字节折叠 ----------
+// 与 smoke.ts 的 icsExportWorks 守卫互为镜像，改一处另一处跟着改。
+{
+  const esc = [
+    ['plain', 'plain'],
+    ['a;b', 'a\\;b'],
+    ['a,b', 'a\\,b'],
+    ['a\\b', 'a\\\\b'],
+    ['line1\nline2', 'line1\\nline2'],
+    ['a\r\nb', 'a\\nb']
+  ]
+  for (const [input, want] of esc) {
+    const got = icsEscape(input)
+    assert(got === want, `icsEscape(${JSON.stringify(input)}) = ${JSON.stringify(want)}` + (got === want ? '' : `（实得 ${JSON.stringify(got)}）`))
+  }
+  // UTC 即刻与时区无关（getUTC*）：2026-11-25 09:00 本地（UTC+8）→ 010000Z。
+  assert(icsInstant('2026-11-25T09:00:00') === '20261125T010000Z', 'icsInstant UTC 基本格式带 Z')
+  assert(icsDate(new Date(2026, 11, 25)) === '20261225', 'icsDate 本地日基本格式')
+  const stamp = new Date(Date.UTC(2026, 10, 25, 2, 0, 0))
+  const mk = (over = {}) => ({
+    id: 't-1',
+    title: '事件甲',
+    notes: '',
+    priority: 2,
+    dueAt: '2026-11-25T09:00:00',
+    startAt: '2026-11-25T09:00:00',
+    endAt: '2026-11-25T10:30:00',
+    allDay: false,
+    completed: false,
+    projectName: null,
+    tags: [],
+    ...over
+  })
+  const text = buildIcsExport([mk()], stamp)
+  const wantText = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//Polaris//Polaris Todo//CN',
+    'CALSCALE:GREGORIAN',
+    'X-WR-CALNAME:Polaris',
+    'BEGIN:VEVENT',
+    'UID:t-1@polaris.local',
+    'DTSTAMP:20261125T020000Z',
+    'DTSTART:20261125T010000Z',
+    'DTEND:20261125T023000Z',
+    'SUMMARY:事件甲',
+    'PRIORITY:5',
+    'STATUS:CONFIRMED',
+    'END:VEVENT',
+    'END:VCALENDAR'
+  ].join('\r\n') + '\r\n'
+  assert(text === wantText, 'ICS 全文逐字相等：PRODID/UTC 即刻/优先级 2→5' + (text === wantText ? '' : `（实得 ${JSON.stringify(text)}）`))
+  // 全天：DTEND 排他（两天事件 → 结束日 +1）；优先级 3→1、1→9、0→0；完成标记；无日期过滤。
+  const allDayText = buildIcsExport([
+    mk({ id: 't-2', title: '全天跨两天', allDay: true, startAt: '2026-11-26T00:00:00', endAt: '2026-11-27T23:59:00', priority: 3 }),
+    mk({ id: 't-3', title: '单日全天', allDay: true, startAt: '2026-11-28T00:00:00', endAt: null, priority: 1 }),
+    mk({ id: 't-4', title: '完成件', completed: true, priority: 0 }),
+    mk({ id: 't-5', title: '无日期', dueAt: null, startAt: null, endAt: null })
+  ], stamp)
+  assert(allDayText.includes('DTSTART;VALUE=DATE:20261126\r\nDTEND;VALUE=DATE:20261128\r\nSUMMARY:全天跨两天\r\nPRIORITY:1\r\n'), '全天跨天 DTEND 排他（结束日+1）+ 优先级 3→1')
+  assert(allDayText.includes('DTSTART;VALUE=DATE:20261128\r\nDTEND;VALUE=DATE:20261129\r\nSUMMARY:单日全天\r\nPRIORITY:9\r\n'), '单日全天 DTEND=次日 + 优先级 1→9')
+  assert(allDayText.includes('X-POLARIS-COMPLETED:TRUE'), '完成任务带 X 标记')
+  assert(!allDayText.includes('无日期'), '无日期任务不进 ICS')
+  assert(!allDayText.includes('SUMMARY:事件甲'), '首个 fixture 不在第二个导出里')
+  // 装配：回收站过滤 + 计数。
+  const assembled = icsExportFromBackup({
+    projects: [{ id: 'p1', name: '装配项目' }],
+    tasks: [
+      { id: 't1', title: '活事件', notes: '', priority: 0, dueAt: '2026-11-25T09:00:00', startAt: null, endAt: null, allDay: false, completed: false, deletedAt: null, projectId: 'p1', tags: [{ name: '甲' }] },
+      { id: 't2', title: '回收站事件', notes: '', priority: 0, dueAt: '2026-11-25T09:00:00', startAt: null, endAt: null, allDay: false, completed: false, deletedAt: '2026-11-19T00:00:00.000Z', projectId: null, tags: [] }
+    ]
+  })
+  assert(assembled.count === 1 && assembled.text.includes('SUMMARY:活事件') && !assembled.text.includes('回收站事件'), 'icsExportFromBackup：过滤回收站 + 计数')
+  // 折叠：长中文标题按字节折（75 octet 预算），续行以空格开头；去续行空白还原原文。
+  const longTitle = '长'.repeat(60)
+  const folded = buildIcsExport([mk({ id: 't-9', title: longTitle })], stamp)
+  const unfolded = folded.split('\r\n').map((line) => line.startsWith(' ') ? line.slice(1) : line).join('')
+  assert(unfolded.includes('SUMMARY:' + longTitle), '长行折叠往返还原（75 octet + 空格续行）')
+  let maxBytes = 0
+  for (const line of folded.split('\r\n')) maxBytes = Math.max(maxBytes, new TextEncoder().encode(line).length)
+  assert(maxBytes <= 75, '所有行 ≤75 octet（实得最大 ' + maxBytes + '）')
 }
 
 console.log('\n' + (fail === 0 ? '纯函数真值表全部成立 ✓' : fail + ' 项失败 ✗'))

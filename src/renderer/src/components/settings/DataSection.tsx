@@ -135,6 +135,24 @@ export function DataSection() {
     }
   }
 
+  // ICS 导出（P4.2）：RFC 5545 日历单向出口；反馈同一条状态行。
+  const handleExportIcs = async () => {
+    setBackupBusy(true)
+    resetFeedback()
+    try {
+      const result = await window.polaris.data.exportIcs()
+      if (result.saved) {
+        setBackupStatus(t('settings.icsExported'))
+      } else if (result.error) {
+        setBackupError(t('settings.icsExportFailed', { error: result.error }))
+      }
+    } catch (error) {
+      setBackupError(t('settings.icsExportFailed', { error: String(error) }))
+    } finally {
+      setBackupBusy(false)
+    }
+  }
+
   // 先取列表再开模态：本地 IPC 毫秒级，对话框带着数据打开，没有「先开
   // 空壳、行随后弹出」的两段式跳高。每次打开都重读——目录可能被外部改动
   // （数据目录里删文件、新一轮自动备份），拿旧缓存会渲染幽灵行；缓存只供
@@ -299,8 +317,8 @@ export function DataSection() {
           <button className="backup-btn" onClick={() => void handleImport()} disabled={backupBusy}>
             {t('settings.import')}
           </button>
-          {/* 导出 CSV 独立成钮，占原导入 CSV 的网格 cell、同 32px 高——
-              2×2 布局预算逐像素不动（导入 CSV 功能已移除）。 */}
+          {/* 导出 CSV 独立成钮，占原导入 CSV 的网格 cell、同 32px 高。
+              导出 ICS（P4.2）为第五钮：网格换行到 2×3，仍是同一套 32px 钮。 */}
           <button
             className="backup-btn"
             onClick={() => void handleExportCsv()}
@@ -308,6 +326,14 @@ export function DataSection() {
             title={t('settings.csvExportTitle')}
           >
             {t('settings.csvExport')}
+          </button>
+          <button
+            className="backup-btn"
+            onClick={() => void handleExportIcs()}
+            disabled={backupBusy}
+            title={t('settings.icsExportTitle')}
+          >
+            {t('settings.icsExport')}
           </button>
           <button className="backup-btn" onClick={() => void handleOpenDataDir()} disabled={backupBusy}>
             {t('settings.openDataDir')}
