@@ -18,9 +18,11 @@ build/icon-canva-preview-*.png
 
 # 别家 AI 编码工具的本机工作目录与指引文件，不属于仓库内容。
 # .kilo/ 此前只靠 .git/info/exclude 本机忽略，进了 .gitignore 才随仓库分发。
+# CLAUDE.md 曾被跟踪入库，2026-11-25 起改本地-only（git rm --cached），只留本机。
 .zcode/
 .kilo/
 AGENTS.md
+CLAUDE.md
 
 # 图鉴原始调研记录与证据明细：本地生成产物，不入库。
 docs/asset-atlas/data/research/
