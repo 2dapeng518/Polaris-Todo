@@ -2916,6 +2916,432 @@ textarea {
   }
 }
 
+/* ---------- 日历套件 P1：切换器 / 迷你月历 / 列表 / 看板 / 年月下拉 ---------- */
+
+.calendar-modes {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface-1);
+}
+
+.calendar-mode {
+  padding: 3px 10px;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: default;
+  transition:
+    background 0.16s,
+    color 0.16s;
+}
+
+.calendar-mode:hover {
+  color: var(--text);
+}
+
+.calendar-mode.is-active {
+  background: rgba(var(--accent-rgb), 0.14);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.calendar-toolbar-right {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.calendar-mini-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-1);
+  color: var(--text-secondary);
+  cursor: default;
+  transition:
+    border-color 0.16s,
+    color 0.16s;
+}
+
+.calendar-mini-toggle:hover,
+.calendar-mini-toggle.is-active {
+  border-color: rgba(var(--accent-rgb), 0.3);
+  color: var(--accent);
+}
+
+.calendar-month-jump {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 96px;
+  padding: 2px 6px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  cursor: default;
+}
+
+.calendar-month-jump:hover {
+  background: var(--hover);
+}
+
+.calendar-month-caret {
+  color: var(--text-tertiary);
+}
+
+.calendar-body {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.calendar-mini {
+  flex: none;
+  width: 228px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-1);
+}
+
+.calendar-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.mini-month-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.mini-month-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.mini-month-nav {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-tertiary);
+  cursor: default;
+}
+
+.mini-month-nav:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
+.mini-month-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  margin-bottom: 2px;
+}
+
+.mini-month-weekdays span {
+  text-align: center;
+  font-size: 10px;
+  color: var(--text-tertiary);
+}
+
+.mini-month-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+
+.mini-month-cell {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 24px;
+  border-radius: 6px;
+  cursor: default;
+}
+
+.mini-month-cell:hover {
+  background: var(--hover);
+}
+
+.mini-month-cell.is-out {
+  opacity: 0.4;
+}
+
+.mini-month-daynum {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-secondary);
+}
+
+.mini-month-cell.is-today .mini-month-daynum {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.mini-month-cell.is-anchor {
+  background: rgba(var(--accent-rgb), 0.16);
+}
+
+.mini-month-cell.is-anchor .mini-month-daynum {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.mini-month-dot {
+  position: absolute;
+  bottom: 2px;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.calendar-list {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.calendar-list-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--line);
+}
+
+.calendar-list-head span:first-child {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.calendar-list-head span:first-child.is-overdue {
+  color: var(--warning);
+}
+
+.calendar-empty {
+  padding: 56px 0;
+  text-align: center;
+}
+
+.calendar-empty-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.calendar-empty-desc {
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.calendar-jump {
+  position: fixed;
+  z-index: 60;
+  width: 248px;
+  padding: 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+  background: var(--panel-bg);
+  box-shadow:
+    0 16px 40px rgba(var(--shadow-rgb), 0.32),
+    inset 0 1px 0 var(--inner-highlight);
+  color: var(--text);
+  animation: pop-in 140ms var(--ease-out);
+}
+
+.calendar-jump-year {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.calendar-jump-yearnum {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.calendar-jump-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+}
+
+.calendar-jump-month {
+  padding: 6px 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 11px;
+  cursor: default;
+}
+
+.calendar-jump-month:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
+.calendar-jump-month.is-current {
+  background: rgba(var(--accent-rgb), 0.14);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.calendar-board {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+}
+
+.calendar-board-col {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: 8px;
+  width: 208px;
+  min-height: 140px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-1);
+}
+
+.calendar-board-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.calendar-board-head span:first-child {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.calendar-board-head span:first-child.is-overdue {
+  color: var(--warning);
+}
+
+.calendar-board-count {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-tertiary);
+}
+
+.calendar-board-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.calendar-board-card {
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-2);
+}
+
+.calendar-board-title {
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+  width: 100%;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-size: 12px;
+  line-height: 1.4;
+  text-align: left;
+  cursor: default;
+}
+
+.calendar-board-title:hover {
+  color: var(--accent);
+}
+
+.board-flag {
+  flex: none;
+  margin-top: 2px;
+  color: var(--accent);
+}
+
+.calendar-board-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.board-time {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-tertiary);
+}
+
+.board-time.is-overdue {
+  color: var(--warning);
+}
+
+.board-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 5px;
+  border-radius: 5px;
+  background: var(--surface-1);
+  color: var(--text-tertiary);
+  font-size: 10px;
+}
+
+.board-project {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.board-dot {
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.calendar-board-blank {
+  padding: 10px 0;
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  color: var(--text-tertiary);
+  font-size: 10px;
+  text-align: center;
+}
+
 /* 标签编辑区：已贴 chip + 新建输入框 + 建议 chip。与项目 chips 同一套
    28px/8px 圆角语言，输入框压到 30px 以免详情列过高。 */
 .detail-tags {

@@ -1,20 +1,24 @@
-import {
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-  type KeyboardEvent as ReactKeyboardEvent
-} from 'react'
-import { addDays, addMonths, isSameDay, isSameMonth, startOfMonth, startOfWeek } from 'date-fns'
+import { useEffect, useMemo, useState } from 'react'
+import { startOfMonth } from 'date-fns'
 import type { Task } from '@shared/types'
 import { useTaskStore } from '../stores/useTaskStore'
 import { useT, useLocale } from '../stores/useLocaleStore'
-import { clampToMonth, dayKey, monthLabel, monthMatrix, weekdayLabels } from '../lib/dateTime'
-import { isOverdue } from '../lib/dates'
-import { ChevronLeft, ChevronRight } from './Icon'
+import { useCalendarStore, parseDayKey } from '../stores/useCalendarStore'
+import { clampToMonth, dayKey } from '../lib/dateTime'
+import { ChevronLeft, ChevronRight, PanelLeftOpen } from './Icon'
+import { MonthGrid } from './calendar/MonthGrid'
+import { MiniMonth } from './calendar/MiniMonth'
+import { MonthJumpMenu } from './calendar/MonthJumpMenu'
+import { CalendarListView } from './calendar/CalendarListView'
+import { CalendarBoardView } from './calendar/CalendarBoardView'
 
-const MAX_CHIPS = 3
+// 日历套件外壳（日历套件 P1）：工具栏（视图切换器 + 翻月 + 年月下拉 + 今天
+// + 迷你月历开关）+ 左侧迷你月历栏 + 按子视图模式渲染内容。P1 上线
+// 月 / 列表 / 看板；周 / 多周 / 日 / 多日时间轴在 P2 接入同一套路由。
+// 锚点日住 useCalendarStore（跨子视图/会话持久），切换视图不丢月份。
+
+// P1 送到切换器上的模式；周系时间轴（P2）就绪后在此追加。
+const SWITCHER_MODES = ['month', 'list', 'board'] as const
 
 const firstOfMonth = (date: Date): Date => {
   const copy = new Date(date)
@@ -23,214 +27,164 @@ const firstOfMonth = (date: Date): Date => {
   return copy
 }
 
-// 月历视图：复用选择器的 42 格月矩阵（周一起始），翻月高度恒定。
-// 只展示有截止时间的任务；无截止不进日历。已完成任务弱化显示。
-// 键盘导航照 DateTimePicker 的成熟模式：roving tabindex + 方向键/Home/End/
-// PageUp/PageDown，跨月边界自动切月并把焦点落到对应日。
 export function CalendarView() {
   const t = useT()
   const locale = useLocale()
   const tasks = useTaskStore((state) => state.tasks)
   const selectTask = useTaskStore((state) => state.selectTask)
-  const [month, setMonth] = useState(() => firstOfMonth(new Date()))
+  const mode = useCalendarStore((state) => state.mode)
+  const anchorKey = useCalendarStore((state) => state.anchor)
+  const miniOpen = useCalendarStore((state) => state.miniOpen)
+  const setMode = useCalendarStore((state) => state.setMode)
+  const setAnchor = useCalendarStore((state) => state.setAnchor)
+  const toggleMini = useCalendarStore((state) => state.toggleMini)
+
   // 日历可能长时间开着：跨过午夜后「今天」的高亮不能还是昨天。
   const [now, setNow] = useState(() => new Date())
-  const [focusDay, setFocusDay] = useState(() => new Date())
-  // 键盘焦点格用 :focus-visible 命中时的日期键：is-today 格聚焦时让位边框，
-  // 避免 accent 边框 + accent 焦点环叠成双重点色边（同 .dp-day 的让位规则）。
-  const [ringKey, setRingKey] = useState<string | null>(null)
-  const focusRequest = useRef(false)
-  const gridRef = useRef<HTMLDivElement | null>(null)
+  // 月视图的可见月：本地状态（键盘跨月会改它），进入组件/锚点跨月时从锚点回填。
+  const [month, setMonth] = useState(() => firstOfMonth(parseDayKey(anchorKey)))
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(new Date()), 60_000)
     return () => window.clearInterval(timer)
   }, [])
 
-  const cells = useMemo(() => monthMatrix(month), [month])
+  const anchorDay = useMemo(() => parseDayKey(anchorKey), [anchorKey])
+
+  // 任务归属日：dueAt 优先、计划开始兜底（与列表/看板同一套 calendarDay 规则），
+  // 月格与迷你月历的点标记共用这一份桶。
   const byDay = useMemo(() => {
     const map = new Map<string, Task[]>()
     for (const task of tasks) {
-      if (!task.dueAt) continue
-      const key = dayKey(new Date(task.dueAt))
+      const source = task.dueAt ?? task.startAt
+      if (!source) continue
+      const key = dayKey(new Date(source))
       const list = map.get(key) ?? []
       list.push(task)
       map.set(key, list)
     }
     return map
   }, [tasks])
-  const todayKey = dayKey(now)
+  const markedDays = useMemo(() => new Set(byDay.keys()), [byDay])
 
-  // 焦点日离开可见月（工具栏翻月）时，roving 落点回落到今天，再回落到月首
-  // ——与 DateTimePicker 的 rovingDay 推导一致。
-  const rovingDay = isSameMonth(focusDay, month)
-    ? focusDay
-    : isSameMonth(now, month)
-      ? now
-      : month
-
-  // 方向键跨月会卸载聚焦的格子节点，焦点必须显式请求而非靠包含关系推断
-  // （同 DateTimePicker 的 focusRequest 模式）。
-  useLayoutEffect(() => {
-    if (!focusRequest.current) return
-    focusRequest.current = false
-    gridRef.current?.querySelector<HTMLElement>(`[data-date="${dayKey(rovingDay)}"]`)?.focus()
-  }, [rovingDay, month])
-
-  const shift = (delta: number) => {
-    const target = addMonths(month, delta)
-    // 焦点在格子里时翻月跟随焦点（日期号夹到目标月天数内）；焦点在工具栏
-    // 按钮上时不抢焦点，只移动 roving 落点。
-    if (gridRef.current?.contains(document.activeElement)) focusRequest.current = true
-    setFocusDay(clampToMonth(target, rovingDay.getDate()))
-    setMonth(target)
+  // 工具栏翻月只动可见月；锚点在离开日历视图时统一写回（见下），避免键盘
+  // 跨月时锚点被夹带改写、焦点被锚点跟随效应拽回钳制日。
+  const shiftMonth = (delta: number) => {
+    setMonth((current) => addMonthsClamped(current, delta))
   }
 
   const goToday = () => {
     const today = new Date()
-    if (gridRef.current?.contains(document.activeElement)) focusRequest.current = true
-    setFocusDay(today)
+    setAnchor(today)
     setMonth(firstOfMonth(today))
   }
 
-  const onGridKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
-    if (event.nativeEvent.isComposing) return
-    // 只有格子本身响应导航键；chip 按钮上的 Enter/空格走原生点击，方向键
-    // 不劫持（chip 是可点击控件，不是网格导航的一部分）。
-    if ((event.target as HTMLElement).getAttribute('role') !== 'gridcell') return
-    const key = event.key
-    const move = (next: Date): void => {
-      event.preventDefault()
-      focusRequest.current = true
-      setFocusDay(next)
-      if (!isSameMonth(next, month)) setMonth(startOfMonth(next))
-    }
-
-    if (key === 'ArrowLeft') return move(addDays(rovingDay, -1))
-    if (key === 'ArrowRight') return move(addDays(rovingDay, 1))
-    if (key === 'ArrowUp') return move(addDays(rovingDay, -7))
-    if (key === 'ArrowDown') return move(addDays(rovingDay, 7))
-    if (key === 'Home') return move(startOfWeek(rovingDay, { weekStartsOn: 1 }))
-    if (key === 'End') return move(addDays(startOfWeek(rovingDay, { weekStartsOn: 1 }), 6))
-    if (key === 'PageUp' || key === 'PageDown') {
-      event.preventDefault()
-      const target = addMonths(month, (key === 'PageUp' ? -1 : 1) * (event.shiftKey ? 12 : 1))
-      focusRequest.current = true
-      setMonth(target)
-      setFocusDay(clampToMonth(target, rovingDay.getDate()))
-      return
-    }
-    if (key === 'Enter' || key === ' ') {
-      event.preventDefault()
-      // 打开当天第一个任务（与 chip 点击同一条 selectTask 路径）；空日子不动作。
-      const first = (byDay.get(dayKey(rovingDay)) ?? [])[0]
-      if (first) selectTask(first.id)
-    }
+  // 年月下拉换月：保持锚点日的「几号」，月末自动钳制。
+  const jumpToMonth = (target: Date) => {
+    setMonth(firstOfMonth(target))
+    setAnchor(clampToMonth(target, anchorDay.getDate()))
   }
+
+  // 离开日历视图（切到其他 AppView / 组件卸载）时把可见月写回锚点——再回到
+  // 日历时还在用户翻到的那个月（切换不丢月份锚点）。
+  useEffect(() => {
+    return () => {
+      useCalendarStore.getState().setAnchor(clampToMonth(month, anchorDay.getDate()))
+    }
+  }, [month, anchorDay])
 
   return (
     <div className="calendar-view">
       <div className="calendar-toolbar">
-        <button
-          className="calendar-nav"
-          onClick={() => shift(-1)}
-          aria-label={t('calendar.prevMonth')}
-        >
-          <ChevronLeft size={14} aria-hidden="true" />
-        </button>
-        {/* 翻月播报复用可见的月份标签本身，不新增 i18n 键（选择器用独立
-            live region，这里标签就在工具栏上，aria-live 即可）。 */}
-        <span className="calendar-month" data-calendar-month aria-live="polite">
-          {monthLabel(month, locale)}
-        </span>
-        <button
-          className="calendar-nav"
-          onClick={() => shift(1)}
-          aria-label={t('calendar.nextMonth')}
-        >
-          <ChevronRight size={14} aria-hidden="true" />
-        </button>
-        <button className="calendar-today" onClick={goToday}>
-          {t('calendar.today')}
-        </button>
-      </div>
-      <div className="calendar-weekdays" aria-hidden="true">
-        {weekdayLabels(locale).map((day) => (
-          <span key={day}>{day}</span>
-        ))}
-      </div>
-      <div
-        className="calendar-grid"
-        role="grid"
-        aria-label={t('calendar.gridAria', { month: monthLabel(month, locale) })}
-        ref={gridRef}
-        onKeyDown={onGridKeyDown}
-        onFocus={(event) => {
-          const target = event.target as HTMLElement
-          if (target.getAttribute('role') !== 'gridcell') return
-          // 只在键盘焦点（:focus-visible）时让位 today 边框；鼠标点选格子
-          // 不出现焦点环，today 标记必须原样保留。
-          setRingKey(target.matches(':focus-visible') ? (target.dataset.date ?? null) : null)
-        }}
-        onBlur={() => setRingKey(null)}
-      >
-        {cells.map((day) => {
-          const key = dayKey(day)
-          const inMonth = day.getMonth() === month.getMonth()
-          const isToday = key === todayKey
-          const isRoving = isSameDay(day, rovingDay)
-          const dayTasks = byDay.get(key) ?? []
-          const shown = dayTasks.slice(0, MAX_CHIPS)
-          const rest = dayTasks.length - shown.length
-          return (
-            <div
-              key={key}
-              className={`calendar-cell ${inMonth ? '' : 'is-out'} ${isToday ? 'is-today' : ''}`}
-              role="gridcell"
-              data-date={key}
-              tabIndex={isRoving ? 0 : -1}
-              aria-current={isToday ? 'date' : undefined}
-              // globals.css 本轮不可改，用内联样式实现「已有 accent 边框的
-              // 控件聚焦时让位边框」的既有规则，避免双重 accent 边。
-              style={isToday && ringKey === key ? { borderColor: 'transparent' } : undefined}
-              aria-label={t('calendar.cellAria', {
-                month: day.getMonth() + 1,
-                day: day.getDate(),
-                count: dayTasks.length
-              })}
+        <div className="calendar-modes" role="tablist" aria-label={t('calendar.modeAria')}>
+          {SWITCHER_MODES.map((candidate) => (
+            <button
+              key={candidate}
+              type="button"
+              role="tab"
+              aria-selected={mode === candidate}
+              className={`calendar-mode ${mode === candidate ? 'is-active' : ''}`}
+              data-calendar-mode-tab={candidate}
+              onClick={() => setMode(candidate)}
             >
-              <span className="calendar-daynum">{day.getDate()}</span>
-              <div className="calendar-chips">
-                {shown.map((task) => (
-                  <button
-                    key={task.id}
-                    type="button"
-                    className={`calendar-chip ${task.completed ? 'is-done' : ''} ${!task.completed && isOverdue(task.dueAt) ? 'is-overdue' : ''}`}
-                    data-calendar-task={task.id}
-                    title={task.title}
-                    // ARIA grid 惯例：Tab 在复合控件间移动，不该穿过 42 格里
-                    // 全部 chip。这里取混合式——只有 roving 格内的 chip 可 Tab
-                    // （动线：格子 → 当天 chip → 出网格），其余格 chip tabindex=-1，
-                    // 由方向键把 roving 带过去后再 Tab 进入。格子本身是 div 而非
-                    // button：焦点陷阱的 FOCUSABLE 选择器数 button 不看 tabindex。
-                    tabIndex={isRoving ? 0 : -1}
-                    onClick={() => selectTask(task.id)}
-                    aria-label={
-                      task.completed
-                        ? t('calendar.completedAria', { title: task.title })
-                        : task.title
-                    }
-                  >
-                    {task.priority >= 2 && <span className="calendar-chip-dot" aria-hidden="true" />}
-                    <span className="calendar-chip-title">{task.title}</span>
-                  </button>
-                ))}
-                {rest > 0 && <span className="calendar-more">+{rest}</span>}
-              </div>
-            </div>
-          )
-        })}
+              {t(`calendar.mode.${candidate}`)}
+            </button>
+          ))}
+        </div>
+        {mode === 'month' && (
+          <>
+            <button
+              className="calendar-nav"
+              onClick={() => shiftMonth(-1)}
+              aria-label={t('calendar.prevMonth')}
+            >
+              <ChevronLeft size={14} aria-hidden="true" />
+            </button>
+            {/* 翻月播报复用可见的月份标签本身（标签是年月下拉的触发按钮）。 */}
+            <MonthJumpMenu month={month} onPick={jumpToMonth} />
+            <button
+              className="calendar-nav"
+              onClick={() => shiftMonth(1)}
+              aria-label={t('calendar.nextMonth')}
+            >
+              <ChevronRight size={14} aria-hidden="true" />
+            </button>
+          </>
+        )}
+        <div className="calendar-toolbar-right">
+          <button
+            type="button"
+            className={`calendar-mini-toggle ${miniOpen ? 'is-active' : ''}`}
+            aria-pressed={miniOpen}
+            aria-label={t('calendar.mini.toggle')}
+            title={t('calendar.mini.toggle')}
+            onClick={toggleMini}
+          >
+            <PanelLeftOpen size={14} strokeWidth={1.8} aria-hidden="true" />
+          </button>
+          <button className="calendar-today" onClick={goToday}>
+            {t('calendar.today')}
+          </button>
+        </div>
+      </div>
+
+      <div className="calendar-body">
+        {miniOpen && mode !== 'month' && (
+          <aside className="calendar-mini">
+            <MiniMonth
+              anchor={anchorDay}
+              now={now}
+              locale={locale}
+              markedDays={markedDays}
+              onSelect={setAnchor}
+              prevMonthAria={t('calendar.prevMonth')}
+              nextMonthAria={t('calendar.nextMonth')}
+              gridAria={t('calendar.mini.toggle')}
+            />
+          </aside>
+        )}
+
+        <div className="calendar-content">
+          {mode === 'month' && (
+            <MonthGrid
+              month={month}
+              anchorKey={anchorKey}
+              now={now}
+              locale={locale}
+              byDay={byDay}
+              onSelectTask={selectTask}
+              onMonthChange={setMonth}
+            />
+          )}
+          {mode === 'list' && <CalendarListView tasks={tasks} now={now} />}
+          {mode === 'board' && <CalendarBoardView tasks={tasks} now={now} />}
+        </div>
       </div>
     </div>
   )
+}
+
+// 月位移工具：月份循环由 Date 构造器自动进位（13 月 = 次年 1 月）。
+function addMonthsClamped(month: Date, delta: number): Date {
+  return new Date(month.getFullYear(), month.getMonth() + delta, 1)
 }
