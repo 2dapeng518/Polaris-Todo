@@ -3043,6 +3043,106 @@ export async function runSmokeTest(): Promise<void> {
     const calendarWorks = calendarResult?.ok === true
     if (!calendarWorks) console.error('CALENDAR_FAIL', JSON.stringify(calendarResult))
 
+    // 日历套件（P0–P3 门控守卫，全部进 checks 表）：
+    // 1) timeFields：时间段字段链——创建带 startAt/endAt/allDay 的任务，
+    //    详情「时间」行读数与全天开关、周视图全天行 chip、拖拽不必自动化
+    //    （键盘可达替代即详情编辑，已在 P0.3 覆盖）。只断言终态。
+    // 2) suiteViews：切换器切 列表/看板/周 三视图的关键 DOM（分组头、看板列、
+    //    时间轴列 + 全天行），再切回月视图 42 格仍在——切换不丢视图骨架。
+    // 3) rangeParse：快速添加「3点到5点值班」→ 标题不残留区间、startAt/endAt
+    //    落库（dueAt = 开始端）。真值表已在 verify:pure 覆盖语法层，这里断言
+    //    提交链路把字段真正写进 DB。
+    const calendarSuiteResult = await mainWindow?.webContents.executeJavaScript(`(async () => {
+      ${pageHelpers}
+      const key = (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+      let step = 'seed';
+      const ids = [];
+      try {
+        const now = new Date();
+        const y = now.getFullYear(), m = now.getMonth(), d = now.getDate();
+        const startAt = new Date(y, m, d, 10, 0, 0, 0).toISOString();
+        const endAt = new Date(y, m, d, 11, 30, 0, 0).toISOString();
+        const timed = await window.polaris.tasks.create({ title: '冒烟套件时间段', dueAt: startAt, startAt, endAt });
+        ids.push(timed.id);
+        const allDayStart = new Date(y, m, d, 0, 0, 0, 0).toISOString();
+        const allDayEnd = new Date(y, m, d, 23, 59, 0, 0).toISOString();
+        const allDay = await window.polaris.tasks.create({ title: '冒烟套件全天', dueAt: allDayStart, startAt: allDayStart, endAt: allDayEnd, allDay: true });
+        ids.push(allDay.id);
+        window.dispatchEvent(new Event('focus'));
+        await sleep(400);
+
+        step = 'open-calendar';
+        [...document.querySelectorAll('.nav-item')].find((el) => el.textContent.includes('日历') || el.textContent.includes('Calendar'))?.click();
+        if (!(await waitFor(() => document.querySelector('.calendar-grid')))) throw new Error('calendar not open');
+
+        step = 'week-view';
+        document.querySelector('[data-calendar-mode-tab="week"]')?.click();
+        if (!(await waitFor(() => document.querySelector('[data-timegrid]')))) throw new Error('timegrid missing');
+        const todayKey = key(now);
+        const cols = document.querySelectorAll('[data-timegrid-day]').length;
+        const block = [...document.querySelectorAll('[data-timegrid-block]')].some((el) => el.textContent.includes('冒烟套件时间段'));
+        const alldayChip = [...document.querySelectorAll('[data-allday-day="' + todayKey + '"] .timegrid-allday-chip')].some((el) => el.textContent.includes('冒烟套件全天'));
+        if (!(cols === 7 && block && alldayChip)) throw new Error('week view missing parts: cols=' + cols + ' block=' + block + ' allday=' + alldayChip);
+
+        step = 'list-view';
+        document.querySelector('[data-calendar-mode-tab="list"]')?.click();
+        if (!(await waitFor(() => document.querySelector('[data-calendar-list]')))) throw new Error('list missing');
+        const groupHead = document.querySelectorAll('.calendar-list-head').length;
+        if (groupHead < 1) throw new Error('no list groups');
+
+        step = 'board-view';
+        document.querySelector('[data-calendar-mode-tab="board"]')?.click();
+        if (!(await waitFor(() => document.querySelector('[data-calendar-board]')))) throw new Error('board missing');
+        const boardCols = document.querySelectorAll('[data-board-col]').length;
+        if (boardCols < 9) throw new Error('board cols=' + boardCols);
+
+        step = 'back-month';
+        document.querySelector('[data-calendar-mode-tab="month"]')?.click();
+        if (!(await waitFor(() => document.querySelectorAll('.calendar-cell').length === 42))) throw new Error('month grid missing');
+
+        step = 'detail-time-row';
+        document.querySelector('[data-calendar-task="' + timed.id + '"]')?.click();
+        if (!(await waitFor(() => document.querySelector('.detail-title')))) throw new Error('detail missing');
+        const timeRow = [...document.querySelectorAll('.detail-row')].find((r) => r.textContent.includes('10:00 – 11:30'));
+        if (!timeRow) throw new Error('time summary missing');
+        document.querySelector('.detail-close')?.click();
+        await sleep(300);
+
+        step = 'range-parse';
+        // 快速添加需要回到「今天」（日历不挂输入框）。真提交：区间解析出
+        // startAt/endAt 并随任务落库，标题不残留「3点到5点」。
+        [...document.querySelectorAll('.nav-item')].find((el) => el.textContent.includes('今天') || el.textContent.includes('Today'))?.click();
+        await sleep(300);
+        const input = document.querySelector('.quick-add input');
+        if (!input) throw new Error('quick add missing');
+        const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+        setter.call(input, '3点到5点冒烟区间');
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        await sleep(300);
+        const stripText = document.querySelector('.quick-add-shell')?.textContent ?? '';
+        const stripOk = stripText.includes('15:00') && stripText.includes('17:00');
+        if (!stripOk) throw new Error('range strip missing: ' + stripText);
+        input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+        if (!(await waitFor(() => findRow('冒烟区间')))) throw new Error('range task not created');
+        const rangeTask = [...(await window.polaris.tasks.list())].reverse().find((t) => t.title === '冒烟区间');
+        if (!rangeTask) throw new Error('range task not in db');
+        ids.push(rangeTask.id);
+        const rangeOk = Boolean(rangeTask.startAt && rangeTask.endAt && rangeTask.dueAt === rangeTask.startAt);
+        if (!rangeOk) throw new Error('range fields missing: ' + JSON.stringify({ s: rangeTask.startAt, e: rangeTask.endAt, d: rangeTask.dueAt }));
+
+        return { ok: Boolean(cols === 7 && block && alldayChip && groupHead >= 1 && boardCols >= 9 && timeRow && stripOk && rangeOk), step };
+      } catch (error) {
+        return { ok: false, step, error: String(error) };
+      } finally {
+        for (const id of ids) {
+          try { await window.polaris.tasks.remove(id); } catch {}
+          try { await window.polaris.tasks.deleteForever(id); } catch {}
+        }
+      }
+    })()`)
+    const calendarSuiteWorks = calendarSuiteResult?.ok === true
+    if (!calendarSuiteWorks) console.error('CALENDAR_SUITE_FAIL', JSON.stringify(calendarSuiteResult))
+
 
 
     // 自定义重复 UI：开弹层 → 自定义 → 周 → 间隔步进(+ 后 −) → 一三五 → 规则落库且弹层不超 420px。
@@ -5737,6 +5837,7 @@ export async function runSmokeTest(): Promise<void> {
           tagBackupWorks,
           matrixWorks,
           calendarWorks,
+          calendarSuiteWorks,
           parseGrammarTable: parseAssertions.grammar,
           parseInvariants: parseAssertions.invariants,
           parseFormatNull: parseAssertions.format,
