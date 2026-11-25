@@ -213,6 +213,13 @@ export type GlobalHotkeyState = {
   error?: string
 }
 
+/** 候选快捷键的实时可用性（设置对话框的推荐组合）。 */
+export type HotkeyProbe = {
+  accelerator: string
+  /** false = 已被其他程序占用（当前组合恒为 true：改回自己是 no-op）。 */
+  free: boolean
+}
+
 export type McpState = {
   enabled: boolean
   running: boolean
@@ -362,6 +369,10 @@ export type PolarisApi = {
     setCloseToTray: (enabled: boolean) => Promise<boolean>
     getGlobalHotkey: () => Promise<GlobalHotkeyState>
     setGlobalHotkey: (enabled: boolean) => Promise<GlobalHotkeyState>
+    /** 自定义全局快捷键（形状校验在主进程；开启态注册失败会回滚旧组合）。 */
+    setGlobalHotkeyAccelerator: (accelerator: string) => Promise<GlobalHotkeyState>
+    /** 探测一组候选组合当前是否空闲（供推荐组合；探完不留注册痕迹）。 */
+    probeGlobalHotkeys: (candidates: string[]) => Promise<HotkeyProbe[]>
     getMcp: () => Promise<McpState>
     setMcp: (enabled: boolean) => Promise<McpState>
     /** 读取 MCP bearer token（尚未生成时立即生成并持久化）。 */

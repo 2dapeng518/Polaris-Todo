@@ -51,7 +51,13 @@ import {
   shouldSurfaceUpdate,
   smoothSpeed
 } from '../../shared/update'
-import { getGlobalHotkeyState, GLOBAL_HOTKEY_ACCELERATOR, setGlobalHotkeyEnabled } from '../hotkey'
+import {
+  getGlobalHotkeyState,
+  GLOBAL_HOTKEY_ACCELERATOR,
+  probeHotkeyAccelerators,
+  setGlobalHotkeyAccelerator,
+  setGlobalHotkeyEnabled
+} from '../hotkey'
 import { getCurrentTheme, themeBackgroundColor } from '../theme'
 import { checkRemindersNow, dismissReminder, getReminderWindow } from '../reminders'
 import { getTrayMenuLabels } from '../tray'
@@ -4765,6 +4771,7 @@ export async function runSmokeTest(): Promise<void> {
     let hotkeyDefaultOn = false
     let hotkeySettingsRoundTrip = false
     let hotkeyConflictDegrades = false
+    let hotkeyAcceleratorCustom = false
     let hotkeyWakesAndFocuses = false
     try {
       const initial = getGlobalHotkeyState()
@@ -4782,7 +4789,8 @@ export async function runSmokeTest(): Promise<void> {
         initial.enabled === true &&
         initial.registered === true &&
         initial.accelerator === 'Ctrl+Alt+P' &&
-        getMeta('global_hotkey') === null
+        getMeta('global_hotkey') === null &&
+        getMeta('global_hotkey_accelerator') === null
 
       const roundTrip = await withSettings('general', null, (settings) =>
         settings.webContents.executeJavaScript(`(async () => {
@@ -4866,6 +4874,66 @@ export async function runSmokeTest(): Promise<void> {
         conflictUi === true &&
         recovered.enabled === true &&
         recovered.registered === true
+
+      // 快捷键自定义（设置窗口常规页「修改快捷键…」）：默认组合被占的机器上
+      // 也要走得通——先经探测挑一个实测空闲的候选，再走真实 UI（开对话框 →
+      // 录制框合成按键 → 保存）换绑并落库；chips 的占用态与禁用态必须一致。
+      // 收尾先关热键再写默认组合（关闭态写入不试注册，不受占用影响），最后开回。
+      {
+        const probed = probeHotkeyAccelerators(['Ctrl+Alt+T', 'Ctrl+Alt+N', 'Ctrl+Shift+P', 'Alt+Shift+P'])
+        const picked = probed.find((item) => item.free)?.accelerator
+        const ui = await withSettings('general', null, (settings) =>
+          settings.webContents.executeJavaScript(`(async () => {
+            ${pageHelpers}
+            const change = [...document.querySelectorAll('button')].find((b) => b.textContent.includes('修改快捷键'));
+            change?.click();
+            const dlg = await waitFor(() => document.querySelector('.hotkey-dialog-panel'));
+            if (!dlg) return { found: false };
+            const record = await waitFor(() => dlg.querySelector('.hotkey-record'));
+            if (!record) return { found: true, record: false };
+            const chips = [...dlg.querySelectorAll('.hotkey-chip')].map((c) => ({
+              key: c.getAttribute('data-hotkey-candidate'),
+              occupied: c.classList.contains('is-occupied'),
+              disabled: c.disabled
+            }));
+            // 合成录制：按下探测空闲的那个组合（e.code 布局无关；候选键全是字母）。
+            const parts = ${JSON.stringify(picked ?? '')}.split('+');
+            const key = parts[parts.length - 1];
+            record.dispatchEvent(new KeyboardEvent('keydown', {
+              key: key.toLowerCase(), code: 'Key' + key,
+              ctrlKey: parts.includes('Ctrl'), altKey: parts.includes('Alt'), shiftKey: parts.includes('Shift'),
+              bubbles: true, cancelable: true
+            }));
+            const recorded = await waitFor(() => record.textContent.includes(${JSON.stringify(picked ?? '')}));
+            const save = [...dlg.querySelectorAll('button')].find((b) => b.textContent === '保存');
+            save?.click();
+            const closed = await waitFor(() => !document.querySelector('.hotkey-dialog-panel'));
+            return { found: true, record: true, chips, recorded: Boolean(recorded), save: Boolean(save), closed: Boolean(closed) };
+          })()`)
+        )
+        // meta 断言必须在还原默认之前读——还原会把它写回 Ctrl+Alt+P。
+        const after = getGlobalHotkeyState()
+        const metaApplied = getMeta('global_hotkey_accelerator') === picked
+        setGlobalHotkeyEnabled(false)
+        setGlobalHotkeyAccelerator(GLOBAL_HOTKEY_ACCELERATOR)
+        setGlobalHotkeyEnabled(true)
+        const restored = getMeta('global_hotkey_accelerator') === GLOBAL_HOTKEY_ACCELERATOR
+        hotkeyAcceleratorCustom =
+          typeof picked === 'string' &&
+          ui?.record === true &&
+          ui?.recorded === true &&
+          ui?.save === true &&
+          ui?.closed === true &&
+          ui?.chips.length >= 3 &&
+          ui?.chips.every((c: { occupied: boolean; disabled: boolean }) => c.occupied === c.disabled) === true &&
+          after.accelerator === picked &&
+          after.registered === true &&
+          metaApplied &&
+          restored
+        if (!hotkeyAcceleratorCustom) {
+          console.error('HOTKEY_CUSTOM_FAIL', JSON.stringify({ picked, ui, after, metaApplied, restored }))
+        }
+      }
 
       // 隐藏窗口 + 先切到「统计」：热键要同时负责唤起、回今天、聚焦输入框。
       const switchedAway = await mainWindow?.webContents.executeJavaScript(`(async () => {
@@ -5460,6 +5528,7 @@ export async function runSmokeTest(): Promise<void> {
       hotkeyDefaultOn: hotkeyDefaultOn === true,
       hotkeySettingsRoundTrip: hotkeySettingsRoundTrip === true,
       hotkeyConflictDegrades: hotkeyConflictDegrades === true,
+      hotkeyAcceleratorCustom: hotkeyAcceleratorCustom === true,
       hotkeyWakesAndFocuses: hotkeyWakesAndFocuses === true,
       subtaskRowProgress: subtaskRowProgress === true,
       subtaskDetailChain: subtaskDetailChain === true,
@@ -5566,6 +5635,7 @@ export async function runSmokeTest(): Promise<void> {
           hotkeyDefaultOn,
           hotkeySettingsRoundTrip,
           hotkeyConflictDegrades,
+          hotkeyAcceleratorCustom,
           hotkeyWakesAndFocuses,
           subtaskRowProgress,
           subtaskDetailChain,

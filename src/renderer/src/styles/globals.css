@@ -5434,6 +5434,127 @@ textarea {
   transform: translateX(16px);
 }
 
+/* ---------- 快捷键自定义对话框 ---------- */
+/* 复用 confirm-overlay/panel 浮层语言（备份管理同范式）。 */
+.hotkey-dialog-panel {
+  width: min(440px, calc(100vw - 48px));
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.hotkey-dialog-title {
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 650;
+}
+
+/* 录制框：大虚线框，mono 大字显示已录组合；未录制 / 无效提示时收小字。 */
+.hotkey-record {
+  display: grid;
+  place-items: center;
+  min-height: 84px;
+  padding: 14px 16px;
+  border: 1px dashed var(--line-strong);
+  border-radius: 10px;
+  background: var(--surface-1);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 22px;
+  letter-spacing: 0.04em;
+  user-select: none;
+}
+
+.hotkey-record:focus-visible {
+  outline-offset: -2px;
+}
+
+.hotkey-record.is-hint {
+  color: var(--text-tertiary);
+  font-family: var(--font-ui);
+  font-size: 12px;
+  letter-spacing: normal;
+}
+
+.hotkey-record.is-error {
+  color: var(--danger);
+  font-family: var(--font-ui);
+  font-size: 12px;
+  letter-spacing: normal;
+}
+
+.hotkey-recommend-label {
+  margin-bottom: 6px;
+  color: var(--text-tertiary);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+}
+
+.hotkey-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.hotkey-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-1);
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: default;
+  transition:
+    border-color 0.16s,
+    color 0.16s;
+}
+
+.hotkey-chip:hover:not(:disabled) {
+  border-color: rgba(var(--accent-rgb), 0.3);
+  color: var(--accent);
+}
+
+.hotkey-chip:focus-visible {
+  outline-offset: -2px;
+}
+
+.hotkey-chip-key {
+  font-family: var(--font-mono);
+}
+
+.hotkey-chip-tag {
+  color: var(--text-tertiary);
+  font-size: 10px;
+}
+
+/* 当前组合：accent 描边 + 标记点亮，一眼认出自己在用哪个。 */
+.hotkey-chip.is-current {
+  border-color: rgba(var(--accent-rgb), 0.4);
+  color: var(--text);
+}
+
+.hotkey-chip.is-current .hotkey-chip-tag {
+  color: var(--accent);
+}
+
+/* 已占用：整枚淡出 + 组合键划线，禁点。 */
+.hotkey-chip.is-occupied {
+  opacity: 0.45;
+}
+
+.hotkey-chip.is-occupied .hotkey-chip-key {
+  text-decoration: line-through;
+}
+
+.hotkey-chip:disabled {
+  cursor: default;
+}
+
 /* ---------- confirm dialog ---------- */
 /* 彻底删除 / 清空回收站的二次确认。浮层词汇是 command-bg 玻璃 + 同一层阴影；
    命令面板（60）在 app-body  stacking context 之外，但 paletteOpen 时对话框

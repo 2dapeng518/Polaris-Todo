@@ -47,6 +47,8 @@ import {
   disposeGlobalHotkey,
   getGlobalHotkeyState,
   initGlobalHotkey,
+  probeHotkeyAccelerators,
+  setGlobalHotkeyAccelerator,
   setGlobalHotkeyEnabled
 } from './hotkey'
 import { getCurrentTheme, initAppTheme, setCurrentTheme, themeBackgroundColor } from './theme'
@@ -669,6 +671,19 @@ app.whenReady().then(() => {
   ipcMain.handle('app:set-global-hotkey', (_event, enabled: unknown) => {
     if (typeof enabled !== 'boolean') return getGlobalHotkeyState()
     return setGlobalHotkeyEnabled(enabled)
+  })
+
+  // 快捷键自定义：载荷形状校验在 hotkey.ts（同一把尺子量渲染层录制器与 IPC）；
+  // 探测通道只收字符串数组，非法项在模块里被过滤，注册痕迹即探即清。
+  ipcMain.handle('app:set-global-hotkey-accelerator', (_event, accelerator: unknown) =>
+    setGlobalHotkeyAccelerator(accelerator)
+  )
+
+  ipcMain.handle('app:probe-global-hotkeys', (_event, candidates: unknown) => {
+    if (!Array.isArray(candidates)) return []
+    return probeHotkeyAccelerators(
+      candidates.filter((candidate): candidate is string => typeof candidate === 'string' && candidate.length <= 40)
+    )
   })
 
   // Read-only, no payload to validate. The renderer must never hardcode a version

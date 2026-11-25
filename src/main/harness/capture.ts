@@ -59,6 +59,24 @@ async function captureSettingsScreenshot(filename: string, section: SettingsSect
   }
 }
 
+// 快捷键自定义对话框（常规页「修改快捷键…」）：录制框 + 实时探测的推荐组合。
+async function captureHotkeyDialogScreenshot(filename: string): Promise<void> {
+  const { mainWindow } = harnessContext()
+  if (!mainWindow) return
+  const settings = await openSettingsFor('general')
+  if (!settings) return
+  try {
+    await settings.webContents.executeJavaScript(
+      `[...document.querySelectorAll('button')].find((b) => b.textContent.includes('修改快捷键'))?.click()`
+    )
+    await new Promise((resolve) => setTimeout(resolve, 500))
+    const image = await settings.webContents.capturePage()
+    await writeFile(join(process.cwd(), filename), image.toPNG())
+  } finally {
+    await closeSettingsAndSettle()
+  }
+}
+
 // 侧栏收起态（仅深色档）：点真实的收起按钮，拍完点回去，profile 不留状态。
 async function captureSidebarCollapsedScreenshot(filename: string): Promise<void> {
   const { mainWindow } = harnessContext()
@@ -471,6 +489,8 @@ export async function captureDemo(mode: string): Promise<void> {
         await captureReminderDetailScreenshot('screenshot-light-reminder-detail.png')
       } else if (SETTINGS_SHOTS[mode.slice(6)]) {
         await captureSettingsScreenshot(`screenshot-light-${mode.slice(6)}.png`, SETTINGS_SHOTS[mode.slice(6)])
+      } else if (mode === 'light-hotkey') {
+        await captureHotkeyDialogScreenshot('screenshot-light-hotkey.png')
       } else if (mode === 'light-theme-menu') {
         await captureThemeMenuScreenshot('screenshot-light-theme-menu.png')
       } else if (mode === 'light-palette-theme') {
@@ -525,6 +545,8 @@ export async function captureDemo(mode: string): Promise<void> {
       await captureSettingsScreenshot(`screenshot-${mode}.png`, SETTINGS_SHOTS[mode])
     } else if (mode === 'sidebar-collapsed') {
       await captureSidebarCollapsedScreenshot('screenshot-sidebar-collapsed.png')
+    } else if (mode === 'hotkey') {
+      await captureHotkeyDialogScreenshot('screenshot-hotkey.png')
     } else if (mode === 'theme-menu') {
       await captureThemeMenuScreenshot('screenshot-theme-menu.png')
     } else if (mode === 'palette-theme') {

@@ -11,6 +11,7 @@ import type {
   DataLocationState,
   ExportResult,
   GlobalHotkeyState,
+  HotkeyProbe,
   McpState,
   ImportResult,
   OpenDataDirResult,
@@ -93,6 +94,10 @@ const api: PolarisApi = {
       ipcRenderer.invoke('app:get-global-hotkey'),
     setGlobalHotkey: (enabled: boolean): Promise<GlobalHotkeyState> =>
       ipcRenderer.invoke('app:set-global-hotkey', enabled),
+    setGlobalHotkeyAccelerator: (accelerator: string): Promise<GlobalHotkeyState> =>
+      ipcRenderer.invoke('app:set-global-hotkey-accelerator', accelerator),
+    probeGlobalHotkeys: (candidates: string[]): Promise<HotkeyProbe[]> =>
+      ipcRenderer.invoke('app:probe-global-hotkeys', candidates),
     getMcp: (): Promise<McpState> => ipcRenderer.invoke('app:get-mcp'),
     setMcp: (enabled: boolean): Promise<McpState> => ipcRenderer.invoke('app:set-mcp', enabled),
     getMcpToken: (): Promise<string> => ipcRenderer.invoke('app:mcp-token-get'),
