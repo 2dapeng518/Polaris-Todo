@@ -408,6 +408,26 @@ function migrate(): void {
     })()
     version = 7
   }
+
+  if (version < 8) {
+    // 任务计划时间段（日历套件 P0）：开始/结束时刻与全天标记。都是可选信息——
+    // 旧行 NULL/0 = 未设置；dueAt 仍是截止与日历分组的锚点，start/end 只描述
+    // 「打算什么时候做」。照 v4 的加列写法（探测 + ALTER，同事务盖章）。
+    db.transaction(() => {
+      const columns = db.prepare('PRAGMA table_info(tasks)').all() as Array<{ name: string }>
+      if (!columns.some((column) => column.name === 'start_at')) {
+        db.exec('ALTER TABLE tasks ADD COLUMN start_at TEXT')
+      }
+      if (!columns.some((column) => column.name === 'end_at')) {
+        db.exec('ALTER TABLE tasks ADD COLUMN end_at TEXT')
+      }
+      if (!columns.some((column) => column.name === 'all_day')) {
+        db.exec('ALTER TABLE tasks ADD COLUMN all_day INTEGER NOT NULL DEFAULT 0')
+      }
+      db.pragma('user_version = 8')
+    })()
+    version = 8
+  }
 }
 
 // 当前写修订号：单行主键 SELECT，focus 门控的廉价探针。键缺失（理论上只有
@@ -704,6 +724,9 @@ type TaskRow = {
   completed: number
   completed_at: string | null
   due_at: string | null
+  start_at: string | null
+  end_at: string | null
+  all_day: number
   remind_at: string | null
   reminded_at: string | null
   recurrence_rule: string | null
@@ -757,6 +780,9 @@ function mapTask(row: TaskRow): Task {
     completed: row.completed === 1,
     completedAt: row.completed_at,
     dueAt: row.due_at,
+    startAt: row.start_at,
+    endAt: row.end_at,
+    allDay: row.all_day === 1,
     remindAt: row.remind_at,
     remindedAt: row.reminded_at,
     recurrenceRule: row.recurrence_rule,
@@ -1083,8 +1109,8 @@ export function importBackup(data: {
     'INSERT INTO projects (id, name, color, sort_order, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)'
   )
   const insertTask = db.prepare(`
-    INSERT INTO tasks (id, title, notes, completed, completed_at, due_at, remind_at, reminded_at, recurrence_rule, project_id, priority, created_at, updated_at, deleted_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO tasks (id, title, notes, completed, completed_at, due_at, start_at, end_at, all_day, remind_at, reminded_at, recurrence_rule, project_id, priority, created_at, updated_at, deleted_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `)
   const insertTag = db.prepare('INSERT INTO tags (id, name, created_at) VALUES (?, ?, ?)')
   const insertTaskTag = db.prepare('INSERT INTO task_tags (task_id, tag_id) VALUES (?, ?)')
@@ -1115,6 +1141,9 @@ export function importBackup(data: {
         task.completed ? 1 : 0,
         task.completedAt,
         task.dueAt,
+        task.startAt ?? null,
+        task.endAt ?? null,
+        task.allDay ? 1 : 0,
         task.remindAt,
         task.remindedAt,
         task.recurrenceRule,
@@ -1179,12 +1208,15 @@ export function createTask(input: CreateTaskInput): Task {
   const now = new Date().toISOString()
 
   db.prepare(`
-    INSERT INTO tasks (id, title, notes, completed, due_at, remind_at, recurrence_rule, project_id, priority, created_at, updated_at, deleted_at)
-    VALUES (?, ?, '', 0, ?, ?, ?, ?, ?, ?, ?, NULL)
+    INSERT INTO tasks (id, title, notes, completed, due_at, start_at, end_at, all_day, remind_at, recurrence_rule, project_id, priority, created_at, updated_at, deleted_at)
+    VALUES (?, ?, '', 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)
   `).run(
     id,
     title,
     input.dueAt ?? null,
+    input.startAt ?? null,
+    input.endAt ?? null,
+    input.allDay ? 1 : 0,
     input.remindAt ?? null,
     input.recurrenceRule ?? null,
     input.projectId ?? null,
@@ -1212,6 +1244,9 @@ export function updateTask(input: UpdateTaskInput): UpdateTaskResult {
     notes: input.notes !== undefined ? input.notes : existing.notes,
     completed: input.completed !== undefined ? input.completed : existing.completed,
     dueAt: input.dueAt !== undefined ? input.dueAt : existing.dueAt,
+    startAt: input.startAt !== undefined ? input.startAt : existing.startAt,
+    endAt: input.endAt !== undefined ? input.endAt : existing.endAt,
+    allDay: input.allDay !== undefined ? input.allDay : existing.allDay,
     remindAt: input.remindAt !== undefined ? input.remindAt : existing.remindAt,
     remindedAt: reminderChanged ? null : existing.remindedAt,
     recurrenceRule:
@@ -1243,6 +1278,35 @@ export function updateTask(input: UpdateTaskInput): UpdateTaskResult {
       : null
   const storedRule = completingRecurrence ? null : next.recurrenceRule
   const now = new Date().toISOString()
+
+  // 下一次实例继承计划时间段：开始随 due 的「墙钟日期差」整体平移（保留钟点，
+  // 用本地 Y/M/D 构造日期，与 recurrence 的墙钟约定一致；DST 歧义解析到较早
+  // 的一次，同 lib/dateTime.ts 的已知限制），结束按原时长跟随之；全天标记
+  // 原样继承。没有开始时刻就不造一个。
+  let spawnStartAt: string | null = null
+  let spawnEndAt: string | null = null
+  if (nextDate && next.startAt && next.dueAt) {
+    const dueDay = new Date(next.dueAt)
+    dueDay.setHours(0, 0, 0, 0)
+    const nextDay = new Date(nextDate)
+    nextDay.setHours(0, 0, 0, 0)
+    const dayDiff = Math.round((nextDay.getTime() - dueDay.getTime()) / 86400000)
+    const source = new Date(next.startAt)
+    const spawnedStart = new Date(
+      source.getFullYear(),
+      source.getMonth(),
+      source.getDate() + dayDiff,
+      source.getHours(),
+      source.getMinutes(),
+      source.getSeconds(),
+      source.getMilliseconds()
+    )
+    spawnStartAt = spawnedStart.toISOString()
+    if (next.endAt) {
+      const duration = new Date(next.endAt).getTime() - new Date(next.startAt).getTime()
+      spawnEndAt = new Date(spawnedStart.getTime() + Math.max(0, duration)).toISOString()
+    }
+  }
   // 替换式语义：tagIds 是「保存后应有的完整集合」，省略则完全不动关联。
   // 未知 id（标签已在别处被删）静默丢弃，而不是让整次保存失败。
   const tagIds =
@@ -1265,7 +1329,7 @@ export function updateTask(input: UpdateTaskInput): UpdateTaskResult {
   const write = db.transaction(() => {
     db.prepare(`
       UPDATE tasks
-      SET title = ?, notes = ?, completed = ?, completed_at = ?, due_at = ?, remind_at = ?, reminded_at = ?, recurrence_rule = ?, project_id = ?, priority = ?, updated_at = ?
+      SET title = ?, notes = ?, completed = ?, completed_at = ?, due_at = ?, start_at = ?, end_at = ?, all_day = ?, remind_at = ?, reminded_at = ?, recurrence_rule = ?, project_id = ?, priority = ?, updated_at = ?
       WHERE id = ?
     `).run(
       next.title,
@@ -1273,6 +1337,9 @@ export function updateTask(input: UpdateTaskInput): UpdateTaskResult {
       next.completed ? 1 : 0,
       completedAt,
       next.dueAt,
+      next.startAt,
+      next.endAt,
+      next.allDay ? 1 : 0,
       next.remindAt,
       next.remindedAt,
       storedRule,
@@ -1292,13 +1359,16 @@ export function updateTask(input: UpdateTaskInput): UpdateTaskResult {
     if (nextDate) {
       spawnedId = randomUUID()
       db.prepare(`
-        INSERT INTO tasks (id, title, notes, completed, due_at, remind_at, recurrence_rule, project_id, priority, created_at, updated_at, deleted_at)
-        VALUES (?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, NULL)
+        INSERT INTO tasks (id, title, notes, completed, due_at, start_at, end_at, all_day, remind_at, recurrence_rule, project_id, priority, created_at, updated_at, deleted_at)
+        VALUES (?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)
       `).run(
         spawnedId,
         next.title,
         next.notes,
         nextDate.toISOString(),
+        spawnStartAt,
+        spawnEndAt,
+        next.allDay ? 1 : 0,
         spawnedRemindAt,
         next.recurrenceRule,
         next.projectId,

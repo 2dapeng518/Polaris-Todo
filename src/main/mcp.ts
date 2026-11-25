@@ -124,6 +124,9 @@ const createTaskArgs = z.object({
   title: z.string().min(1).max(500),
   notes: z.string().max(20000).optional(),
   dueAt: dateTimeSchema.nullable().optional(),
+  startAt: dateTimeSchema.nullable().optional(),
+  endAt: dateTimeSchema.nullable().optional(),
+  allDay: z.boolean().optional(),
   projectId: z.string().nullable().optional(),
   priority: z.number().int().min(0).max(3).optional()
 })
@@ -133,6 +136,9 @@ const updateTaskArgs = z.object({
   title: z.string().min(1).max(500).optional(),
   notes: z.string().max(20000).optional(),
   dueAt: dateTimeSchema.nullable().optional(),
+  startAt: dateTimeSchema.nullable().optional(),
+  endAt: dateTimeSchema.nullable().optional(),
+  allDay: z.boolean().optional(),
   priority: z.number().int().min(0).max(3).optional(),
   tagIds: z.array(z.string().min(1)).max(50).optional()
 })
@@ -200,13 +206,16 @@ const TOOLS: ToolDef[] = [
   },
   {
     name: 'create_task',
-    description: '新建任务。dueAt 用 ISO 8601；priority 0-3（0 无 1 低 2 中 3 高）。',
+    description: '新建任务。dueAt/startAt/endAt 用 ISO 8601（startAt/endAt 是计划时间段）；allDay 全天；priority 0-3（0 无 1 低 2 中 3 高）。',
     inputSchema: {
       type: 'object',
       properties: {
         title: { type: 'string' },
         notes: { type: 'string' },
         dueAt: { type: 'string' },
+        startAt: { type: 'string' },
+        endAt: { type: 'string' },
+        allDay: { type: 'boolean' },
         projectId: { type: 'string' },
         priority: { type: 'number', enum: [0, 1, 2, 3] }
       },
@@ -217,6 +226,9 @@ const TOOLS: ToolDef[] = [
       const task = createTask({
         title: input.title,
         dueAt: input.dueAt ?? null,
+        startAt: input.startAt ?? null,
+        endAt: input.endAt ?? null,
+        allDay: input.allDay ?? false,
         projectId: input.projectId ?? null,
         priority: input.priority ?? 0
       })
@@ -235,6 +247,9 @@ const TOOLS: ToolDef[] = [
         title: { type: 'string' },
         notes: { type: 'string' },
         dueAt: { type: ['string', 'null'] },
+        startAt: { type: ['string', 'null'] },
+        endAt: { type: ['string', 'null'] },
+        allDay: { type: 'boolean' },
         priority: { type: 'number', enum: [0, 1, 2, 3] },
         tagIds: { type: 'array', items: { type: 'string' } }
       },

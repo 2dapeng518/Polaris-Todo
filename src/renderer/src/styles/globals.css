@@ -3123,6 +3123,23 @@ textarea {
   margin-bottom: 8px;
 }
 
+/* 时间段弹层（开始/结束/全天）：全天行右置开关，分段共用一份月历。 */
+.detail-time-allday {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: var(--surface-1);
+}
+
+.detail-time-allday-label {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
 .detail-popover-foot {
   display: flex;
   align-items: center;

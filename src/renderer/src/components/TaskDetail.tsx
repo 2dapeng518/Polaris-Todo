@@ -27,12 +27,13 @@ import { useLocale, useT } from '../stores/useLocaleStore'
 import type { MessageKey } from '@shared/i18n'
 import { SubtaskList } from './SubtaskList'
 import { DuePopover, DUE_ESTIMATED_HEIGHT } from './detail/DuePopover'
+import { TimePopover, TIME_ESTIMATED_HEIGHT } from './detail/TimePopover'
 import { ReminderPopover, REMINDER_ESTIMATED_HEIGHT } from './detail/ReminderPopover'
 import { RepeatPopover, REPEAT_ESTIMATED_HEIGHT } from './detail/RepeatPopover'
 import { ScheduleRow } from './detail/ScheduleRow'
 import { TagEditor } from './detail/TagEditor'
 import { defaultReminderAt, quickDuePreset } from './detail/presets'
-import { PRIORITIES, popoverLabel, priorityLabel, relativeTime, reminderSummary } from './detail/summary'
+import { PRIORITIES, popoverLabel, priorityLabel, relativeTime, reminderSummary, timeSummary } from './detail/summary'
 import type { ScheduleKind, TaskPatch } from './detail/types'
 
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error'
@@ -240,9 +241,11 @@ function TaskDetailBody({ task, titleRef, closeRef }: BodyProps) {
     estimatedHeight:
       popoverKind === 'due'
         ? DUE_ESTIMATED_HEIGHT
-        : popoverKind === 'reminder'
-          ? REMINDER_ESTIMATED_HEIGHT
-          : REPEAT_ESTIMATED_HEIGHT,
+        : popoverKind === 'time'
+          ? TIME_ESTIMATED_HEIGHT
+          : popoverKind === 'reminder'
+            ? REMINDER_ESTIMATED_HEIGHT
+            : REPEAT_ESTIMATED_HEIGHT,
     outsideIgnoreSelector: '[data-detail-row]',
     onDismiss: closePopover,
     resetKey: popoverKind
@@ -459,6 +462,13 @@ function TaskDetailBody({ task, titleRef, closeRef }: BodyProps) {
             onOpen={(event) => openPopover('due', event)}
           />
           <ScheduleRow
+            label={t('detail.time')}
+            value={task.startAt || task.endAt ? timeSummary(task, t) : t('detail.addTime')}
+            muted={!task.startAt && !task.endAt}
+            expanded={popoverKind === 'time'}
+            onOpen={(event) => openPopover('time', event)}
+          />
+          <ScheduleRow
             label={t('detail.reminder')}
             value={task.remindAt ? reminderSummary(task, t, locale) : t('detail.addReminder')}
             relative={task.remindAt ? relativeTime(task.remindAt, locale) : undefined}
@@ -559,6 +569,15 @@ function TaskDetailBody({ task, titleRef, closeRef }: BodyProps) {
         >
           {popoverKind === 'due' && (
             <DuePopover
+              task={task}
+              onPatch={(patch) => {
+                void persist(patch)
+              }}
+              onClose={() => closePopover(true)}
+            />
+          )}
+          {popoverKind === 'time' && (
+            <TimePopover
               task={task}
               onPatch={(patch) => {
                 void persist(patch)

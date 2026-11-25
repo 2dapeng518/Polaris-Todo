@@ -2378,6 +2378,9 @@ export async function runSmokeTest(): Promise<void> {
           completed: true,
           completedAt: null,
           dueAt: null,
+          startAt: null,
+          endAt: null,
+          allDay: false,
           remindAt: null,
           remindedAt: null,
           recurrenceRule: null,
@@ -3165,7 +3168,7 @@ export async function runSmokeTest(): Promise<void> {
       const fixtureTask = createTask({ title: '冒烟自动备份任务' })
       autoBackupFixtureId = fixtureTask.id
       const payload = {
-        schemaVersion: 3,
+        schemaVersion: 4,
         app: 'polaris',
         exportedAt: new Date().toISOString(),
         ...exportBackup()
@@ -3327,7 +3330,7 @@ export async function runSmokeTest(): Promise<void> {
       dataLocationFixtureIds.push(dataLocFixture.id)
       // fixture 自动备份：复制路径必须把它带到新位置（备份目录跟随数据目录）。
       const backupPayload = {
-        schemaVersion: 3,
+        schemaVersion: 4,
         app: 'polaris',
         exportedAt: new Date().toISOString(),
         ...exportBackup()

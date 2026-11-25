@@ -12,6 +12,15 @@ export type Task = {
    *  supplied by the renderer. */
   completedAt: string | null
   dueAt: string | null
+  /** 计划开始时刻（ISO UTC，本地墙钟语义与 dueAt 一致）。null = 未设置。
+   *  与 dueAt（截止/分组锚点）正交：日历月格仍按 dueAt 分组，时间轴视图
+   *  与时间段展示用 startAt/endAt。 */
+  startAt: string | null
+  /** 计划结束时刻（ISO UTC）。UI 保证 >= startAt；省略 = 只记开始。 */
+  endAt: string | null
+  /** 全天事件：有起止日期但展示与时间轴排版忽略钟点（时间字段原样保留，
+   *  取消全天后恢复显示）。 */
+  allDay: boolean
   remindAt: string | null
   remindedAt: string | null
   recurrenceRule: string | null
@@ -79,6 +88,10 @@ export type Project = {
 export type CreateTaskInput = {
   title: string
   dueAt?: string | null
+  /** 计划时间段：开始 / 结束（>= startAt）与全天标记，见 Task 注释。 */
+  startAt?: string | null
+  endAt?: string | null
+  allDay?: boolean
   remindAt?: string | null
   recurrenceRule?: string | null
   projectId?: string | null
@@ -91,6 +104,9 @@ export type UpdateTaskInput = {
   notes?: string
   completed?: boolean
   dueAt?: string | null
+  startAt?: string | null
+  endAt?: string | null
+  allDay?: boolean
   remindAt?: string | null
   recurrenceRule?: string | null
   projectId?: string | null
@@ -125,10 +141,10 @@ export type UpdateProjectInput = {
  *  such field at all. */
 export type BackupTask = Omit<Task, 'subtaskTotal' | 'subtaskDone' | 'tags'>
 
-/** schemaVersion 3 added the tags and taskTags arrays. Imports still accept
- *  versions 1 and 2, where those arrays are absent and mean "no tag data". */
+/** schemaVersion 4 added the task time window (startAt/endAt/allDay). Imports
+ *  still accept versions 1–3, where those fields are absent and mean "unset". */
 export type BackupData = {
-  schemaVersion: 3
+  schemaVersion: 4
   app: 'polaris'
   exportedAt: string
   projects: Project[]

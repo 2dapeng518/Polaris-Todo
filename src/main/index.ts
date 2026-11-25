@@ -87,6 +87,10 @@ const backupTaskSchema = z
     completed: z.boolean(),
     completedAt: z.string().nullable(),
     dueAt: z.string().nullable(),
+    // v4 起带计划时间段；v1–v3 旧备份没有这三个字段，缺省即「未设置」。
+    startAt: z.string().nullable().optional().default(null),
+    endAt: z.string().nullable().optional().default(null),
+    allDay: z.boolean().optional().default(false),
     remindAt: z.string().nullable(),
     remindedAt: z.string().nullable(),
     recurrenceRule: z.string().nullable(),
@@ -119,8 +123,8 @@ const backupTaskTagSchema = z.object({
 })
 
 const backupSchema = z.object({
-  // v1（无 subtasks）与 v2（无 tags）都继续可导入；v3 起带标签与关联。
-  schemaVersion: z.union([z.literal(1), z.literal(2), z.literal(3)]),
+  // v1（无 subtasks）、v2（无 tags）、v3（无计划时间段）都继续可导入；v4 起带时间段。
+  schemaVersion: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)]),
   app: z.literal('polaris'),
   exportedAt: z.string(),
   projects: z.array(
@@ -222,7 +226,7 @@ process.on('uncaughtException', (error) => {
 function buildBackupPayload(): BackupData {
   const { projects, tasks, tags, taskTags, subtasks } = exportBackup()
   return {
-    schemaVersion: 3,
+    schemaVersion: 4,
     app: 'polaris',
     exportedAt: new Date().toISOString(),
     projects,
