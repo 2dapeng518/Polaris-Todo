@@ -3869,6 +3869,76 @@ textarea {
   white-space: nowrap;
 }
 
+/* ---------- 日历套件 P4.4：打印（打印按钮临时切亮色主题，此处剥壳） ---------- */
+
+@media print {
+  /* 应用壳：侧栏/标题栏/页脚/快速添加/详情/浮层全部退场，只留任务区内容。 */
+  .titlebar,
+  .sidebar,
+  .view-footer,
+  .quick-add-shell,
+  .detail-pane,
+  .detail-scrim,
+  .undo-toast,
+  .calendar-toolbar-right,
+  .calendar-modes,
+  .calendar-mini,
+  .command-overlay,
+  .calendar-jump,
+  .calendar-display,
+  .calendar-filter {
+    display: none !important;
+  }
+
+  .app-shell,
+  .main,
+  .main-inner,
+  .calendar-view,
+  .calendar-body,
+  .calendar-content,
+  .timegrid-scroll,
+  .timegrid-canvas,
+  .task-list {
+    display: block;
+    height: auto;
+    max-height: none;
+    overflow: visible;
+  }
+
+  .main {
+    padding: 0;
+    overflow: visible;
+  }
+
+  /* 滚动容器在纸面上自然展开；周/日时间轴整轴可见。 */
+  .timegrid-scroll {
+    overflow: visible;
+  }
+
+  /* 月份/范围标签降级为纯文本（仍是打印纸面上的标题）。 */
+  .calendar-month-jump,
+  .calendar-month {
+    background: none;
+    border: none;
+    padding: 0;
+  }
+
+  .calendar-month-caret {
+    display: none;
+  }
+
+  /* 看板泳道纸面收窄换行，避免横向截断。 */
+  .calendar-board {
+    display: flex;
+    flex-wrap: wrap;
+    overflow: visible;
+  }
+
+  .calendar-board-col {
+    break-inside: avoid;
+  }
+}
+
 /* 标签编辑区：已贴 chip + 新建输入框 + 建议 chip。与项目 chips 同一套
    28px/8px 圆角语言，输入框压到 30px 以免详情列过高。 */
 .detail-tags {

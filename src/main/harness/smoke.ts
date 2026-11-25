@@ -3100,6 +3100,8 @@ export async function runSmokeTest(): Promise<void> {
         step = 'back-month';
         document.querySelector('[data-calendar-mode-tab="month"]')?.click();
         if (!(await waitFor(() => document.querySelectorAll('.calendar-cell').length === 42))) throw new Error('month grid missing');
+        // 打印按钮 presence（P4.4）：点击会弹原生打印对话框卡住冒烟，只断言在。
+        if (!document.querySelector('[data-calendar-print]')) throw new Error('print button missing');
 
         step = 'detail-time-row';
         document.querySelector('[data-calendar-task="' + timed.id + '"]')?.click();

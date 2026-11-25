@@ -32,6 +32,7 @@ export {
   PanelLeftOpen,
   Pencil,
   Plus,
+  Printer,
   Repeat2,
   RotateCcw,
   Search,

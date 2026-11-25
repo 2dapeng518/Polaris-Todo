@@ -62,6 +62,7 @@ export const features = {
   'calendar.filter.title': '筛选',
   'calendar.filter.clear': '全部',
   'calendar.search.placeholder': '搜索日历任务',
+  'calendar.print': '打印当前日历视图',
   'calendar.badge.holiday': '休',
   'calendar.badge.workday': '班',
   'themes.dark.label': '夜阑',

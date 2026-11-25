@@ -521,6 +521,7 @@ export const en: Messages = {
   'calendar.filter.title': 'Filter',
   'calendar.filter.clear': 'All',
   'calendar.search.placeholder': 'Search calendar tasks',
+  'calendar.print': 'Print the current calendar view',
   'calendar.badge.holiday': 'Off',
   'calendar.badge.workday': 'Work',
   'themes.dark.label': 'Midnight',

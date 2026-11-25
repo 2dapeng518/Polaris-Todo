@@ -5,8 +5,9 @@ import type { Task } from '@shared/types'
 import { useTaskStore } from '../stores/useTaskStore'
 import { useT, useLocale } from '../stores/useLocaleStore'
 import { useCalendarStore, parseDayKey } from '../stores/useCalendarStore'
+import { useThemeStore } from '../stores/useThemeStore'
 import { clampToMonth, dayKey } from '../lib/dateTime'
-import { ChevronLeft, ChevronRight, PanelLeftOpen, Search } from './Icon'
+import { ChevronLeft, ChevronRight, PanelLeftOpen, Printer, Search } from './Icon'
 import { MonthGrid } from './calendar/MonthGrid'
 import { MiniMonth } from './calendar/MiniMonth'
 import { MonthJumpMenu } from './calendar/MonthJumpMenu'
@@ -73,6 +74,28 @@ export function CalendarView() {
   const anchorDay = useMemo(() => parseDayKey(anchorKey), [anchorKey])
   const en = locale === 'en'
   const timeMode = TIME_MODES.includes(mode as TimeMode) ? (mode as TimeMode) : null
+
+  // 打印（P4.4）：打印前临时切昼白主题（深色主题纸面墨量不可接受），
+  // 打印结束恢复。print() 在 Electron 里阻塞到预览关闭，afterprint 监听
+  // 兜底覆盖异步完成的平台；restored 幂等防止两路都恢复。
+  const printCalendar = (): void => {
+    const previous = useThemeStore.getState().theme
+    let restored = false
+    const restore = (): void => {
+      if (restored) return
+      restored = true
+      window.removeEventListener('afterprint', restore)
+      useThemeStore.getState().setTheme(previous)
+    }
+    window.addEventListener('afterprint', restore)
+    useThemeStore.getState().setTheme('light')
+    try {
+      window.print()
+    } finally {
+      // print() 返回时预览已关闭；延一帧给 afterprint 让路（幂等）。
+      requestAnimationFrame(restore)
+    }
+  }
 
   // 日历内筛选（P3.5）：搜索（标题包含，不区分大小写）+ 项目/标签互斥。
   // 全部子视图吃同一份过滤结果；筛选是会话内的查询意图，不持久化。
@@ -207,6 +230,16 @@ export function CalendarView() {
           </>
         )}
         <div className="calendar-toolbar-right">
+          <button
+            type="button"
+            className="calendar-tool-button"
+            data-calendar-print
+            aria-label={t('calendar.print')}
+            title={t('calendar.print')}
+            onClick={printCalendar}
+          >
+            <Printer size={14} strokeWidth={1.8} aria-hidden="true" />
+          </button>
           <div className="calendar-search">
             <Search size={12} strokeWidth={1.8} aria-hidden="true" />
             <input
