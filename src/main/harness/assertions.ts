@@ -84,8 +84,8 @@ export function runParseAssertions(): {
     ['本周三点半开会', '本周三点半开会', null, null],
     ['下周三点开会', '下周三点开会', null, null],
     ['周一到周五值班', '周一到周五值班', null, null],
-    ['3点到5点值班', '3点到5点值班', null, null],
-    ['15:00到17:00 评审', '15:00到17:00 评审', null, null],
+    ['3点到5点值班', '值班', '2026-11-12 15:00', null],
+    ['15:00到17:00 评审', '评审', '2026-11-12 15:00', null],
     ['11月20日交报告', '交报告', '2026-11-20 23:59', null],
     ['十一月二十日聚餐', '聚餐', '2026-11-20 23:59', null],
     ['1月1日复盘', '复盘', '2027-01-01 23:59', null],
@@ -180,6 +180,67 @@ export function runParseAssertions(): {
       console.error(
         'PARSE_CASE_FAIL',
         JSON.stringify({ input, got: [result.title, gotDue, result.projectId], want: [wantTitle, wantDue, wantProject] })
+      )
+    }
+  }
+
+  // 区间语法（日历套件 P2.4）：「3点到5点」解析为 startAt/endAt，dueAt = 开始端。
+  // 本表与 scripts/verify-pure.mjs 的区间表逐字同步——改一处另一处必须跟着改。
+  // [input, expectedTitle, expectedLocalStart, expectedLocalEnd, expectedLocalDue]
+  const rangeTable: Array<[string, string, string | null, string | null, string | null]> = [
+    ['3点到5点值班', '值班', '2026-11-12 15:00', '2026-11-12 17:00', '2026-11-12 15:00'],
+    ['15:00到17:00 评审', '评审', '2026-11-12 15:00', '2026-11-12 17:00', '2026-11-12 15:00'],
+    ['明天下午3点到5点半开会', '开会', '2026-11-13 15:00', '2026-11-13 17:30', '2026-11-13 15:00'],
+    ['今晚8点到10点看电影', '看电影', '2026-11-12 20:00', '2026-11-12 22:00', '2026-11-12 20:00'],
+    ['晚上11点到凌晨1点值守', '值守', '2026-11-12 23:00', '2026-11-13 01:00', '2026-11-12 23:00'],
+    ['3点半到5点复盘', '复盘', '2026-11-12 15:30', '2026-11-12 17:00', '2026-11-12 15:30'],
+    ['明天 9:00-10:30 晨会', '晨会', '2026-11-13 09:00', '2026-11-13 10:30', '2026-11-13 09:00']
+  ]
+  for (const [input, wantTitle, wantStart, wantEnd, wantDue] of rangeTable) {
+    const result = parseQuickAdd(input, ctx)
+    const got = [result.title, local(result.startAt), local(result.endAt), local(result.dueAt)]
+    if (
+      got[0] !== wantTitle || got[1] !== wantStart || got[2] !== wantEnd || got[3] !== wantDue
+    ) {
+      grammar = false
+      console.error(
+        'PARSE_RANGE_FAIL',
+        JSON.stringify({ input, got, want: [wantTitle, wantStart, wantEnd, wantDue] })
+      )
+    }
+  }
+
+  // 区间误报反例：守卫拒绝/非法输入整段留在标题，不产生任何时间字段。
+  const rangeNegatives: Array<[string, string]> = [
+    ['第3点到第4点', '第3点到第4点'],
+    ['沪指涨1.5点', '沪指涨1.5点'],
+    ['上午10点光景', '上午10点光景']
+  ]
+  for (const [input, wantTitle] of rangeNegatives) {
+    const result = parseQuickAdd(input, ctx)
+    if (result.title !== wantTitle || result.dueAt !== null || result.startAt !== null || result.endAt !== null) {
+      grammar = false
+      console.error('PARSE_RANGE_NEGATIVE_FAIL', JSON.stringify({ input, title: result.title, dueAt: result.dueAt }))
+    }
+  }
+
+  // 英文区间：「3pm to 5pm」（终点无 am/pm 继承起点的半日制）与 24 小时制。
+  const enRangeTable: Array<[string, string, string | null, string | null]> = [
+    ['sync 3pm to 5pm', 'sync', '2026-11-12 15:00', '2026-11-12 17:00'],
+    ['sync 3pm-5pm', 'sync', '2026-11-12 15:00', '2026-11-12 17:00'],
+    // 起点 10:00 早于时钟 10:30：无显式日期时按既有规则整体顺延一天。
+    ['demo 10am to 12pm', 'demo', '2026-11-13 10:00', '2026-11-13 12:00'],
+    ['standup 10:00-11:30', 'standup', '2026-11-13 10:00', '2026-11-13 11:30']
+  ]
+  for (const [input, wantTitle, wantStart, wantEnd] of enRangeTable) {
+    const result = parseQuickAdd(input, ctx)
+    if (
+      result.title !== wantTitle || local(result.startAt) !== wantStart || local(result.endAt) !== wantEnd
+    ) {
+      grammar = false
+      console.error(
+        'PARSE_EN_RANGE_FAIL',
+        JSON.stringify({ input, got: [result.title, local(result.startAt), local(result.endAt)], want: [wantTitle, wantStart, wantEnd] })
       )
     }
   }

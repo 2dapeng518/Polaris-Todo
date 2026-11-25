@@ -131,7 +131,9 @@ type TaskState = {
     title: string,
     dueAt: string | null,
     projectId: string | null,
-    priority?: number
+    priority?: number,
+    /** 计划时间段（日历套件 P2 拖拽创建用）：见 Task 注释。 */
+    schedule?: { startAt?: string | null; endAt?: string | null; allDay?: boolean }
   ) => Promise<void>
   // 成功返回更新后的权威任务行；目标任务不在本地列表时返回 null。失败照旧抛错。
   updateTask: (id: string, patch: TaskPatch) => Promise<Task | null>
@@ -613,8 +615,16 @@ export const useTaskStore = create<TaskState>((set, get) => {
 
   setTrashConfirm: (trashConfirm) => set({ trashConfirm }),
 
-  addTask: async (title, dueAt, projectId, priority) => {
-    const task = await window.polaris.tasks.create({ title, dueAt, projectId, priority })
+  addTask: async (title, dueAt, projectId, priority, schedule) => {
+    const task = await window.polaris.tasks.create({
+      title,
+      dueAt,
+      projectId,
+      priority,
+      startAt: schedule?.startAt,
+      endAt: schedule?.endAt,
+      allDay: schedule?.allDay
+    })
     set((state) => ({ tasks: [task, ...state.tasks], ...clearError() }))
   },
 

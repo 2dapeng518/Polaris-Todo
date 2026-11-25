@@ -503,6 +503,7 @@ export const en: Messages = {
   'calendar.group.noDate': 'No date',
   'calendar.group.far': 'Later',
   'calendar.board.dropHere': 'Drop here',
+  'calendar.time.createPlaceholder': 'Task title, Enter to create',
   'calendar.empty.list.title': 'Nothing coming up',
   'calendar.empty.list.desc': 'Try quick add like "meeting tomorrow 9am"',
   'calendar.empty.board.title': 'The board is empty',

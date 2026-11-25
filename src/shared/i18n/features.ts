@@ -50,6 +50,7 @@ export const features = {
   'calendar.group.noDate': '无日期',
   'calendar.group.far': '更远',
   'calendar.board.dropHere': '拖到这里',
+  'calendar.time.createPlaceholder': '任务标题，回车创建',
   'calendar.empty.list.title': '接下来没有安排',
   'calendar.empty.list.desc': '用快速添加输入「明天 9 点开会」试试',
   'calendar.empty.board.title': '看板是空的',

@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from 'react'
-import { startOfMonth } from 'date-fns'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { addDays, format, isSameMonth, startOfMonth } from 'date-fns'
+import { zhCN, enUS } from 'date-fns/locale'
 import type { Task } from '@shared/types'
 import { useTaskStore } from '../stores/useTaskStore'
 import { useT, useLocale } from '../stores/useLocaleStore'
@@ -11,14 +12,18 @@ import { MiniMonth } from './calendar/MiniMonth'
 import { MonthJumpMenu } from './calendar/MonthJumpMenu'
 import { CalendarListView } from './calendar/CalendarListView'
 import { CalendarBoardView } from './calendar/CalendarBoardView'
+import { TimeGridView, visibleDaysFor, type TimeMode } from './calendar/TimeGridView'
 
-// 日历套件外壳（日历套件 P1）：工具栏（视图切换器 + 翻月 + 年月下拉 + 今天
-// + 迷你月历开关）+ 左侧迷你月历栏 + 按子视图模式渲染内容。P1 上线
-// 月 / 列表 / 看板；周 / 多周 / 日 / 多日时间轴在 P2 接入同一套路由。
-// 锚点日住 useCalendarStore（跨子视图/会话持久），切换视图不丢月份。
+// 日历套件外壳：工具栏（视图切换器 + 翻页 + 年月下拉 + 今天 + 迷你月历开关）
+// + 左侧迷你月历栏 + 按子视图模式渲染内容（月 / 列表 / 看板 / 周 / 多周 /
+// 日 / 多日）。锚点日住 useCalendarStore（跨子视图/会话持久），切换视图不丢
+// 锚点；月视图另有本地「可见月」状态（键盘跨月），离开日历时写回锚点。
 
-// P1 送到切换器上的模式；周系时间轴（P2）就绪后在此追加。
-const SWITCHER_MODES = ['month', 'list', 'board'] as const
+// 切换器顺序 = 主流待办应用的阅读顺序：月 / 周 / 多周 / 日 / 多日 / 列表 / 看板。
+const SWITCHER_MODES = ['month', 'week', 'multiweek', 'day', 'multiday', 'list', 'board'] as const
+type SwitcherMode = (typeof SWITCHER_MODES)[number]
+
+const TIME_MODES: readonly TimeMode[] = ['week', 'multiweek', 'day', 'multiday']
 
 const firstOfMonth = (date: Date): Date => {
   const copy = new Date(date)
@@ -50,6 +55,8 @@ export function CalendarView() {
   }, [])
 
   const anchorDay = useMemo(() => parseDayKey(anchorKey), [anchorKey])
+  const en = locale === 'en'
+  const timeMode = TIME_MODES.includes(mode as TimeMode) ? (mode as TimeMode) : null
 
   // 任务归属日：dueAt 优先、计划开始兜底（与列表/看板同一套 calendarDay 规则），
   // 月格与迷你月历的点标记共用这一份桶。
@@ -67,11 +74,23 @@ export function CalendarView() {
   }, [tasks])
   const markedDays = useMemo(() => new Set(byDay.keys()), [byDay])
 
-  // 工具栏翻月只动可见月；锚点在离开日历视图时统一写回（见下），避免键盘
-  // 跨月时锚点被夹带改写、焦点被锚点跟随效应拽回钳制日。
+  // 工具栏翻页：月视图翻「月」，时间轴翻一个可见窗（周/日/多日/两周）。
+  // 都只动各自的本地/锚点状态，不做夹带同步。
   const shiftMonth = (delta: number) => {
-    setMonth((current) => addMonthsClamped(current, delta))
+    setMonth((current) => new Date(current.getFullYear(), current.getMonth() + delta, 1))
   }
+  const shiftAnchor = (delta: number) => {
+    setAnchor(addDays(anchorDay, delta))
+  }
+  const shiftStep = timeMode
+    ? timeMode === 'week'
+      ? 7
+      : timeMode === 'multiweek'
+        ? 14
+        : timeMode === 'multiday'
+          ? 3
+          : 1
+    : 1
 
   const goToday = () => {
     const today = new Date()
@@ -86,12 +105,36 @@ export function CalendarView() {
   }
 
   // 离开日历视图（切到其他 AppView / 组件卸载）时把可见月写回锚点——再回到
-  // 日历时还在用户翻到的那个月（切换不丢月份锚点）。
+  // 日历时还在用户翻到的那个月（切换不丢月份锚点）。cleanup 只允许在真卸载
+  // 时跑：useEffect 的清理函数在依赖每次变化时都会执行，若把 month 放进依赖，
+  // 翻月的旧闭包会把上个月写回锚点，mode-sync effect 再把可见月拽回去——
+  // 「今天」按钮按下去标签弹回原月的摇摆就是这么来的。经 ref 读最新值。
+  const monthRef = useRef(month)
+  monthRef.current = month
+  const anchorDayRef = useRef(anchorDay)
+  anchorDayRef.current = anchorDay
   useEffect(() => {
     return () => {
-      useCalendarStore.getState().setAnchor(clampToMonth(month, anchorDay.getDate()))
+      useCalendarStore.getState().setAnchor(clampToMonth(monthRef.current, anchorDayRef.current.getDate()))
     }
-  }, [month, anchorDay])
+  }, [])
+
+  // 回到月视图时可见月跟锚点对齐：在时间轴/迷你月历里锚点可能已移到别的月。
+  useEffect(() => {
+    if (mode !== 'month') return
+    if (!isSameMonth(anchorDay, month)) setMonth(firstOfMonth(anchorDay))
+  }, [mode, anchorKey])
+
+  // 时间轴模式的范围标签（月份标签位置显示它，仍是年月下拉的触发器）。
+  const rangeLabel = useMemo(() => {
+    if (!timeMode) return ''
+    const days = visibleDaysFor(timeMode, anchorDay)
+    const first = days[0]
+    const last = days[days.length - 1]
+    return en
+      ? `${format(first, 'MMM d', { locale: enUS })} – ${format(last, 'MMM d', { locale: enUS })}`
+      : `${format(first, 'M月d日', { locale: zhCN })} – ${format(last, 'M月d日', { locale: zhCN })}`
+  }, [timeMode, anchorDay, en])
 
   return (
     <div className="calendar-view">
@@ -105,26 +148,30 @@ export function CalendarView() {
               aria-selected={mode === candidate}
               className={`calendar-mode ${mode === candidate ? 'is-active' : ''}`}
               data-calendar-mode-tab={candidate}
-              onClick={() => setMode(candidate)}
+              onClick={() => setMode(candidate as SwitcherMode)}
             >
               {t(`calendar.mode.${candidate}`)}
             </button>
           ))}
         </div>
-        {mode === 'month' && (
+        {(mode === 'month' || timeMode) && (
           <>
             <button
               className="calendar-nav"
-              onClick={() => shiftMonth(-1)}
+              onClick={() => (timeMode ? shiftAnchor(-shiftStep) : shiftMonth(-1))}
               aria-label={t('calendar.prevMonth')}
             >
               <ChevronLeft size={14} aria-hidden="true" />
             </button>
-            {/* 翻月播报复用可见的月份标签本身（标签是年月下拉的触发按钮）。 */}
-            <MonthJumpMenu month={month} onPick={jumpToMonth} />
+            {/* 翻页播报复用可见的标签本身（标签是年月下拉的触发按钮）。 */}
+            <MonthJumpMenu
+              month={timeMode ? firstOfMonth(anchorDay) : month}
+              onPick={jumpToMonth}
+              label={timeMode ? rangeLabel : undefined}
+            />
             <button
               className="calendar-nav"
-              onClick={() => shiftMonth(1)}
+              onClick={() => (timeMode ? shiftAnchor(shiftStep) : shiftMonth(1))}
               aria-label={t('calendar.nextMonth')}
             >
               <ChevronRight size={14} aria-hidden="true" />
@@ -176,15 +223,20 @@ export function CalendarView() {
               onMonthChange={setMonth}
             />
           )}
+          {timeMode && (
+            <TimeGridView
+              mode={timeMode}
+              tasks={tasks}
+              now={now}
+              anchorKey={anchorKey}
+              onAnchorChange={setAnchor}
+              parseDayKey={parseDayKey}
+            />
+          )}
           {mode === 'list' && <CalendarListView tasks={tasks} now={now} />}
           {mode === 'board' && <CalendarBoardView tasks={tasks} now={now} />}
         </div>
       </div>
     </div>
   )
-}
-
-// 月位移工具：月份循环由 Date 构造器自动进位（13 月 = 次年 1 月）。
-function addMonthsClamped(month: Date, delta: number): Date {
-  return new Date(month.getFullYear(), month.getMonth() + delta, 1)
 }

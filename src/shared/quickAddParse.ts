@@ -27,6 +27,7 @@ export type TokenKind =
   | 'iso'
   | 'clockCn'
   | 'clock24'
+  | 'range'
   | 'period'
   | 'offsetEn'
   | 'project'
@@ -64,6 +65,10 @@ export type QuickAddParse = {
   raw: string
   title: string
   dueAt: string | null
+  /** 计划时间段（区间语法「3点到5点」）：dueAt === startAt，endAt 是结束端。
+   *  非区间输入恒为 null。 */
+  startAt: string | null
+  endAt: string | null
   projectId: string | null
   priority: number
   timeExplicit: boolean
@@ -160,9 +165,9 @@ const MASKS: RegExp[] = [
   new RegExp(`(?:周|星期|礼拜)[${WD}][一二三四五六日天]`, 'g'),
   /(?:周|星期|礼拜)[日天](?=[程报志期常结元照历刊记])/g,
   new RegExp(`差\\s*${NUM3}\\s*(?:分|刻)\\s*${NUM3}\\s*[点时]`, 'g'),
-  new RegExp(`(?:周|星期|礼拜)[${WD}]\\s*(?:到|至|~|—|-)\\s*(?:周|星期|礼拜)?[${WD}]`, 'g'),
-  new RegExp(`${NUM3}\\s*[点时]\\s*(?:到|至|~|—|-)\\s*${NUM3}\\s*[点时]`, 'g'),
-  /[0-9]{1,2}:[0-9]{2}\s*(?:到|至|~|—|-)\s*[0-9]{1,2}:[0-9]{2}/g
+  new RegExp(`(?:周|星期|礼拜)[${WD}]\\s*(?:到|至|~|—|-)\\s*(?:周|星期|礼拜)?[${WD}]`, 'g')
+  // 时钟区间（「3点到5点」「10:00-11:30」）的掩码已解除：日历套件 P2.4 起
+  // 区间是真实语法（TokenKind 'range' → startAt/endAt），不再是误报屏蔽。
 ]
 
 const RE = {
@@ -183,6 +188,28 @@ const RE = {
 
 const LOOSE_CLOCK = new RegExp(`((?:${PERIODS})[ \\t]*)?${NUM3}\\s*[点时]`, 'g')
 const SUFFIX_HEAD = new RegExp(`^(?:半|钟|一刻|三刻|${NUM3}\\s*分)`)
+
+// ---------- 时钟区间（「3点到5点」「10:00-11:30」「3pm to 5pm」） ----------
+// 区间由两个钟点侧 + 连接词组成。每侧沿用 clockCn / clock24 的同一套词表与
+// 校验（时段词可选、半/刻/分后缀、applyPeriod 语义），因此裸「5点」结尾同样
+// 走「1-6 点按下午读」的约定：3点到5点 = 15:00–17:00。结束端早于开始端时
+// 顺延一天（晚上11点到凌晨1点 → 次日 01:00）。两侧必须同构（都用 [点时]
+// 或都用 HH:MM），混写不认、原样留在标题。
+const CLOCK_CN_TAIL = `(钟|半(?!价|成品|岛|年|天|小时|个)|一刻|三刻|${NUM3}\\s*分(?!钟))?`
+const RE_RANGE_CN = new RegExp(
+  `((?:${PERIODS})[ \\t]*)?(${NUM3})\\s*[点时]${CLOCK_CN_TAIL}\\s*(?:到|至|~|—|-)\\s*((?:${PERIODS})[ \\t]*)?(${NUM3})\\s*[点时]${CLOCK_CN_TAIL}`,
+  'g'
+)
+const RE_RANGE_24 = /([0-9]{1,2}):([0-9]{2})\s*(?:到|至|~|—|-)\s*([0-9]{1,2}):([0-9]{2})/g
+const EN_RANGE_CONNECT = '[ \\t]*(?:to|–|—|-)[ \t]*'
+const RE_RANGE_EN_AMPM = new RegExp(
+  `(?<![A-Za-z0-9])(\\d{1,2})(?::(\\d{2}))?[ \\t]*(am|pm)${EN_RANGE_CONNECT}(\\d{1,2})(?::(\\d{2}))?[ \\t]*(am|pm)?(?![A-Za-z0-9])`,
+  'gi'
+)
+const RE_RANGE_EN_24 = new RegExp(
+  `(?<![A-Za-z0-9])(\\d{1,2}):(\\d{2})${EN_RANGE_CONNECT}(\\d{1,2}):(\\d{2})(?![0-9A-Za-z:])`,
+  'g'
+)
 
 // ---------- English layer ----------
 // 英文语法与界面语言无关：输入里出现英文日期词就识别，界面语言只决定 chip
@@ -268,6 +295,12 @@ type Cand = {
   period?: string | null
   bare?: boolean
   oneDigit?: boolean
+  /** 区间（'range'）专有：结束端（已按 endPeriod 应用 applyPeriod 的结果）。
+   *  弱时段（「今晚8点到10点」）在 Step 6 里按开始侧同一规则重推。 */
+  endH?: number
+  endMin?: number
+  endDayOff?: number
+  endBare?: boolean
   projectId?: string
   name?: string
   dup?: boolean
@@ -440,27 +473,33 @@ export function formatParsedDue(
   value: string | null,
   timeExplicit: boolean,
   now: Date,
-  locale: Locale = DEFAULT_LOCALE
+  locale: Locale = DEFAULT_LOCALE,
+  endAt?: string | null
 ): string {
   if (!value) return translate(locale, 'quickAdd.dueNone')
   const date = new Date(value)
   const dateLocale = locale === 'en' ? enUS : zhCN
   const today = translate(locale, 'dates.today')
   const tomorrow = translate(locale, 'dates.tomorrow')
+  // 区间时间尾（「10:00 – 11:30」）：只在显式时间且带了 endAt 时出现。
+  const rangeTail =
+    timeExplicit && endAt ? ` – ${format(new Date(endAt), 'HH:mm')}` : ''
   // 「今天 / 明天」必须对着传进来的 now 判，不能用 date-fns 的 isToday /
   // isTomorrow：那两个读的是真实时钟，冒烟注入的时钟一换就和 chip 说的日子
   // 打架（解析说「明天」，显示却给「11月13日」）。
   const dayStart = startOfDay(now)
-  if (isSameDay(date, dayStart)) return timeExplicit ? `${today} ${format(date, 'HH:mm')}` : today
+  if (isSameDay(date, dayStart)) return timeExplicit ? `${today} ${format(date, 'HH:mm')}${rangeTail}` : today
   if (isSameDay(date, addDays(dayStart, 1))) {
-    return timeExplicit ? `${tomorrow} ${format(date, 'HH:mm')}` : tomorrow
+    return timeExplicit ? `${tomorrow} ${format(date, 'HH:mm')}${rangeTail}` : tomorrow
   }
   const sameYear = date.getFullYear() === now.getFullYear()
   const stem =
     locale === 'en'
       ? format(date, sameYear ? 'MMM d' : 'MMM d, yyyy', { locale: dateLocale })
       : format(date, `${sameYear ? '' : 'yyyy年'}M月d日`, { locale: dateLocale })
-  const tail = timeExplicit ? format(date, ' HH:mm') : ' ' + format(date, 'EEE', { locale: dateLocale })
+  const tail = timeExplicit
+    ? `${format(date, ' HH:mm')}${rangeTail}`
+    : ' ' + format(date, 'EEE', { locale: dateLocale })
   if (isBefore(date, startOfDay(now))) {
     return `${translate(locale, 'dates.overdue')} · ${stem}${tail}`
   }
@@ -587,12 +626,12 @@ export function parseQuickAdd(raw: string, ctx: ParseContext): QuickAddParse {
     const right = masked.slice(end)
     if (right.startsWith('的') || /^(?:那|这)/.test(right)) return false
     if (compoundsHit({ start, end })) return false
-    if (kind === 'monthday' || kind === 'iso' || kind === 'clock24' || kind === 'clockCn') {
+    if (kind === 'monthday' || kind === 'iso' || kind === 'clock24' || kind === 'clockCn' || kind === 'range') {
       if (left !== undefined && /[0-9]/.test(left)) return false
       if ((left === '.' || left === '。') && /[0-9]/.test(masked[start - 2] ?? '')) return false
     }
     if (kind === 'iso' && (left === '-' || left === '.')) return false
-    if (kind === 'clockCn' || kind === 'clock24') {
+    if (kind === 'clockCn' || kind === 'clock24' || kind === 'range') {
       if (left === '第') return false
       if (RIGHT_TIME.test(right)) return false
     }
@@ -715,8 +754,7 @@ export function parseQuickAdd(raw: string, ctx: ParseContext): QuickAddParse {
   }
 
   const clockSurvivors: Cand[] = []
-  for (const match of masked.matchAll(RE.clockCn)) {
-    const start = match.index
+  for (const match of masked.matchAll(RE.clockCn)) {    const start = match.index
     const end = match.index + match[0].length
     const period = match[1]?.trim()
     const arabic = /^[0-9]+$/.test(match[2])
@@ -783,6 +821,124 @@ export function parseQuickAdd(raw: string, ctx: ParseContext): QuickAddParse {
 
   for (const match of masked.matchAll(RE.period)) {
     push('period', match.index, match.index + match[0].length, { period: match[1] })
+  }
+
+  // ---------- 区间扫描（日历套件 P2.4） ----------
+  // 单侧钟点的解析：与 clockCn 循环同一套后缀/校验/applyPeriod 语义，但失败
+  // 返回 null 由区间扫描整体 poison。刻意不重构 clockCn 循环本体——那段
+  // 流水线顺序是承重墙（步骤注释见上）。
+  type ClockSide = {
+    h: number
+    dayOff: number
+    min: number
+    period: string | null
+    bare: boolean
+    assumed: boolean
+  }
+  const parseClockSide = (
+    periodText: string | undefined,
+    numText: string,
+    suffixText: string | undefined,
+    textAfter: string
+  ): ClockSide | null => {
+    const period = periodText?.trim()
+    const arabic = /^[0-9]+$/.test(numText)
+    const hour = zhNum(numText)
+    let minute = 0
+    if (suffixText === '半') minute = 30
+    else if (suffixText === '一刻') minute = 15
+    else if (suffixText === '三刻') minute = 45
+    else if (suffixText && suffixText !== '钟') minute = zhNum(suffixText.replace(/\s*分$/, ''))
+    if (suffixText === undefined && SUFFIX_HEAD.test(textAfter)) return null
+    if (!arabic && !period && !suffixText) return null
+    if (!(hour >= 0 && hour <= 24) || !(minute >= 0 && minute <= 59)) return null
+    const applied = applyPeriod(period, hour)
+    if (!applied) return null
+    return {
+      h: applied[0],
+      dayOff: applied[1],
+      min: minute,
+      period: period ?? null,
+      bare: !period && hour >= 1 && hour <= 6,
+      assumed: !period
+    }
+  }
+
+  const pushRangeCand = (cand: Cand): void => {
+    cands.push(cand)
+    clockSurvivors.push(cand)
+  }
+
+  // 中文区间（「下午3点到5点半」）。分组：1 起点时段 / 2 起点数 / 3 起点后缀 /
+  // 4 终点时段 / 5 终点数 / 6 终点后缀。守卫不过或任一侧非法 → 整段 poison：
+  // 两侧的散钟点候选随后被 blockedHit 掉，区间整体回到「留在标题」的旧行为，
+  // 绝不半解析。
+  for (const match of masked.matchAll(RE_RANGE_CN)) {
+    const start = match.index
+    const end = start + match[0].length
+    const startNumEnd = start + (match[1]?.length ?? 0) + match[2].length
+    const startSide = parseClockSide(match[1], match[2], match[3], masked.slice(startNumEnd))
+    const endSide = parseClockSide(match[4], match[5], match[6], masked.slice(end))
+    if (!startSide || !endSide) {
+      poisoned.push({ start, end })
+      continue
+    }
+    if (!guard('range', start, end)) {
+      poisoned.push({ start, end })
+      continue
+    }
+    pushRangeCand({
+      kind: 'range',
+      start,
+      end,
+      h: startSide.h,
+      dayOff: startSide.dayOff,
+      min: startSide.min,
+      period: startSide.period,
+      bare: startSide.bare,
+      assumed: startSide.assumed,
+      endH: endSide.h,
+      endMin: endSide.min,
+      endDayOff: endSide.dayOff,
+      endBare: endSide.bare
+    })
+  }
+
+  for (const match of masked.matchAll(RE_RANGE_24)) {
+    const start = match.index
+    const end = start + match[0].length
+    const startHour = Number(match[1])
+    const startMin = Number(match[2])
+    const endHour = Number(match[3])
+    const endMin = Number(match[4])
+    if (
+      !(startHour >= 0 && startHour <= 24) ||
+      startMin > 59 ||
+      !(endHour >= 0 && endHour <= 24) ||
+      endMin > 59
+    ) {
+      poisoned.push({ start, end })
+      continue
+    }
+    if (!guard('range', start, end)) {
+      poisoned.push({ start, end })
+      continue
+    }
+    pushRangeCand({
+      kind: 'range',
+      start,
+      end,
+      h: startHour,
+      dayOff: 0,
+      min: startMin,
+      period: null,
+      bare: false,
+      assumed: false,
+      endH: endHour,
+      endMin,
+      endDayOff: 0,
+      endBare: false
+    })
   }
 
   // Step 2b — 英文候选。与中文共用同一个候选列表和下游步骤（重叠消解、头尾
@@ -908,6 +1064,60 @@ export function parseQuickAdd(raw: string, ctx: ParseContext): QuickAddParse {
     pushEn('clockCn', match.index, match.index + match[0].length, {
       h: applied[0], dayOff: applied[1], min: minute, period: null,
       bare: hour >= 1 && hour <= 6, assumed: true
+    })
+  }
+
+  // 英文区间（「3pm to 5pm」「10:00-11:30」）。终点没写 am/pm 时继承起点的
+  // 半日制（3pm to 5 = 15:00–17:00）。
+  for (const match of masked.matchAll(RE_RANGE_EN_AMPM)) {
+    const startHour12 = Number(match[1])
+    const startMin = match[2] ? Number(match[2]) : 0
+    const isPm = match[3].toLowerCase() === 'pm'
+    const endHour12 = Number(match[4])
+    const endMin = match[5] ? Number(match[5]) : 0
+    const endHasMeridiem = Boolean(match[6])
+    const endIsPm = endHasMeridiem ? match[6].toLowerCase() === 'pm' : isPm
+    if (!(startHour12 >= 1 && startHour12 <= 12) || startMin > 59) continue
+    if (!(endHour12 >= 1 && endHour12 <= 12) || endMin > 59) continue
+    const hourOf = (h: number, pm: boolean): number => (pm ? (h % 12) + 12 : h % 12)
+    pushEn('range', match.index, match.index + match[0].length, {
+      h: hourOf(startHour12, isPm),
+      dayOff: 0,
+      min: startMin,
+      period: null,
+      bare: false,
+      assumed: false,
+      endH: hourOf(endHour12, endIsPm),
+      endMin,
+      endDayOff: 0,
+      endBare: false
+    })
+  }
+
+  for (const match of masked.matchAll(RE_RANGE_EN_24)) {
+    const startHour = Number(match[1])
+    const startMin = Number(match[2])
+    const endHour = Number(match[3])
+    const endMin = Number(match[4])
+    if (
+      !(startHour >= 0 && startHour <= 24) ||
+      startMin > 59 ||
+      !(endHour >= 0 && endHour <= 24) ||
+      endMin > 59
+    ) {
+      continue
+    }
+    pushEn('range', match.index, match.index + match[0].length, {
+      h: startHour,
+      dayOff: 0,
+      min: startMin,
+      period: null,
+      bare: false,
+      assumed: false,
+      endH: endHour,
+      endMin,
+      endDayOff: 0,
+      endBare: false
     })
   }
 
@@ -1089,7 +1299,8 @@ export function parseQuickAdd(raw: string, ctx: ParseContext): QuickAddParse {
   // field are cut out of the title; anchored losers stay as written.
   const anchored = [...accepted].sort((a, b) => a.start - b.start)
   const dateTok = anchored.find((t) => DATE_KINDS.includes(t.kind))
-  const clockTok = anchored.find((t) => t.kind === 'clockCn' || t.kind === 'clock24')
+  // 区间算钟点槽的一种（自带起止），比单一 clock 更具体：同一输入里区间优先。
+  const clockTok = anchored.find((t) => t.kind === 'clockCn' || t.kind === 'clock24' || t.kind === 'range')
   const periodTok = anchored.find((t) => t.kind === 'period')
   const projTok = anchored.find((t) => t.kind === 'project')
   const prioTok = anchored.find((t) => t.kind === 'priority')
@@ -1127,6 +1338,8 @@ export function parseQuickAdd(raw: string, ctx: ParseContext): QuickAddParse {
   // the invented-time rollback.
   const anyClockPoison = poisoned.length > 0
   let dueAt: string | null = null
+  let startAt: string | null = null
+  let endAt: string | null = null
   let timeExplicit = false
   let assumed = false
   let past = false
@@ -1208,6 +1421,24 @@ export function parseQuickAdd(raw: string, ctx: ParseContext): QuickAddParse {
     dueAt = result.toISOString()
     past = result < now
     if (usedDate?.assumed) assumed = true
+
+    // 区间：起点即 due（也是 startAt），终点按开始侧同一规则解析（弱时段在
+    // 无显式时段时同样作用到终点）；终点不晚于起点时顺延一天（跨午夜）。
+    if (usedClock && usedClock.kind === 'range' && usedClock.endH !== undefined) {
+      const weakForEnd = !usedClock.period && usedDate?.kind === 'relcomp' ? usedDate.weak : null
+      let endHour = usedClock.endH
+      let endOffset = usedClock.endDayOff ?? 0
+      if (weakForEnd) {
+        const reapplied = applyPeriod(weakForEnd, usedClock.endBare ? endHour - 12 : endHour)
+        if (reapplied) {
+          endHour = reapplied[0]
+          endOffset = reapplied[1]
+        }
+      }
+      const endCandidate = at(addDays(base, endOffset), endHour, usedClock.endMin ?? 0)
+      startAt = result.toISOString()
+      endAt = (endCandidate <= result ? addDays(endCandidate, 1) : endCandidate).toISOString()
+    }
   }
 
   const emptyTitle = tokens.length > 0 && /^[\s，,。.;；、：:！!？?]*$/.test(title)
@@ -1233,11 +1464,12 @@ export function parseQuickAdd(raw: string, ctx: ParseContext): QuickAddParse {
       DATE_KINDS.includes(t.kind) ||
       t.kind === 'clockCn' ||
       t.kind === 'clock24' ||
+      t.kind === 'range' ||
       t.kind === 'period' ||
       t.kind === 'offsetEn'
   )
   if (dueAt && dueTokens.length) {
-    const label = formatParsedDue(dueAt, timeExplicit, now, locale)
+    const label = formatParsedDue(dueAt, timeExplicit, now, locale, endAt)
     const source = sourceOf(raw, dueTokens)
     chips.push({
       id: 'due',
@@ -1327,6 +1559,8 @@ export function parseQuickAdd(raw: string, ctx: ParseContext): QuickAddParse {
     raw,
     title,
     dueAt,
+    startAt,
+    endAt,
     projectId: projTok?.projectId ?? null,
     priority: prioTok?.priority ?? 0,
     timeExplicit,

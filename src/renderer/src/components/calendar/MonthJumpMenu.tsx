@@ -16,13 +16,15 @@ function shortMonthLabel(month: Date, locale: Locale): string {
 
 // 年月快速跳转（日历套件 P1.4）：月份标签本身是下拉触发器，弹层里切年份 +
 // 点月份格子。锚定浮层走公共 useAnchoredPopover；Esc 在浮层根上
-// stopPropagation 只关自己（同 ThemeMenu 的路由约定）。
+// stopPropagation 只关自己（同 ThemeMenu 的路由约定）。时间轴模式（P2）的
+// 触发器显示范围标签，label 参数覆盖默认的月份文案。
 type MonthJumpMenuProps = {
   month: Date
   onPick: (month: Date) => void
+  label?: string
 }
 
-export function MonthJumpMenu({ month, onPick }: MonthJumpMenuProps) {
+export function MonthJumpMenu({ month, onPick, label }: MonthJumpMenuProps) {
   const t = useT()
   const locale = useLocale()
   const [open, setOpen] = useState(false)
@@ -64,7 +66,7 @@ export function MonthJumpMenu({ month, onPick }: MonthJumpMenuProps) {
       >
         {/* 翻月播报复用可见的月份标签本身（旧 span 的 data-calendar-month /
             aria-live 约定原样保留，冒烟按它取文案）。 */}
-        <span aria-live="polite">{monthLabel(month, locale)}</span>
+        <span aria-live="polite">{label ?? monthLabel(month, locale)}</span>
         <ChevronRight size={10} className="calendar-month-caret" aria-hidden="true" />
       </button>
 

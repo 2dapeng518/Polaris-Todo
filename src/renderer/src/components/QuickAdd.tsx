@@ -190,12 +190,17 @@ export function QuickAdd({ inputRef }: QuickAddProps) {
     const projectId = parsed.projectId ?? projectFilter
 
     try {
-      await addTask(parsed.title, dueAt, projectId, parsed.priority)
+      await addTask(parsed.title, dueAt, projectId, parsed.priority, {
+        startAt: parsed.startAt,
+        endAt: parsed.endAt
+      })
       inputRef.current?.focus()
 
       // View-default hours are invented too, so they are never shown.
       const showTime = parsed.dueAt ? parsed.timeExplicit : false
-      let text = t('quickAdd.added') + (dueAt ? ` · ${formatParsedDue(dueAt, showTime, freshNow, locale)}` : '')
+      let text =
+        t('quickAdd.added') +
+        (dueAt ? ` · ${formatParsedDue(dueAt, showTime, freshNow, locale, parsed.endAt)}` : '')
       const inView =
         view === 'today' ? isTodayOrOverdue(dueAt) : view === 'upcoming' ? isUpcoming(dueAt) : true
       const inProject = projectFilter === null || projectId === projectFilter

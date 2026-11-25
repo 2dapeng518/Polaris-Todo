@@ -327,10 +327,62 @@ async function captureDuePickerScreenshot(filename: string, confirm: boolean): P
 // 日历截图：首启示例只落在今天/明天，月历太稀疏。自种一批散布全月的任务
 // （含逾期与一条已完成），截完硬删清场、路由回今天——与回收站截图同一套路。
 async function captureCalendarScreenshot(filename: string): Promise<void> {
+  const ids = await seedCalendarTasks()
+  const { mainWindow } = harnessContext()
+  const wc = mainWindow?.webContents
+  await captureTo(filename)
+  if (!wc) return
+  await cleanupCalendarSeeds(ids)
+}
+
+// 日历套件子视图截图（calendar-week / calendar-multiweek / calendar-day /
+// calendar-multiday / calendar-list / calendar-board）：同一份种子，切到
+// 指定子视图截一张，清理后回到「今天」+ 月视图。
+async function captureCalendarModeScreenshot(submode: string, filename: string): Promise<void> {
+  const ids = await seedCalendarTasks()
   const { mainWindow } = harnessContext()
   const wc = mainWindow?.webContents
   if (!wc) return
-  const ids = await wc.executeJavaScript(`(async () => {
+  await wc.executeJavaScript(`(async () => {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const tab = document.querySelector('[data-calendar-mode-tab="${submode}"]');
+    if (tab) tab.click();
+    for (let i = 0; i < 40 && !document.querySelector('[data-timegrid], [data-calendar-list], [data-calendar-board], [data-multiweek]'); i++) await sleep(50);
+    await sleep(450);
+  })()`)
+  await captureTo(filename)
+  await wc.executeJavaScript(`(async () => {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const monthTab = document.querySelector('[data-calendar-mode-tab="month"]');
+    if (monthTab) monthTab.click();
+    await sleep(150);
+  })()`)
+  await cleanupCalendarSeeds(ids)
+}
+
+async function cleanupCalendarSeeds(ids: string[]): Promise<void> {
+  const { mainWindow } = harnessContext()
+  const wc = mainWindow?.webContents
+  if (!wc) return
+  await wc.executeJavaScript(`(async () => {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    for (const id of ${JSON.stringify(ids)}) {
+      // deleteForever 只删软删行（防误删活跃任务的护栏）：先软删再硬删。
+      await window.polaris.tasks.remove(id);
+      await window.polaris.tasks.deleteForever(id);
+    }
+    window.dispatchEvent(new Event('focus'));
+    await sleep(300);
+    ${findByText('.nav-item', ['今天', 'Today'])}?.click();
+    await sleep(300);
+  })()`)
+}
+
+async function seedCalendarTasks(): Promise<string[]> {
+  const { mainWindow } = harnessContext()
+  const wc = mainWindow?.webContents
+  if (!wc) return []
+  return (await wc.executeJavaScript(`(async () => {
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     const projects = await window.polaris.projects.list();
     const polaris = projects.find((p) => p.name === 'Polaris');
@@ -366,23 +418,23 @@ async function captureCalendarScreenshot(filename: string): Promise<void> {
       const task = await window.polaris.tasks.create(seed);
       created.push(task.id);
     }
+    // 给周视图加一条带计划时间段的任务 + 一条全天任务，让时间轴/全天行有内容。
+    const startAt = new Date(y, m, Math.min(now.getDate() + 1, 28), 10, 0, 0, 0).toISOString();
+    const endAt = new Date(y, m, Math.min(now.getDate() + 1, 28), 11, 30, 0, 0).toISOString();
+    const timed = await window.polaris.tasks.create({ title: ${JSON.stringify(shotEn() ? 'Focus block: calendar suite' : '专注时段：日历套件')}, dueAt: startAt, startAt, endAt });
+    created.push(timed.id);
+    const allDayStart = new Date(y, m, Math.min(now.getDate() + 1, 28), 0, 0, 0, 0).toISOString();
+    const allDayEnd = new Date(y, m, Math.min(now.getDate() + 1, 28), 23, 59, 0, 0).toISOString();
+    const allDay = await window.polaris.tasks.create({ title: ${JSON.stringify(shotEn() ? 'Team offsite (all day)' : '团队外出（全天）')}, dueAt: allDayStart, startAt: allDayStart, endAt: allDayEnd, allDay: true });
+    created.push(allDay.id);
     await window.polaris.tasks.toggle(created[3], true);
     window.dispatchEvent(new Event('focus'));
     await sleep(400);
     ${findByText('.nav-item', ['日历', 'Calendar'])}?.click();
-    for (let i = 0; i < 40 && !document.querySelector('.calendar-grid, [role="gridcell"]'); i++) await sleep(50);
+    for (let i = 0; i < 40 && !document.querySelector('.calendar-grid, [role="gridcell"], [data-timegrid]'); i++) await sleep(50);
     await sleep(450);
     return created;
-  })()`)
-  await captureTo(filename)
-  await wc.executeJavaScript(`(async () => {
-    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-    for (const id of ${JSON.stringify(ids)}) await window.polaris.tasks.deleteForever(id);
-    window.dispatchEvent(new Event('focus'));
-    await sleep(300);
-    ${findByText('.nav-item', ['今天', 'Today'])}?.click();
-    await sleep(300);
-  })()`)
+  })()`)) as string[]
 }
 
 export async function captureDemo(mode: string): Promise<void> {
@@ -564,6 +616,13 @@ export async function captureDemo(mode: string): Promise<void> {
       await captureParseScreenshot(`screenshot-${mode}.png`, PARSE_SHOTS[mode])
     } else if (mode === 'calendar') {
       await captureCalendarScreenshot('screenshot-calendar.png')
+    } else if (mode.startsWith('calendar-')) {
+      const submode = mode.slice(9)
+      if (['week', 'multiweek', 'day', 'multiday', 'list', 'board'].includes(submode)) {
+        await captureCalendarModeScreenshot(submode, `screenshot-${mode}.png`)
+      } else {
+        await captureCalendarScreenshot('screenshot-calendar.png')
+      }
     } else if (mode === 'matrix' || mode === 'stats') {
       // 四象限与统计直接用首启示例数据：八条教学示例恰好落满四个象限，
       // 统计有今日完成与项目分布，不需要额外种子。

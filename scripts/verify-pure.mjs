@@ -85,8 +85,8 @@ const table = [
   ['本周三点半开会', '本周三点半开会', null, null],
   ['下周三点开会', '下周三点开会', null, null],
   ['周一到周五值班', '周一到周五值班', null, null],
-  ['3点到5点值班', '3点到5点值班', null, null],
-  ['15:00到17:00 评审', '15:00到17:00 评审', null, null],
+  ['3点到5点值班', '值班', '2026-11-12 15:00', null],
+  ['15:00到17:00 评审', '评审', '2026-11-12 15:00', null],
   ['11月20日交报告', '交报告', '2026-11-20 23:59', null],
   ['十一月二十日聚餐', '聚餐', '2026-11-20 23:59', null],
   ['1月1日复盘', '复盘', '2027-01-01 23:59', null],
@@ -173,6 +173,59 @@ for (const [input, wantTitle, wantDue, wantProject] of table) {
   const ok = got[0] === wantTitle && got[1] === wantDue && got[2] === wantProject
   const want = JSON.stringify([wantTitle, wantDue, wantProject])
   assert(ok, `「${input}」→ ${want}` + (ok ? '' : `（实得 ${JSON.stringify(got)}）`))
+}
+
+console.log('=== 区间语法：3点到5点 → startAt/endAt（日历套件 P2.4） ===')
+{
+  // 与 src/main/harness/assertions.ts 的区间表逐字同步——改一处另一处必须跟着改。
+  // [input, expectedTitle, expectedLocalStart, expectedLocalEnd, expectedLocalDue]
+  const rangeTable = [
+    ['3点到5点值班', '值班', '2026-11-12 15:00', '2026-11-12 17:00', '2026-11-12 15:00'],
+    ['15:00到17:00 评审', '评审', '2026-11-12 15:00', '2026-11-12 17:00', '2026-11-12 15:00'],
+    ['明天下午3点到5点半开会', '开会', '2026-11-13 15:00', '2026-11-13 17:30', '2026-11-13 15:00'],
+    ['今晚8点到10点看电影', '看电影', '2026-11-12 20:00', '2026-11-12 22:00', '2026-11-12 20:00'],
+    ['晚上11点到凌晨1点值守', '值守', '2026-11-12 23:00', '2026-11-13 01:00', '2026-11-12 23:00'],
+    ['3点半到5点复盘', '复盘', '2026-11-12 15:30', '2026-11-12 17:00', '2026-11-12 15:30'],
+    ['明天 9:00-10:30 晨会', '晨会', '2026-11-13 09:00', '2026-11-13 10:30', '2026-11-13 09:00']
+  ]
+  for (const [input, wantTitle, wantStart, wantEnd, wantDue] of rangeTable) {
+    const r = parseQuickAdd(input, ctx)
+    const got = [r.title, local(r.startAt), local(r.endAt), local(r.dueAt)]
+    assert(
+      got[0] === wantTitle && got[1] === wantStart && got[2] === wantEnd && got[3] === wantDue,
+      `「${input}」→ ${JSON.stringify([wantTitle, wantStart, wantEnd, wantDue])}` +
+        (got.every((v, i) => v === [wantTitle, wantStart, wantEnd, wantDue][i]) ? '' : `（实得 ${JSON.stringify(got)}）`)
+    )
+  }
+  // 区间误报反例：守卫拒绝/非法输入整段留在标题，不产生任何时间字段。
+  const rangeNegatives = [
+    ['第3点到第4点', '第3点到第4点'],
+    ['沪指涨1.5点', '沪指涨1.5点'],
+    ['上午10点光景', '上午10点光景']
+  ]
+  for (const [input, wantTitle] of rangeNegatives) {
+    const r = parseQuickAdd(input, ctx)
+    assert(
+      r.title === wantTitle && r.dueAt === null && r.startAt === null && r.endAt === null,
+      `「${input}」整段留在标题（实得 ${JSON.stringify([r.title, r.dueAt, r.startAt, r.endAt])}）`
+    )
+  }
+  // 英文区间：终点无 am/pm 继承起点的半日制；24 小时制同样识别。
+  const enRangeTable = [
+    ['sync 3pm to 5pm', 'sync', '2026-11-12 15:00', '2026-11-12 17:00'],
+    ['sync 3pm-5pm', 'sync', '2026-11-12 15:00', '2026-11-12 17:00'],
+    // 起点 10:00 早于时钟 10:30：无显式日期时按既有规则整体顺延一天。
+    ['demo 10am to 12pm', 'demo', '2026-11-13 10:00', '2026-11-13 12:00'],
+    ['standup 10:00-11:30', 'standup', '2026-11-13 10:00', '2026-11-13 11:30']
+  ]
+  for (const [input, wantTitle, wantStart, wantEnd] of enRangeTable) {
+    const r = parseQuickAdd(input, ctx)
+    const got = [r.title, local(r.startAt), local(r.endAt)]
+    assert(
+      got[0] === wantTitle && got[1] === wantStart && got[2] === wantEnd,
+      `「${input}」→ ${JSON.stringify([wantTitle, wantStart, wantEnd])}（实得 ${JSON.stringify(got)}）`
+    )
+  }
 }
 
 console.log('=== 取消识别：覆盖标记、扛住标点合并 ===')
