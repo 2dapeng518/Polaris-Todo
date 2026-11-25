@@ -6,13 +6,15 @@ import { useTaskStore } from '../stores/useTaskStore'
 import { useT, useLocale } from '../stores/useLocaleStore'
 import { useCalendarStore, parseDayKey } from '../stores/useCalendarStore'
 import { clampToMonth, dayKey } from '../lib/dateTime'
-import { ChevronLeft, ChevronRight, PanelLeftOpen } from './Icon'
+import { ChevronLeft, ChevronRight, PanelLeftOpen, Search } from './Icon'
 import { MonthGrid } from './calendar/MonthGrid'
 import { MiniMonth } from './calendar/MiniMonth'
 import { MonthJumpMenu } from './calendar/MonthJumpMenu'
 import { CalendarListView } from './calendar/CalendarListView'
 import { CalendarBoardView } from './calendar/CalendarBoardView'
 import { TimeGridView, visibleDaysFor, type TimeMode } from './calendar/TimeGridView'
+import { CalendarDisplayMenu } from './calendar/CalendarDisplayMenu'
+import { CalendarFilterMenu } from './calendar/CalendarFilterMenu'
 
 // 日历套件外壳：工具栏（视图切换器 + 翻页 + 年月下拉 + 今天 + 迷你月历开关）
 // + 左侧迷你月历栏 + 按子视图模式渲染内容（月 / 列表 / 看板 / 周 / 多周 /
@@ -40,9 +42,23 @@ export function CalendarView() {
   const mode = useCalendarStore((state) => state.mode)
   const anchorKey = useCalendarStore((state) => state.anchor)
   const miniOpen = useCalendarStore((state) => state.miniOpen)
+  const showLunar = useCalendarStore((state) => state.showLunar)
+  const showHolidays = useCalendarStore((state) => state.showHolidays)
+  const showWeekNumbers = useCalendarStore((state) => state.showWeekNumbers)
+  const calendarSearch = useCalendarStore((state) => state.calendarSearch)
+  const calendarProjectFilter = useCalendarStore((state) => state.calendarProjectFilter)
+  const calendarTagFilter = useCalendarStore((state) => state.calendarTagFilter)
   const setMode = useCalendarStore((state) => state.setMode)
   const setAnchor = useCalendarStore((state) => state.setAnchor)
   const toggleMini = useCalendarStore((state) => state.toggleMini)
+  const setShowLunar = useCalendarStore((state) => state.setShowLunar)
+  const setShowHolidays = useCalendarStore((state) => state.setShowHolidays)
+  const setShowWeekNumbers = useCalendarStore((state) => state.setShowWeekNumbers)
+  const setCalendarSearch = useCalendarStore((state) => state.setCalendarSearch)
+  const setCalendarProjectFilter = useCalendarStore((state) => state.setCalendarProjectFilter)
+  const setCalendarTagFilter = useCalendarStore((state) => state.setCalendarTagFilter)
+  const projects = useTaskStore((state) => state.projects)
+  const tags = useTaskStore((state) => state.tags)
 
   // 日历可能长时间开着：跨过午夜后「今天」的高亮不能还是昨天。
   const [now, setNow] = useState(() => new Date())
@@ -58,11 +74,23 @@ export function CalendarView() {
   const en = locale === 'en'
   const timeMode = TIME_MODES.includes(mode as TimeMode) ? (mode as TimeMode) : null
 
+  // 日历内筛选（P3.5）：搜索（标题包含，不区分大小写）+ 项目/标签互斥。
+  // 全部子视图吃同一份过滤结果；筛选是会话内的查询意图，不持久化。
+  const calendarTasks = useMemo(() => {
+    const needle = calendarSearch.trim().toLowerCase()
+    return tasks.filter((task) => {
+      if (needle && !task.title.toLowerCase().includes(needle)) return false
+      if (calendarProjectFilter && task.projectId !== calendarProjectFilter) return false
+      if (calendarTagFilter && !task.tags.some((tag) => tag.id === calendarTagFilter)) return false
+      return true
+    })
+  }, [tasks, calendarSearch, calendarProjectFilter, calendarTagFilter])
+
   // 任务归属日：dueAt 优先、计划开始兜底（与列表/看板同一套 calendarDay 规则），
-  // 月格与迷你月历的点标记共用这一份桶。
+  // 月格与迷你月历的点标记共用这一份桶（点标记用全量任务，不受筛选影响）。
   const byDay = useMemo(() => {
     const map = new Map<string, Task[]>()
-    for (const task of tasks) {
+    for (const task of calendarTasks) {
       const source = task.dueAt ?? task.startAt
       if (!source) continue
       const key = dayKey(new Date(source))
@@ -71,7 +99,7 @@ export function CalendarView() {
       map.set(key, list)
     }
     return map
-  }, [tasks])
+  }, [calendarTasks])
   const markedDays = useMemo(() => new Set(byDay.keys()), [byDay])
 
   // 工具栏翻页：月视图翻「月」，时间轴翻一个可见窗（周/日/多日/两周）。
@@ -179,6 +207,34 @@ export function CalendarView() {
           </>
         )}
         <div className="calendar-toolbar-right">
+          <div className="calendar-search">
+            <Search size={12} strokeWidth={1.8} aria-hidden="true" />
+            <input
+              type="text"
+              className="calendar-search-input"
+              data-calendar-search
+              value={calendarSearch}
+              placeholder={t('calendar.search.placeholder')}
+              aria-label={t('calendar.search.placeholder')}
+              onChange={(event) => setCalendarSearch(event.target.value)}
+            />
+          </div>
+          <CalendarFilterMenu
+            projects={projects}
+            tags={tags}
+            projectFilter={calendarProjectFilter}
+            tagFilter={calendarTagFilter}
+            onProject={setCalendarProjectFilter}
+            onTag={setCalendarTagFilter}
+          />
+          <CalendarDisplayMenu
+            showLunar={showLunar}
+            showHolidays={showHolidays}
+            showWeekNumbers={showWeekNumbers}
+            onLunar={setShowLunar}
+            onHolidays={setShowHolidays}
+            onWeekNumbers={setShowWeekNumbers}
+          />
           <button
             type="button"
             className={`calendar-mini-toggle ${miniOpen ? 'is-active' : ''}`}
@@ -219,6 +275,9 @@ export function CalendarView() {
               now={now}
               locale={locale}
               byDay={byDay}
+              showLunar={showLunar}
+              showHolidays={showHolidays}
+              showWeekNumbers={showWeekNumbers}
               onSelectTask={selectTask}
               onMonthChange={setMonth}
             />
@@ -226,15 +285,15 @@ export function CalendarView() {
           {timeMode && (
             <TimeGridView
               mode={timeMode}
-              tasks={tasks}
+              tasks={calendarTasks}
               now={now}
               anchorKey={anchorKey}
               onAnchorChange={setAnchor}
               parseDayKey={parseDayKey}
             />
           )}
-          {mode === 'list' && <CalendarListView tasks={tasks} now={now} />}
-          {mode === 'board' && <CalendarBoardView tasks={tasks} now={now} />}
+          {mode === 'list' && <CalendarListView tasks={calendarTasks} now={now} />}
+          {mode === 'board' && <CalendarBoardView tasks={calendarTasks} now={now} />}
         </div>
       </div>
     </div>

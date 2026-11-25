@@ -1,9 +1,11 @@
 import { create } from 'zustand'
 
 // 日历套件的视图偏好：子视图模式（月/周/多周/日/多日/列表/看板）、迷你月历
-// 开关、全部子视图共享的锚点日。纯视图偏好住 localStorage（同 useSidebarStore
-// 的先例），不进 meta 表，也不走 IPC。默认月视图 + 迷你月历收起——所有既有
-// 布局与冒烟断言都量这个默认态。
+// 开关、显示开关（农历/节假日/周数）、全部子视图共享的锚点日，以及日历内
+// 的搜索词与项目/标签筛选。纯视图偏好住 localStorage（同 useSidebarStore
+// 的先例），不进 meta 表，也不走 IPC；搜索与筛选是查询意图，只留会话，
+// 不持久化。默认月视图 + 迷你月历收起 + 全部显示开关关闭——所有既有布局
+// 与冒烟断言都量这个默认态。
 
 export type CalendarMode = 'month' | 'week' | 'multiweek' | 'day' | 'multiday' | 'list' | 'board'
 
@@ -29,57 +31,129 @@ function dayKeyOf(date: Date): string {
   return `${year}-${month}-${day}`
 }
 
-type StoredView = { mode?: unknown; miniOpen?: unknown }
+type StoredView = {
+  mode?: unknown
+  miniOpen?: unknown
+  showLunar?: unknown
+  showHolidays?: unknown
+  showWeekNumbers?: unknown
+}
 
-function readStored(): { mode: CalendarMode; miniOpen: boolean } {
+type StoredPrefs = { mode: CalendarMode; miniOpen: boolean; showLunar: boolean; showHolidays: boolean; showWeekNumbers: boolean }
+
+function readStored(): StoredPrefs {
+  const fallback: StoredPrefs = {
+    mode: 'month',
+    miniOpen: false,
+    showLunar: false,
+    showHolidays: false,
+    showWeekNumbers: false
+  }
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return { mode: 'month', miniOpen: false }
+    if (!raw) return fallback
     const parsed = JSON.parse(raw) as StoredView
     return {
-      mode: isCalendarMode(parsed.mode) ? parsed.mode : 'month',
-      miniOpen: parsed.miniOpen === true
+      mode: isCalendarMode(parsed.mode) ? parsed.mode : fallback.mode,
+      miniOpen: parsed.miniOpen === true,
+      showLunar: parsed.showLunar === true,
+      showHolidays: parsed.showHolidays === true,
+      showWeekNumbers: parsed.showWeekNumbers === true
     }
   } catch {
-    return { mode: 'month', miniOpen: false }
+    return fallback
   }
 }
 
 type CalendarState = {
   mode: CalendarMode
-  /** 共享锚点日（本地日键）：月视图取所在月，周/日视图（P2）取所在周/日。 */
+  /** 共享锚点日（本地日键）：月视图取所在月，周/日视图取所在周/日。 */
   anchor: string
   miniOpen: boolean
+  /** 显示开关（月格信息层，P3）：农历/节假日休班标记/周数列。 */
+  showLunar: boolean
+  showHolidays: boolean
+  showWeekNumbers: boolean
+  /** 日历内搜索与筛选（P3.5）：查询意图只留会话，不持久化；互斥同主列表。 */
+  calendarSearch: string
+  calendarProjectFilter: string | null
+  calendarTagFilter: string | null
   setMode: (mode: CalendarMode) => void
   setAnchor: (day: Date) => void
   setMiniOpen: (open: boolean) => void
   toggleMini: () => void
+  setShowLunar: (show: boolean) => void
+  setShowHolidays: (show: boolean) => void
+  setShowWeekNumbers: (show: boolean) => void
+  setCalendarSearch: (text: string) => void
+  setCalendarProjectFilter: (id: string | null) => void
+  setCalendarTagFilter: (id: string | null) => void
 }
 
-export const useCalendarStore = create<CalendarState>((set, get) => ({
-  mode: readStored().mode,
-  anchor: dayKeyOf(new Date()),
-  miniOpen: readStored().miniOpen,
-
-  setMode: (mode) => {
+export const useCalendarStore = create<CalendarState>((set, get) => {
+  const persist = (): void => {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({ mode, miniOpen: get().miniOpen }))
+      localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({
+          mode: get().mode,
+          miniOpen: get().miniOpen,
+          showLunar: get().showLunar,
+          showHolidays: get().showHolidays,
+          showWeekNumbers: get().showWeekNumbers
+        })
+      )
     } catch {
       // 存储不可用时仅本次会话生效。
     }
-    set({ mode })
-  },
+  }
 
-  setAnchor: (day) => set({ anchor: dayKeyOf(day) }),
+  return {
+    mode: readStored().mode,
+    anchor: dayKeyOf(new Date()),
+    miniOpen: readStored().miniOpen,
+    showLunar: readStored().showLunar,
+    showHolidays: readStored().showHolidays,
+    showWeekNumbers: readStored().showWeekNumbers,
+    calendarSearch: '',
+    calendarProjectFilter: null,
+    calendarTagFilter: null,
 
-  setMiniOpen: (open) => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({ mode: get().mode, miniOpen: open }))
-    } catch {
-      // 存储不可用时仅本次会话生效。
-    }
-    set({ miniOpen: open })
-  },
+    setMode: (mode) => {
+      set({ mode })
+      persist()
+    },
 
-  toggleMini: () => get().setMiniOpen(!get().miniOpen)
-}))
+    setAnchor: (day) => set({ anchor: dayKeyOf(day) }),
+
+    setMiniOpen: (open) => {
+      set({ miniOpen: open })
+      persist()
+    },
+
+    toggleMini: () => get().setMiniOpen(!get().miniOpen),
+
+    setShowLunar: (show) => {
+      set({ showLunar: show })
+      persist()
+    },
+
+    setShowHolidays: (show) => {
+      set({ showHolidays: show })
+      persist()
+    },
+
+    setShowWeekNumbers: (show) => {
+      set({ showWeekNumbers: show })
+      persist()
+    },
+
+    setCalendarSearch: (text) => set({ calendarSearch: text }),
+
+    // 项目与标签筛选互斥（语义同主列表的 projectFilter/tagFilter）。
+    setCalendarProjectFilter: (id) =>
+      set({ calendarProjectFilter: id, calendarTagFilter: null }),
+    setCalendarTagFilter: (id) =>
+      set({ calendarTagFilter: id, calendarProjectFilter: null })
+  }
+})

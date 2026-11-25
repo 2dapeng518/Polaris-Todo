@@ -618,7 +618,34 @@ export async function captureDemo(mode: string): Promise<void> {
       await captureCalendarScreenshot('screenshot-calendar.png')
     } else if (mode.startsWith('calendar-')) {
       const submode = mode.slice(9)
-      if (['week', 'multiweek', 'day', 'multiday', 'list', 'board'].includes(submode)) {
+      if (submode === 'display') {
+        // 信息层展示：经真实 UI 打开显示设置弹层，点亮农历/节假日/周数三个
+        // 开关，翻到十月看节假日休/班角标，外点收起弹层后截图。
+        const ids = await seedCalendarTasks()
+        const wc = harnessContext().mainWindow?.webContents
+        await wc?.executeJavaScript(`(async () => {
+          const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+          const trigger = document.querySelector('[data-calendar-display]');
+          if (!trigger) return;
+          trigger.click();
+          await sleep(250);
+          const switches = [...document.querySelectorAll('.calendar-display [role="switch"]')];
+          for (const sw of switches) {
+            if (sw.getAttribute('aria-checked') !== 'true') sw.click();
+            await sleep(150);
+          }
+          // Esc 发到弹层内部元素（React 合成事件靠冒泡到根监听收弹层）。
+          const panel = document.querySelector('.calendar-display');
+          panel?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+          await sleep(200);
+          // 翻回上个月（11 月 → 10 月：国庆 + 休/班角标）。
+          document.querySelector('.calendar-nav[aria-label="上个月"]')?.click();
+          await sleep(450);
+          await sleep(450);
+        })()`)
+        await captureTo(`screenshot-${mode}.png`)
+        if (wc) await cleanupCalendarSeeds(ids)
+      } else if (['week', 'multiweek', 'day', 'multiday', 'list', 'board'].includes(submode)) {
         await captureCalendarModeScreenshot(submode, `screenshot-${mode}.png`)
       } else {
         await captureCalendarScreenshot('screenshot-calendar.png')

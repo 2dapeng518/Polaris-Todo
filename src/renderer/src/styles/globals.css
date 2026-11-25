@@ -3657,6 +3657,218 @@ textarea {
   border-color: var(--accent);
 }
 
+/* ---------- 日历套件 P3：信息层（农历/休班/周数）+ 显示设置 + 筛选 ---------- */
+
+.calendar-cell-head {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  min-width: 0;
+}
+
+.calendar-lunar {
+  overflow: hidden;
+  color: var(--text-tertiary);
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.calendar-cell.is-today .calendar-lunar {
+  color: var(--accent);
+  opacity: 0.75;
+}
+
+.calendar-holiday-badge {
+  flex: none;
+  margin-left: auto;
+  padding: 0 3px;
+  border-radius: 4px;
+  font-size: 9px;
+  line-height: 1.4;
+}
+
+.calendar-holiday-badge.is-holiday {
+  background: rgba(var(--accent-rgb), 0.14);
+  color: var(--accent);
+}
+
+.calendar-holiday-badge.is-workday {
+  background: var(--surface-2);
+  color: var(--text-tertiary);
+}
+
+.calendar-weekdays.has-weeknums {
+  grid-template-columns: 26px repeat(7, 1fr);
+}
+
+.calendar-grid.has-weeknums {
+  grid-template-columns: 26px repeat(7, 1fr);
+}
+
+.calendar-weeknum {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 6px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-tertiary);
+  opacity: 0.75;
+}
+
+.calendar-tool-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 26px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-1);
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: default;
+  transition:
+    border-color 0.16s,
+    color 0.16s;
+}
+
+.calendar-tool-button:hover,
+.calendar-tool-button.is-active {
+  border-color: rgba(var(--accent-rgb), 0.3);
+  color: var(--accent);
+}
+
+.calendar-tool-dot {
+  display: none;
+}
+
+.calendar-search {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 26px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-1);
+  color: var(--text-tertiary);
+}
+
+.calendar-search:focus-within {
+  border-color: rgba(var(--accent-rgb), 0.35);
+}
+
+.calendar-search-input {
+  width: 130px;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-size: 12px;
+  outline: none;
+}
+
+.calendar-search-input::placeholder {
+  color: var(--text-tertiary);
+}
+
+.calendar-display {
+  position: fixed;
+  z-index: 60;
+  width: 236px;
+  padding: 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+  background: var(--panel-bg);
+  box-shadow:
+    0 16px 40px rgba(var(--shadow-rgb), 0.32),
+    inset 0 1px 0 var(--inner-highlight);
+  color: var(--text);
+  outline: none;
+  animation: pop-in 140ms var(--ease-out);
+}
+
+.calendar-display-title {
+  margin-bottom: 6px;
+  color: var(--text-tertiary);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.calendar-display-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 2px;
+}
+
+.calendar-display-label {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.calendar-filter {
+  position: fixed;
+  z-index: 60;
+  width: 224px;
+  max-height: min(320px, calc(100vh - 80px));
+  padding: 6px;
+  overflow-y: auto;
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+  background: var(--panel-bg);
+  box-shadow:
+    0 16px 40px rgba(var(--shadow-rgb), 0.32),
+    inset 0 1px 0 var(--inner-highlight);
+  color: var(--text);
+  outline: none;
+  animation: pop-in 140ms var(--ease-out);
+}
+
+.calendar-filter-group {
+  padding: 6px 8px 2px;
+  color: var(--text-tertiary);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.calendar-filter-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 6px 8px;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12px;
+  text-align: left;
+  cursor: default;
+}
+
+.calendar-filter-row:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
+.calendar-filter-row.is-active {
+  background: rgba(var(--accent-rgb), 0.12);
+  color: var(--accent);
+}
+
+.calendar-filter-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* 标签编辑区：已贴 chip + 新建输入框 + 建议 chip。与项目 chips 同一套
    28px/8px 圆角语言，输入框压到 30px 以免详情列过高。 */
 .detail-tags {

@@ -1,7 +1,7 @@
 Polaris — 第三方组件与素材声明
 
-本文件由 scripts/make-notice.mjs 生成（Polaris v0.15.0）。
-采集范围：生产依赖闭包（npm ls --omit=dev --all），共 40 个组件。
+本文件由 scripts/make-notice.mjs 生成（Polaris v0.20.0）。
+采集范围：生产依赖闭包（npm ls --omit=dev --all），共 41 个组件。
 Polaris 以 NSIS 安装包分发，下列组件与字体随包再分发，
 按其许可要求在此保留版权声明与许可指引。许可原文见同目录 licenses/。
 
@@ -140,6 +140,10 @@ MIT    许可原文：licenses/MIT.txt
     Copyright JS Foundation and other contributors <https://js.foundation/>
     Based on Underscore.js, copyright Jeremy Ashkenas, DocumentCloud and Investigative Reporters & Editors <http://underscorejs.org/>
     https://lodash.com/
+
+  lunar-typescript 1.8.7
+    Copyright (c) 2020 6tail
+    https://github.com/6tail/lunar-typescript
 
   motion 14.12.0
     Copyright (c) 2024 [Motion](https://motion.dev) B.V.

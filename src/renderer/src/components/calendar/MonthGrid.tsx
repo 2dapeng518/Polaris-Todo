@@ -6,9 +6,11 @@ import {
   useState,
   type KeyboardEvent as ReactKeyboardEvent
 } from 'react'
-import { addDays, isSameDay, isSameMonth, startOfWeek } from 'date-fns'
+import { addDays, getISOWeek, isSameDay, isSameMonth, startOfWeek } from 'date-fns'
 import type { Task } from '@shared/types'
 import type { Locale } from '@shared/i18n'
+import { lunarLabel } from '@shared/lunarDay'
+import { holidayOf } from '@shared/holidays'
 import { useT } from '../../stores/useLocaleStore'
 import { parseDayKey } from '../../stores/useCalendarStore'
 import { clampToMonth, dayKey, monthLabel, monthMatrix, weekdayLabels } from '../../lib/dateTime'
@@ -16,21 +18,38 @@ import { isOverdue } from '../../lib/dates'
 
 const MAX_CHIPS = 3
 
-// 月网格（日历套件 P1 重构）：42 格月矩阵（周一起始）、roving 键盘导航的
-// 原有实现原样保留（类名/属性是冒烟断言的面）。月份改为受控：可见月由
-// 套件外壳持有（工具栏/年月下拉/迷你月历都能换月），本组件只管 roving
-// 焦点——外部换月时焦点日期号钳到新月，锚点日被点选时同月内焦点跟随。
+// 月网格（日历套件 P1 重构 / P3 信息层）：42 格月矩阵（周一起始）、roving
+// 键盘导航的原有实现原样保留（类名/属性是冒烟断言的面）。月份改为受控：
+// 可见月由套件外壳持有（工具栏/年月下拉/迷你月历都能换月），本组件只管
+// roving 焦点——外部换月时焦点日期号钳到新月，锚点日被点选时同月内焦点
+// 跟随。P3 信息层：农历/节气副标签、节假日休/班角标、左侧周数列，全部由
+// 显示开关控制（useCalendarStore 持久化），默认全关——默认态像素与旧版
+// 一致（周数列关掉时网格结构与旧版逐类名等价）。
 type MonthGridProps = {
   month: Date
   anchorKey: string
   now: Date
   locale: Locale
   byDay: Map<string, Task[]>
+  showLunar: boolean
+  showHolidays: boolean
+  showWeekNumbers: boolean
   onSelectTask: (id: string) => void
   onMonthChange: (month: Date) => void
 }
 
-export function MonthGrid({ month, anchorKey, now, locale, byDay, onSelectTask, onMonthChange }: MonthGridProps) {
+export function MonthGrid({
+  month,
+  anchorKey,
+  now,
+  locale,
+  byDay,
+  showLunar,
+  showHolidays,
+  showWeekNumbers,
+  onSelectTask,
+  onMonthChange
+}: MonthGridProps) {
   const t = useT()
   const anchorDay = useMemo(() => parseDayKey(anchorKey), [anchorKey])
   const [focusDay, setFocusDay] = useState(anchorDay)
@@ -119,13 +138,17 @@ export function MonthGrid({ month, anchorKey, now, locale, byDay, onSelectTask, 
 
   return (
     <>
-      <div className="calendar-weekdays" aria-hidden="true">
+      <div
+        className={`calendar-weekdays ${showWeekNumbers ? 'has-weeknums' : ''}`}
+        aria-hidden="true"
+      >
+        {showWeekNumbers && <span />}
         {weekdayLabels(locale).map((day) => (
           <span key={day}>{day}</span>
         ))}
       </div>
       <div
-        className="calendar-grid"
+        className={`calendar-grid ${showWeekNumbers ? 'has-weeknums' : ''}`}
         role="grid"
         aria-label={t('calendar.gridAria', { month: monthLabel(month, locale) })}
         ref={gridRef}
@@ -139,63 +162,88 @@ export function MonthGrid({ month, anchorKey, now, locale, byDay, onSelectTask, 
         }}
         onBlur={() => setRingKey(null)}
       >
-        {cells.map((day) => {
-          const key = dayKey(day)
-          const inMonth = day.getMonth() === month.getMonth()
-          const isToday = key === todayKey
-          const isRoving = isSameDay(day, rovingDay)
-          const dayTasks = byDay.get(key) ?? []
-          const shown = dayTasks.slice(0, MAX_CHIPS)
-          const rest = dayTasks.length - shown.length
-          return (
-            <div
-              key={key}
-              className={`calendar-cell ${inMonth ? '' : 'is-out'} ${isToday ? 'is-today' : ''}`}
-              role="gridcell"
-              data-date={key}
-              tabIndex={isRoving ? 0 : -1}
-              aria-current={isToday ? 'date' : undefined}
-              // globals.css 本轮不可改，用内联样式实现「已有 accent 边框的
-              // 控件聚焦时让位边框」的既有规则，避免双重 accent 边。
-              style={isToday && ringKey === key ? { borderColor: 'transparent' } : undefined}
-              aria-label={t('calendar.cellAria', {
-                month: day.getMonth() + 1,
-                day: day.getDate(),
-                count: dayTasks.length
-              })}
-            >
-              <span className="calendar-daynum">{day.getDate()}</span>
-              <div className="calendar-chips">
-                {shown.map((task) => (
-                  <button
-                    key={task.id}
-                    type="button"
-                    className={`calendar-chip ${task.completed ? 'is-done' : ''} ${!task.completed && isOverdue(task.dueAt) ? 'is-overdue' : ''}`}
-                    data-calendar-task={task.id}
-                    title={task.title}
-                    // ARIA grid 惯例：Tab 在复合控件间移动，不该穿过 42 格里
-                    // 全部 chip。这里取混合式——只有 roving 格内的 chip 可 Tab
-                    // （动线：格子 → 当天 chip → 出网格），其余格 chip tabindex=-1，
-                    // 由方向键把 roving 带过去后再 Tab 进入。格子本身是 div 而非
-                    // button：焦点陷阱的 FOCUSABLE 选择器数 button 不看 tabindex。
-                    tabIndex={isRoving ? 0 : -1}
-                    onClick={() => onSelectTask(task.id)}
-                    aria-label={
-                      task.completed
-                        ? t('calendar.completedAria', { title: task.title })
-                        : task.title
-                    }
-                  >
-                    {task.priority >= 2 && <span className="calendar-chip-dot" aria-hidden="true" />}
-                    <span className="calendar-chip-title">{task.title}</span>
-                  </button>
-                ))}
-                {rest > 0 && <span className="calendar-more">+{rest}</span>}
+        {cells.map((day, index) => {
+          const weekCell =
+            showWeekNumbers && index % 7 === 0 ? (
+              <div key={`week-${dayKey(day)}`} className="calendar-weeknum" aria-hidden="true">
+                {getISOWeek(day)}
               </div>
-            </div>
-          )
+            ) : null
+          const cell = renderCell(day)
+          return weekCell ? [weekCell, cell] : [cell]
         })}
       </div>
     </>
   )
+
+  // 单格渲染（信息层在此叠加）：农历/节气副标签与休/班角标都由显示开关控制。
+  function renderCell(day: Date) {
+    const key = dayKey(day)
+    const inMonth = day.getMonth() === month.getMonth()
+    const isToday = key === todayKey
+    const isRoving = isSameDay(day, rovingDay)
+    const dayTasks = byDay.get(key) ?? []
+    const shown = dayTasks.slice(0, MAX_CHIPS)
+    const rest = dayTasks.length - shown.length
+    const lunar = showLunar && inMonth ? lunarLabel(day) : null
+    const holiday = showHolidays ? holidayOf(day) : null
+    return (
+      <div
+        key={key}
+        className={`calendar-cell ${inMonth ? '' : 'is-out'} ${isToday ? 'is-today' : ''}`}
+        role="gridcell"
+        data-date={key}
+        tabIndex={isRoving ? 0 : -1}
+        aria-current={isToday ? 'date' : undefined}
+        // globals.css 本轮不可改，用内联样式实现「已有 accent 边框的
+        // 控件聚焦时让位边框」的既有规则，避免双重 accent 边。
+        style={isToday && ringKey === key ? { borderColor: 'transparent' } : undefined}
+        aria-label={t('calendar.cellAria', {
+          month: day.getMonth() + 1,
+          day: day.getDate(),
+          count: dayTasks.length
+        })}
+      >
+        <div className="calendar-cell-head">
+          <span className="calendar-daynum">{day.getDate()}</span>
+          {lunar && <span className="calendar-lunar">{lunar}</span>}
+          {holiday && (
+            <span
+              className={`calendar-holiday-badge ${holiday.kind === 'workday' ? 'is-workday' : 'is-holiday'}`}
+              title={`${holiday.name}${holiday.kind === 'workday' ? ' · ' + t('calendar.badge.workday') : ' · ' + t('calendar.badge.holiday')}`}
+            >
+              {holiday.kind === 'workday' ? t('calendar.badge.workday') : t('calendar.badge.holiday')}
+            </span>
+          )}
+        </div>
+        <div className="calendar-chips">
+          {shown.map((task) => (
+            <button
+              key={task.id}
+              type="button"
+              className={`calendar-chip ${task.completed ? 'is-done' : ''} ${!task.completed && isOverdue(task.dueAt) ? 'is-overdue' : ''}`}
+              data-calendar-task={task.id}
+              title={task.title}
+              // ARIA grid 惯例：Tab 在复合控件间移动，不该穿过 42 格里
+              // 全部 chip。这里取混合式——只有 roving 格内的 chip 可 Tab
+              // （动线：格子 → 当天 chip → 出网格），其余格 chip tabindex=-1，
+              // 由方向键把 roving 带过去后再 Tab 进入。格子本身是 div 而非
+              // button：焦点陷阱的 FOCUSABLE 选择器数 button 不看 tabindex。
+              tabIndex={isRoving ? 0 : -1}
+              onClick={() => onSelectTask(task.id)}
+              aria-label={
+                task.completed
+                  ? t('calendar.completedAria', { title: task.title })
+                  : task.title
+              }
+            >
+              {task.priority >= 2 && <span className="calendar-chip-dot" aria-hidden="true" />}
+              <span className="calendar-chip-title">{task.title}</span>
+            </button>
+          ))}
+          {rest > 0 && <span className="calendar-more">+{rest}</span>}
+        </div>
+      </div>
+    )
+  }
 }
