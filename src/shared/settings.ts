@@ -1,6 +1,6 @@
 // 设置窗口的分类注册表：主进程（IPC 载荷白名单 + 路由 hash）与渲染层
 // （左侧导航 + 当前页）共用的唯一来源。顺序即导航顺序，「关于」固定在最后。
-export const SETTINGS_SECTIONS = ['appearance', 'general', 'data', 'mcp', 'about'] as const
+export const SETTINGS_SECTIONS = ['appearance', 'general', 'hotkey', 'data', 'mcp', 'about'] as const
 
 export type SettingsSection = (typeof SETTINGS_SECTIONS)[number]
 

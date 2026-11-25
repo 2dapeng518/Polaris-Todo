@@ -41,7 +41,9 @@ import {
   initSettingsWindow,
   isSettingsWebContents,
   openSettingsWindow,
-  settingsSectionFrom
+  prepareSettingsWindowForQuit,
+  settingsSectionFrom,
+  warmupSettingsWindow
 } from './settingsWindow'
 import {
   disposeGlobalHotkey,
@@ -56,6 +58,7 @@ import { getCurrentLocale, initAppLocale, setCurrentLocale } from './locale'
 import { translate, type Locale } from '../shared/i18n'
 import type { BackupData } from '../shared/types'
 import { AUTO_BACKUP_PREFIX, isAutoBackupFileName } from '../shared/backupNames'
+import { defaultKeysFor, isAppShortcutId, isValidAppKeys, normalizeKeys } from '../shared/shortcuts'
 import { hasSplashWindow, openSplashWindow, revealMainWindow } from './splash'
 import { isAppTheme, THEME_SYMBOL_COLOR, themeFamily } from '../shared/themes'
 import { dismissReminder, startReminderScheduler } from './reminders'
@@ -319,6 +322,25 @@ const isRelaunchBoot = process.argv.includes(RELAUNCH_WAIT_ARG)
 
 // 关窗是否驻留托盘（meta 持久化，默认开）。关掉后关窗=退出应用，提醒随之停止。
 const closeToTrayEnabled = (): boolean => getMeta('close_to_tray') !== '0'
+
+// 应用内快捷键自定义：meta app_shortcuts 存「覆盖」JSON（只记改过的，缺省走注册表
+// 默认）。损坏 / 非法项一律丢弃回默认，绝不因一个坏键让整个快捷键系统失效。
+const APP_SHORTCUTS_META = 'app_shortcuts'
+function readAppShortcutOverrides(): Record<string, string> {
+  const raw = getMeta(APP_SHORTCUTS_META)
+  if (!raw) return {}
+  try {
+    const parsed = JSON.parse(raw) as Record<string, unknown>
+    if (!parsed || typeof parsed !== 'object') return {}
+    const out: Record<string, string> = {}
+    for (const [id, keys] of Object.entries(parsed)) {
+      if (isAppShortcutId(id) && typeof keys === 'string' && isValidAppKeys(keys)) out[id] = keys
+    }
+    return out
+  } catch {
+    return {}
+  }
+}
 
 // --hidden 自启静默进托盘；harness 构建下三个测试 env 强制可见窗口。
 // 生产构建 __POLARIS_HARNESS__ 恒 false，这段 env 读取被编译期消除，自启行为不变。
@@ -686,6 +708,22 @@ app.whenReady().then(() => {
     )
   })
 
+  // 应用内快捷键：get 返回覆盖表（渲染层与注册表默认合并）；set 校验形状 + 归一化，
+  // 等于默认即删除覆盖。冲突检测在渲染层（它握有全部生效绑定），这里只管形状与落库。
+  ipcMain.handle('app:get-shortcuts', () => readAppShortcutOverrides())
+
+  ipcMain.handle('app:set-shortcut', (_event, id: unknown, keys: unknown) => {
+    if (!isAppShortcutId(id)) return readAppShortcutOverrides()
+    const overrides = readAppShortcutOverrides()
+    if (typeof keys === 'string' && isValidAppKeys(keys)) {
+      const normalized = normalizeKeys(keys)
+      if (normalized === defaultKeysFor(id)) delete overrides[id]
+      else overrides[id] = normalized
+      setMeta(APP_SHORTCUTS_META, JSON.stringify(overrides))
+    }
+    return overrides
+  })
+
   // Read-only, no payload to validate. The renderer must never hardcode a version
   // string: app.getVersion() reads the packaged package.json, so a release bump
   // reaches the settings panel without a code edit.
@@ -953,6 +991,8 @@ app.whenReady().then(() => {
   })
 
   createWindow()
+  // 设置窗口后台预热：隐藏建好并加载前端包，首次打开即现（不冷加载整包）。
+  warmupSettingsWindow()
   createTray({
     onOpen: showMainWindow,
     onOpenSettings: () => void revealSettings(),
@@ -1046,6 +1086,8 @@ app.whenReady().then(() => {
 
 app.on('before-quit', () => {
   isQuitting = true
+  // 放行设置窗口的 close 拦截，让它随退出真正销毁（平时关闭只是隐藏复用）。
+  prepareSettingsWindowForQuit()
 })
 
 app.on('will-quit', () => {

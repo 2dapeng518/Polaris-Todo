@@ -23,6 +23,8 @@ import {
 } from './Icon'
 import type { AppView } from '@shared/types'
 import { useTaskStore } from '../stores/useTaskStore'
+import { useShortcutKeys } from '../stores/useShortcutsStore'
+import { eventMatchesKeys } from '../lib/shortcuts'
 import { useThemeStore } from '../stores/useThemeStore'
 import { useLocale, useT } from '../stores/useLocaleStore'
 import { THEME_META, THEME_ORDER, partnerTheme, themeFamily } from '@shared/themes'
@@ -78,16 +80,18 @@ export function CommandPalette() {
 
   useFocusTrap(panelRef, open, inputRef)
 
+  const paletteKeys = useShortcutKeys('command-palette')
+
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
+      if (eventMatchesKeys(event, paletteKeys)) {
         event.preventDefault()
         setOpen(true)
       }
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [setOpen])
+  }, [setOpen, paletteKeys])
 
   useEffect(() => {
     if (!open) return

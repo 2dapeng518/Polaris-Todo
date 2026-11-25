@@ -22,6 +22,7 @@ export {
   Grid2x2,
   HardDrive,
   Info,
+  Keyboard,
   ListChecks,
   ListTodo,
   Minus,

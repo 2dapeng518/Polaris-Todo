@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { Repeat2, Trash2, TriangleAlert, X } from './Icon'
 import { useTaskStore } from '../stores/useTaskStore'
+import { useShortcutKeys } from '../stores/useShortcutsStore'
+import { eventMatchesKeys } from '../lib/shortcuts'
 import { formatDue } from '../lib/dates'
 import { useLocale, useT } from '../stores/useLocaleStore'
 
@@ -14,6 +16,7 @@ export function UndoToast() {
   const notice = useTaskStore((state) => state.notice)
   const storageError = useTaskStore((state) => state.storageError)
   const undoDelete = useTaskStore((state) => state.undoDelete)
+  const undoKeys = useShortcutKeys('undo')
   const clearPendingDeletion = useTaskStore((state) => state.clearPendingDeletion)
   const clearNotice = useTaskStore((state) => state.clearNotice)
   const clearStorageError = useTaskStore((state) => state.clearStorageError)
@@ -38,7 +41,7 @@ export function UndoToast() {
   useEffect(() => {
     if (!pending) return
     const onKeyDown = (event: KeyboardEvent) => {
-      if (!(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== 'z') return
+      if (!eventMatchesKeys(event, undoKeys)) return
       // 破坏性确认弹窗开着时不响应撤销：否则被确认的行会被悄悄恢复，
       // 确认按钮变成静默空操作。
       if (useTaskStore.getState().trashConfirm) return
@@ -49,7 +52,7 @@ export function UndoToast() {
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [pending, undoDelete])
+  }, [pending, undoDelete, undoKeys])
 
   return (
     <div className="toast-region" aria-live="polite" aria-atomic="false">

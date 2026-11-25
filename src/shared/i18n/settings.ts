@@ -4,6 +4,7 @@ export const settings = {
   // 分类导航（顺序与 shared/settings.ts 的注册表一致，「关于」在最后）。
   'settings.section.appearance': '外观',
   'settings.section.general': '常规',
+  'settings.section.hotkey': '快捷键',
   'settings.section.data': '数据与备份',
   'settings.section.mcp': '本地 MCP 服务',
   'settings.section.about': '关于',
@@ -24,10 +25,18 @@ export const settings = {
   'settings.hotkeyOn': '{accelerator} · 任意窗口快速添加',
   'settings.hotkeyOff': '已关闭 · 窗口内仍可按 N 快速添加',
   'settings.hotkeyError': '{error}，关闭占用程序后可重新打开此开关',
-  // 快捷键自定义对话框（常规页「修改快捷键…」）。
-  'settings.hotkeyChange': '修改快捷键…',
-  'settings.hotkeyDialogTitle': '全局快速添加快捷键',
-  'settings.hotkeyRecordHint': '在此按下组合键（需含 Ctrl / Alt / Win，Esc 取消）',
+  // 快捷键页（独立分类）：状态行开关 + 内嵌自定义（录制框 / 推荐组合）。
+  // 快捷键页列表（键帽 + 逐行改键）。视图导航项复用 nav.view.* 文案。
+  'shortcut.quickAdd': '快速添加',
+  'shortcut.commandPalette': '命令面板',
+  'shortcut.undo': '撤销',
+  'shortcut.globalQuickAdd': '全局快速添加',
+  'shortcut.editAria': '编辑「{name}」的快捷键',
+  'shortcut.recordHint': '按下新组合键，Esc 取消',
+  'shortcut.conflict': '与「{name}」冲突，换一个组合',
+  'settings.hotkeyCustomize': '自定义快捷键',
+  'settings.hotkeyResetDefault': '恢复默认',
+  'settings.hotkeyRecordHint': '在此按下组合键（需含 Ctrl / Alt / Win，Esc 清除）',
   'settings.hotkeyNeedModifier': '需要 Ctrl / Alt / Win 加一个字母、数字或 F 键',
   'settings.hotkeyRecommend': '推荐组合（空闲状态实时探测）',
   'settings.hotkeyCurrent': '当前',

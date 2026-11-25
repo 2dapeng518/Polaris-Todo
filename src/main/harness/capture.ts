@@ -59,16 +59,13 @@ async function captureSettingsScreenshot(filename: string, section: SettingsSect
   }
 }
 
-// 快捷键自定义对话框（常规页「修改快捷键…」）：录制框 + 实时探测的推荐组合。
-async function captureHotkeyDialogScreenshot(filename: string): Promise<void> {
+// 快捷键独立分类页：清单式键帽列表（全局热键 + 应用内快捷键，逐行铅笔改键）。
+async function captureHotkeyScreenshot(filename: string): Promise<void> {
   const { mainWindow } = harnessContext()
   if (!mainWindow) return
-  const settings = await openSettingsFor('general')
+  const settings = await openSettingsFor('hotkey')
   if (!settings) return
   try {
-    await settings.webContents.executeJavaScript(
-      `[...document.querySelectorAll('button')].find((b) => b.textContent.includes('修改快捷键'))?.click()`
-    )
     await new Promise((resolve) => setTimeout(resolve, 500))
     const image = await settings.webContents.capturePage()
     await writeFile(join(process.cwd(), filename), image.toPNG())
@@ -490,7 +487,7 @@ export async function captureDemo(mode: string): Promise<void> {
       } else if (SETTINGS_SHOTS[mode.slice(6)]) {
         await captureSettingsScreenshot(`screenshot-light-${mode.slice(6)}.png`, SETTINGS_SHOTS[mode.slice(6)])
       } else if (mode === 'light-hotkey') {
-        await captureHotkeyDialogScreenshot('screenshot-light-hotkey.png')
+        await captureHotkeyScreenshot('screenshot-light-hotkey.png')
       } else if (mode === 'light-theme-menu') {
         await captureThemeMenuScreenshot('screenshot-light-theme-menu.png')
       } else if (mode === 'light-palette-theme') {
@@ -546,7 +543,7 @@ export async function captureDemo(mode: string): Promise<void> {
     } else if (mode === 'sidebar-collapsed') {
       await captureSidebarCollapsedScreenshot('screenshot-sidebar-collapsed.png')
     } else if (mode === 'hotkey') {
-      await captureHotkeyDialogScreenshot('screenshot-hotkey.png')
+      await captureHotkeyScreenshot('screenshot-hotkey.png')
     } else if (mode === 'theme-menu') {
       await captureThemeMenuScreenshot('screenshot-theme-menu.png')
     } else if (mode === 'palette-theme') {

@@ -1,7 +1,7 @@
 import { Fragment, useEffect, type ComponentType } from 'react'
 import type { MessageKey } from '@shared/i18n'
 import { SETTINGS_SECTIONS, type SettingsSection } from '@shared/settings'
-import { Cable, Database, Info, Palette, SlidersHorizontal } from '../Icon'
+import { Cable, Database, Info, Keyboard, Palette, SlidersHorizontal } from '../Icon'
 import { ThemeSync } from '../ThemeSync'
 import { LocaleSync } from '../LocaleSync'
 import { UpdateDialog } from '../UpdateDialog'
@@ -11,6 +11,7 @@ import { closeTopOverlay } from '../../lib/useOverlayClose'
 import { useSettingsSectionStore } from './sectionStore'
 import { AppearanceSection } from './AppearanceSection'
 import { GeneralSection } from './GeneralSection'
+import { ShortcutsSection } from './ShortcutsSection'
 import { DataSection } from './DataSection'
 import { McpSection } from './McpSection'
 import { AboutSection } from './AboutSection'
@@ -23,6 +24,7 @@ import { AboutSection } from './AboutSection'
 const SECTION_META: Record<SettingsSection, { label: MessageKey; icon: typeof Info }> = {
   appearance: { label: 'settings.section.appearance', icon: Palette },
   general: { label: 'settings.section.general', icon: SlidersHorizontal },
+  hotkey: { label: 'settings.section.hotkey', icon: Keyboard },
   data: { label: 'settings.section.data', icon: Database },
   mcp: { label: 'settings.section.mcp', icon: Cable },
   about: { label: 'settings.section.about', icon: Info }
@@ -31,6 +33,7 @@ const SECTION_META: Record<SettingsSection, { label: MessageKey; icon: typeof In
 const SECTION_PAGE: Record<SettingsSection, ComponentType> = {
   appearance: AppearanceSection,
   general: GeneralSection,
+  hotkey: ShortcutsSection,
   data: DataSection,
   mcp: McpSection,
   about: AboutSection

@@ -9,20 +9,21 @@ import {
 import { getCurrentLocale } from './locale'
 import { getCurrentTheme, themeBackgroundColor } from './theme'
 
-// 设置窗口的唯一 owner。设置不再是主窗口里的浮层面板，而是一扇独立的窗口
-// （用户决策 2026-11-24）：左侧分类导航 + 右侧当前分类，「关于」是最后一个分类。
+// 设置窗口的唯一 owner。设置是主窗口的一扇独立子窗口（用户决策 2026-11-24）：
+// 左侧分类导航 + 右侧当前分类，「关于」固定在最后。
 // - 单例：已经开着就唤到前台并切到指定分类，绝不叠出第二扇。
-// - 主窗口的子窗口（parent）：永远盖在主窗口上方、随主窗口最小化；非模态，
-//   可以开着设置同时操作主窗口。
-// - 打开前先把主窗口叫出来（showMainWindow 由 index.ts 经 options 传入）：主窗口
-//   藏在托盘时直接开设置，这扇没有可见属主的窗口在任务栏上没有自己的按钮，
-//   被别的窗口盖住后就找不回来了。
-// - 主窗口关进托盘时一并关闭（index.ts 的 close 处理里调 closeSettingsWindow）。
+// - 主窗口的子窗口（parent）：永远盖在主窗口上方、随主窗口最小化；非模态。
+// - 打开前先把主窗口叫出来（showMainWindow 由 index.ts 经 options 传入）。
+// - 「关闭即隐藏、复用」（用户报障 2026-11-25：每次冷加载整包太慢）：Esc / 关闭
+//   只是 hide，窗口与已加载的前端包常驻，再开即现；启动时 warmupSettingsWindow
+//   后台预热，首次打开也不冷加载。真正销毁只发生在应用退出（before-quit 放行）。
+// - 主窗口关进托盘时一并隐藏（index.ts 的 close 处理里调 closeSettingsWindow）。
 
 const WIDTH = 940
-const HEIGHT = 660
+// 高度要放得下最长的「快捷键」列表（12 行）而不出纵向滚动条（用户报障 2026-11-25）。
+const HEIGHT = 700
 const MIN_WIDTH = 720
-const MIN_HEIGHT = 520
+const MIN_HEIGHT = 620
 // 与主窗口 titleBarOverlay 同高：顶部这一条是拖拽区，右上角归系统窗口按钮。
 const TITLEBAR_HEIGHT = 48
 
@@ -31,6 +32,7 @@ const TITLEBAR_HEIGHT = 48
 const SECTION_SCRIPTS: Record<SettingsSection, string> = {
   appearance: "window.dispatchEvent(new CustomEvent('polaris:settings-section', { detail: 'appearance' }))",
   general: "window.dispatchEvent(new CustomEvent('polaris:settings-section', { detail: 'general' }))",
+  hotkey: "window.dispatchEvent(new CustomEvent('polaris:settings-section', { detail: 'hotkey' }))",
   data: "window.dispatchEvent(new CustomEvent('polaris:settings-section', { detail: 'data' }))",
   mcp: "window.dispatchEvent(new CustomEvent('polaris:settings-section', { detail: 'mcp' }))",
   about: "window.dispatchEvent(new CustomEvent('polaris:settings-section', { detail: 'about' }))"
@@ -41,12 +43,14 @@ export interface SettingsWindowOptions {
   getMainWindow: () => BrowserWindow | null
   /** 打开设置前唤起主窗口（含启动页过渡与托盘唤起），与托盘「设置」同一条路。 */
   showMainWindow: () => void
-  /** 设置窗口关闭后的回调：主窗口据此补推一次更新快照（见 updater.ts）。 */
+  /** 设置窗口隐藏后的回调：主窗口据此补推一次更新快照（见 updater.ts）。 */
   onClosed: () => void
 }
 
 let settingsWindow: BrowserWindow | null = null
 let options: SettingsWindowOptions | null = null
+// 退出放行：before-quit 置 true 后，close 不再拦截隐藏，窗口随应用真正销毁。
+let allowDestroy = false
 
 export function initSettingsWindow(next: SettingsWindowOptions): void {
   options = next
@@ -54,6 +58,12 @@ export function initSettingsWindow(next: SettingsWindowOptions): void {
 
 export function getSettingsWindow(): BrowserWindow | null {
   return settingsWindow && !settingsWindow.isDestroyed() ? settingsWindow : null
+}
+
+/** 设置窗口是否正可见（隐藏复用态下「开着」= 可见，冒烟据此判「开/关」）。 */
+export function isSettingsWindowVisible(): boolean {
+  const window = getSettingsWindow()
+  return window !== null && window.isVisible()
 }
 
 /** 某个 webContents 是否就是设置窗口（IPC 的属主判断：主题/语言写回、文件对话框父窗）。 */
@@ -73,23 +83,35 @@ export function applySettingsWindowTheme(theme: AppTheme): void {
   })
 }
 
+/** 「关闭」= 隐藏复用（close 事件里拦截）；这里只触发 close。 */
 export function closeSettingsWindow(): void {
   const window = getSettingsWindow()
   if (window) window.close()
 }
 
+/** 应用退出前调用（before-quit）：放行 close 拦截，让窗口随退出真正销毁。 */
+export function prepareSettingsWindowForQuit(): void {
+  allowDestroy = true
+}
+
+/** 启动后台预热：建好隐藏窗口并加载前端包，首次打开即现（不冷加载）。 */
+export function warmupSettingsWindow(): void {
+  if (getSettingsWindow()) return
+  createSettingsWindow()
+}
+
 export function openSettingsWindow(section: SettingsSection = DEFAULT_SETTINGS_SECTION): void {
   // 主窗口可能藏在托盘/被最小化：设置窗口是它的子窗口，先叫出来。
   options?.showMainWindow()
-  const current = getSettingsWindow()
-  if (current) {
-    showSection(current, section)
-    if (current.isMinimized()) current.restore()
-    current.show()
-    current.focus()
-    return
-  }
+  const window = getSettingsWindow() ?? createSettingsWindow()
+  showSection(window, section)
+  if (window.isMinimized()) window.restore()
+  showWhenReady(window)
+}
 
+/** 建窗（show:false，不自动出场）：预热与首次打开共用。加载默认分类，切页由
+ *  openSettingsWindow 的 showSection 负责。 */
+function createSettingsWindow(): BrowserWindow {
   const parent = options?.getMainWindow() ?? null
   // 低分辨率屏：默认与最小尺寸不超过主屏工作区，窗口不被顶出屏幕（同主窗口）。
   const workArea = screen.getPrimaryDisplay().workAreaSize
@@ -117,8 +139,7 @@ export function openSettingsWindow(section: SettingsSection = DEFAULT_SETTINGS_S
   })
   settingsWindow = window
 
-  // 居中在主窗口上；主窗口不可见（刚从托盘叫出、还在启动页过渡里）时退到
-  // 鼠标所在屏的工作区中心。
+  // 居中在主窗口上；主窗口不可见（启动预热 / 刚从托盘叫出）时退到鼠标所在屏中心。
   const [width, height] = window.getSize()
   const visibleParent =
     parent && !parent.isDestroyed() && parent.isVisible() && !parent.isMinimized() ? parent : null
@@ -130,16 +151,16 @@ export function openSettingsWindow(section: SettingsSection = DEFAULT_SETTINGS_S
     Math.round(anchor.y + (anchor.height - height) / 2)
   )
 
-  // 首帧画好再出场：backgroundColor 已是主题底色，没有白闪。
-  window.once('ready-to-show', () => {
-    if (window.isDestroyed()) return
-    window.show()
-    window.focus()
+  // 关闭即隐藏复用：除非应用退出放行，close 一律拦截成 hide，前端包常驻。
+  window.on('close', (event) => {
+    if (allowDestroy) return
+    event.preventDefault()
+    if (!window.isDestroyed()) window.hide()
+    options?.onClosed()
   })
 
   window.on('closed', () => {
     if (settingsWindow === window) settingsWindow = null
-    options?.onClosed()
   })
 
   // 主帧加载失败不会有 ready-to-show：把死窗口销毁掉，单例槽位才会让给下一次
@@ -149,7 +170,19 @@ export function openSettingsWindow(section: SettingsSection = DEFAULT_SETTINGS_S
     if (!window.isDestroyed()) window.destroy()
   })
 
-  loadSettingsWindow(window, section)
+  loadSettingsWindow(window, DEFAULT_SETTINGS_SECTION)
+  return window
+}
+
+/** 出场：已加载（预热态）立即 show；还在加载则等首帧画好再 show，避免白闪。 */
+function showWhenReady(window: BrowserWindow): void {
+  const show = () => {
+    if (window.isDestroyed()) return
+    window.show()
+    window.focus()
+  }
+  if (window.webContents.isLoading()) window.once('ready-to-show', show)
+  else show()
 }
 
 function loadSettingsWindow(window: BrowserWindow, section: SettingsSection): void {
@@ -166,8 +199,7 @@ function loadSettingsWindow(window: BrowserWindow, section: SettingsSection): vo
 }
 
 /** 已开着的窗口切页。页面还在加载时初始 hash 已带上分类，这里等 load 完
- *  再补派发一次（幂等），保证「刚开窗又点另一个入口」的那次请求不落空。
- *  渲染层的监听器在模块求值期注册（早于 load 事件），did-finish-load 之后派发必有人接。 */
+ *  再补派发一次（幂等），保证「刚开窗又点另一个入口」的那次请求不落空。 */
 function showSection(window: BrowserWindow, section: SettingsSection): void {
   const contents = window.webContents
   const dispatch = () => {

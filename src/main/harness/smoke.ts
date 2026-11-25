@@ -65,6 +65,7 @@ import { CSV_EXPORT_HEADERS, csvExportFromBackup, formatCsvDue } from '../../sha
 import { harnessContext } from './context'
 import { settledFrames, waitForCondition } from './util'
 import { closeSettingsAndSettle, openSettingsFor, showSettingsSection, withSettings } from './settings'
+import { isSettingsWindowVisible } from '../settingsWindow'
 import {
   runBackupNameAssertions,
   runCustomRecurrenceAssertions,
@@ -4194,7 +4195,7 @@ export async function runSmokeTest(): Promise<void> {
                 await sleep(350);
               })()`)
             }
-            for (const section of ['appearance', 'general', 'data', 'mcp', 'about'] as const) {
+            for (const section of ['appearance', 'general', 'hotkey', 'data', 'mcp', 'about'] as const) {
               await showSettingsSection(section)
               const ok = await settings.webContents.executeJavaScript(`(() => {
                 const content = document.querySelector('.settings-content');
@@ -4213,6 +4214,8 @@ export async function runSmokeTest(): Promise<void> {
             document.querySelector('[data-language-index="0"]')?.click();
             await sleep(350);
           })()`)
+          settings.setSize(940, 700)
+          await settledFrames(settings.webContents)
           await closeSettingsAndSettle()
           settingsWindowFits =
             mcpPage?.found === true && mcpPage?.maskShape === true && mcpPage?.middleHidden === true &&
@@ -4250,7 +4253,7 @@ export async function runSmokeTest(): Promise<void> {
           return {
             found: true,
             navLeft: navRect.right <= contentRect.left + 1,
-            fiveSections: labels.length === 5 && labels.includes('关于'),
+            sixSections: labels.length === 6 && labels.includes('关于'),
             aboutPinned,
             generalTitle: document.querySelector('.settings-page-title')?.textContent === '常规',
             navTitle: document.querySelector('.settings-nav-title')?.textContent === '设置',
@@ -4272,7 +4275,7 @@ export async function runSmokeTest(): Promise<void> {
         })()`)
       )
       settingsWindowLayout =
-        layout?.found === true && layout?.navLeft === true && layout?.fiveSections === true &&
+        layout?.found === true && layout?.navLeft === true && layout?.sixSections === true &&
         layout?.aboutPinned === true && layout?.generalTitle === true && layout?.navTitle === true &&
         layout?.docTitle === true &&
         about?.version === app.getVersion() && about?.creditsOk === true && about?.noticesAction === true
@@ -4282,6 +4285,21 @@ export async function runSmokeTest(): Promise<void> {
     // 设置窗口生命周期：单例（侧栏再点「设置」/「关于」不叠第二扇，「关于」把
     // 已开的窗口切到关于页——经主进程的固定字符串切页事件）；窗口级 Esc 关窗
     // （无浮层挂着时）；关掉后还能经真实侧栏入口再开。
+    // 快捷键列表一屏放下（用户报障 2026-11-25：不要纵向滚动条）：默认窗高下
+    // 内容 scrollHeight 不超 clientHeight。窗口尺寸已由 fits 守卫还原到默认。
+    let shortcutListFits = false
+    {
+      const fit = await withSettings('hotkey', null, (settings) =>
+        settings.webContents.executeJavaScript(`(() => {
+          const content = document.querySelector('.settings-content');
+          if (!content) return null;
+          return { noVScroll: content.scrollHeight <= content.clientHeight + 1, sh: content.scrollHeight, ch: content.clientHeight };
+        })()`)
+      )
+      shortcutListFits = fit?.noVScroll === true
+      if (!shortcutListFits) console.error('SHORTCUT_LIST_FITS_FAIL', JSON.stringify(fit))
+    }
+
     let settingsWindowLifecycle = false
     {
       const settings = await openSettingsFor('appearance')
@@ -4304,7 +4322,7 @@ export async function runSmokeTest(): Promise<void> {
         await settings.webContents.executeJavaScript(
           `window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))`
         )
-        const escClosed = await waitForCondition(() => !getSettingsWindow(), 4000)
+        const escClosed = await waitForCondition(() => !isSettingsWindowVisible(), 4000)
         const reopened = await openSettingsFor('general')
         await closeSettingsAndSettle()
         settingsWindowLifecycle = switchedToAbout === true && singleton && escClosed && Boolean(reopened)
@@ -4772,6 +4790,8 @@ export async function runSmokeTest(): Promise<void> {
     let hotkeySettingsRoundTrip = false
     let hotkeyConflictDegrades = false
     let hotkeyAcceleratorCustom = false
+    let shortcutNavigationWorks = false
+    let shortcutRebindWorks = false
     let hotkeyWakesAndFocuses = false
     try {
       const initial = getGlobalHotkeyState()
@@ -4790,15 +4810,16 @@ export async function runSmokeTest(): Promise<void> {
         initial.registered === true &&
         initial.accelerator === 'Ctrl+Alt+P' &&
         getMeta('global_hotkey') === null &&
-        getMeta('global_hotkey_accelerator') === null
+        getMeta('global_hotkey_accelerator') === null &&
+        getMeta('app_shortcuts') === null
 
-      const roundTrip = await withSettings('general', null, (settings) =>
+      const roundTrip = await withSettings('hotkey', null, (settings) =>
         settings.webContents.executeJavaScript(`(async () => {
           ${pageHelpers}
-          const rowOf = () => [...document.querySelectorAll('.settings-row')].find((el) => el.textContent.includes('全局快速添加'));
-          const row = rowOf();
+          const row = document.querySelector('.shortcut-row[data-shortcut-row="global"]');
           const sw = row ? row.querySelector('.switch') : null;
-          const described = row ? row.textContent.includes('Ctrl+Alt+P') : false;
+          const caps = row ? [...row.querySelectorAll('.shortcut-keycap')].map((k) => k.textContent).join('+') : '';
+          const described = caps === 'Ctrl+Alt+P';
           const initialChecked = sw ? sw.getAttribute('aria-checked') === 'true' : false;
           if (!sw) {
             return { found: true, described, initialChecked, off: null, offChecked: false, on: null, onChecked: false };
@@ -4845,20 +4866,16 @@ export async function runSmokeTest(): Promise<void> {
       setGlobalHotkeyEnabled(false)
       const occupied = globalShortcut.register(GLOBAL_HOTKEY_ACCELERATOR, () => {})
       const conflict = setGlobalHotkeyEnabled(true)
-      const conflictUi = await withSettings('general', false, async (settings) =>
+      const conflictUi = await withSettings('hotkey', false, async (settings) =>
         settings.webContents.executeJavaScript(`(async () => {
           ${pageHelpers}
-          const row = [...document.querySelectorAll('.settings-row')].find((el) => el.textContent.includes('全局快速添加'));
+          const row = document.querySelector('.shortcut-row[data-shortcut-row="global"]');
           const sw = row ? row.querySelector('.switch') : null;
-          // 冲突文案替换行描述落同一行（is-error + role=alert + title 全文），
-          // 不再挂独立 .settings-error 行。
-          const desc = row ? row.querySelector('.settings-row-desc') : null;
+          // 占用报错整行换行落 .shortcut-row-error（role=alert）。
+          const err = row ? row.querySelector('.shortcut-row-error') : null;
           return Boolean(sw) && sw.getAttribute('aria-checked') === 'true' &&
-            Boolean(desc) && desc.classList.contains('is-error') &&
-            desc.getAttribute('role') === 'alert' &&
-            desc.textContent.includes('被其他程序占用') &&
-            (desc.getAttribute('title') ?? '').includes('被其他程序占用') &&
-            !document.querySelector('.settings-error');
+            Boolean(err) && err.getAttribute('role') === 'alert' &&
+            err.textContent.includes('被其他程序占用');
         })()`)
       )
       globalShortcut.unregister(GLOBAL_HOTKEY_ACCELERATOR)
@@ -4875,43 +4892,36 @@ export async function runSmokeTest(): Promise<void> {
         recovered.enabled === true &&
         recovered.registered === true
 
-      // 快捷键自定义（设置窗口常规页「修改快捷键…」）：默认组合被占的机器上
-      // 也要走得通——先经探测挑一个实测空闲的候选，再走真实 UI（开对话框 →
-      // 录制框合成按键 → 保存）换绑并落库；chips 的占用态与禁用态必须一致。
-      // 收尾先关热键再写默认组合（关闭态写入不试注册，不受占用影响），最后开回。
+      // 全局热键改键（快捷键页列表铅笔 → 内联录制 → 按下即自动应用）：默认组合
+      // 被占的机器上也要走得通——先探测挑一个实测空闲候选，走真实 UI 换绑落库。
+      // 应用信号 = 录制框消失且全局行键帽变成新组合。收尾先关热键再写默认组合
+      // （关闭态写入不试注册，不受占用影响），最后开回。
       {
         const probed = probeHotkeyAccelerators(['Ctrl+Alt+T', 'Ctrl+Alt+N', 'Ctrl+Shift+P', 'Alt+Shift+P'])
         const picked = probed.find((item) => item.free)?.accelerator
-        const ui = await withSettings('general', null, (settings) =>
+        const ui = await withSettings('hotkey', null, (settings) =>
           settings.webContents.executeJavaScript(`(async () => {
             ${pageHelpers}
-            const change = [...document.querySelectorAll('button')].find((b) => b.textContent.includes('修改快捷键'));
-            change?.click();
-            const dlg = await waitFor(() => document.querySelector('.hotkey-dialog-panel'));
-            if (!dlg) return { found: false };
-            const record = await waitFor(() => dlg.querySelector('.hotkey-record'));
-            if (!record) return { found: true, record: false };
-            const chips = [...dlg.querySelectorAll('.hotkey-chip')].map((c) => ({
-              key: c.getAttribute('data-hotkey-candidate'),
-              occupied: c.classList.contains('is-occupied'),
-              disabled: c.disabled
-            }));
-            // 合成录制：按下探测空闲的那个组合（e.code 布局无关；候选键全是字母）。
+            const edit = await waitFor(() => document.querySelector('.shortcut-row[data-shortcut-row="global"] .shortcut-edit'));
+            if (!edit) return { found: false };
+            edit.click();
+            const recorder = await waitFor(() => document.querySelector('.shortcut-recorder'));
+            if (!recorder) return { found: true, recorder: false };
             const parts = ${JSON.stringify(picked ?? '')}.split('+');
             const key = parts[parts.length - 1];
-            record.dispatchEvent(new KeyboardEvent('keydown', {
+            recorder.dispatchEvent(new KeyboardEvent('keydown', {
               key: key.toLowerCase(), code: 'Key' + key,
               ctrlKey: parts.includes('Ctrl'), altKey: parts.includes('Alt'), shiftKey: parts.includes('Shift'),
               bubbles: true, cancelable: true
             }));
-            const recorded = await waitFor(() => record.textContent.includes(${JSON.stringify(picked ?? '')}));
-            const save = [...dlg.querySelectorAll('button')].find((b) => b.textContent === '保存');
-            save?.click();
-            const closed = await waitFor(() => !document.querySelector('.hotkey-dialog-panel'));
-            return { found: true, record: true, chips, recorded: Boolean(recorded), save: Boolean(save), closed: Boolean(closed) };
+            const applied = await waitFor(() => {
+              if (document.querySelector('.shortcut-recorder')) return false;
+              const caps = [...document.querySelectorAll('.shortcut-row[data-shortcut-row="global"] .shortcut-keycap')].map((k) => k.textContent).join('+');
+              return caps === ${JSON.stringify(picked ?? '')} ? true : false;
+            });
+            return { found: true, recorder: true, applied: Boolean(applied) };
           })()`)
         )
-        // meta 断言必须在还原默认之前读——还原会把它写回 Ctrl+Alt+P。
         const after = getGlobalHotkeyState()
         const metaApplied = getMeta('global_hotkey_accelerator') === picked
         setGlobalHotkeyEnabled(false)
@@ -4920,12 +4930,8 @@ export async function runSmokeTest(): Promise<void> {
         const restored = getMeta('global_hotkey_accelerator') === GLOBAL_HOTKEY_ACCELERATOR
         hotkeyAcceleratorCustom =
           typeof picked === 'string' &&
-          ui?.record === true &&
-          ui?.recorded === true &&
-          ui?.save === true &&
-          ui?.closed === true &&
-          ui?.chips.length >= 3 &&
-          ui?.chips.every((c: { occupied: boolean; disabled: boolean }) => c.occupied === c.disabled) === true &&
+          ui?.recorder === true &&
+          ui?.applied === true &&
           after.accelerator === picked &&
           after.registered === true &&
           metaApplied &&
@@ -4933,6 +4939,67 @@ export async function runSmokeTest(): Promise<void> {
         if (!hotkeyAcceleratorCustom) {
           console.error('HOTKEY_CUSTOM_FAIL', JSON.stringify({ picked, ui, after, metaApplied, restored }))
         }
+      }
+
+      // 视图导航快捷键（默认 Ctrl+1-8）：非输入态按 Ctrl+数字切视图，侧栏 active 项随之变。
+      {
+        const nav = await mainWindow?.webContents.executeJavaScript(`(async () => {
+          ${pageHelpers}
+          if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+          const activeText = () => document.querySelector('.nav-item.active .nav-text')?.textContent ?? '';
+          const press = (digit) => window.dispatchEvent(new KeyboardEvent('keydown', { key: digit, code: 'Digit' + digit, ctrlKey: true, bubbles: true, cancelable: true }));
+          press('2');
+          const upcoming = await waitFor(() => activeText() === '即将到来');
+          press('3');
+          const calendar = await waitFor(() => activeText() === '日历');
+          press('1');
+          const today = await waitFor(() => activeText() === '今天');
+          return { upcoming: Boolean(upcoming), calendar: Boolean(calendar), today: Boolean(today) };
+        })()`)
+        shortcutNavigationWorks = nav?.upcoming === true && nav?.calendar === true && nav?.today === true
+        if (!shortcutNavigationWorks) console.error('SHORTCUT_NAV_FAIL', JSON.stringify(nav))
+      }
+
+      // 应用内改键（列表铅笔 → 内联录制）：view-today 1→9 落库 + 主窗口 focus 重拉
+      // 后按 9 回今天；冲突检测（view-upcoming 改成 9 应被拒）；收尾还原默认。
+      {
+        const ui = await withSettings('hotkey', null, (settings) =>
+          settings.webContents.executeJavaScript(`(async () => {
+            ${pageHelpers}
+            const edit = await waitFor(() => document.querySelector('.shortcut-row[data-shortcut-row="view-today"] .shortcut-edit'));
+            edit.click();
+            let rec = await waitFor(() => document.querySelector('.shortcut-recorder'));
+            rec.dispatchEvent(new KeyboardEvent('keydown', { key: '9', code: 'Digit9', bubbles: true, cancelable: true }));
+            const rebound = await waitFor(() => !document.querySelector('.shortcut-recorder'));
+            const edit2 = document.querySelector('.shortcut-row[data-shortcut-row="view-upcoming"] .shortcut-edit');
+            edit2.click();
+            rec = await waitFor(() => document.querySelector('.shortcut-recorder'));
+            rec.dispatchEvent(new KeyboardEvent('keydown', { key: '9', code: 'Digit9', bubbles: true, cancelable: true }));
+            const conflictShown = await waitFor(() => {
+              const r = document.querySelector('.shortcut-recorder');
+              return r && r.textContent.includes('冲突') ? true : false;
+            });
+            rec.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+            await waitFor(() => !document.querySelector('.shortcut-recorder'));
+            return { rebound: Boolean(rebound), conflictShown: Boolean(conflictShown) };
+          })()`)
+        )
+        const metaRebound = (getMeta('app_shortcuts') ?? '').includes('"view-today":"9"')
+        const effect = await mainWindow?.webContents.executeJavaScript(`(async () => {
+          ${pageHelpers}
+          window.dispatchEvent(new Event('focus'));
+          await sleep(200);
+          if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+          window.dispatchEvent(new KeyboardEvent('keydown', { key: '9', code: 'Digit9', bubbles: true, cancelable: true }));
+          const viaNine = await waitFor(() => document.querySelector('.nav-item.active .nav-text')?.textContent === '今天');
+          return { viaNine: Boolean(viaNine) };
+        })()`)
+        await mainWindow?.webContents.executeJavaScript(`window.polaris.app.setShortcut('view-today', 'Ctrl+1')`)
+        const metaRestored = !(getMeta('app_shortcuts') ?? '').includes('view-today')
+        shortcutRebindWorks =
+          ui?.rebound === true && ui?.conflictShown === true &&
+          metaRebound && effect?.viaNine === true && metaRestored
+        if (!shortcutRebindWorks) console.error('SHORTCUT_REBIND_FAIL', JSON.stringify({ ui, metaRebound, effect, metaRestored }))
       }
 
       // 隐藏窗口 + 先切到「统计」：热键要同时负责唤起、回今天、聚焦输入框。
@@ -5513,6 +5580,7 @@ export async function runSmokeTest(): Promise<void> {
       aboutCreditsShown: aboutCreditsShown === true,
       settingsWindowFits: settingsWindowFits === true,
       settingsWindowLayout: settingsWindowLayout === true,
+      shortcutListFits: shortcutListFits === true,
       settingsWindowLifecycle: settingsWindowLifecycle === true,
       sidebarCollapseWorks: sidebarCollapseWorks === true,
       csvExportWorks: csvExportWorks === true,
@@ -5529,6 +5597,8 @@ export async function runSmokeTest(): Promise<void> {
       hotkeySettingsRoundTrip: hotkeySettingsRoundTrip === true,
       hotkeyConflictDegrades: hotkeyConflictDegrades === true,
       hotkeyAcceleratorCustom: hotkeyAcceleratorCustom === true,
+      shortcutNavigationWorks: shortcutNavigationWorks === true,
+      shortcutRebindWorks: shortcutRebindWorks === true,
       hotkeyWakesAndFocuses: hotkeyWakesAndFocuses === true,
       subtaskRowProgress: subtaskRowProgress === true,
       subtaskDetailChain: subtaskDetailChain === true,
@@ -5620,6 +5690,7 @@ export async function runSmokeTest(): Promise<void> {
           aboutCreditsShown,
           settingsWindowFits,
           settingsWindowLayout,
+          shortcutListFits,
           settingsWindowLifecycle,
           sidebarCollapseWorks,
           csvExportWorks,
@@ -5636,6 +5707,8 @@ export async function runSmokeTest(): Promise<void> {
           hotkeySettingsRoundTrip,
           hotkeyConflictDegrades,
           hotkeyAcceleratorCustom,
+          shortcutNavigationWorks,
+          shortcutRebindWorks,
           hotkeyWakesAndFocuses,
           subtaskRowProgress,
           subtaskDetailChain,

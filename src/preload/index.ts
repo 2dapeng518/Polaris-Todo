@@ -98,6 +98,9 @@ const api: PolarisApi = {
       ipcRenderer.invoke('app:set-global-hotkey-accelerator', accelerator),
     probeGlobalHotkeys: (candidates: string[]): Promise<HotkeyProbe[]> =>
       ipcRenderer.invoke('app:probe-global-hotkeys', candidates),
+    getShortcuts: (): Promise<Record<string, string>> => ipcRenderer.invoke('app:get-shortcuts'),
+    setShortcut: (id: string, keys: string): Promise<Record<string, string>> =>
+      ipcRenderer.invoke('app:set-shortcut', id, keys),
     getMcp: (): Promise<McpState> => ipcRenderer.invoke('app:get-mcp'),
     setMcp: (enabled: boolean): Promise<McpState> => ipcRenderer.invoke('app:set-mcp', enabled),
     getMcpToken: (): Promise<string> => ipcRenderer.invoke('app:mcp-token-get'),

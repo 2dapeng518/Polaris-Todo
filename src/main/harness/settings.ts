@@ -5,14 +5,14 @@
 
 import type { BrowserWindow } from 'electron'
 import { DEFAULT_SETTINGS_SECTION, type SettingsSection } from '../../shared/settings'
-import { closeSettingsWindow } from '../settingsWindow'
+import { closeSettingsWindow, isSettingsWindowVisible } from '../settingsWindow'
 import { harnessContext } from './context'
 import { settledFrames, waitForCondition } from './util'
 
-/** 关掉可能残留的设置窗口：每段断言都从「没开窗」的干净态开始。 */
+/** 关掉可能残留的设置窗口：每段断言都从「不可见」的干净态开始（关闭=隐藏复用）。 */
 export async function ensureSettingsClosed(): Promise<void> {
   closeSettingsWindow()
-  await waitForCondition(() => !harnessContext().getSettingsWindow(), 4000)
+  await waitForCondition(() => !isSettingsWindowVisible(), 4000)
 }
 
 /**
@@ -30,7 +30,7 @@ export async function openSettingsFor(
     const window = getSettingsWindow()
     if (!window) return false
     const contents = window.webContents
-    if (contents.isDestroyed() || contents.isLoading()) return false
+    if (contents.isDestroyed() || contents.isLoading() || !window.isVisible()) return false
     return Boolean(
       await contents.executeJavaScript(`Boolean(document.querySelector('.settings-window .settings-nav'))`)
     )
@@ -68,7 +68,7 @@ export async function showSettingsSection(section: SettingsSection): Promise<boo
 export async function closeSettingsAndSettle(): Promise<void> {
   const { mainWindow } = harnessContext()
   closeSettingsWindow()
-  await waitForCondition(() => !harnessContext().getSettingsWindow(), 4000)
+  await waitForCondition(() => !isSettingsWindowVisible(), 4000)
   if (!mainWindow || mainWindow.isDestroyed()) return
   await mainWindow.webContents
     .executeJavaScript(`window.dispatchEvent(new Event('focus'))`)

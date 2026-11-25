@@ -5,6 +5,8 @@ import type { AppView, Task } from '@shared/types'
 import type { MessageKey } from '@shared/i18n'
 import { TRASH_RETENTION_DAYS } from '@shared/retention'
 import { useTaskStore } from '../stores/useTaskStore'
+import { useShortcutKeys } from '../stores/useShortcutsStore'
+import { eventMatchesKeys } from '../lib/shortcuts'
 import { useAppVersion } from '../stores/useAppVersion'
 import { useT, useLocale } from '../stores/useLocaleStore'
 import { ConfirmDialog } from './ConfirmDialog'
@@ -124,6 +126,8 @@ export function TaskView() {
     return () => window.removeEventListener('polaris:quick-add', focusQuickAdd)
   }, [view, setView, trashConfirm])
 
+  const quickAddKeys = useShortcutKeys('quick-add')
+
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null
@@ -134,7 +138,7 @@ export function TaskView() {
         !selectedTaskId &&
         !paletteOpen &&
         !trashConfirm &&
-        event.key.toLowerCase() === 'n'
+        eventMatchesKeys(event, quickAddKeys)
       ) {
         event.preventDefault()
         window.dispatchEvent(new CustomEvent('polaris:quick-add'))
@@ -143,7 +147,7 @@ export function TaskView() {
 
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [selectedTaskId, paletteOpen, trashConfirm])
+  }, [selectedTaskId, paletteOpen, trashConfirm, quickAddKeys])
 
   const { visible, completed, totalToday, doneToday } = useMemo(() => {
     // 项目与标签筛选互斥（store 保证），双条件叠加让语义自洽。

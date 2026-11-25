@@ -373,6 +373,10 @@ export type PolarisApi = {
     setGlobalHotkeyAccelerator: (accelerator: string) => Promise<GlobalHotkeyState>
     /** 探测一组候选组合当前是否空闲（供推荐组合；探完不留注册痕迹）。 */
     probeGlobalHotkeys: (candidates: string[]) => Promise<HotkeyProbe[]>
+    /** 应用内快捷键自定义覆盖表（只含改过的 id→keys；缺省走注册表默认）。 */
+    getShortcuts: () => Promise<Record<string, string>>
+    /** 改一个应用内快捷键（形状校验 + 归一化在主进程；等于默认即清除覆盖）。 */
+    setShortcut: (id: string, keys: string) => Promise<Record<string, string>>
     getMcp: () => Promise<McpState>
     setMcp: (enabled: boolean) => Promise<McpState>
     /** 读取 MCP bearer token（尚未生成时立即生成并持久化）。 */
