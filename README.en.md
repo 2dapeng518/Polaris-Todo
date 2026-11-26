@@ -314,7 +314,7 @@ Common commands:
 | `npm run release:win` | Build and publish to GitHub Releases (requires `GH_TOKEN`) |
 | `npm run make:icon` | Regenerate app icons (png/ico/icns) and the tray icon |
 
-During development, closing the main window only hides it to the tray; end `npm run dev` via the tray's "Quit" or `Ctrl+C`. First launch creates the database and seeds a set of tutorial sample tasks: each demonstrates one feature (quick add, subtasks, tags, recurrence, reminders, matrix, completed section), with the how-to in its notes.
+During development, closing the main window only hides it to the tray; end `npm run dev` via the tray's "Quit" or `Ctrl+C`. First launch creates the database and seeds a set of tutorial sample tasks: each demonstrates one feature (quick add, subtasks, tags, recurrence, reminders, matrix, completed section, time windows, all-day, multi-day, the calendar info layer, printing), with the how-to in its notes; afterwards you can re-merge the latest sample set anytime via Settings → Data & backup → "Load samples" (idempotent by fixed ID: existing samples are skipped, only new ones added, never overwriting your data).
 
 ## Directory Structure
 
@@ -473,7 +473,7 @@ The live implementation (`src/renderer`) is this design system's applied screen 
 - CSV export is a one-way exit (Csv canonical columns + extensions): recurrence, reminders, attachments and comments are not exported. CSV import was removed (2026-11-19 decision); JSON backup import (merge by ID) is the only import path.
 - Automatic backups run on the configured interval (checked at startup and hourly while running; one is written whenever the newest exceeds the interval). Export manually for an immediate snapshot. Past automatic backups live in the "Manage…" dialog under Settings → Data backup, where each can be imported, saved as a copy, or deleted (with confirmation).
 - The data folder accepts any folder. When it lives inside a cloud-sync folder, the app collapses the database into a single file on quit (removing WAL-sidecar version skew) and checks for external changes at the next launch (another device's sync / an unclean previous exit, bilingual notice); but **concurrent use on multiple devices remains unsupported** — SQLite has no cross-machine locking, so simultaneous writes end in last-writer-wins plus the sync client's conflicted copies. Use devices serially. The location pointer lives at the root of the default app-data folder as `data-location.json`; deleting it falls back to the default location (your data remains in the original folder — point back at it to recover).
-- Sample tasks exist only as a first-launch tutorial and can be deleted anytime; to wipe data, delete `polaris.db` in the data folder (visible under Settings → Data & backup → Data folder).
+- Sample tasks exist as a tutorial and can be deleted anytime; if you deleted some and want them back, use Settings → Data & backup → "Load samples" (idempotent merge, untouched data). To wipe everything, delete `polaris.db` in the data folder (visible under Settings → Data & backup → Data folder).
 
 **Integrations & updates**
 

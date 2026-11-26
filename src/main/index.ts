@@ -11,6 +11,7 @@ import {
   getMeta,
   getWriteRevision,
   importBackup,
+  loadSampleTasks,
 
   closeDatabase,
   detectExternalDbChange,
@@ -691,6 +692,12 @@ app.whenReady().then(() => {
     } catch (error) {
       return { saved: false, error: String(error) }
     }
+  })
+
+  // 载入示例任务（P4 收尾）：把当前版本的完整示例集（shared/sampleTasks，
+  // 固定 ID）幂等合并进库——重复点击只补新增示例，绝不覆盖现有数据。
+  ipcMain.handle('samples:load', () => {
+    return loadSampleTasks(getCurrentLocale())
   })
 
   ipcMain.handle('reminder:dismiss', () => {

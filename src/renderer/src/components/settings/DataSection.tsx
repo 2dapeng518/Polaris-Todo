@@ -153,6 +153,20 @@ export function DataSection() {
     }
   }
 
+  // 载入示例任务：幂等合并（固定 ID 跳过已存在），反馈落到同一条状态行。
+  const handleLoadSamples = async () => {
+    setBackupBusy(true)
+    resetFeedback()
+    try {
+      const result = await window.polaris.data.loadSamples()
+      setBackupStatus(t('settings.samplesLoaded', { count: result.tasksAdded, skipped: result.tasksSkipped }))
+    } catch (error) {
+      setBackupError(t('settings.samplesLoadFailed', { error: String(error) }))
+    } finally {
+      setBackupBusy(false)
+    }
+  }
+
   // 先取列表再开模态：本地 IPC 毫秒级，对话框带着数据打开，没有「先开
   // 空壳、行随后弹出」的两段式跳高。每次打开都重读——目录可能被外部改动
   // （数据目录里删文件、新一轮自动备份），拿旧缓存会渲染幽灵行；缓存只供
@@ -334,6 +348,15 @@ export function DataSection() {
             title={t('settings.icsExportTitle')}
           >
             {t('settings.icsExport')}
+          </button>
+          {/* 载入示例任务（幂等合并）：第六钮填满 2×3 网格。 */}
+          <button
+            className="backup-btn"
+            onClick={() => void handleLoadSamples()}
+            disabled={backupBusy}
+            title={t('settings.samplesLoadTitle')}
+          >
+            {t('settings.samplesLoad')}
           </button>
           <button className="backup-btn" onClick={() => void handleOpenDataDir()} disabled={backupBusy}>
             {t('settings.openDataDir')}

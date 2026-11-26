@@ -84,6 +84,10 @@ export const settings = {
   'settings.icsExportTitle': '导出 RFC 5545 日历文件（.ics，可导入日历应用或订阅）',
   'settings.icsExported': '已导出 ICS 日历文件',
   'settings.icsExportFailed': '导出失败：{error}',
+  'settings.samplesLoad': '载入示例',
+  'settings.samplesLoadTitle': '载入示例任务（按固定 ID 幂等合并：已有示例跳过、只补新增，绝不覆盖现有数据）',
+  'settings.samplesLoaded': '已载入 {count} 条示例任务（跳过 {skipped} 条已存在）',
+  'settings.samplesLoadFailed': '载入失败：{error}',
 
   'settings.licenseLine': '以 MIT 许可发布',
   'settings.fontsValue': 'Inter · Manrope · Noto Sans SC · Geist Mono（均为 SIL OFL\u00A01.1）',

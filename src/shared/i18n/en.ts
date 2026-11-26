@@ -323,6 +323,10 @@ export const en: Messages = {
   'settings.icsExportTitle': 'Export an RFC 5545 calendar file (.ics, importable into calendar apps or subscriptions)',
   'settings.icsExported': 'ICS calendar file exported',
   'settings.icsExportFailed': 'Export failed: {error}',
+  'settings.samplesLoad': 'Load samples',
+  'settings.samplesLoadTitle': 'Load the sample tasks (idempotent merge by fixed ID: existing samples are skipped, only new ones added, never overwriting your data)',
+  'settings.samplesLoaded': 'Loaded {count} sample tasks (skipped {skipped} existing)',
+  'settings.samplesLoadFailed': 'Load failed: {error}',
 
   'settings.licenseLine': 'Released under the MIT License',
   'settings.fontsValue': 'Inter · Manrope · Noto Sans SC · Geist Mono (all SIL OFL\u00A01.1)',

@@ -21,8 +21,10 @@ import {
   getTask,
   importBackup,
   listDeletedTasks,
+  listProjects,
   listSubtasks,
   listTasks,
+  loadSampleTasks,
   purgeExpiredDeleted,
   setMeta,
   updateSubtask,
@@ -63,6 +65,7 @@ import { checkRemindersNow, dismissReminder, getReminderWindow } from '../remind
 import { getTrayMenuLabels } from '../tray'
 import { CSV_EXPORT_HEADERS, csvExportFromBackup, formatCsvDue } from '../../shared/csvExport'
 import { icsExportFromBackup } from '../../shared/icsExport'
+import { SAMPLE_TASKS } from '../../shared/sampleTasks'
 import { harnessContext } from './context'
 import { settledFrames, waitForCondition } from './util'
 import { closeSettingsAndSettle, openSettingsFor, showSettingsSection, withSettings } from './settings'
@@ -4525,7 +4528,7 @@ export async function runSmokeTest(): Promise<void> {
         text.includes(wantDone + '\r\n')
       csvExportWorks =
         ui?.found === true && ui?.noSplit === true && ui?.noPop === true &&
-        JSON.stringify(ui?.buttons) === JSON.stringify(['导出备份', '导入备份', '导出 CSV', '导出 ICS', '打开数据目录']) &&
+        JSON.stringify(ui?.buttons) === JSON.stringify(['导出备份', '导入备份', '导出 CSV', '导出 ICS', '载入示例', '打开数据目录']) &&
         linesOk
       if (!csvExportWorks) console.error('CSV_EXPORT_FAIL', JSON.stringify({ ui, linesOk }))
     } catch (error) {
@@ -4593,6 +4596,44 @@ export async function runSmokeTest(): Promise<void> {
         deleteTask(id)
         deleteTaskForever(id)
       }
+    }
+
+    // 载入示例任务（主进程直调 loadSampleTasks）：合并语义对任意起点成立——
+    // first 载入后任务数 = before + tasksAdded；立即再来一次应全部跳过（幂等）；
+    // 软删+硬删删掉「时间段」示例（固定 ID）再载入，恰好补回 1 条且时段字段
+    // 齐全；项目按名复用（不重名重建）。结束把示例行清干净，不留尾巴给后续守卫。
+    let sampleLoadWorks = false
+    try {
+      const before = listTasks().length
+      const projectsBefore = listProjects().length
+      const first = loadSampleTasks('zh-CN')
+      const afterFirst = listTasks().length
+      const mergeOk = afterFirst === before + first.tasksAdded && afterFirst >= SAMPLE_TASKS.length
+      const second = loadSampleTasks('zh-CN')
+      const idempotent = second.tasksAdded === 0 && second.tasksSkipped === SAMPLE_TASKS.length
+      deleteTask('sample-task-9')
+      deleteTaskForever('sample-task-9')
+      const third = loadSampleTasks('zh-CN')
+      const refilled = getTask('sample-task-9')
+      const refilledOk =
+        third.tasksAdded === 1 &&
+        Boolean(refilled?.startAt && refilled?.endAt) &&
+        refilled?.allDay === false
+      const projectsStable = listProjects().length === projectsBefore
+      sampleLoadWorks = mergeOk && idempotent && refilledOk && projectsStable
+      if (!sampleLoadWorks) {
+        console.error(
+          'SAMPLE_LOAD_FAIL',
+          JSON.stringify({ before, first, second, third, refilledOk, projectsStable, afterFirst })
+        )
+      }
+      // 清场：示例行软删+硬删，不污染后续守卫（trash 空态断言等）。
+      for (const sample of SAMPLE_TASKS) {
+        deleteTask(sample.id)
+        deleteTaskForever(sample.id)
+      }
+    } catch (error) {
+      console.error('SAMPLE_LOAD_ERROR', error)
     }
 
     // 设置页备份零抖动（独立窗口版）：列表住对话框，开/关 [管理…] 模态前后
@@ -5902,6 +5943,7 @@ export async function runSmokeTest(): Promise<void> {
           calendarWorks,
           calendarSuiteWorks,
           icsExportWorks,
+          sampleLoadWorks,
           parseGrammarTable: parseAssertions.grammar,
           parseInvariants: parseAssertions.invariants,
           parseFormatNull: parseAssertions.format,

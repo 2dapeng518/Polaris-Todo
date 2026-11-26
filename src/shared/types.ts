@@ -178,6 +178,15 @@ export type ImportResult = {
   error?: string
 }
 
+/** samples:load 的返回：示例集按固定 ID 幂等合并的计数。 */
+export type SampleLoadResult = {
+  tasksAdded: number
+  tasksSkipped: number
+  projectsCreated: number
+  subtasksAdded: number
+  tagsAdded: number
+}
+
 /** 自动备份列表的一行：只有文件元数据，主进程不解析 JSON——
  *  打开设置页时列备份必须是廉价操作，几十份文件也不读盘内容。 */
 export type AutoBackupItem = {
@@ -334,6 +343,8 @@ export type PolarisApi = {
     exportCsv: () => Promise<ExportResult>
     /** 导出 RFC 5545 日历（.ics）：有日期的活任务 → VEVENT（全量单向出口）。 */
     exportIcs: () => Promise<ExportResult>
+    /** 载入示例任务（幂等合并：固定 ID 跳过已存在，绝不覆盖现有数据）。 */
+    loadSamples: () => Promise<SampleLoadResult>
   }
   backups: {
     /** 列出 userData/backups 下的自动备份（新→旧），只读元数据不解析内容。 */

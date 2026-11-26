@@ -16,6 +16,7 @@ import type {
   ImportResult,
   OpenDataDirResult,
   PolarisApi,
+  SampleLoadResult,
   SettingsSection,
   UpdateProjectInput,
   UpdateState,
@@ -58,7 +59,8 @@ const api: PolarisApi = {
     export: (): Promise<ExportResult> => ipcRenderer.invoke('data:export'),
     import: (): Promise<ImportResult> => ipcRenderer.invoke('data:import'),
     exportCsv: (): Promise<ExportResult> => ipcRenderer.invoke('data:export-csv'),
-    exportIcs: (): Promise<ExportResult> => ipcRenderer.invoke('data:export-ics')
+    exportIcs: (): Promise<ExportResult> => ipcRenderer.invoke('data:export-ics'),
+    loadSamples: (): Promise<SampleLoadResult> => ipcRenderer.invoke('samples:load')
   },
   backups: {
     list: (): Promise<AutoBackupListResult> => ipcRenderer.invoke('backups:list'),

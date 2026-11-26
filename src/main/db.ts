@@ -6,6 +6,7 @@ import { copyFileSync, existsSync, mkdirSync, readFileSync, renameSync, statSync
 import { join } from 'node:path'
 import { nextOccurrence } from '../shared/recurrence'
 import { isPurgeable } from '../shared/retention'
+import { SAMPLE_PROJECTS, SAMPLE_TASKS } from '../shared/sampleTasks'
 import { isLocale, localeFromLanguageTag, type Locale } from '../shared/i18n'
 import { translate } from '../shared/i18n'
 // db ↔ locale 相互引用：locale 用 getMeta/setMeta 持久化，db 用 getCurrentLocale
@@ -463,6 +464,108 @@ function seedLocale(): Locale {
   return isLocale(value) ? value : localeFromLanguageTag(app.getLocale())
 }
 
+// 示例数据集（shared/sampleTasks.ts）：首启种子与「载入示例任务」共用的
+// 唯一来源。固定 ID（sample-task-N / sample-project-*）是幂等键——扩充示例
+// 集后再载入只补新增条目，绝不覆盖；示例项目在老库里按名称复用（老种子的
+// 项目 ID 是随机 UUID，按名复用才不会重名重建）。
+const SAMPLE_PROJECT_IDS: Record<string, string> = {
+  polaris: 'sample-project-polaris',
+  personal: 'sample-project-personal'
+}
+
+// 把示例集插进当前库：项目映射（key→id）由调用方解析（seed 用固定 ID 新建、
+// load 按名复用），任务按固定 ID 幂等跳过。返回计数供 UI 反馈与冒烟断言。
+function insertSampleTasks(
+  en: boolean,
+  now: Date,
+  projectIds: Record<string, string>,
+  seedIds: DemoSeedIds
+): { tasksAdded: number; tasksSkipped: number; subtasksAdded: number; tagsAdded: number } {
+  const stamp = now.toISOString()
+  const at = (dayOffset: number, hour: number, minute = 0): string => {
+    const date = new Date(now)
+    date.setDate(date.getDate() + dayOffset)
+    date.setHours(hour, minute, 0, 0)
+    return date.toISOString()
+  }
+  const insertTask = db.prepare(`
+    INSERT INTO tasks (id, title, notes, completed, due_at, start_at, end_at, all_day, remind_at, recurrence_rule, project_id, priority, created_at, updated_at, deleted_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)
+  `)
+  const insertSubtask = db.prepare(
+    'INSERT INTO subtasks (id, task_id, title, completed, sort_order, created_at) VALUES (?, ?, ?, ?, ?, ?)'
+  )
+  const insertTag = db.prepare('INSERT INTO tags (id, name, created_at) VALUES (?, ?, ?)')
+  const insertTaskTag = db.prepare('INSERT INTO task_tags (task_id, tag_id) VALUES (?, ?)')
+  const taskExists = db.prepare('SELECT 1 FROM tasks WHERE id = ?')
+  const tagByName = db.prepare('SELECT id FROM tags WHERE name = ? COLLATE NOCASE')
+
+  let tasksAdded = 0
+  let tasksSkipped = 0
+  let subtasksAdded = 0
+  let tagsAdded = 0
+
+  for (const sample of SAMPLE_TASKS) {
+    if (taskExists.get(sample.id)) {
+      tasksSkipped += 1
+      continue
+    }
+    const lang = en ? sample.en : sample.zh
+    const dueAt =
+      sample.dayOffset === null ? null : at(sample.dayOffset, sample.hour, sample.minute ?? 0)
+    const allDay = sample.allDay === true
+    // 全天任务的起止也存完整时刻（展示忽略钟点）；无时间段不造 end。
+    const startAt =
+      sample.startHour === undefined
+        ? dueAt
+        : at(sample.dayOffset ?? 0, sample.startHour, sample.startMinute ?? 0)
+    const endAt =
+      sample.endHour === undefined
+        ? null
+        : at(sample.endDayOffset ?? sample.dayOffset ?? 0, sample.endHour, sample.endMinute ?? 0)
+    const remindAt = sample.remind
+      ? at(sample.remind.dayOffset, sample.remind.hour, sample.remind.minute ?? 0)
+      : null
+    insertTask.run(
+      sample.id,
+      lang.title,
+      lang.notes,
+      sample.completed ? 1 : 0,
+      dueAt,
+      startAt,
+      endAt,
+      allDay ? 1 : 0,
+      remindAt,
+      sample.recurrenceRule ?? null,
+      projectIds[sample.project],
+      sample.priority,
+      stamp,
+      stamp
+    )
+    tasksAdded += 1
+    seedIds.tasks.push(sample.id)
+
+    ;(lang.subtasks ?? []).forEach((title, index) => {
+      const subtaskId = randomUUID()
+      seedIds.subtasks.push(subtaskId)
+      insertSubtask.run(subtaskId, sample.id, title, 0, index, stamp)
+      subtasksAdded += 1
+    })
+    for (const tag of sample.tags ?? []) {
+      const name = en ? tag.en : tag.zh
+      let tagId = (tagByName.get(name) as { id: string } | undefined)?.id
+      if (!tagId) {
+        tagId = randomUUID()
+        insertTag.run(tagId, name, stamp)
+        tagsAdded += 1
+        seedIds.tags.push(tagId)
+      }
+      insertTaskTag.run(sample.id, tagId)
+    }
+  }
+  return { tasksAdded, tasksSkipped, subtasksAdded, tagsAdded }
+}
+
 function seedIfNeeded(): void {
   const seeded = db.prepare('SELECT value FROM meta WHERE key = ?').get('demo_seeded') as
     | { value: string }
@@ -470,242 +573,27 @@ function seedIfNeeded(): void {
   if (seeded) return
 
   const en = seedLocale() === 'en'
-
   const now = new Date()
   const stamp = now.toISOString()
 
-  const at = (dayOffset: number, hour: number, minute = 0): string => {
-    const date = new Date(now)
-    date.setDate(date.getDate() + dayOffset)
-    date.setHours(hour, minute, 0, 0)
-    return date.toISOString()
-  }
-
-  const polarisProjectId = randomUUID()
-  const personalProjectId = randomUUID()
-
-  const insertProject = db.prepare(
-    'INSERT INTO projects (id, name, color, sort_order, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)'
-  )
-  const insertTask = db.prepare(`
-    INSERT INTO tasks (id, title, notes, completed, due_at, remind_at, recurrence_rule, project_id, priority, created_at, updated_at, deleted_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `)
-  const insertSubtask = db.prepare(
-    'INSERT INTO subtasks (id, task_id, title, completed, sort_order, created_at) VALUES (?, ?, ?, ?, ?, ?)'
-  )
-  const insertTag = db.prepare('INSERT INTO tags (id, name, created_at) VALUES (?, ?, ?)')
-  const insertTaskTag = db.prepare('INSERT INTO task_tags (task_id, tag_id) VALUES (?, ?)')
-  const seedIds: DemoSeedIds = { tasks: [], projects: [], tags: [], subtasks: [] }
-
   const seed = db.transaction(() => {
-    insertProject.run(polarisProjectId, 'Polaris', '#5EEAD4', 0, stamp, stamp)
-    insertProject.run(personalProjectId, en ? 'Personal' : '个人', '#A78BFA', 1, stamp, stamp)
-    seedIds.projects.push(polarisProjectId, personalProjectId)
-
-    // 首启种子是一组教学示例：每条任务演示一个功能，用法写在备注里，取代
-    // 早期的泛型演示任务。英文镜像与中文种子同结构（偏移/时刻/优先级/完成态/
-    // 子任务/标签一致）；completed 直插、不写 completed_at，统计视图的
-    // 「未记录时刻」老任务语义两边相同。四象限全覆盖：立即做（子任务/四象限两条）、
-    // 计划（标签）、快速处理（每周回顾）、稍后（欢迎/提醒），matrix 截图仍有数据。
-    // 提醒设在明天：首启不会立刻弹提醒窗。
-    type SeedTask = {
-      title: string
-      notes: string
-      completed: number
-      dueAt: string | null
-      remindAt: string | null
-      recurrenceRule: string | null
-      projectId: string
-      priority: number
-      subtasks: Array<{ title: string; completed: number }>
-      tags: string[]
+    const insertProject = db.prepare(
+      'INSERT INTO projects (id, name, color, sort_order, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)'
+    )
+    const projectIds: Record<string, string> = {}
+    for (const key of ['polaris', 'personal'] as const) {
+      const def = SAMPLE_PROJECTS[key]
+      const id = SAMPLE_PROJECT_IDS[key]
+      insertProject.run(id, en ? def.en : def.zh, def.color, def.sortOrder, stamp, stamp)
+      projectIds[key] = id
+      // demo_seed_ids 的 projects 键是给设置页「定位示例」留的账目，沿用。
     }
-    const t = (
-      partial: Partial<SeedTask> & Pick<SeedTask, 'title' | 'notes' | 'projectId'>
-    ): SeedTask => ({
-      completed: 0,
-      dueAt: null,
-      remindAt: null,
-      recurrenceRule: null,
-      priority: 0,
-      subtasks: [],
-      tags: [],
-      ...partial
-    })
+    const seedIds: DemoSeedIds = { tasks: [], projects: Object.values(projectIds), tags: [], subtasks: [] }
 
-    const tasks: SeedTask[] = en
-      ? [
-          t({
-            title: 'Welcome to Polaris — open me',
-            notes:
-              'Click a task to open its details: notes, due date, reminder and recurrence all live there.\nUse the input at the top to add tasks anytime; press Ctrl+Alt+P in any app to bring up Polaris quick add.\nThese sample tasks are just a demo — delete them whenever you like.',
-            projectId: polarisProjectId
-          }),
-          t({
-            title: 'Try quick add: Submit report tomorrow 3pm #Personal !high',
-            notes:
-              'Type the title above into the top input and press Enter: the date, #project and !priority are recognized as chips below the input.\nChinese syntax works too, e.g. 明天下午3点 交报告 #个人 !高.',
-            projectId: personalProjectId
-          }),
-          t({
-            title: 'Subtasks: break big work into small steps',
-            notes:
-              'Open the details and add checklist items under Subtasks, then tick them off one by one; the task row shows the progress.',
-            dueAt: at(0, 18),
-            projectId: polarisProjectId,
-            priority: 2,
-            subtasks: [
-              { title: 'Open the detail panel', completed: 1 },
-              { title: 'Add a subtask of your own', completed: 0 },
-              { title: 'Tick one off and watch the progress', completed: 0 }
-            ]
-          }),
-          t({
-            title: 'Tags: organize across projects',
-            notes:
-              'A task can carry several tags; click a tag in the sidebar to filter across projects.\nType a name in the Tags row of the details to create a new one.',
-            dueAt: at(1, 12),
-            projectId: personalProjectId,
-            priority: 2,
-            tags: ['sample', 'getting-started']
-          }),
-          t({
-            title: 'Review the task list weekly',
-            notes:
-              'This is a repeating task: completing it automatically spawns the next occurrence one week later.\nSubtasks and tags carry over to the next one.',
-            dueAt: at(0, 20),
-            recurrenceRule: 'FREQ=WEEKLY',
-            projectId: personalProjectId,
-            priority: 1
-          }),
-          t({
-            title: 'Reminders: a popup right on time',
-            notes:
-              'This task has a reminder set for tomorrow 09:00 — a reminder window will pop up then.\nAny task can get one via the Remind row in the details.',
-            dueAt: at(1, 9),
-            remindAt: at(1, 9),
-            projectId: personalProjectId
-          }),
-          t({
-            title: 'Matrix: important & urgent comes first',
-            notes:
-              'Open the Matrix view: important = medium/high priority, urgent = due today or overdue.\nThis task lands in the "Do now" quadrant.',
-            dueAt: at(0, 17),
-            projectId: polarisProjectId,
-            priority: 3
-          }),
-          t({
-            title: 'Completed tasks fold away here',
-            notes:
-              'The completed section collapses into a single count row; expand it to review, and it folds back when you switch views.',
-            completed: 1,
-            dueAt: at(0, 12),
-            projectId: personalProjectId
-          })
-        ]
-      : [
-          t({
-            title: '欢迎使用 Polaris，点我看看',
-            notes:
-              '点击任务打开详情：备注、截止、提醒、重复都在那里设置。\n顶部输入框随时添加任务；在任何程序里按 Ctrl+Alt+P 都能唤起 Polaris 快速添加。\n这组示例任务只是演示，随时可以删掉。',
-            projectId: polarisProjectId
-          }),
-          t({
-            title: '试试快速添加：明天下午3点 交报告 #个人 !高',
-            notes:
-              '把标题这句话原样敲进顶部输入框再回车：时间、#项目、!优先级 会自动识别成输入框下方的芯片。\n英文同样支持，例如 Submit report tomorrow 3pm #Personal !high。',
-            projectId: personalProjectId
-          }),
-          t({
-            title: '子任务：把大事拆成小步',
-            notes: '打开详情，在「子任务」里添加检查项，逐项打勾；任务行会显示完成进度。',
-            dueAt: at(0, 18),
-            projectId: polarisProjectId,
-            priority: 2,
-            subtasks: [
-              { title: '打开详情面板', completed: 1 },
-              { title: '添加一条自己的子任务', completed: 0 },
-              { title: '勾掉一项，看进度变化', completed: 0 }
-            ]
-          }),
-          t({
-            title: '标签：跨项目归类',
-            notes:
-              '一条任务可以贴多个标签；点侧栏标签就能跨项目筛选。\n在详情的「标签」行输入名字即可新建。',
-            dueAt: at(1, 12),
-            projectId: personalProjectId,
-            priority: 2,
-            tags: ['示例', '入门']
-          }),
-          t({
-            title: '每周回顾任务清单',
-            notes:
-              '这是一条重复任务：勾选完成后自动生成下一次，截止顺延一周。\n子任务和标签也会继承到下一次。',
-            dueAt: at(0, 20),
-            recurrenceRule: 'FREQ=WEEKLY',
-            projectId: personalProjectId,
-            priority: 1
-          }),
-          t({
-            title: '提醒：到点弹窗不怕忘',
-            notes:
-              '这条任务设了明天 09:00 的提醒，到点会弹出提醒窗口。\n任何任务都能在详情的「提醒」行设置。',
-            dueAt: at(1, 9),
-            remindAt: at(1, 9),
-            projectId: personalProjectId
-          }),
-          t({
-            title: '四象限：重要又紧急的排最前',
-            notes:
-              '打开「四象限」视图看看：重要 = 中/高优先级，紧急 = 今天到期或已逾期。\n这条任务会落在「立即做」象限。',
-            dueAt: at(0, 17),
-            projectId: polarisProjectId,
-            priority: 3
-          }),
-          t({
-            title: '已完成的任务收在这里',
-            notes: '完成区默认折叠成一行计数，点开可以回顾，切换视图后自动收起。',
-            completed: 1,
-            dueAt: at(0, 12),
-            projectId: personalProjectId
-          })
-        ]
-
-    const tagIds = new Map<string, string>()
-    for (const task of tasks) {
-      const taskId = randomUUID()
-      seedIds.tasks.push(taskId)
-      insertTask.run(
-        taskId,
-        task.title,
-        task.notes,
-        task.completed,
-        task.dueAt,
-        task.remindAt,
-        task.recurrenceRule,
-        task.projectId,
-        task.priority,
-        stamp,
-        stamp,
-        null
-      )
-      task.subtasks.forEach((subtask, index) => {
-        const subtaskId = randomUUID()
-        seedIds.subtasks.push(subtaskId)
-        insertSubtask.run(subtaskId, taskId, subtask.title, subtask.completed, index, stamp)
-      })
-      for (const name of task.tags) {
-        let tagId = tagIds.get(name)
-        if (!tagId) {
-          tagId = randomUUID()
-          insertTag.run(tagId, name, stamp)
-          seedIds.tags.push(tagId)
-          tagIds.set(name, tagId)
-        }
-        insertTaskTag.run(taskId, tagId)
-      }
-    }
+    // 首启种子 = 完整示例集（shared/sampleTasks.ts）：每条演示一个功能，用法
+    // 写在备注里；新增功能（时间段/全天/跨天/信息层/打印）随示例集扩充自动
+    // 出现在新装首启与「载入示例任务」里。提醒设在明天：首启不会立刻弹提醒窗。
+    insertSampleTasks(en, now, projectIds, seedIds)
 
     db.prepare('INSERT INTO meta (key, value) VALUES (?, ?)').run('demo_seeded', '1')
     db.prepare('INSERT INTO meta (key, value) VALUES (?, ?)').run(
@@ -715,6 +603,52 @@ function seedIfNeeded(): void {
   })
 
   seed()
+}
+
+// 「载入示例任务」（设置 → 数据与备份）：把当前版本的完整示例集合并进库。
+// 项目按名称复用（老库种子项目是随机 ID），任务按固定 ID 幂等跳过——重复
+// 点击只补新增示例，绝不覆盖现有数据。整体一个事务。
+export function loadSampleTasks(locale: Locale): {
+  tasksAdded: number
+  tasksSkipped: number
+  projectsCreated: number
+  subtasksAdded: number
+  tagsAdded: number
+} {
+  const en = locale === 'en'
+  const now = new Date()
+  const stamp = now.toISOString()
+  const seedIds: DemoSeedIds = { tasks: [], projects: [], tags: [], subtasks: [] }
+  const projectByName = db.prepare('SELECT id FROM projects WHERE name = ? COLLATE NOCASE')
+  const insertProject = db.prepare(
+    'INSERT INTO projects (id, name, color, sort_order, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)'
+  )
+
+  const run = db.transaction(() => {
+    const projectIds: Record<string, string> = {}
+    let projectsCreated = 0
+    for (const key of ['polaris', 'personal'] as const) {
+      const def = SAMPLE_PROJECTS[key]
+      const name = en ? def.en : def.zh
+      const existing = (projectByName.get(name) as { id: string } | undefined)?.id
+      if (existing) {
+        projectIds[key] = existing
+        continue
+      }
+      const id = SAMPLE_PROJECT_IDS[key]
+      // 同名不存在但固定 ID 被占（理论上不可能）：换个随机 ID 兜底。
+      const free = db.prepare('SELECT 1 FROM projects WHERE id = ?').get(id)
+        ? randomUUID()
+        : id
+      insertProject.run(free, name, def.color, def.sortOrder, stamp, stamp)
+      projectIds[key] = free
+      seedIds.projects.push(free)
+      projectsCreated += 1
+    }
+    const counts = insertSampleTasks(en, now, projectIds, seedIds)
+    return { ...counts, projectsCreated }
+  })
+  return run()
 }
 
 type TaskRow = {
