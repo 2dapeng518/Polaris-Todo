@@ -153,6 +153,7 @@ export function TimeGridView({
   const addTask = useTaskStore((state) => state.addTask)
   const updateTask = useTaskStore((state) => state.updateTask)
   const selectTask = useTaskStore((state) => state.selectTask)
+  const projects = useTaskStore((state) => state.projects)
   const anchor = useMemo(() => parseDayKey(anchorKey), [anchorKey, parseDayKey])
   const days = useMemo(() => visibleDaysFor(mode, anchor), [mode, anchor])
   const en = locale === 'en'
@@ -210,6 +211,23 @@ export function TimeGridView({
 
   const nowMinutes = now.getHours() * 60 + now.getMinutes()
   const nowKey = dayKey(now)
+
+  // 块着色（P4 视觉补齐，对齐主流待办应用）：按所属项目的配色给块上色——背景
+  // 低透明度 + 左侧实色条 + 边框中透明度；无项目任务保持 accent 中性色。
+  // 完成态仍由 .is-done 的整体降透明承担；due-only 虚线块用更浅背景。
+  const projectColor = (task: Task): string | null => {
+    if (!task.projectId) return null
+    return projects.find((candidate) => candidate.id === task.projectId)?.color ?? null
+  }
+  const blockStyle = (task: Task): React.CSSProperties => {
+    const color = projectColor(task)
+    if (!color) return {}
+    return {
+      background: hexToRgba(color, task.startAt ? 0.14 : 0.08),
+      borderLeft: `3px solid ${color}`,
+      borderColor: hexToRgba(color, 0.45)
+    }
+  }
 
   // ---------- 拖拽：window pointer 监听 + 15 分钟吸附。列矩形按下时捕获一次。 ----------
   const beginDrag = (
@@ -423,6 +441,12 @@ export function TimeGridView({
                     className="timegrid-allday-chip"
                     data-calendar-task={task.id}
                     title={task.title}
+                    style={(() => {
+                      const color = projectColor(task)
+                      return color
+                        ? { background: hexToRgba(color, 0.16), borderLeft: `3px solid ${color}` }
+                        : undefined
+                    })()}
                     onClick={() => selectTask(task.id)}
                   >
                     <span className="timegrid-allday-title">{task.title}</span>
@@ -510,7 +534,8 @@ export function TimeGridView({
                           top: block.startMin * PX_PER_MIN,
                           height: Math.max((bottomMin - block.startMin) * PX_PER_MIN, 18),
                           left: `calc(${(block.col / block.cols) * 100}% + 2px)`,
-                          width: `calc(${(1 / block.cols) * 100}% - 4px)`
+                          width: `calc(${(1 / block.cols) * 100}% - 4px)`,
+                          ...blockStyle(block.task)
                         }}
                         onPointerDown={(event) => {
                           event.stopPropagation()
@@ -588,6 +613,15 @@ export function TimeGridView({
       </div>
     </div>
   )
+}
+
+// #RRGGBB → rgba() 字符串（项目 color 经 ipc zod 校验恒为 6 位十六进制，
+// 容错：非法输入回落 accent 由调用方处理——这里只对合法 hex 生效）。
+function hexToRgba(hex: string, alpha: number): string {
+  const match = /^#([0-9a-fA-F]{6})$/.exec(hex)
+  if (!match) return `rgba(var(--accent-rgb), ${alpha})`
+  const value = Number.parseInt(match[1], 16)
+  return `rgba(${(value >> 16) & 255}, ${(value >> 8) & 255}, ${value & 255}, ${alpha})`
 }
 
 function formatTimeRange(task: Task, en: boolean): string {
