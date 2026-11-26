@@ -2846,8 +2846,31 @@ textarea {
   color: var(--text-secondary);
 }
 
-.calendar-cell.is-today .calendar-daynum {
+/* 月格日期号是钻取按钮（点它跳那天的日视图）：重置按钮默认外观，
+   视觉与纯数字版逐像素一致，hover 提示可点。 */
+button.calendar-daynum {
+  padding: 0 2px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+button.calendar-daynum:hover {
   color: var(--accent);
+}
+
+/* 今天数字圆形徽章（月格与多周日格一致，对齐主流待办应用）。 */
+.calendar-cell.is-today .calendar-daynum,
+.multiweek-cell.is-today .calendar-daynum {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--on-accent);
   font-weight: 600;
 }
 
@@ -3365,7 +3388,8 @@ textarea {
 }
 
 .timegrid-corner {
-  height: 26px;
+  /* 两行表头后行高由 dayhead 撑起，corner 拉伸对齐（全天行标签贴底不受影响）。 */
+  align-self: stretch;
 }
 
 .timegrid-corner-label {
@@ -3379,15 +3403,35 @@ textarea {
 
 .timegrid-dayhead {
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  height: 26px;
+  gap: 3px;
+  padding: 6px 0 7px;
   border: none;
-  border-radius: 6px;
+  border-radius: 8px;
   background: transparent;
   color: var(--text-secondary);
   font-size: 11px;
-  cursor: default;
+  /* 表头点击即钻取到那天的日视图（清单式），指针提示可点。 */
+  cursor: pointer;
+}
+
+/* 日期数字单独一行，今天吃圆形徽章（对齐主流待办应用）。 */
+.timegrid-dayhead-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.timegrid-dayhead.is-today .timegrid-dayhead-num {
+  background: var(--accent);
+  color: var(--on-accent);
 }
 
 .timegrid-dayhead:hover {

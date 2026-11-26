@@ -5,7 +5,7 @@ import type { Task } from '@shared/types'
 import type { Locale } from '@shared/i18n'
 import { useT, useLocale } from '../../stores/useLocaleStore'
 import { useTaskStore } from '../../stores/useTaskStore'
-import { dayKey, monthLabel, weekdayLabels } from '../../lib/dateTime'
+import { dayKey, monthLabel, weekdayLabelsShort } from '../../lib/dateTime'
 import { hexToRgba } from '../../lib/colors'
 import type { TaskPatch } from '../detail/types'
 
@@ -140,6 +140,7 @@ export function TimeGridView({
   now,
   anchorKey,
   onAnchorChange,
+  onJumpToDay,
   parseDayKey
 }: {
   mode: TimeMode
@@ -147,6 +148,7 @@ export function TimeGridView({
   now: Date
   anchorKey: string
   onAnchorChange: (day: Date) => void
+  onJumpToDay: (day: Date) => void
   parseDayKey: (key: string) => Date
 }) {
   const t = useT()
@@ -384,10 +386,10 @@ export function TimeGridView({
     setCreateTitle('')
   }
 
-  const headLabel = (day: Date): string =>
-    en
-      ? format(day, 'EEE d', { locale: enUS })
-      : format(day, 'EEEEEE d', { locale: zhCN })
+  // 表头对齐主流待办应用：周几名与日期数字分两行（今天数字吃圆形徽章）。
+  // 多列用两字缩写（周四 / Thu），单日整列放得下全名（星期四 / Thursday）。
+  const headWeekday = (day: Date): string =>
+    format(day, days.length === 1 ? 'EEEE' : 'EEE', { locale: en ? enUS : zhCN })
 
   if (!isAxisMode(mode)) {
     return (
@@ -417,9 +419,10 @@ export function TimeGridView({
                 type="button"
                 className={`timegrid-dayhead ${isToday ? 'is-today' : ''} ${isSameDay(day, anchor) ? 'is-anchor' : ''}`}
                 aria-label={day.toLocaleDateString(en ? 'en-US' : 'zh-CN')}
-                onClick={() => onAnchorChange(day)}
+                onClick={() => (mode === 'day' ? onAnchorChange(day) : onJumpToDay(day))}
               >
-                <span className="timegrid-dayhead-name">{headLabel(day)}</span>
+                <span className="timegrid-dayhead-name">{headWeekday(day)}</span>
+                <span className="timegrid-dayhead-num">{day.getDate()}</span>
               </button>
             )
           })}
@@ -693,7 +696,7 @@ function MultiWeekGrid({
   return (
     <div className="multiweek" data-multiweek>
       <div className="calendar-weekdays" aria-hidden="true">
-        {weekdayLabels(locale).map((day) => (
+        {weekdayLabelsShort(locale).map((day) => (
           <span key={day}>{day}</span>
         ))}
       </div>

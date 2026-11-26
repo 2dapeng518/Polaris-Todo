@@ -149,6 +149,13 @@ export function CalendarView() {
     setMonth(firstOfMonth(today))
   }
 
+  // 钻取（清单式）：点周视图表头的某天 / 月格的日期号，直接落到那天的
+  // 日视图——锚点同步更新，切回周视图时该列仍在原位高亮。
+  const jumpToDay = (day: Date) => {
+    setAnchor(day)
+    setMode('day')
+  }
+
   // 年月下拉换月：保持锚点日的「几号」，月末自动钳制。
   const jumpToMonth = (target: Date) => {
     setMonth(firstOfMonth(target))
@@ -176,19 +183,25 @@ export function CalendarView() {
     if (!isSameMonth(anchorDay, month)) setMonth(firstOfMonth(anchorDay))
   }, [mode, anchorKey])
 
-  // 时间轴模式的范围标签（月份标签位置显示它，仍是年月下拉的触发器）。
+  // 时间轴模式的标签（月份标签位置显示它，仍是年月下拉的触发器）。对齐
+  // 主流待办应用：周/多周/多日只显示主体月份（跨月取中点日所在月，不写日期
+  // 范围），单日显示完整日期——只有一天时只给月份信息量不足。
   const rangeLabel = useMemo(() => {
     if (!timeMode) return ''
     const days = visibleDaysFor(timeMode, anchorDay)
-    const first = days[0]
-    const last = days[days.length - 1]
-    return en
-      ? `${format(first, 'MMM d', { locale: enUS })} – ${format(last, 'MMM d', { locale: enUS })}`
-      : `${format(first, 'M月d日', { locale: zhCN })} – ${format(last, 'M月d日', { locale: zhCN })}`
+    if (timeMode === 'day') {
+      return en
+        ? format(days[0], 'MMM d', { locale: enUS })
+        : format(days[0], 'M月d日', { locale: zhCN })
+    }
+    const mid = days[Math.floor((days.length - 1) / 2)]
+    return en ? format(mid, 'MMMM', { locale: enUS }) : format(mid, 'M月', { locale: zhCN })
   }, [timeMode, anchorDay, en])
 
   return (
-    <div className="calendar-view">
+    // data-calendar-view：月/多周的「格子自适应视口、外层不出滚动条」高度链
+    // 只按这两个模式生效（列表/看板依赖外层滚动，时间轴内部滚动）。
+    <div className="calendar-view" data-calendar-view={mode}>
       <div className="calendar-toolbar">
         <div className="calendar-modes" role="tablist" aria-label={t('calendar.modeAria')}>
           {SWITCHER_MODES.map((candidate) => (
@@ -313,6 +326,7 @@ export function CalendarView() {
               showWeekNumbers={showWeekNumbers}
               onSelectTask={selectTask}
               onMonthChange={setMonth}
+              onJumpToDay={jumpToDay}
             />
           )}
           {timeMode && (
@@ -322,6 +336,7 @@ export function CalendarView() {
               now={now}
               anchorKey={anchorKey}
               onAnchorChange={setAnchor}
+              onJumpToDay={jumpToDay}
               parseDayKey={parseDayKey}
             />
           )}

@@ -25,6 +25,16 @@ export function weekdayLabels(locale: Locale = DEFAULT_LOCALE): readonly string[
   return locale === 'en' ? EN_WEEKDAY_LABELS : WEEKDAY_LABELS
 }
 
+// 日历套件（月格/多周/时间轴表头）用两字「周日」风格，对齐主流待办应用；
+// 迷你月历与日期选择器空间小，仍用上面的单字版。
+const WEEKDAY_LABELS_SHORT = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'] as const
+
+const EN_WEEKDAY_LABELS_SHORT = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const
+
+export function weekdayLabelsShort(locale: Locale = DEFAULT_LOCALE): readonly string[] {
+  return locale === 'en' ? EN_WEEKDAY_LABELS_SHORT : WEEKDAY_LABELS_SHORT
+}
+
 // Same vocabulary as shared/quickAddParse.ts, so the picker and the quick-add
 // parser never describe the same hour with different words.
 export const DAY_PARTS: ReadonlyArray<readonly [number, string]> = [

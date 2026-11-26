@@ -14,7 +14,7 @@ import { holidayOf } from '@shared/holidays'
 import { useT } from '../../stores/useLocaleStore'
 import { useTaskStore } from '../../stores/useTaskStore'
 import { parseDayKey } from '../../stores/useCalendarStore'
-import { clampToMonth, dayKey, monthLabel, monthMatrix, weekdayLabels } from '../../lib/dateTime'
+import { clampToMonth, dayKey, dayLabel, monthLabel, monthMatrix, weekdayLabelsShort } from '../../lib/dateTime'
 import { hexToRgba } from '../../lib/colors'
 import { isOverdue } from '../../lib/dates'
 
@@ -38,6 +38,7 @@ type MonthGridProps = {
   showWeekNumbers: boolean
   onSelectTask: (id: string) => void
   onMonthChange: (month: Date) => void
+  onJumpToDay: (day: Date) => void
 }
 
 export function MonthGrid({
@@ -50,7 +51,8 @@ export function MonthGrid({
   showHolidays,
   showWeekNumbers,
   onSelectTask,
-  onMonthChange
+  onMonthChange,
+  onJumpToDay
 }: MonthGridProps) {
   const t = useT()
   const projects = useTaskStore((state) => state.projects)
@@ -162,7 +164,7 @@ export function MonthGrid({
         aria-hidden="true"
       >
         {showWeekNumbers && <span />}
-        {weekdayLabels(locale).map((day) => (
+        {weekdayLabelsShort(locale).map((day) => (
           <span key={day}>{day}</span>
         ))}
       </div>
@@ -226,7 +228,20 @@ export function MonthGrid({
         })}
       >
         <div className="calendar-cell-head">
-          <span className="calendar-daynum">{day.getDate()}</span>
+          {/* 日期号可点（清单式钻取）：直接落到那天的日视图；格子其余
+              区域仍是 roving 选格。tabIndex=-1 不进 Tab 动线（与 chip 一致）。 */}
+          <button
+            type="button"
+            className="calendar-daynum"
+            tabIndex={-1}
+            aria-label={dayLabel(day, locale)}
+            onClick={(event) => {
+              event.stopPropagation()
+              onJumpToDay(day)
+            }}
+          >
+            {day.getDate()}
+          </button>
           {lunar && <span className="calendar-lunar">{lunar}</span>}
           {holiday && (
             <span
