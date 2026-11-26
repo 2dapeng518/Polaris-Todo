@@ -12,8 +12,10 @@ import type { Locale } from '@shared/i18n'
 import { lunarLabel } from '@shared/lunarDay'
 import { holidayOf } from '@shared/holidays'
 import { useT } from '../../stores/useLocaleStore'
+import { useTaskStore } from '../../stores/useTaskStore'
 import { parseDayKey } from '../../stores/useCalendarStore'
 import { clampToMonth, dayKey, monthLabel, monthMatrix, weekdayLabels } from '../../lib/dateTime'
+import { hexToRgba } from '../../lib/colors'
 import { isOverdue } from '../../lib/dates'
 
 const MAX_CHIPS = 3
@@ -51,6 +53,7 @@ export function MonthGrid({
   onMonthChange
 }: MonthGridProps) {
   const t = useT()
+  const projects = useTaskStore((state) => state.projects)
   const anchorDay = useMemo(() => parseDayKey(anchorKey), [anchorKey])
   const [focusDay, setFocusDay] = useState(anchorDay)
   const lastAnchorKey = useRef(anchorKey)
@@ -136,6 +139,22 @@ export function MonthGrid({
     }
   }
 
+  // 月格 chip 的项目着色：经 CSS 变量（--chip-tint / --chip-tint-strong）注入，
+  // hover 用浓一档的项目色而非被内联背景覆盖；无项目任务不注入，回落原样式。
+  // 必须定义在 return 之前——renderCell 在 return 的 JSX 里被调用，const 在
+  // TDZ 里会被 renderCell 的首次调用撞出 ReferenceError（整树卸载，shot 黑帧）。
+  const chipTint = (task: Task): React.CSSProperties => {
+    const color = task.projectId
+      ? projects.find((candidate) => candidate.id === task.projectId)?.color
+      : null
+    if (!color) return {}
+    return {
+      '--chip-tint': hexToRgba(color, 0.14),
+      '--chip-tint-strong': hexToRgba(color, 0.26),
+      borderLeft: `3px solid ${color}`
+    } as React.CSSProperties
+  }
+
   return (
     <>
       <div
@@ -177,6 +196,8 @@ export function MonthGrid({
   )
 
   // 单格渲染（信息层在此叠加）：农历/节气副标签与休/班角标都由显示开关控制。
+  // 函数声明提升，故可在上方 return 的 JSX 里调用（chipTint 是 const，必须在
+  // return 前完成初始化——见其注释）。
   function renderCell(day: Date) {
     const key = dayKey(day)
     const inMonth = day.getMonth() === month.getMonth()
@@ -224,6 +245,7 @@ export function MonthGrid({
               className={`calendar-chip ${task.completed ? 'is-done' : ''} ${!task.completed && isOverdue(task.dueAt) ? 'is-overdue' : ''}`}
               data-calendar-task={task.id}
               title={task.title}
+              style={chipTint(task)}
               // ARIA grid 惯例：Tab 在复合控件间移动，不该穿过 42 格里
               // 全部 chip。这里取混合式——只有 roving 格内的 chip 可 Tab
               // （动线：格子 → 当天 chip → 出网格），其余格 chip tabindex=-1，

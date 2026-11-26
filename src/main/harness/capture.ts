@@ -12,6 +12,7 @@ import { setMcpEnabled } from '../mcp'
 import { getCurrentLocale } from '../locale'
 import type { SettingsSection } from '../../shared/settings'
 import { harnessContext } from './context'
+import { settledFrames } from './util'
 import { closeSettingsAndSettle, openSettingsFor } from './settings'
 
 // 截图脚本按文本找元素：中英文界面都要命中，候选词并列（中文在前，冒烟不受影响）。
@@ -26,6 +27,12 @@ function shotEn(): boolean {
 async function captureTo(filename: string): Promise<void> {
   const { mainWindow } = harnessContext()
   if (!mainWindow) return
+  // 被遮挡/后台窗口的 BeginFrame 被 Chromium 节流，capturePage 会拿到整帧
+  // 黑图（长种子流程的 calendar 分支尤易触发）：先亮窗要焦点，再等两帧
+  // 渲染落地（1s 兜底）再拍。
+  if (!mainWindow.isVisible()) mainWindow.show()
+  mainWindow.focus()
+  await settledFrames(mainWindow.webContents)
   const image = await mainWindow.webContents.capturePage()
   await writeFile(join(process.cwd(), filename), image.toPNG())
 }
@@ -327,19 +334,28 @@ async function captureDuePickerScreenshot(filename: string, confirm: boolean): P
 // 日历截图：首启示例只落在今天/明天，月历太稀疏。自种一批散布全月的任务
 // （含逾期与一条已完成），截完硬删清场、路由回今天——与回收站截图同一套路。
 async function captureCalendarScreenshot(filename: string): Promise<void> {
-  const ids = await seedCalendarTasks()
+  const seeded = await seedCalendarTasks()
   const { mainWindow } = harnessContext()
   const wc = mainWindow?.webContents
   await captureTo(filename)
   if (!wc) return
-  await cleanupCalendarSeeds(ids)
+  // 黑帧诊断（主进程侧打印——渲染层 console 不回传 stdout）：截图那一刻
+  // 渲染器里的日历是否真实存在、窗口可见性状态、有无渲染层未捕获错误。
+  const dbg = await wc
+    .executeJavaScript(
+      `({ cells: document.querySelectorAll('.calendar-cell').length, body: document.body.innerHTML.length, vis: document.visibilityState, title: document.querySelector('.view-title')?.textContent ?? null, errors: window.__shotErrors ?? [] })`
+    )
+    .catch((error) => String(error))
+  console.log('POLARIS_SHOT_CAL_DEBUG', JSON.stringify(dbg))
+  await cleanupCalendarSeeds(seeded.ids)
 }
 
 // 日历套件子视图截图（calendar-week / calendar-multiweek / calendar-day /
 // calendar-multiday / calendar-list / calendar-board）：同一份种子，切到
 // 指定子视图截一张，清理后回到「今天」+ 月视图。
 async function captureCalendarModeScreenshot(submode: string, filename: string): Promise<void> {
-  const ids = await seedCalendarTasks()
+  const seeded = await seedCalendarTasks()
+  const ids = seeded.ids
   const { mainWindow } = harnessContext()
   const wc = mainWindow?.webContents
   if (!wc) return
@@ -378,12 +394,17 @@ async function cleanupCalendarSeeds(ids: string[]): Promise<void> {
   })()`)
 }
 
-async function seedCalendarTasks(): Promise<string[]> {
+async function seedCalendarTasks(): Promise<{ ids: string[]; errors: string[] }> {
   const { mainWindow } = harnessContext()
   const wc = mainWindow?.webContents
-  if (!wc) return []
+  if (!wc) return { ids: [], errors: [] }
   return (await wc.executeJavaScript(`(async () => {
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    // 渲染层未捕获错误收集器：shot 的诊断要随结果回传主进程（渲染层
+    // console 不回传 stdout）。
+    window.__shotErrors = [];
+    window.addEventListener('error', (e) => { window.__shotErrors.push(String(e.error?.stack || e.message)); });
+    window.addEventListener('unhandledrejection', (e) => { window.__shotErrors.push('rejection: ' + String(e.reason)); });
     const projects = await window.polaris.projects.list();
     const polaris = projects.find((p) => p.name === 'Polaris');
     const personal = projects.find((p) => ['个人', 'Personal'].includes(p.name));
@@ -433,8 +454,8 @@ async function seedCalendarTasks(): Promise<string[]> {
     ${findByText('.nav-item', ['日历', 'Calendar'])}?.click();
     for (let i = 0; i < 40 && !document.querySelector('.calendar-grid, [role="gridcell"], [data-timegrid]'); i++) await sleep(50);
     await sleep(450);
-    return created;
-  })()`)) as string[]
+    return { ids: created, errors: window.__shotErrors };
+  })()`)) as { ids: string[]; errors: string[] }
 }
 
 export async function captureDemo(mode: string): Promise<void> {
@@ -621,7 +642,7 @@ export async function captureDemo(mode: string): Promise<void> {
       if (submode === 'display') {
         // 信息层展示：经真实 UI 打开显示设置弹层，点亮农历/节假日/周数三个
         // 开关，翻到十月看节假日休/班角标，外点收起弹层后截图。
-        const ids = await seedCalendarTasks()
+        const { ids } = await seedCalendarTasks()
         const wc = harnessContext().mainWindow?.webContents
         await wc?.executeJavaScript(`(async () => {
           const sleep = (ms) => new Promise((r) => setTimeout(r, ms));

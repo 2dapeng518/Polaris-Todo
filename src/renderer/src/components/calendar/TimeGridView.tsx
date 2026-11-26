@@ -6,6 +6,7 @@ import type { Locale } from '@shared/i18n'
 import { useT, useLocale } from '../../stores/useLocaleStore'
 import { useTaskStore } from '../../stores/useTaskStore'
 import { dayKey, monthLabel, weekdayLabels } from '../../lib/dateTime'
+import { hexToRgba } from '../../lib/colors'
 import type { TaskPatch } from '../detail/types'
 
 // 时间轴视图（日历套件 P2.1/2.2/2.3）：周 / 日 / 多日 共用一份 00–24 小时
@@ -615,15 +616,6 @@ export function TimeGridView({
   )
 }
 
-// #RRGGBB → rgba() 字符串（项目 color 经 ipc zod 校验恒为 6 位十六进制，
-// 容错：非法输入回落 accent 由调用方处理——这里只对合法 hex 生效）。
-function hexToRgba(hex: string, alpha: number): string {
-  const match = /^#([0-9a-fA-F]{6})$/.exec(hex)
-  if (!match) return `rgba(var(--accent-rgb), ${alpha})`
-  const value = Number.parseInt(match[1], 16)
-  return `rgba(${(value >> 16) & 255}, ${(value >> 8) & 255}, ${value & 255}, ${alpha})`
-}
-
 function formatTimeRange(task: Task, en: boolean): string {
   const startIso = task.startAt ?? task.dueAt
   if (!startIso) return ''
@@ -669,9 +661,22 @@ function MultiWeekGrid({
   onAnchorChange: (day: Date) => void
 }) {
   const t = useT()
+  const projects = useTaskStore((state) => state.projects)
   const nowKey = dayKey(now)
   const anchorKey = dayKey(anchor)
   const maxChips = 3
+  // 多周日格与月格同语言：项目浅底经 CSS 变量注入（hover 吃浓一档）。
+  const chipTint = (task: Task): React.CSSProperties => {
+    const color = task.projectId
+      ? projects.find((candidate) => candidate.id === task.projectId)?.color
+      : null
+    if (!color) return {}
+    return {
+      '--chip-tint': hexToRgba(color, 0.14),
+      '--chip-tint-strong': hexToRgba(color, 0.26),
+      borderLeft: `3px solid ${color}`
+    } as React.CSSProperties
+  }
 
   const byDay = useMemo(() => {
     const map = new Map<string, Task[]>()
@@ -724,6 +729,7 @@ function MultiWeekGrid({
                     }`}
                     data-calendar-task={task.id}
                     title={task.title}
+                    style={chipTint(task)}
                     tabIndex={-1}
                     onClick={(event) => {
                       event.stopPropagation()
