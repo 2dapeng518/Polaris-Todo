@@ -357,6 +357,20 @@ if (__POLARIS_HARNESS__) {
     !process.env['POLARIS_SMOKE'] &&
     !process.env['POLARIS_SHOT'] &&
     !process.env['POLARIS_SCREENSHOT']
+  if (
+    process.env['POLARIS_SMOKE'] ||
+    process.env['POLARIS_SHOT'] ||
+    process.env['POLARIS_SCREENSHOT']
+  ) {
+    // 冒烟/截图窗口在后台终端里跑时常被遮挡或失焦：Chromium 对这类「不可见」
+    // 窗口会停 requestAnimationFrame、节流定时器，React 渲染随之停摆，断言的
+    // DOM 等待链便随机假失败（同一构建曾三轮冒烟崩在三处不同的 DOM 断言上，
+    // 且崩点随当时终端窗口的遮挡状态漂移）。测试 env 下禁用这层后台节流，
+    // 让断言只依赖业务行为而非窗口遮挡状态；必须在 app ready 前注册。
+    app.commandLine.appendSwitch('disable-renderer-backgrounding')
+    app.commandLine.appendSwitch('disable-backgrounding-occluded-windows')
+    app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion')
+  }
 }
 
 // 渲染层首帧的语言来自 URL：主进程的 meta 记录是权威值。

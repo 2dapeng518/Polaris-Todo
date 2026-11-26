@@ -3116,19 +3116,24 @@ export async function runSmokeTest(): Promise<void> {
 
         step = 'range-parse';
         // 快速添加需要回到「今天」（日历不挂输入框）。真提交：区间解析出
-        // startAt/endAt 并随任务落库，标题不残留「3点到5点」。
+        // startAt/endAt 并随任务落库，标题不残留「3点到5点」。输入显式带
+        // 「明天」——裸「3点到5点」在本地 15 点后跑会被解析器顺延到明天，
+        // 断言却停在今天视图找行，冒烟变成 15:00 后必挂的时间敏感缺陷。
         [...document.querySelectorAll('.nav-item')].find((el) => el.textContent.includes('今天') || el.textContent.includes('Today'))?.click();
         await sleep(300);
         const input = document.querySelector('.quick-add input');
         if (!input) throw new Error('quick add missing');
         const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
-        setter.call(input, '3点到5点冒烟区间');
+        setter.call(input, '明天3点到5点冒烟区间');
         input.dispatchEvent(new Event('input', { bubbles: true }));
         await sleep(300);
         const stripText = document.querySelector('.quick-add-shell')?.textContent ?? '';
         const stripOk = stripText.includes('15:00') && stripText.includes('17:00');
         if (!stripOk) throw new Error('range strip missing: ' + stripText);
         input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+        // 任务落明天：行断言切到「即将到来」视图（今天视图不显示未来任务）。
+        [...document.querySelectorAll('.nav-item')].find((el) => el.textContent.includes('即将到来') || el.textContent.includes('Upcoming'))?.click();
+        await sleep(300);
         if (!(await waitFor(() => findRow('冒烟区间')))) throw new Error('range task not created');
         const rangeTask = [...(await window.polaris.tasks.list())].reverse().find((t) => t.title === '冒烟区间');
         if (!rangeTask) throw new Error('range task not in db');
@@ -4193,6 +4198,9 @@ export async function runSmokeTest(): Promise<void> {
         const padB = parseFloat(getComputedStyle(main).paddingBottom);
         const at = async (top) => {
           main.scrollTop = top;
+          // scrollTop 赋值与前值相同时不触发 scroll 事件（head 步骤常撞上
+          // 初始就是 0），fade 状态停在 mount 时的 false——显式补发一次。
+          main.dispatchEvent(new Event('scroll'));
           await sleep(260);
           const fr = document.querySelector('.view-footer').getBoundingClientRect();
           const fade = parseFloat(getComputedStyle(document.querySelector('.view-footer'), '::before').opacity);
