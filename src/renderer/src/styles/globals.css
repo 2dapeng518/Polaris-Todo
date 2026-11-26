@@ -707,6 +707,9 @@ textarea {
   z-index: 10;
   display: grid;
   grid-template-columns: var(--sidebar-width-current) minmax(0, 1fr);
+  /* 行高钳到自身高度：main 作为 grid item 不被内容撑破（内容超出时 main
+     内部滚），日历月格才能按视口自适应而不出外层滚动条。 */
+  grid-template-rows: minmax(0, 1fr);
   flex: 1;
   min-height: 0;
   /* 侧栏收起/展开：首列宽度走 220ms 过渡（与检查器同一条缓动）。 */
@@ -1229,6 +1232,8 @@ textarea {
   flex: 1;
   flex-direction: column;
   min-width: 0;
+  /* grid item 的收缩许可：高度钳到 app-body 行高，内容超出时 main 内部滚。 */
+  min-height: 0;
   padding: var(--space-5) var(--space-6) var(--space-6);
   overflow-x: hidden;
   overflow-y: auto;
@@ -1244,6 +1249,8 @@ textarea {
   flex-direction: column;
   width: 100%;
   max-width: 960px;
+  /* flex 子项收缩许可：日历月格的高度链经这里钳到视口（同 .main）。 */
+  min-height: 0;
   margin: 0 auto;
 }
 
@@ -2742,8 +2749,11 @@ textarea {
 /* 日历视图：42 格月矩阵（周一起始），翻月高度恒定；chip 溢出收敛 +N。 */
 .calendar-view {
   display: flex;
+  flex: 1;
   flex-direction: column;
   gap: 8px;
+  /* 高度链收缩许可：钳到视口高度，内容超出由 .main 内部滚动。 */
+  min-height: 0;
 }
 
 .calendar-toolbar {
@@ -3029,6 +3039,8 @@ button.calendar-daynum:hover {
 
 .calendar-body {
   display: flex;
+  flex: 1;
+  min-height: 0;
   align-items: flex-start;
   gap: 12px;
 }
@@ -3045,6 +3057,7 @@ button.calendar-daynum:hover {
 .calendar-content {
   flex: 1;
   min-width: 0;
+  min-height: 0;
 }
 
 .mini-month-head {
@@ -3374,6 +3387,7 @@ button.calendar-daynum:hover {
 
 .timegrid {
   display: flex;
+  flex: 1;
   flex-direction: column;
   min-height: 0;
 }
@@ -3755,6 +3769,72 @@ button.calendar-daynum:hover {
   grid-template-columns: 26px repeat(7, 1fr);
 }
 
+/* ---------- 月/多周：格子自适应视口，外层不出滚动条 ---------- */
+
+/* 列表/看板依赖外层滚动、时间轴内部滚动，只有这两个日格模式收紧高度链：
+   外壳拿满剩余高度，格子行 minmax(0,1fr) 均分，格子内容超出裁切（chip 有
+   +N 折叠兜底）。 */
+.calendar-view[data-calendar-view='month'],
+.calendar-view[data-calendar-view='multiweek'] {
+  flex: 1;
+  min-height: 0;
+}
+
+/* 标题/工具栏/表头行是定高行，高度链收缩时让格子吃掉全部压缩量。 */
+.calendar-view[data-calendar-view='month'] .view-header,
+.calendar-view[data-calendar-view='month'] .calendar-toolbar,
+.calendar-view[data-calendar-view='month'] .calendar-weekdays,
+.calendar-view[data-calendar-view='multiweek'] .view-header,
+.calendar-view[data-calendar-view='multiweek'] .calendar-toolbar,
+.calendar-view[data-calendar-view='multiweek'] .calendar-weekdays {
+  flex: none;
+}
+
+.calendar-view[data-calendar-view='month'] .calendar-body,
+.calendar-view[data-calendar-view='multiweek'] .calendar-body {
+  flex: 1;
+  min-height: 0;
+  align-items: stretch;
+}
+
+.calendar-view[data-calendar-view='month'] .calendar-content,
+.calendar-view[data-calendar-view='multiweek'] .calendar-content {
+  min-height: 0;
+}
+
+.calendar-view[data-calendar-view='month'] .calendar-grid,
+.calendar-view[data-calendar-view='multiweek'] .multiweek-grid {
+  height: 100%;
+  min-height: 0;
+  grid-auto-rows: minmax(0, 1fr);
+}
+
+.calendar-view[data-calendar-view='month'] .calendar-cell,
+.calendar-view[data-calendar-view='multiweek'] .multiweek-cell {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.calendar-view[data-calendar-view='month'] .calendar-chips,
+.calendar-view[data-calendar-view='multiweek'] .calendar-chips {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* 多周比月格多一层 .multiweek 包装（表头行 + 网格），高度链经它传递。 */
+.calendar-view[data-calendar-view='multiweek'] .multiweek {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.calendar-view[data-calendar-view='multiweek'] .multiweek-grid {
+  flex: 1;
+  min-height: 0;
+}
+
 .calendar-weeknum {
   display: flex;
   align-items: flex-start;
@@ -3954,6 +4034,13 @@ button.calendar-daynum:hover {
     overflow: visible;
   }
 
+  /* app-body 是「侧栏列 + 内容列」的 grid：打印时侧栏 display:none 不生成
+     盒子，main 会被自动放置塞进侧栏旧列（~252px），整页塌成窄条——纸面
+     退回普通文档流，内容按纸宽展开。 */
+  .app-body {
+    display: block;
+  }
+
   .main {
     padding: 0;
     overflow: visible;
@@ -3984,6 +4071,14 @@ button.calendar-daynum:hover {
   }
 
   .calendar-board-col {
+    break-inside: avoid;
+  }
+
+  /* 分页细节：表头/全天行与月格不跨页截断。 */
+  .timegrid-head,
+  .calendar-weekdays,
+  .calendar-cell,
+  .multiweek-cell {
     break-inside: avoid;
   }
 }
