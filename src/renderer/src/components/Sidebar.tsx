@@ -5,7 +5,6 @@ import {
   CalendarDays,
   CheckCircle2,
   Grid2x2,
-  Info,
   ListTodo,
   PanelLeftClose,
   PanelLeftOpen,
@@ -81,9 +80,9 @@ export function Sidebar() {
     return () => window.removeEventListener('polaris:new-project', openProjectForm)
   }, [])
 
-  // 设置与关于：独立的设置窗口（主窗口的子窗口），关于直接定位到关于页。
+  // 设置：独立的设置窗口（主窗口的子窗口）。「关于」不再放侧栏——版本/许可/
+  // 检查更新只保留设置窗口内的唯一入口（2026-11-26 拍板，消除重复入口）。
   const openSettings = () => void window.polaris.app.openSettings()
-  const openAbout = () => void window.polaris.app.openSettings('about')
 
   // 计数只在 tasks/trashedTasks 变化时重算：侧栏每次渲染（切视图、开设置、
   // 编辑项目表单的每次击键）都跑 8 次全表 filter 是白烧 CPU。
@@ -433,7 +432,8 @@ export function Sidebar() {
       <div className="sidebar-spacer" />
       </div>
 
-      {/* 底部固定入口：设置 + 关于（收起态只剩图标，文字进 title 提示）。 */}
+      {/* 底部固定入口：设置（收起态只剩图标，文字进 title 提示）。「关于」只在
+          设置窗口的导航里——版本/许可/检查更新的唯一入口。 */}
       <div className="sidebar-foot">
         <button
           className="nav-item settings-item"
@@ -442,14 +442,6 @@ export function Sidebar() {
         >
           <Settings2 size={16} strokeWidth={1.8} className="nav-icon" aria-hidden="true" />
           <span className="nav-text">{t('common.settings')}</span>
-        </button>
-        <button
-          className="nav-item about-item"
-          title={collapsed ? t('common.about') : undefined}
-          onClick={openAbout}
-        >
-          <Info size={16} strokeWidth={1.8} className="nav-icon" aria-hidden="true" />
-          <span className="nav-text">{t('common.about')}</span>
         </button>
       </div>
 

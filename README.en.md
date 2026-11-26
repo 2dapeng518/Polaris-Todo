@@ -52,7 +52,7 @@ If you previously installed the "all users" build (under `C:\Program Files`), un
   - **Print**: one click prints the current view — the theme switches to light automatically before printing (ink-friendly) while the sidebar / toolbar / quick-add shells step out of the page, leaving only the calendar itself; the theme restores when printing finishes.
   - **Weather and calendar subscriptions are deliberately not built**: both require a persistent network connection and external services, which conflicts with the "local-first, data stays on your machine" positioning (decision 2026-11-25); use the ICS export below as the bridge to external calendars.
 - **Projects & tags**: create projects from the sidebar with six built-in colors; tags are created and attached with Enter in the detail pane, suggestion chips reuse them in one click, the sidebar filters by tag (mutually exclusive with project filtering), and deleting a tag cascades cleanup of its associations.
-- **Collapsible sidebar**: one click collapses the sidebar into a 60px icon rail (view icons, project dots, tag initials) and hands the width to the task list; the choice is remembered. Settings and About stay pinned at the bottom.
+- **Collapsible sidebar**: one click collapses the sidebar into a 60px icon rail (view icons, project dots, tag initials) and hands the width to the task list; the choice is remembered. Settings stays pinned at the bottom — About lives only inside the settings window (version / licenses / update check are all there).
 
 ### Task Editing
 

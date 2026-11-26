@@ -4410,9 +4410,13 @@ export async function runSmokeTest(): Promise<void> {
     {
       const settings = await openSettingsFor('appearance')
       if (settings) {
+        // 侧栏「关于」入口已移除（2026-11-26，关于的唯一入口在设置窗口导航里）：
+        // 切页动作改从设置窗口自己的「关于」导航项触发。
         await mainWindow!.webContents.executeJavaScript(`document.querySelector('.settings-item')?.click()`)
         await new Promise((resolve) => setTimeout(resolve, 300))
-        await mainWindow!.webContents.executeJavaScript(`document.querySelector('.about-item')?.click()`)
+        await settings.webContents.executeJavaScript(
+          `document.querySelector('[data-settings-section="about"]')?.click()`
+        )
         const switchedToAbout = await waitForCondition(async () => {
           const window = getSettingsWindow()
           if (!window) return false
@@ -4456,19 +4460,19 @@ export async function runSmokeTest(): Promise<void> {
         const text = document.querySelector('.settings-item .nav-text');
         const textHidden = Boolean(text) && getComputedStyle(text).position === 'absolute' && text.textContent === '设置';
         const titleSet = document.querySelector('.settings-item').getAttribute('title') === '设置';
-        const aboutTitle = document.querySelector('.about-item')?.getAttribute('title') === '关于';
+        const noAboutItem = !document.querySelector('.about-item');
         const dot = document.querySelector('.project-dot');
         const dotBigger = dot ? dot.getBoundingClientRect().width >= 9 : false;
         btn.click();
         const restored = await waitFor(() => !document.querySelector('.app-body').classList.contains('sidebar-collapsed'));
         await sleep(320);
         const widthBack = Math.abs(sidebar.getBoundingClientRect().width - before) <= 1;
-        return { found: true, expandedOk, collapsed: Boolean(collapsed), narrow: Math.abs(after - 60) <= 1, textHidden, titleSet, aboutTitle, dotBigger, restored: Boolean(restored), widthBack };
+        return { found: true, expandedOk, collapsed: Boolean(collapsed), narrow: Math.abs(after - 60) <= 1, textHidden, titleSet, noAboutItem, dotBigger, restored: Boolean(restored), widthBack };
       })()`)
       sidebarCollapseWorks =
         collapse?.found === true && collapse?.expandedOk === true && collapse?.collapsed === true &&
-        collapse?.narrow === true && collapse?.textHidden === true && collapse?.titleSet === true &&
-        collapse?.aboutTitle === true && collapse?.dotBigger === true && collapse?.restored === true &&
+        collapse?.narrow === true && collapse?.textHidden === true && collapse?.titleSet === true && collapse?.noAboutItem === true &&
+        collapse?.dotBigger === true && collapse?.restored === true &&
         collapse?.widthBack === true
       if (!sidebarCollapseWorks) console.error('SIDEBAR_COLLAPSE_FAIL', JSON.stringify(collapse))
     }
