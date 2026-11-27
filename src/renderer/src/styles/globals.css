@@ -3017,6 +3017,53 @@ body.matrix-card-dragging * {
   white-space: nowrap;
 }
 
+/* 行首图标与右侧「当前值」：值走 tertiary，箭头提示可展开二级面板。 */
+.matrix-menu-action .lucide,
+.matrix-menu-nav .lucide {
+  flex: none;
+  color: var(--text-tertiary);
+}
+
+.matrix-menu-row.is-active .lucide {
+  color: var(--accent);
+}
+
+.matrix-menu-value {
+  flex: none;
+  max-width: 84px;
+  overflow: hidden;
+  color: var(--text-tertiary);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.matrix-menu-nav.is-open {
+  background: var(--hover);
+  color: var(--text);
+}
+
+.matrix-menu-divider {
+  height: 1px;
+  margin: 4px 6px;
+  background: var(--line);
+}
+
+/* 二级选项面板：从值行右侧展开（空间不足时由脚本翻到左侧）。 */
+.matrix-submenu {
+  width: 176px;
+  padding: 6px;
+  z-index: 61;
+}
+
+.matrix-submenu-title {
+  padding: 4px 8px 6px;
+  color: var(--text-tertiary);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
 /* 时间分组的小节头（分组=时间 时显示在象限列表内）。 */
 .matrix-group-label {
   padding: 2px;

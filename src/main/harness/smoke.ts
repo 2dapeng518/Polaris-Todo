@@ -3046,7 +3046,10 @@ export async function runSmokeTest(): Promise<void> {
         const prefsStored = Boolean(localStorage.getItem('polaris-matrix-view'));
         step = 'group';
         document.querySelector('[data-quadrant="plan"] [data-matrix-menu="plan"]').click();
-        const timeRow = await waitFor(() => [...document.querySelectorAll('.matrix-menu .matrix-menu-row')].find((el) => el.textContent.trim() === '时间'));
+        const groupNav = await waitFor(() => [...document.querySelectorAll('.matrix-menu .matrix-menu-nav')].find((el) => el.textContent.includes('分组')));
+        if (!groupNav) throw new Error('group nav missing');
+        groupNav.click();
+        const timeRow = await waitFor(() => [...document.querySelectorAll('.matrix-submenu .matrix-menu-row')].find((el) => el.textContent.trim() === '时间'));
         if (!timeRow) throw new Error('group option missing');
         timeRow.click();
         if (!(await waitFor(() => document.querySelector('[data-quadrant="plan"] .matrix-group-label')))) throw new Error('group label missing');
@@ -3127,7 +3130,10 @@ export async function runSmokeTest(): Promise<void> {
         resetRow2.click();
         const orderReset = await waitFor(() => quadrantOrder()[0] === 'do' && quadrantOrder()[3] === 'later');
         document.querySelector('[data-quadrant="later"] [data-matrix-menu="later"]').click();
-        const manualRow = await waitFor(() => [...document.querySelectorAll('.matrix-menu .matrix-menu-row')].find((el) => el.textContent.trim() === '手动'));
+        const sortNav = await waitFor(() => [...document.querySelectorAll('.matrix-menu .matrix-menu-nav')].find((el) => el.textContent.includes('排序')));
+        if (!sortNav) throw new Error('sort nav missing');
+        sortNav.click();
+        const manualRow = await waitFor(() => [...document.querySelectorAll('.matrix-submenu .matrix-menu-row')].find((el) => el.textContent.trim() === '手动'));
         if (!manualRow) throw new Error('manual sort option missing');
         manualRow.click();
         const laterRows = () => [...document.querySelectorAll('[data-quadrant="later"] [data-matrix-row]')].map((el) => el.getAttribute('data-matrix-row'));
