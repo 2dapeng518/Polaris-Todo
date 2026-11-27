@@ -326,9 +326,16 @@ export function MatrixView() {
               </span>
               <span className="matrix-quadrant-title">{t(quadrant.meta.labelKey)}</span>
               <span className="matrix-quadrant-hint">{t(quadrant.meta.hintKey)}</span>
-              <span className="matrix-quadrant-count" data-quadrant-count>
-                {quadrant.items.length}
-              </span>
+              {/* 数量徽章：带单位、空象限不显示（空态已有「没有任务」）；data 属性
+                  保留给冒烟断言（解析其中的数字与渲染行数对照）。 */}
+              {quadrant.items.length > 0 && (
+                <span className="matrix-quadrant-count" data-quadrant-count>
+                  {t(
+                    quadrant.items.length === 1 ? 'matrix.count.one' : 'matrix.count.other',
+                    { count: quadrant.items.length }
+                  )}
+                </span>
+              )}
               <span className="matrix-quadrant-actions">
                 <QuadrantQuickAdd quadrantId={quadrant.id} />
                 <QuadrantMenu

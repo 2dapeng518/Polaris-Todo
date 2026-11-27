@@ -2970,7 +2970,11 @@ export async function runSmokeTest(): Promise<void> {
         item.click();
         if (!(await waitFor(() => document.querySelector('.view-title')?.textContent?.trim() === '四象限'))) throw new Error('title wrong');
         step = 'quadrants';
-        const count = (id) => document.querySelector('[data-quadrant="' + id + '"] [data-quadrant-count]')?.textContent?.trim();
+        const count = (id) => {
+          const raw = document.querySelector('[data-quadrant="' + id + '"] [data-quadrant-count]')?.textContent?.trim() ?? '';
+          const match = raw.match(/\\d+/);
+          return match ? match[0] : '0';
+        };
         const titles = (id) => [...document.querySelectorAll('[data-quadrant="' + id + '"] .task-title')].map((el) => el.textContent.trim()).join('|');
         // 示例任务也在矩阵里：计数不断言绝对值，断言「徽标 = 渲染行数」的自洽，
         // 四条自种任务的归属用字面量钉死。等 focus 触发的 load() 落定。

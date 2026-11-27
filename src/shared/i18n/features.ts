@@ -29,6 +29,8 @@ export const features = {
   'matrix.laterHint': '不紧急不重要',
   'matrix.sectionAria': '{label}：{hint}',
   'matrix.empty': '暂时没有任务',
+  'matrix.count.one': '{count} 项',
+  'matrix.count.other': '{count} 项',
   'matrix.group.none': '无',
   'matrix.group.time': '时间',
   'matrix.sort.time': '时间',

@@ -2814,11 +2814,18 @@ body.matrix-card-dragging * {
   color: var(--text-tertiary);
 }
 
+/* 数量徽章：轻量胶囊 + 带单位（「4 项」），比裸数字可读；等宽数字防止
+   计数变化时抖动。空象限不渲染（空态已有「没有任务」）。 */
 .matrix-quadrant-count {
+  flex: none;
   margin-left: auto;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--text-secondary);
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--hover-soft);
+  color: var(--text-tertiary);
+  font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .matrix-quadrant-list {

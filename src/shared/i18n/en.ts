@@ -493,6 +493,8 @@ export const en: Messages = {
   'matrix.laterHint': 'Not important or urgent',
   'matrix.sectionAria': '{label}: {hint}',
   'matrix.empty': 'No tasks here',
+  'matrix.count.one': '{count} item',
+  'matrix.count.other': '{count} items',
   'matrix.group.none': 'None',
   'matrix.group.time': 'Time',
   'matrix.sort.time': 'Time',
