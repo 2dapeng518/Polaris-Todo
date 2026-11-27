@@ -61,6 +61,7 @@ export const features = {
   'matrix.date.overdue': '已逾期',
   'matrix.date.todayOrOverdue': '今天或已逾期',
   'matrix.date.noDate': '无日期',
+  'matrix.date.far': '更远',
   'matrix.add.placeholder': '准备做什么？',
   'matrix.add.dateReminder': '日期与提醒',
   'calendar.prevMonth': '上个月',

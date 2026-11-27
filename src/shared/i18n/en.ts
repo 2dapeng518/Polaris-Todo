@@ -525,6 +525,7 @@ export const en: Messages = {
   'matrix.date.overdue': 'Overdue',
   'matrix.date.todayOrOverdue': 'Today or overdue',
   'matrix.date.noDate': 'No date',
+  'matrix.date.far': 'Later',
   'matrix.add.placeholder': 'What needs doing?',
   'matrix.add.dateReminder': 'Date & reminder',
   'calendar.prevMonth': 'Previous month',

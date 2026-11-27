@@ -63,11 +63,12 @@ export function MatrixView() {
         const timeGroups =
           quadrant.group === 'time'
             ? groupByTime(quadrant.items, now, {
-                overdue: t('dates.overdue'),
-                today: t('dates.today'),
-                tomorrow: t('dates.tomorrow'),
-                far: t('calendar.group.far'),
-                noDate: t('calendar.group.noDate')
+                // 分组标签全部走 matrix 自有键：不依赖日历键集（日历重构会删改键）。
+                overdue: t('matrix.date.overdue'),
+                today: t('matrix.date.today'),
+                tomorrow: t('matrix.date.tomorrow'),
+                far: t('matrix.date.far'),
+                noDate: t('matrix.date.noDate')
               })
             : null
         return (
