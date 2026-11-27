@@ -2716,13 +2716,58 @@ textarea {
   gap: 8px;
 }
 
-/* 象限头是卡片拖拽手柄：抓取光标只在可拖区域出现（按钮上由 dragstart 拦掉）。 */
-.matrix-quadrant-head[draggable='true'] {
+/* 象限头是卡片拖拽手柄：抓取光标（按钮上由 pointerdown 拦掉，不进入拖拽）。 */
+.matrix-quadrant-head {
   cursor: grab;
 }
 
-.matrix-quadrant-head[draggable='true']:active {
+.matrix-quadrant-head:active {
   cursor: grabbing;
+}
+
+/* 拖拽中的整卡浮层：克隆节点跟手移动，抬升阴影 + 极轻倾斜表达「拿起」。
+   浮层 pointer-events:none，绝不挡 elementFromPoint 的落点探测。 */
+.matrix-card-ghost {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 70;
+  margin: 0;
+  pointer-events: none;
+  /* 卡面原本是 rgba(...,0.02) 的透明表面，飘起来会透出底下的任务；浮层改用
+     不透明面板底色，抬起后是一张实心卡片。 */
+  background: var(--panel-bg);
+  transform-origin: 50% 40%;
+  border-radius: 12px;
+  box-shadow:
+    0 28px 70px rgba(var(--shadow-rgb), 0.55),
+    0 0 0 1px rgba(var(--accent-rgb), 0.22);
+  will-change: transform;
+  animation: matrix-card-lift 120ms var(--ease-out);
+}
+
+@keyframes matrix-card-lift {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* 克隆节点不带 motion 的运行时状态：TaskItem 是 motion.div，入场动画把
+   内联 opacity:0 / translateY 留在节点上，克隆后会整行隐形——这里按浮层
+   作用域强制回到静止态。 */
+.matrix-card-ghost .task-item,
+.matrix-card-ghost .matrix-row {
+  opacity: 1 !important;
+  transform: none !important;
+}
+
+/* 拖拽期间全局抓取光标，避免经过任务行时变回默认箭头。 */
+body.matrix-card-dragging,
+body.matrix-card-dragging * {
+  cursor: grabbing !important;
 }
 
 /* 拖拽反馈：目标格描边高亮，被拖的卡片/任务半隐。 */
@@ -2732,7 +2777,7 @@ textarea {
 }
 
 .matrix-quadrant.is-dragging {
-  opacity: 0.55;
+  opacity: 0.35;
 }
 
 /* 任务行拖拽壳：TaskItem 共用组件不感知拖拽，由这层提供命中区与插入线。 */

@@ -2,10 +2,9 @@ import { startOfDay } from 'date-fns'
 import type { Task } from '@shared/types'
 import type { QuadrantId } from './matching'
 
-// 四象限拖拽的类型常量：任务与「整张卡片」用不同的 dataTransfer 类型，
-// 避免两种手势互相误判（dragover 期间只能读 types，不能读 data）。
+// 任务拖拽的 dataTransfer 类型。卡片换位不走 HTML5 DnD（需要整张卡片跟手
+// 的浮层效果），由 MatrixView 的指针手势处理，两边互不干扰。
 export const MATRIX_TASK_MIME = 'application/x-polaris-matrix-task'
-export const MATRIX_QUADRANT_MIME = 'application/x-polaris-matrix-quadrant'
 
 export type MatrixDropPatch = {
   priority?: number

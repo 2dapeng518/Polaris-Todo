@@ -9,13 +9,7 @@ import { TaskItem } from './TaskItem'
 import { QuadrantMenu } from './matrix/QuadrantMenu'
 import { QuadrantQuickAdd } from './matrix/QuadrantQuickAdd'
 import { QuadrantEditDialog } from './matrix/QuadrantEditDialog'
-import {
-  MATRIX_QUADRANT_MIME,
-  MATRIX_TASK_MIME,
-  appendId,
-  quadrantDropPatch,
-  reorderIds
-} from './matrix/drag'
+import { MATRIX_TASK_MIME, appendId, quadrantDropPatch, reorderIds } from './matrix/drag'
 import {
   QUADRANT_NUMERALS,
   applyManualOrder,
@@ -60,11 +54,110 @@ export function MatrixView() {
   const [draggingQuadrant, setDraggingQuadrant] = useState<QuadrantId | null>(null)
   const [dropQuadrant, setDropQuadrant] = useState<QuadrantId | null>(null)
   const [dropBeforeTaskId, setDropBeforeTaskId] = useState<string | null>(null)
+  // 卡片换位走指针手势：整张卡片克隆成浮层跟手，松手按落点交换。
+  const cardDragRef = useRef<{
+    id: QuadrantId
+    startX: number
+    startY: number
+    offsetX: number
+    offsetY: number
+    card: HTMLElement
+    rect: DOMRect
+    active: boolean
+  } | null>(null)
+  const ghostRef = useRef<HTMLElement | null>(null)
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(new Date()), 60_000)
     return () => window.clearInterval(timer)
   }, [])
+
+  // 卡片拖拽：pointerdown 记起点，移动超过 5px 才升级为拖拽（避免误触），
+  // 克隆整张卡片做浮层（幽灵节点 pointer-events:none，不挡落点探测）。
+  useEffect(() => {
+    const quadrantAt = (x: number, y: number): QuadrantId | null => {
+      const element = document.elementFromPoint(x, y) as HTMLElement | null
+      const value = element?.closest('[data-quadrant]')?.getAttribute('data-quadrant')
+      return value === 'do' || value === 'plan' || value === 'quick' || value === 'later' ? value : null
+    }
+    const endGhost = (): void => {
+      ghostRef.current?.remove()
+      ghostRef.current = null
+      document.body.classList.remove('matrix-card-dragging')
+    }
+    const beginGhost = (drag: NonNullable<typeof cardDragRef.current>): void => {
+      drag.active = true
+      setDraggingQuadrant(drag.id)
+      document.body.classList.add('matrix-card-dragging')
+      const clone = drag.card.cloneNode(true) as HTMLElement
+      clone.classList.add('matrix-card-ghost')
+      clone.removeAttribute('data-quadrant')
+      clone.setAttribute('aria-hidden', 'true')
+      clone.style.width = `${drag.rect.width}px`
+      clone.style.height = `${drag.rect.height}px`
+      // 同步列表滚动位置：克隆默认回到顶部，浮层应与抓起的瞬间一致。
+      const sourceList = drag.card.querySelector('.matrix-quadrant-list')
+      const cloneList = clone.querySelector('.matrix-quadrant-list')
+      if (sourceList && cloneList) cloneList.scrollTop = sourceList.scrollTop
+      document.body.appendChild(clone)
+      ghostRef.current = clone
+    }
+    const moveGhost = (x: number, y: number, drag: NonNullable<typeof cardDragRef.current>): void => {
+      const ghost = ghostRef.current
+      if (!ghost) return
+      ghost.style.transform = `translate3d(${x - drag.offsetX}px, ${y - drag.offsetY}px, 0) rotate(1.2deg)`
+    }
+    const onMove = (event: PointerEvent): void => {
+      const drag = cardDragRef.current
+      if (!drag) return
+      if (!drag.active) {
+        if (Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY) < 5) return
+        beginGhost(drag)
+      }
+      moveGhost(event.clientX, event.clientY, drag)
+      const target = quadrantAt(event.clientX, event.clientY)
+      setDropQuadrant(target && target !== drag.id ? target : null)
+    }
+    const finish = (x: number, y: number, cancelled: boolean): void => {
+      const drag = cardDragRef.current
+      if (!drag) return
+      cardDragRef.current = null
+      if (drag.active) {
+        if (!cancelled) {
+          const target = quadrantAt(x, y)
+          if (target && target !== drag.id) swapQuadrants(drag.id, target)
+        }
+        setDraggingQuadrant(null)
+        setDropQuadrant(null)
+      }
+      endGhost()
+    }
+    const onUp = (event: PointerEvent): void => finish(event.clientX, event.clientY, false)
+    const onCancel = (event: PointerEvent): void => finish(event.clientX, event.clientY, true)
+    const onKey = (event: KeyboardEvent): void => {
+      if (event.key !== 'Escape' || !cardDragRef.current?.active) return
+      event.preventDefault()
+      event.stopPropagation()
+      finish(-1, -1, true)
+    }
+    // 在窗口外松开鼠标拿不到 pointerup：失焦时按取消收尾，避免浮层卡住。
+    const onBlur = (): void => {
+      if (cardDragRef.current?.active) finish(-1, -1, true)
+    }
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
+    window.addEventListener('pointercancel', onCancel)
+    window.addEventListener('keydown', onKey, true)
+    window.addEventListener('blur', onBlur)
+    return () => {
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+      window.removeEventListener('pointercancel', onCancel)
+      window.removeEventListener('keydown', onKey, true)
+      window.removeEventListener('blur', onBlur)
+      endGhost()
+    }
+  }, [swapQuadrants])
 
   const quadrants = useMemo(() => {
     const active = tasks.filter((task) => !task.completed)
@@ -128,12 +221,10 @@ export function MatrixView() {
 
   const sectionDropHandlers = (id: QuadrantId) => ({
     onDragOver: (event: ReactDragEvent<HTMLElement>) => {
-      const types = event.dataTransfer.types
-      if (!types.includes(MATRIX_TASK_MIME) && !types.includes(MATRIX_QUADRANT_MIME)) return
+      if (!event.dataTransfer.types.includes(MATRIX_TASK_MIME)) return
       event.preventDefault()
       event.dataTransfer.dropEffect = 'move'
       setDropQuadrant(id)
-      if (types.includes(MATRIX_QUADRANT_MIME)) setDropBeforeTaskId(null)
     },
     onDragLeave: (event: ReactDragEvent<HTMLElement>) => {
       const next = event.relatedTarget as Node | null
@@ -143,15 +234,8 @@ export function MatrixView() {
     },
     onDrop: (event: ReactDragEvent<HTMLElement>) => {
       event.preventDefault()
-      const types = event.dataTransfer.types
       setDropQuadrant(null)
       setDropBeforeTaskId(null)
-      if (types.includes(MATRIX_QUADRANT_MIME)) {
-        const from = event.dataTransfer.getData(MATRIX_QUADRANT_MIME) as QuadrantId
-        if (from && from !== id) swapQuadrants(from, id)
-        clearDragState()
-        return
-      }
       const taskId = event.dataTransfer.getData(MATRIX_TASK_MIME)
       if (taskId) onTaskDrop(taskId, id, null)
       clearDragState()
@@ -214,18 +298,28 @@ export function MatrixView() {
           >
             <div
               className="matrix-quadrant-head"
-              draggable
-              onDragStart={(event) => {
-                // 头部的 +/… 是按钮：从按钮上起手不能变成拖卡片。
-                if ((event.target as HTMLElement).closest('button')) {
-                  event.preventDefault()
-                  return
+              onPointerDown={(event) => {
+                // 头部的 +/… 是按钮：从按钮上起手不进入卡片拖拽。
+                if (event.button !== 0) return
+                if ((event.target as HTMLElement).closest('button')) return
+                const card = (event.currentTarget as HTMLElement).closest(
+                  '.matrix-quadrant'
+                ) as HTMLElement | null
+                if (!card) return
+                // 按住头部不选中文字；真正的拖拽阈值在 window 的 pointermove 里。
+                event.preventDefault()
+                const rect = card.getBoundingClientRect()
+                cardDragRef.current = {
+                  id: quadrant.id,
+                  startX: event.clientX,
+                  startY: event.clientY,
+                  offsetX: event.clientX - rect.left,
+                  offsetY: event.clientY - rect.top,
+                  card,
+                  rect,
+                  active: false
                 }
-                event.dataTransfer.setData(MATRIX_QUADRANT_MIME, quadrant.id)
-                event.dataTransfer.effectAllowed = 'move'
-                setDraggingQuadrant(quadrant.id)
               }}
-              onDragEnd={clearDragState}
             >
               <span className="matrix-quadrant-num" aria-hidden="true">
                 {QUADRANT_NUMERALS[quadrant.id]}

@@ -3080,7 +3080,6 @@ export async function runSmokeTest(): Promise<void> {
         const noOuterScroll = mainEl.scrollHeight <= mainEl.clientHeight + 1;
         step = 'drag';
         const TASK_MIME = 'application/x-polaris-matrix-task';
-        const QUAD_MIME = 'application/x-polaris-matrix-quadrant';
         const dragSeed = await window.polaris.tasks.create({ title: '冒烟拖拽', priority: 0, dueAt: null, projectId: null });
         window.dispatchEvent(new Event('focus'));
         if (!(await waitFor(() => document.querySelector('[data-quadrant="later"] [data-matrix-row="' + dragSeed.id + '"]')))) throw new Error('drag seed row missing');
@@ -3096,14 +3095,29 @@ export async function runSmokeTest(): Promise<void> {
         const movedTask = (await window.polaris.tasks.list()).find((item) => item.id === dragSeed.id);
         const dragPriority = Boolean(movedTask && movedTask.priority >= 2);
         step = 'drag-swap';
+        // 卡片换位是指针手势（整卡浮层跟手）：pointerdown → 超过阈值 → pointerup 落点。
         const swapHead = document.querySelector('[data-quadrant="do"] .matrix-quadrant-head');
         const laterSection = document.querySelector('[data-quadrant="later"]');
-        const swapDt = new DataTransfer();
-        swapDt.setData(QUAD_MIME, 'do');
-        swapHead.dispatchEvent(new DragEvent('dragstart', { bubbles: true, cancelable: true, dataTransfer: swapDt }));
-        laterSection.dispatchEvent(new DragEvent('dragover', { bubbles: true, cancelable: true, dataTransfer: swapDt }));
-        laterSection.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: swapDt }));
-        swapHead.dispatchEvent(new DragEvent('dragend', { bubbles: true, dataTransfer: swapDt }));
+        const headRect = swapHead.getBoundingClientRect();
+        const targetRect = laterSection.getBoundingClientRect();
+        const startX = headRect.left + 12;
+        const startY = headRect.top + headRect.height / 2;
+        const endX = targetRect.left + targetRect.width / 2;
+        const endY = targetRect.top + 24;
+        const pointerEvent = (type, x, y) => new PointerEvent(type, {
+          bubbles: true,
+          cancelable: true,
+          button: 0,
+          buttons: type === 'pointerup' ? 0 : 1,
+          pointerId: 1,
+          pointerType: 'mouse',
+          clientX: x,
+          clientY: y
+        });
+        swapHead.dispatchEvent(pointerEvent('pointerdown', startX, startY));
+        window.dispatchEvent(pointerEvent('pointermove', startX + 12, startY + 6));
+        window.dispatchEvent(pointerEvent('pointermove', endX, endY));
+        window.dispatchEvent(pointerEvent('pointerup', endX, endY));
         const quadrantOrder = () => [...document.querySelectorAll('.matrix-quadrant')].map((el) => el.getAttribute('data-quadrant'));
         const swapOk = await waitFor(() => quadrantOrder()[0] === 'later' && quadrantOrder()[3] === 'do');
         step = 'drag-manual';
