@@ -3252,8 +3252,9 @@ export async function runSmokeTest(): Promise<void> {
     // 1) timeFields：时间段字段链——创建带 startAt/endAt/allDay 的任务，
     //    详情「时间」行读数与全天开关、周视图全天行 chip、拖拽不必自动化
     //    （键盘可达替代即详情编辑，已在 P0.3 覆盖）。只断言终态。
-    // 2) suiteViews：切换器切 列表/看板/周 三视图的关键 DOM（分组头、看板列、
-    //    时间轴列 + 全天行），再切回月视图 42 格仍在——切换不丢视图骨架。
+    // 2) suiteViews：切换器切 日程/年/周 三视图的关键 DOM（分组头、12 个迷你月格
+    //    + 今天任务着色 + 点日期钻取、时间轴列 + 全天行），再切回月视图
+    //    42 格仍在——切换不丢视图骨架。
     // 3) rangeParse：快速添加「3点到5点值班」→ 标题不残留区间、startAt/endAt
     //    落库（dueAt = 开始端）。真值表已在 verify:pure 覆盖语法层，这里断言
     //    提交链路把字段真正写进 DB。
@@ -3291,19 +3292,40 @@ export async function runSmokeTest(): Promise<void> {
 
         step = 'list-view';
         document.querySelector('[data-calendar-mode-tab="list"]')?.click();
-        if (!(await waitFor(() => document.querySelector('[data-calendar-list]')))) throw new Error('list missing');
+        if (!(await waitFor(() => document.querySelector('[data-calendar-list]')))) throw new Error('agenda missing');
         const groupHead = document.querySelectorAll('.calendar-list-head').length;
-        if (groupHead < 1) throw new Error('no list groups');
+        if (groupHead < 1) throw new Error('no agenda groups');
 
-        step = 'board-view';
-        document.querySelector('[data-calendar-mode-tab="board"]')?.click();
-        if (!(await waitFor(() => document.querySelector('[data-calendar-board]')))) throw new Error('board missing');
-        const boardCols = document.querySelectorAll('[data-board-col]').length;
-        if (boardCols < 9) throw new Error('board cols=' + boardCols);
+        step = 'year-view';
+        document.querySelector('[data-calendar-mode-tab="year"]')?.click();
+        if (!(await waitFor(() => document.querySelector('[data-year-grid]')))) throw new Error('year missing');
+        const yearMonths = document.querySelectorAll('[data-year-month]').length;
+        const todayYearCell = document.querySelector('[data-year-date="' + todayKey + '"]');
+        const yearLabel = () => document.querySelector('[data-calendar-year-label]')?.textContent?.trim() ?? '';
+        const yearNow = new Date().getFullYear();
+        if (yearMonths !== 12 || !todayYearCell || !todayYearCell.classList.contains('has-tasks')) {
+          throw new Error('year parts: months=' + yearMonths + ' today=' + Boolean(todayYearCell));
+        }
+        if (!yearLabel().includes(String(yearNow))) throw new Error('year label: ' + yearLabel());
+        // 年翻页 + 今天复位。
+        const yearNavs = document.querySelectorAll('.calendar-nav');
+        yearNavs[1]?.click();
+        if (!(await waitFor(() => yearLabel().includes(String(yearNow + 1))))) throw new Error('next year label: ' + yearLabel());
+        document.querySelector('.calendar-today')?.click();
+        if (!(await waitFor(() => yearLabel().includes(String(yearNow))))) throw new Error('today year label: ' + yearLabel());
 
-        step = 'back-month';
-        document.querySelector('[data-calendar-mode-tab="month"]')?.click();
-        if (!(await waitFor(() => document.querySelectorAll('.calendar-cell').length === 42))) throw new Error('month grid missing');
+        step = 'year-drill';
+        document.querySelector('[data-year-date="' + todayKey + '"]')?.click();
+        if (!(await waitFor(() => document.querySelector('[data-timegrid]')))) throw new Error('year drill missing');
+
+        step = 'year-month-title';
+        document.querySelector('[data-calendar-mode-tab="year"]')?.click();
+        if (!(await waitFor(() => document.querySelector('[data-year-grid]')))) throw new Error('year missing again');
+        document.querySelector('[data-year-month="' + new Date().getMonth() + '"] .year-month-title')?.click();
+        if (!(await waitFor(() => document.querySelectorAll('.calendar-cell').length === 42))) throw new Error('year month title did not open month');
+        const yearOk = true;
+
+        step = 'print';
         // 打印按钮 presence（P4.4）：点击会弹原生打印对话框卡住冒烟，只断言在。
         if (!document.querySelector('[data-calendar-print]')) throw new Error('print button missing');
 
@@ -3342,7 +3364,7 @@ export async function runSmokeTest(): Promise<void> {
         const rangeOk = Boolean(rangeTask.startAt && rangeTask.endAt && rangeTask.dueAt === rangeTask.startAt);
         if (!rangeOk) throw new Error('range fields missing: ' + JSON.stringify({ s: rangeTask.startAt, e: rangeTask.endAt, d: rangeTask.dueAt }));
 
-        return { ok: Boolean(cols === 7 && block && alldayChip && groupHead >= 1 && boardCols >= 9 && timeRow && stripOk && rangeOk), step };
+        return { ok: Boolean(cols === 7 && block && alldayChip && groupHead >= 1 && yearOk && timeRow && stripOk && rangeOk), step };
       } catch (error) {
         return { ok: false, step, error: String(error) };
       } finally {

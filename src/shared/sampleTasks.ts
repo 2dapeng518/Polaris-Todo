@@ -252,12 +252,12 @@ export const SAMPLE_TASKS: readonly SampleTask[] = [
     zh: {
       title: '在时间轴里拖拽试试',
       notes:
-        '这条任务排在后天 14:00–15:00：去日历「周」视图，拖它改时间、拖下缘改时长；拖到另一天列的看板卡片则直接改期。'
+        '这条任务排在后天 14:00–15:00：去日历「周」视图，拖它改时间、拖下缘改时长。'
     },
     en: {
       title: 'Try dragging on the time grid',
       notes:
-        'This task sits at 14:00–15:00 the day after tomorrow: in the calendar week view, drag it to reschedule, drag its bottom edge to resize; board cards dropped on a day column reschedule directly.'
+        'This task sits at 14:00–15:00 the day after tomorrow: in the calendar week view, drag it to reschedule, drag its bottom edge to resize.'
     },
     dayOffset: 2,
     hour: 15,

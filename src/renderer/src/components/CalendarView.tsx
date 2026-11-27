@@ -12,18 +12,19 @@ import { MonthGrid } from './calendar/MonthGrid'
 import { MiniMonth } from './calendar/MiniMonth'
 import { MonthJumpMenu } from './calendar/MonthJumpMenu'
 import { CalendarListView } from './calendar/CalendarListView'
-import { CalendarBoardView } from './calendar/CalendarBoardView'
+import { YearGrid } from './calendar/YearGrid'
 import { TimeGridView, visibleDaysFor, type TimeMode } from './calendar/TimeGridView'
 import { CalendarDisplayMenu } from './calendar/CalendarDisplayMenu'
 import { CalendarFilterMenu } from './calendar/CalendarFilterMenu'
 
 // 日历套件外壳：工具栏（视图切换器 + 翻页 + 年月下拉 + 今天 + 迷你月历开关）
-// + 左侧迷你月历栏 + 按子视图模式渲染内容（月 / 列表 / 看板 / 周 / 多周 /
-// 日 / 多日）。锚点日住 useCalendarStore（跨子视图/会话持久），切换视图不丢
+// + 左侧迷你月历栏 + 按子视图模式渲染内容（年 / 月 / 周 / 日 / 日程 /
+// 多日 / 多周）。锚点日住 useCalendarStore（跨子视图/会话持久），切换视图不丢
 // 锚点；月视图另有本地「可见月」状态（键盘跨月），离开日历时写回锚点。
 
-// 切换器顺序 = 常见的阅读顺序：月 / 周 / 多周 / 日 / 多日 / 列表 / 看板。
-const SWITCHER_MODES = ['month', 'week', 'multiweek', 'day', 'multiday', 'list', 'board'] as const
+// 切换器顺序 = 常见的阅读顺序：年 / 月 / 周 / 日 / 日程 / 多日 / 多周。
+// list 是「日程」的旧内部 id，保留它以免已存的 localStorage 偏好失效。
+const SWITCHER_MODES = ['year', 'month', 'week', 'day', 'list', 'multiday', 'multiweek'] as const
 type SwitcherMode = (typeof SWITCHER_MODES)[number]
 
 const TIME_MODES: readonly TimeMode[] = ['week', 'multiweek', 'day', 'multiday']
@@ -109,7 +110,7 @@ export function CalendarView() {
     })
   }, [tasks, calendarSearch, calendarProjectFilter, calendarTagFilter])
 
-  // 任务归属日：dueAt 优先、计划开始兜底（与列表/看板同一套 calendarDay 规则），
+  // 任务归属日：dueAt 优先、计划开始兜底（与日程同一套 calendarDay 规则），
   // 月格与迷你月历的点标记共用这一份桶（点标记用全量任务，不受筛选影响）。
   const byDay = useMemo(() => {
     const map = new Map<string, Task[]>()
@@ -132,6 +133,11 @@ export function CalendarView() {
   }
   const shiftAnchor = (delta: number) => {
     setAnchor(addDays(anchorDay, delta))
+  }
+  // 年视图翻页：保留锚点的月与「几号」（月末钳制），只换年份。
+  const shiftYear = (delta: number) => {
+    const target = new Date(anchorDay.getFullYear() + delta, anchorDay.getMonth(), 1)
+    setAnchor(clampToMonth(target, anchorDay.getDate()))
   }
   const shiftStep = timeMode
     ? timeMode === 'week'
@@ -175,7 +181,7 @@ export function CalendarView() {
   modeRef.current = mode
   useEffect(() => {
     return () => {
-      // 只有月视图的可见月是本地状态、需要写回；周/日/列表/看板里锚点本来
+      // 只有月视图的可见月是本地状态、需要写回；周/日/年/日程里锚点本来
       // 就是唯一真相（翻页/钻取都直接改锚点），此时写回旧月份会把用户刚
       // 翻到的周/日覆盖掉。
       if (modeRef.current !== 'month') return
@@ -213,8 +219,8 @@ export function CalendarView() {
   }, [timeMode, anchorDay, month])
 
   return (
-    // data-calendar-view：月/多周的「格子自适应视口、外层不出滚动条」高度链
-    // 只按这两个模式生效（列表/看板依赖外层滚动，时间轴内部滚动）。
+    // data-calendar-view：月/多周/年视图的「格子自适应视口、外层不出滚动条」
+    // 高度链按这三个模式生效（日程依赖外层滚动，时间轴内部滚动）。
     <div className="calendar-view" data-calendar-view={mode}>
       <div className="calendar-toolbar">
         <div className="calendar-modes" role="tablist" aria-label={t('calendar.modeAria')}>
@@ -232,25 +238,39 @@ export function CalendarView() {
             </button>
           ))}
         </div>
-        {(mode === 'month' || timeMode) && (
+        {(mode === 'month' || mode === 'year' || timeMode) && (
           <>
             <button
               className="calendar-nav"
-              onClick={() => (timeMode ? shiftAnchor(-shiftStep) : shiftMonth(-1))}
-              aria-label={t('calendar.prevMonth')}
+              onClick={() =>
+                mode === 'year' ? shiftYear(-1) : timeMode ? shiftAnchor(-shiftStep) : shiftMonth(-1)
+              }
+              aria-label={mode === 'year' ? t('calendar.prevYear') : t('calendar.prevMonth')}
             >
               <ChevronLeft size={14} aria-hidden="true" />
             </button>
-            {/* 翻页播报复用可见的标签本身（标签是年月下拉的触发按钮）。 */}
-            <MonthJumpMenu
-              month={timeMode ? rangeMonth : month}
-              onPick={jumpToMonth}
-              label={timeMode ? rangeLabel : undefined}
-            />
+            {mode === 'year' ? (
+              <span
+                className="calendar-year-label"
+                data-calendar-year-label
+                aria-live="polite"
+              >
+                {t('calendar.yearLabel', { year: anchorDay.getFullYear() })}
+              </span>
+            ) : (
+              /* 翻页播报复用可见的标签本身（标签是年月下拉的触发按钮）。 */
+              <MonthJumpMenu
+                month={timeMode ? rangeMonth : month}
+                onPick={jumpToMonth}
+                label={timeMode ? rangeLabel : undefined}
+              />
+            )}
             <button
               className="calendar-nav"
-              onClick={() => (timeMode ? shiftAnchor(shiftStep) : shiftMonth(1))}
-              aria-label={t('calendar.nextMonth')}
+              onClick={() =>
+                mode === 'year' ? shiftYear(1) : timeMode ? shiftAnchor(shiftStep) : shiftMonth(1)
+              }
+              aria-label={mode === 'year' ? t('calendar.nextYear') : t('calendar.nextMonth')}
             >
               <ChevronRight size={14} aria-hidden="true" />
             </button>
@@ -287,24 +307,30 @@ export function CalendarView() {
             onProject={setCalendarProjectFilter}
             onTag={setCalendarTagFilter}
           />
-          <CalendarDisplayMenu
-            showLunar={showLunar}
-            showHolidays={showHolidays}
-            showWeekNumbers={showWeekNumbers}
-            onLunar={setShowLunar}
-            onHolidays={setShowHolidays}
-            onWeekNumbers={setShowWeekNumbers}
-          />
-          <button
-            type="button"
-            className={`calendar-mini-toggle ${miniOpen ? 'is-active' : ''}`}
-            aria-pressed={miniOpen}
-            aria-label={t('calendar.mini.toggle')}
-            title={t('calendar.mini.toggle')}
-            onClick={toggleMini}
-          >
-            <PanelLeftOpen size={14} strokeWidth={1.8} aria-hidden="true" />
-          </button>
+          {/* 年视图的 12 个迷你月格塞不下信息层，也没有第二个月历的位置：
+              这两个入口在年模式下隐藏，避免看着可用实则空操作。 */}
+          {mode !== 'year' && (
+            <CalendarDisplayMenu
+              showLunar={showLunar}
+              showHolidays={showHolidays}
+              showWeekNumbers={showWeekNumbers}
+              onLunar={setShowLunar}
+              onHolidays={setShowHolidays}
+              onWeekNumbers={setShowWeekNumbers}
+            />
+          )}
+          {mode !== 'year' && (
+            <button
+              type="button"
+              className={`calendar-mini-toggle ${miniOpen ? 'is-active' : ''}`}
+              aria-pressed={miniOpen}
+              aria-label={t('calendar.mini.toggle')}
+              title={t('calendar.mini.toggle')}
+              onClick={toggleMini}
+            >
+              <PanelLeftOpen size={14} strokeWidth={1.8} aria-hidden="true" />
+            </button>
+          )}
           <button className="calendar-today" onClick={goToday}>
             {t('calendar.today')}
           </button>
@@ -312,7 +338,7 @@ export function CalendarView() {
       </div>
 
       <div className="calendar-body">
-        {miniOpen && mode !== 'month' && (
+        {miniOpen && mode !== 'month' && mode !== 'year' && (
           <aside className="calendar-mini">
             <MiniMonth
               anchor={anchorDay}
@@ -354,8 +380,21 @@ export function CalendarView() {
               parseDayKey={parseDayKey}
             />
           )}
+          {mode === 'year' && (
+            <YearGrid
+              year={anchorDay.getFullYear()}
+              anchorKey={anchorKey}
+              now={now}
+              locale={locale}
+              byDay={byDay}
+              onSelectDay={jumpToDay}
+              onSelectMonth={(target) => {
+                jumpToMonth(target)
+                setMode('month')
+              }}
+            />
+          )}
           {mode === 'list' && <CalendarListView tasks={calendarTasks} now={now} />}
-          {mode === 'board' && <CalendarBoardView tasks={calendarTasks} now={now} />}
         </div>
       </div>
     </div>

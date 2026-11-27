@@ -1,15 +1,17 @@
 import { create } from 'zustand'
 
-// 日历套件的视图偏好：子视图模式（月/周/多周/日/多日/列表/看板）、迷你月历
+// 日历套件的视图偏好：子视图模式（年/月/周/日/日程/多日/多周）、迷你月历
 // 开关、显示开关（农历/节假日/周数）、全部子视图共享的锚点日，以及日历内
 // 的搜索词与项目/标签筛选。纯视图偏好住 localStorage（同 useSidebarStore
 // 的先例），不进 meta 表，也不走 IPC；搜索与筛选是查询意图，只留会话，
 // 不持久化。默认月视图 + 迷你月历收起 + 全部显示开关关闭——所有既有布局
 // 与冒烟断言都量这个默认态。
 
-export type CalendarMode = 'month' | 'week' | 'multiweek' | 'day' | 'multiday' | 'list' | 'board'
+export type CalendarMode = 'year' | 'month' | 'week' | 'multiweek' | 'day' | 'multiday' | 'list'
 
-const MODES: readonly CalendarMode[] = ['month', 'week', 'multiweek', 'day', 'multiday', 'list', 'board']
+// 顺序即切换器顺序：年 / 月 / 周 / 日 / 日程 / 多日 / 多周。
+// list 保留旧 id（localStorage 里已存的偏好不作废），只把显示名改成「日程」。
+const MODES: readonly CalendarMode[] = ['year', 'month', 'week', 'day', 'list', 'multiday', 'multiweek']
 
 function isCalendarMode(value: unknown): value is CalendarMode {
   return typeof value === 'string' && (MODES as readonly string[]).includes(value)

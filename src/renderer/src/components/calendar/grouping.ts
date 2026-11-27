@@ -4,12 +4,12 @@ import type { Task } from '@shared/types'
 import type { Locale } from '@shared/i18n'
 import { dayKey } from '../../lib/dateTime'
 
-// 列表 / 看板的分组模型（日历套件 P1）：全部围绕「本地日」桶。纯函数，
+// 日程（原列表）的分组模型（日历套件 P1）：全部围绕「本地日」桶。纯函数，
 // 只吃任务数组和注入的时钟，不碰 store / DOM。特殊分区名（已过期/无日期…）
 // 由调用方按当前语言传入，日期标签走 date-fns 的本地化格式。
 
 // 任务归属日：截止优先（dueAt 仍是锚点），没有截止用计划开始；两者皆无 =
-// 无日期任务（旧日历把它们排除在外，列表/看板必须收进来）。
+// 无日期任务（旧日历把它们排除在外，日程必须收进来）。
 export function calendarDay(task: Task): Date | null {
   const source = task.dueAt ?? task.startAt
   return source ? startOfDay(new Date(source)) : null
@@ -51,7 +51,7 @@ export function dayGroupLabel(day: Date, now: Date, locale: Locale, labels: Grou
     : format(day, 'M月d日 EEE', { locale: zhCN })
 }
 
-// 列表（议程）分组：已过期（升序，最早的在最上）→ 未来的每个自然日一组 →
+// 日程分组：已过期（升序，最早的在最上）→ 未来的每个自然日一组 →
 // 无日期垫底。已完成任务不进来（调用方单独走已完成折叠区）。
 export function buildListGroups(
   tasks: Task[],
@@ -100,76 +100,3 @@ export function buildListGroups(
   return groups
 }
 
-export type BoardColumn = {
-  key: string
-  kind: 'noDate' | 'overdue' | 'day' | 'far'
-  day: Date | null
-  /** day 列 = 拖入改归属日；noDate 列 = 拖入清空日程；其余列不接拖放。 */
-  droppable: boolean
-  label: string
-  tasks: Task[]
-}
-
-export type BoardLabels = GroupLabels & { far: string }
-
-// 看板列：无日期 / 已过期 / 今天起连续 7 天 / 更远。列固定生成（不管有没有
-// 任务），泳道宽度恒定、拖拽目标稳定。
-export function buildBoardColumns(
-  tasks: Task[],
-  now: Date,
-  locale: Locale,
-  labels: BoardLabels
-): BoardColumn[] {
-  const today = startOfDay(now)
-  const lastDay = addDays(today, 6)
-  const buckets = new Map<string, Task[]>()
-  const noDate: Task[] = []
-  const overdue: Task[] = []
-  const far: Task[] = []
-
-  for (const task of tasks) {
-    const day = calendarDay(task)
-    if (!day) {
-      noDate.push(task)
-      continue
-    }
-    if (day.getTime() < today.getTime()) {
-      overdue.push(task)
-      continue
-    }
-    if (day.getTime() > lastDay.getTime()) {
-      far.push(task)
-      continue
-    }
-    const key = dayKey(day)
-    const bucket = buckets.get(key)
-    if (bucket) bucket.push(task)
-    else buckets.set(key, [task])
-  }
-
-  const columns: BoardColumn[] = [
-    { key: 'no-date', kind: 'noDate', day: null, droppable: true, label: labels.noDate, tasks: noDate.sort(compareTasks) },
-    { key: 'overdue', kind: 'overdue', day: null, droppable: false, label: labels.overdue, tasks: overdue.sort(compareTasks) }
-  ]
-  for (let index = 0; index < 7; index += 1) {
-    const day = addDays(today, index)
-    const key = dayKey(day)
-    columns.push({
-      key,
-      kind: 'day',
-      day,
-      droppable: true,
-      label: dayGroupLabel(day, now, locale, labels),
-      tasks: (buckets.get(key) ?? []).sort(compareTasks)
-    })
-  }
-  columns.push({
-    key: 'far',
-    kind: 'far',
-    day: null,
-    droppable: false,
-    label: labels.far,
-    tasks: far.sort(compareTasks)
-  })
-  return columns
-}

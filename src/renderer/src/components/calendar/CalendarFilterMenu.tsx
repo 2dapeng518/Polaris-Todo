@@ -110,7 +110,7 @@ export function CalendarFilterMenu({
                   aria-checked={projectFilter === project.id}
                   onClick={() => pick('project', projectFilter === project.id ? null : project.id)}
                 >
-                  <span className="board-dot" style={{ background: project.color }} aria-hidden="true" />
+                  <span className="calendar-filter-dot" style={{ background: project.color }} aria-hidden="true" />
                   <span className="calendar-filter-name">{project.name}</span>
                   {projectFilter === project.id && <Check size={12} strokeWidth={2} aria-hidden="true" />}
                 </button>

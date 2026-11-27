@@ -3694,7 +3694,7 @@ button.calendar-daynum:hover {
   }
 }
 
-/* ---------- 日历套件 P1：切换器 / 迷你月历 / 列表 / 看板 / 年月下拉 ---------- */
+/* ---------- 日历套件 P1：切换器 / 迷你月历 / 日程 / 年视图 / 年月下拉 ---------- */
 
 .calendar-modes {
   display: inline-flex;
@@ -3992,135 +3992,136 @@ button.calendar-daynum:hover {
   font-weight: 600;
 }
 
-.calendar-board {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  overflow-x: auto;
-  padding-bottom: 8px;
-}
+/* ---------- 年视图：12 个迷你月格（只读总览，点日期下钻） ---------- */
 
-.calendar-board-col {
-  display: flex;
-  flex: none;
-  flex-direction: column;
-  gap: 8px;
-  width: 208px;
-  min-height: 140px;
-  padding: 10px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: var(--surface-1);
-}
-
-.calendar-board-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-}
-
-.calendar-board-head span:first-child {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--text-secondary);
-}
-
-.calendar-board-head span:first-child.is-overdue {
-  color: var(--warning);
-}
-
-.calendar-board-count {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  color: var(--text-tertiary);
-}
-
-.calendar-board-cards {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.calendar-board-card {
-  padding: 8px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--surface-2);
-}
-
-.calendar-board-title {
-  display: flex;
-  align-items: flex-start;
-  gap: 4px;
-  width: 100%;
-  border: none;
-  background: transparent;
+.calendar-year-label {
+  display: inline-flex;
+  align-items: center;
+  height: 26px;
+  padding: 0 4px;
   color: var(--text);
-  font-size: 12px;
-  line-height: 1.4;
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.year-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 22px 26px;
+  padding-bottom: 14px;
+}
+
+.year-month {
+  min-width: 0;
+}
+
+.year-month-title {
+  display: block;
+  margin: 0 0 7px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
   text-align: left;
   cursor: default;
 }
 
-.calendar-board-title:hover {
+.year-month-title:hover {
   color: var(--accent);
 }
 
-.board-flag {
-  flex: none;
-  margin-top: 2px;
-  color: var(--accent);
+.year-weekdays,
+.year-days {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 2px;
 }
 
-.calendar-board-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  margin-top: 6px;
-}
-
-.board-time {
-  font-family: var(--font-mono);
-  font-size: 10px;
+.year-weekdays {
+  margin-bottom: 3px;
   color: var(--text-tertiary);
-}
-
-.board-time.is-overdue {
-  color: var(--warning);
-}
-
-.board-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  padding: 1px 5px;
-  border-radius: 5px;
-  background: var(--surface-1);
-  color: var(--text-tertiary);
-  font-size: 10px;
-}
-
-.board-project {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.board-dot {
-  flex: none;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-}
-
-.calendar-board-blank {
-  padding: 10px 0;
-  border: 1px dashed var(--line);
-  border-radius: 8px;
-  color: var(--text-tertiary);
-  font-size: 10px;
+  font-size: 9px;
   text-align: center;
+}
+
+.year-cell {
+  position: relative;
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1;
+  min-width: 0;
+  border-radius: 5px;
+  color: var(--text-secondary);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  cursor: default;
+  transition:
+    background 0.14s,
+    color 0.14s;
+}
+
+.year-cell.is-out {
+  color: var(--text-tertiary);
+  opacity: 0.32;
+  pointer-events: none;
+}
+
+.year-cell.has-tasks {
+  background: rgba(var(--accent-rgb), 0.14);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.year-cell:hover {
+  background: var(--hover);
+}
+
+.year-cell.has-tasks:hover {
+  background: rgba(var(--accent-rgb), 0.22);
+}
+
+.year-cell.is-today {
+  box-shadow: inset 0 0 0 1px var(--accent);
+  color: var(--accent);
+  font-weight: 700;
+}
+
+/* 今天 + 键盘焦点时让位内描边，避免 accent 双环（同 .dp-day 的规则）。 */
+.year-cell.is-today:focus-visible {
+  box-shadow: none;
+}
+
+.year-cell:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.year-dot {
+  position: absolute;
+  bottom: 2px;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+@media (max-width: 1180px) {
+  .year-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 900px) {
+  .year-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 /* ---------- 日历套件 P2：时间轴（周/日/多日）+ 全天行 + 拖拽 ---------- */
@@ -4509,11 +4510,83 @@ button.calendar-daynum:hover {
   grid-template-columns: 26px repeat(7, 1fr);
 }
 
+/* ---------- 年视图：12 个月也要吃满视口（与月视图同一条高度链） ---------- */
+
+/* 年视图是「一眼全年」的总览：12 个月必须在常规窗口里全部可见，不能像
+   长列表那样把 11/12 月推到折叠线以下。极矮窗口用 min-height 兜底，
+   让 .main 滚动，而不是把日格压到不可读。 */
+.calendar-view[data-calendar-view='year'] {
+  flex: 1;
+  min-height: 0;
+}
+
+.calendar-view[data-calendar-view='year'] .view-header,
+.calendar-view[data-calendar-view='year'] .calendar-toolbar {
+  flex: none;
+}
+
+.calendar-view[data-calendar-view='year'] .calendar-body {
+  flex: 1;
+  min-height: 0;
+  align-items: stretch;
+}
+
+.calendar-view[data-calendar-view='year'] .calendar-content {
+  display: flex;
+  min-height: 0;
+}
+
+.calendar-view[data-calendar-view='year'] .year-grid {
+  flex: 1;
+  height: 100%;
+  min-height: 430px;
+  grid-template-rows: repeat(3, minmax(0, 1fr));
+}
+
+.calendar-view[data-calendar-view='year'] .year-month {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.calendar-view[data-calendar-view='year'] .year-month-title,
+.calendar-view[data-calendar-view='year'] .year-weekdays {
+  flex: none;
+}
+
+.calendar-view[data-calendar-view='year'] .year-days {
+  flex: 1;
+  min-height: 0;
+  grid-template-rows: repeat(6, minmax(0, 1fr));
+}
+
+.calendar-view[data-calendar-view='year'] .year-cell {
+  aspect-ratio: auto;
+  min-height: 0;
+}
+
+/* 窄窗下年视图变 3 / 2 列：行数必须跟着变，否则多余月份落到隐式 auto 行
+   会破坏「吃满视口」的均分；min-height 同步抬高，极矮窗口宁可滚动也不把
+   日格压成不可读。 */
+@media (max-width: 1180px) {
+  .calendar-view[data-calendar-view='year'] .year-grid {
+    grid-template-rows: repeat(4, minmax(0, 1fr));
+    min-height: 560px;
+  }
+}
+
+@media (max-width: 900px) {
+  .calendar-view[data-calendar-view='year'] .year-grid {
+    grid-template-rows: repeat(6, minmax(0, 1fr));
+    min-height: 720px;
+  }
+}
+
 /* ---------- 月/多周：格子自适应视口，外层不出滚动条 ---------- */
 
-/* 列表/看板依赖外层滚动、时间轴内部滚动，只有这两个日格模式收紧高度链：
+/* 日程依赖外层滚动、时间轴内部滚动；月/多周/年这三个日格模式收紧高度链：
    外壳拿满剩余高度，格子行 minmax(0,1fr) 均分，格子内容超出裁切（chip 有
-   +N 折叠兜底）。 */
+   +N 折叠兜底）。年视图的链在上方单独声明。 */
 .calendar-view[data-calendar-view='month'],
 .calendar-view[data-calendar-view='multiweek'] {
   flex: 1;
@@ -4738,6 +4811,13 @@ button.calendar-daynum:hover {
   white-space: nowrap;
 }
 
+.calendar-filter-dot {
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
 /* ---------- 日历套件 P4.4：打印（打印按钮临时切亮色主题，此处剥壳） ---------- */
 
 @media print {
@@ -4819,22 +4899,12 @@ button.calendar-daynum:hover {
     display: none;
   }
 
-  /* 看板泳道纸面收窄换行，避免横向截断。 */
-  .calendar-board {
-    display: flex;
-    flex-wrap: wrap;
-    overflow: visible;
-  }
-
-  .calendar-board-col {
-    break-inside: avoid;
-  }
-
-  /* 分页细节：表头/全天行与月格不跨页截断。 */
+  /* 分页细节：表头/全天行/月格/年视图的月份不跨页截断。 */
   .timegrid-head,
   .calendar-weekdays,
   .calendar-cell,
-  .multiweek-cell {
+  .multiweek-cell,
+  .year-month {
     break-inside: avoid;
   }
 }

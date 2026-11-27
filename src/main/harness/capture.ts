@@ -350,8 +350,8 @@ async function captureCalendarScreenshot(filename: string): Promise<void> {
   await cleanupCalendarSeeds(seeded.ids)
 }
 
-// 日历套件子视图截图（calendar-week / calendar-multiweek / calendar-day /
-// calendar-multiday / calendar-list / calendar-board）：同一份种子，切到
+// 日历套件子视图截图（calendar-year / calendar-week / calendar-multiweek /
+// calendar-day / calendar-multiday / calendar-list）：同一份种子，切到
 // 指定子视图截一张，清理后回到「今天」+ 月视图。
 async function captureCalendarModeScreenshot(submode: string, filename: string): Promise<void> {
   const seeded = await seedCalendarTasks()
@@ -363,7 +363,7 @@ async function captureCalendarModeScreenshot(submode: string, filename: string):
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     const tab = document.querySelector('[data-calendar-mode-tab="${submode}"]');
     if (tab) tab.click();
-    for (let i = 0; i < 40 && !document.querySelector('[data-timegrid], [data-calendar-list], [data-calendar-board], [data-multiweek]'); i++) await sleep(50);
+    for (let i = 0; i < 40 && !document.querySelector('[data-timegrid], [data-calendar-list], [data-year-grid], [data-multiweek]'); i++) await sleep(50);
     await sleep(450);
   })()`)
   await captureTo(filename)
@@ -666,7 +666,7 @@ export async function captureDemo(mode: string): Promise<void> {
         })()`)
         await captureTo(`screenshot-${mode}.png`)
         if (wc) await cleanupCalendarSeeds(ids)
-      } else if (['week', 'multiweek', 'day', 'multiday', 'list', 'board'].includes(submode)) {
+      } else if (['year', 'week', 'multiweek', 'day', 'multiday', 'list'].includes(submode)) {
         await captureCalendarModeScreenshot(submode, `screenshot-${mode}.png`)
       } else {
         await captureCalendarScreenshot('screenshot-calendar.png')
