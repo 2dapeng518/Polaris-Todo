@@ -3006,6 +3006,80 @@ export async function runSmokeTest(): Promise<void> {
     const matrixWorks = matrixResult?.ok === true
     if (!matrixWorks) console.error('MATRIX_FAIL', JSON.stringify(matrixResult))
 
+    // 四象限套件（偏好）：编辑象限弹窗改筛选看级联迁移、时间分组、象限内
+    // 快速添加、视图级全部恢复默认。与 matrixWorks 不同，本段布尔进 checks
+    // 门控——失败必须让退出码变红。
+    const matrixPrefsResult = await mainWindow?.webContents.executeJavaScript(`(async () => {
+      ${pageHelpers}
+      let step = 'seed';
+      try {
+        const today = new Date(); today.setHours(23, 59, 0, 0);
+        const seeded = await window.polaris.tasks.create({ title: '冒烟偏好甲', priority: 3, dueAt: today.toISOString(), projectId: null });
+        window.dispatchEvent(new Event('focus'));
+        step = 'open';
+        const nav = await waitFor(() => [...document.querySelectorAll('.nav-item')].find((el) => el.textContent.includes('四象限')));
+        if (!nav) throw new Error('matrix nav missing');
+        nav.click();
+        if (!(await waitFor(() => document.querySelector('.view-title')?.textContent?.trim() === '四象限'))) throw new Error('title wrong');
+        step = 'baseline';
+        const titles = (id) => [...document.querySelectorAll('[data-quadrant="' + id + '"] .task-title')].map((el) => el.textContent.trim());
+        if (!(await waitFor(() => titles('do').includes('冒烟偏好甲')))) throw new Error('baseline membership wrong');
+        step = 'edit-dialog';
+        document.querySelector('[data-quadrant="do"] [data-matrix-menu="do"]').click();
+        const editRow = await waitFor(() => [...document.querySelectorAll('.matrix-menu .matrix-menu-row')].find((el) => el.textContent.trim() === '编辑'));
+        if (!editRow) throw new Error('edit row missing');
+        editRow.click();
+        if (!(await waitFor(() => document.querySelector('.matrix-edit-panel')))) throw new Error('edit dialog missing');
+        step = 'edit-save';
+        const triggers = document.querySelectorAll('.matrix-select-trigger');
+        if (triggers.length < 2) throw new Error('selects missing');
+        triggers[1].click();
+        const noDateOption = await waitFor(() => [...document.querySelectorAll('.matrix-select-option')].find((el) => el.textContent.trim() === '无日期'));
+        if (!noDateOption) throw new Error('noDate option missing');
+        noDateOption.click();
+        const saveButton = await waitFor(() => document.querySelector('.matrix-edit-save'));
+        saveButton.click();
+        if (!(await waitFor(() => !document.querySelector('.matrix-edit-panel')))) throw new Error('dialog not closed');
+        step = 'cascade';
+        // 甲（今天到期）不再命中「无日期」的 do，按级联迁去 plan（重要+所有日期）。
+        if (!(await waitFor(() => !titles('do').includes('冒烟偏好甲') && titles('plan').includes('冒烟偏好甲')))) throw new Error('cascade move failed');
+        const prefsStored = Boolean(localStorage.getItem('polaris-matrix-view'));
+        step = 'group';
+        document.querySelector('[data-quadrant="plan"] [data-matrix-menu="plan"]').click();
+        const timeRow = await waitFor(() => [...document.querySelectorAll('.matrix-menu .matrix-menu-row')].find((el) => el.textContent.trim() === '时间'));
+        if (!timeRow) throw new Error('group option missing');
+        timeRow.click();
+        if (!(await waitFor(() => document.querySelector('[data-quadrant="plan"] .matrix-group-label')))) throw new Error('group label missing');
+        step = 'reset-all';
+        document.querySelector('.matrix-view-menu-trigger').click();
+        const resetRow = await waitFor(() => [...document.querySelectorAll('.matrix-menu .matrix-menu-row')].find((el) => el.textContent.includes('恢复默认')));
+        if (!resetRow) throw new Error('reset row missing');
+        resetRow.click();
+        if (!(await waitFor(() => titles('do').includes('冒烟偏好甲') && !document.querySelector('[data-quadrant="plan"] .matrix-group-label')))) throw new Error('reset-all failed');
+        step = 'quick-add';
+        document.querySelector('[data-quadrant="later"] [data-matrix-add="later"]').click();
+        const input = await waitFor(() => document.querySelector('.matrix-add-input'));
+        const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+        setter.call(input, '冒烟象限新增');
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+        const added = await waitFor(() => titles('later').includes('冒烟象限新增'));
+        return { ok: added && prefsStored, step, prefsStored, cascadeMoved: true };
+      } catch (error) {
+        return { step, error: String(error) };
+      } finally {
+        try {
+          const all = await window.polaris.tasks.list();
+          for (const task of all.filter((item) => item.title.startsWith('冒烟'))) {
+            try { await window.polaris.tasks.remove(task.id); } catch {}
+            try { await window.polaris.tasks.deleteForever(task.id); } catch {}
+          }
+        } catch {}
+      }
+    })()`)
+    const matrixPrefsWorks = matrixPrefsResult?.ok === true
+    if (!matrixPrefsWorks) console.error('MATRIX_PREFS_FAIL', JSON.stringify(matrixPrefsResult))
+
     // 日历：42 格月矩阵、任务按截止落格、翻月与今天按钮、chip 点开详情。
     // 落格日期选「今天」与「本月 15 号」（今天恰为 15 号则用 16 号），任何运行日都不跨月。
     const calendarResult = await mainWindow?.webContents.executeJavaScript(`(async () => {
@@ -5903,7 +5977,9 @@ export async function runSmokeTest(): Promise<void> {
       updateMetaStable: updateMetaStable === true,
       updateSkipPersists: updateSkipPersists === true,
       updateNotesRendered: updateNotesRendered === true,
-      updateInstallGuard: updateInstallGuard === true
+      updateInstallGuard: updateInstallGuard === true,
+      // 四象限偏好套件：编辑弹窗/级联/分组/快速添加/恢复默认的门控断言。
+      matrixPrefsWorks: matrixPrefsWorks === true
     }
     const failed = Object.keys(checks).filter((name) => !checks[name])
     const ok = failed.length === 0
@@ -6018,6 +6094,7 @@ export async function runSmokeTest(): Promise<void> {
           tagRecurrenceWorks,
           tagBackupWorks,
           matrixWorks,
+          matrixPrefsWorks,
           calendarWorks,
           calendarSuiteWorks,
           icsExportWorks,

@@ -1,71 +1,115 @@
 import { useEffect, useMemo, useState } from 'react'
+import { AnimatePresence } from 'motion/react'
+import type { MessageKey } from '@shared/i18n'
 import { useTaskStore } from '../stores/useTaskStore'
-import { useT } from '../stores/useLocaleStore'
-import { isTodayOrOverdue } from '../lib/dates'
+import { useMatrixStore } from '../stores/useMatrixStore'
+import { useT, useLocale } from '../stores/useLocaleStore'
 import { TaskItem } from './TaskItem'
+import { QuadrantMenu } from './matrix/QuadrantMenu'
+import { QuadrantQuickAdd } from './matrix/QuadrantQuickAdd'
+import { QuadrantEditDialog } from './matrix/QuadrantEditDialog'
+import {
+  QUADRANT_IDS,
+  QUADRANT_NUMERALS,
+  assignQuadrants,
+  groupByTime,
+  sortTasks,
+  type QuadrantId
+} from './matrix/matching'
 
-// 派生规则：重要 = priority >= 2（中/高）；紧急 = 今天到期或已逾期，
-// 无截止视为不紧急。只统计未完成任务；已完成不进矩阵。
-const QUADRANTS = [
-  { id: 'do', labelKey: 'matrix.do', hintKey: 'matrix.doHint', important: true, urgent: true },
-  { id: 'plan', labelKey: 'matrix.plan', hintKey: 'matrix.planHint', important: true, urgent: false },
-  { id: 'quick', labelKey: 'matrix.quick', hintKey: 'matrix.quickHint', important: false, urgent: true },
-  { id: 'later', labelKey: 'matrix.later', hintKey: 'matrix.laterHint', important: false, urgent: false }
-] as const
+// 四象限视图：归象走 matrix/matching.ts 的级联规则（do → plan → quick →
+// later 首个命中筛选配置的象限胜出），筛选/分组/排序/顺序按象限存
+// useMatrixStore（localStorage 持久化）。默认配置复刻旧派生规则：
+// 重要 = 优先级中/高；紧急 = 今天到期或已逾期；无截止 = 不紧急。
+const QUADRANT_META: Record<QuadrantId, { labelKey: MessageKey; hintKey: MessageKey }> = {
+  do: { labelKey: 'matrix.do', hintKey: 'matrix.doHint' },
+  plan: { labelKey: 'matrix.plan', hintKey: 'matrix.planHint' },
+  quick: { labelKey: 'matrix.quick', hintKey: 'matrix.quickHint' },
+  later: { labelKey: 'matrix.later', hintKey: 'matrix.laterHint' }
+}
 
 export function MatrixView() {
   const t = useT()
+  const locale = useLocale()
   const tasks = useTaskStore((state) => state.tasks)
-  // 矩阵可能长时间开着：跨过午夜后「紧急」的判定不能还是昨天。
+  const prefs = useMatrixStore((state) => state.prefs)
+  // 矩阵可能长时间开着：跨过午夜后「今天/逾期」的判定不能还是昨天。
   const [now, setNow] = useState(() => new Date())
+  const [editFor, setEditFor] = useState<QuadrantId | null>(null)
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(new Date()), 60_000)
     return () => window.clearInterval(timer)
   }, [])
 
-  const groups = useMemo(() => {
+  const quadrants = useMemo(() => {
     const active = tasks.filter((task) => !task.completed)
-    return QUADRANTS.map((quadrant) => ({
-      ...quadrant,
-      items: active.filter((task) => {
-        const important = task.priority >= 2
-        const urgent = isTodayOrOverdue(task.dueAt)
-        return important === quadrant.important && urgent === quadrant.urgent
-      })
+    const buckets = assignQuadrants(active, prefs, now)
+    return QUADRANT_IDS.map((id) => ({
+      id,
+      meta: QUADRANT_META[id],
+      group: prefs[id].group,
+      items: sortTasks(buckets[id], prefs[id].sort, prefs[id].dir, locale)
     }))
-  }, [tasks, now])
+  }, [tasks, prefs, now, locale])
 
   return (
     <div className="matrix-view" role="group" aria-label={t('matrix.groupAria')}>
-      {groups.map((group) => (
-        <section
-          key={group.id}
-          className="matrix-quadrant"
-          data-quadrant={group.id}
-          aria-label={t('matrix.sectionAria', {
-            label: t(group.labelKey),
-            hint: t(group.hintKey)
-          })}
-        >
-          <div className="matrix-quadrant-head">
-            <span className="matrix-quadrant-title">{t(group.labelKey)}</span>
-            <span className="matrix-quadrant-hint">{t(group.hintKey)}</span>
-            <span className="matrix-quadrant-count" data-quadrant-count>
-              {group.items.length}
-            </span>
-          </div>
-          {group.items.length > 0 ? (
-            <div className="matrix-quadrant-list">
-              {group.items.map((task) => (
-                <TaskItem key={task.id} task={task} />
-              ))}
+      {quadrants.map((quadrant) => {
+        const aria = t('matrix.sectionAria', {
+          label: t(quadrant.meta.labelKey),
+          hint: t(quadrant.meta.hintKey)
+        })
+        const timeGroups =
+          quadrant.group === 'time'
+            ? groupByTime(quadrant.items, now, {
+                overdue: t('dates.overdue'),
+                today: t('dates.today'),
+                tomorrow: t('dates.tomorrow'),
+                far: t('calendar.group.far'),
+                noDate: t('calendar.group.noDate')
+              })
+            : null
+        return (
+          <section key={quadrant.id} className="matrix-quadrant" data-quadrant={quadrant.id} aria-label={aria}>
+            <div className="matrix-quadrant-head">
+              <span className="matrix-quadrant-num" aria-hidden="true">
+                {QUADRANT_NUMERALS[quadrant.id]}
+              </span>
+              <span className="matrix-quadrant-title">{t(quadrant.meta.labelKey)}</span>
+              <span className="matrix-quadrant-hint">{t(quadrant.meta.hintKey)}</span>
+              <span className="matrix-quadrant-count" data-quadrant-count>
+                {quadrant.items.length}
+              </span>
+              <span className="matrix-quadrant-actions">
+                <QuadrantQuickAdd quadrantId={quadrant.id} />
+                <QuadrantMenu quadrantId={quadrant.id} onEdit={() => setEditFor(quadrant.id)} />
+              </span>
             </div>
-          ) : (
-            <p className="matrix-quadrant-empty">{t('matrix.empty')}</p>
-          )}
-        </section>
-      ))}
+            {quadrant.items.length > 0 ? (
+              <div className="matrix-quadrant-list">
+                {timeGroups
+                  ? timeGroups.map((group) => (
+                      <div key={group.key} className="matrix-quadrant-group">
+                        <div className="matrix-group-label">{group.label}</div>
+                        {group.tasks.map((task) => (
+                          <TaskItem key={task.id} task={task} />
+                        ))}
+                      </div>
+                    ))
+                  : quadrant.items.map((task) => <TaskItem key={task.id} task={task} />)}
+              </div>
+            ) : (
+              <p className="matrix-quadrant-empty">{t('matrix.empty')}</p>
+            )}
+          </section>
+        )
+      })}
+      <AnimatePresence>
+        {editFor && (
+          <QuadrantEditDialog key={editFor} quadrantId={editFor} onClose={() => setEditFor(null)} />
+        )}
+      </AnimatePresence>
     </div>
   )
 }

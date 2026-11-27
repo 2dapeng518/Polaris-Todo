@@ -2746,6 +2746,555 @@ textarea {
   }
 }
 
+/* 四象限套件：象限头 hover 显形按钮（新建/选项）、锚定菜单、编辑弹窗、
+   快速添加卡片。象限专属色只落在罗马数字（--quadrant-tint，取各主题既有
+   优先级/accent token），「信号色只留给任务本身」的纪律不破。 */
+
+[data-quadrant='do'] {
+  --quadrant-tint: var(--priority-high);
+}
+
+[data-quadrant='plan'] {
+  --quadrant-tint: var(--priority-mid);
+}
+
+[data-quadrant='quick'] {
+  --quadrant-tint: var(--priority-low);
+}
+
+[data-quadrant='later'] {
+  --quadrant-tint: var(--accent);
+}
+
+.matrix-quadrant-num {
+  flex: none;
+  color: var(--quadrant-tint, var(--text-tertiary));
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.matrix-quadrant-actions {
+  display: inline-flex;
+  flex: none;
+  gap: 2px;
+  align-self: center;
+}
+
+/* 象限头小按钮：照 .task-delete 的三态显形（hover/focus-within/focus-visible），
+   纯键盘可达；打开态保持点亮。 */
+.matrix-quadrant-button {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-tertiary);
+  cursor: default;
+  opacity: 0;
+  transition:
+    opacity 0.16s,
+    color 0.16s,
+    background 0.16s;
+}
+
+.matrix-quadrant:hover .matrix-quadrant-button,
+.matrix-quadrant:focus-within .matrix-quadrant-button,
+.matrix-quadrant-button:focus-visible,
+.matrix-quadrant-button[aria-expanded='true'] {
+  opacity: 1;
+}
+
+.matrix-quadrant-button:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
+.matrix-quadrant-button[aria-expanded='true'] {
+  color: var(--accent);
+}
+
+/* 视图级「…」（矩阵标题行右侧）：头部长驻按钮，不用 hover 显形。 */
+.matrix-view-menu-trigger {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-1);
+  color: var(--text-secondary);
+  cursor: default;
+  transition:
+    border-color 0.16s,
+    color 0.16s;
+}
+
+.matrix-view-menu-trigger:hover,
+.matrix-view-menu-trigger[aria-expanded='true'] {
+  border-color: rgba(var(--accent-rgb), 0.3);
+  color: var(--accent);
+}
+
+/* 象限锚定菜单：浮层词汇同 .calendar-filter（panel-bg + line-strong + pop-in）。 */
+.matrix-menu {
+  position: fixed;
+  z-index: 60;
+  width: 208px;
+  max-height: min(340px, calc(100vh - 80px));
+  padding: 6px;
+  overflow-y: auto;
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+  background: var(--panel-bg);
+  box-shadow:
+    0 16px 40px rgba(var(--shadow-rgb), 0.32),
+    inset 0 1px 0 var(--inner-highlight);
+  color: var(--text);
+  outline: none;
+  animation: pop-in 140ms var(--ease-out);
+}
+
+.matrix-menu-group {
+  padding: 6px 8px 2px;
+  color: var(--text-tertiary);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.matrix-menu-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 6px 8px;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12px;
+  text-align: left;
+  cursor: default;
+}
+
+.matrix-menu-row:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
+.matrix-menu-row.is-active {
+  background: rgba(var(--accent-rgb), 0.12);
+  color: var(--accent);
+}
+
+.matrix-menu-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 时间分组的小节头（分组=时间 时显示在象限列表内）。 */
+.matrix-group-label {
+  padding: 2px;
+  color: var(--text-tertiary);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.matrix-quadrant-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* 「编辑象限」弹窗：confirm-overlay/panel 浮层语言 + 表单网格。 */
+.matrix-edit-panel {
+  display: flex;
+  flex-direction: column;
+}
+
+.matrix-edit-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.matrix-edit-title {
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 650;
+}
+
+.matrix-edit-quadrant {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: auto;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--surface-1);
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.matrix-edit-form {
+  display: grid;
+  grid-template-columns: 64px 1fr;
+  gap: 12px 10px;
+  align-items: center;
+}
+
+.matrix-edit-label {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.matrix-edit-control {
+  min-width: 0;
+}
+
+.matrix-check-row,
+.matrix-radio-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+}
+
+.matrix-check,
+.matrix-radio {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 8px;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: default;
+  transition:
+    color 0.16s,
+    background 0.16s;
+}
+
+.matrix-check:hover,
+.matrix-radio:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
+.matrix-check-box {
+  display: grid;
+  place-items: center;
+  width: 14px;
+  height: 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: 4px;
+  color: transparent;
+  transition:
+    border-color 0.16s,
+    background 0.16s,
+    color 0.16s;
+}
+
+.matrix-check-box.checked {
+  border-color: rgba(var(--accent-rgb), 0.6);
+  background: rgba(var(--accent-rgb), 0.12);
+  color: var(--accent);
+}
+
+.matrix-radio-dot {
+  position: relative;
+  width: 13px;
+  height: 13px;
+  border: 1px solid var(--line-strong);
+  border-radius: 50%;
+  transition: border-color 0.16s;
+}
+
+.matrix-radio-dot.checked {
+  border-color: rgba(var(--accent-rgb), 0.6);
+}
+
+.matrix-radio-dot.checked::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.matrix-edit-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 18px;
+}
+
+.matrix-edit-reset {
+  margin-right: auto;
+  padding: 6px 8px;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text-tertiary);
+  font-size: 12px;
+  cursor: default;
+  transition:
+    color 0.16s,
+    background 0.16s;
+}
+
+.matrix-edit-reset:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
+/* 保存钮：accent tint（同 detail-popover-danger 的 tint 语言，无实心填充）。
+   .detail-popover-action 在本文件后面定义，同特异性会反盖，选择器必须
+   带上 .matrix-edit-actions 父级把特异性提到 (0,2,0)。 */
+.matrix-edit-actions .matrix-edit-save {
+  border-color: rgba(var(--accent-rgb), 0.4);
+  background: rgba(var(--accent-rgb), 0.14);
+  color: var(--accent);
+}
+
+.matrix-edit-actions .matrix-edit-save:hover {
+  border-color: rgba(var(--accent-rgb), 0.5);
+  background: rgba(var(--accent-rgb), 0.22);
+  color: var(--accent);
+}
+
+/* 弹窗内自绘下拉（设置页语言行的路数：绝对定位在行内，随面板滚动）。 */
+.matrix-select {
+  position: relative;
+}
+
+.matrix-select-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-1);
+  color: var(--text);
+  font-size: 12px;
+  cursor: default;
+  transition: border-color 0.16s;
+}
+
+.matrix-select-trigger:hover {
+  border-color: rgba(var(--accent-rgb), 0.3);
+}
+
+.matrix-select-value {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+}
+
+.matrix-select-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.matrix-select-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  z-index: 30;
+  max-height: 220px;
+  padding: 4px;
+  overflow-y: auto;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  background: var(--panel-bg);
+  box-shadow:
+    0 16px 40px rgba(var(--shadow-rgb), 0.32),
+    inset 0 1px 0 var(--inner-highlight);
+  animation: pop-in 140ms var(--ease-out);
+}
+
+.matrix-select-option {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 6px 8px;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12px;
+  text-align: left;
+  cursor: default;
+}
+
+.matrix-select-option:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
+.matrix-select-option.selected {
+  background: rgba(var(--accent-rgb), 0.12);
+  color: var(--accent);
+}
+
+.matrix-select-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 象限内快速添加卡片：锚定浮层，标题行 + 日期行 + 清单行。 */
+.matrix-add-card {
+  position: fixed;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 300px;
+  padding: 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+  background: var(--panel-bg);
+  box-shadow:
+    0 16px 40px rgba(var(--shadow-rgb), 0.32),
+    inset 0 1px 0 var(--inner-highlight);
+  color: var(--text);
+  outline: none;
+  animation: pop-in 140ms var(--ease-out);
+}
+
+.matrix-add-inputrow {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.matrix-add-input {
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-1);
+  color: var(--text);
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.16s;
+}
+
+.matrix-add-input:focus {
+  border-color: rgba(var(--accent-rgb), 0.4);
+}
+
+.matrix-add-input[aria-invalid='true'] {
+  border-color: rgba(var(--danger-rgb), 0.5);
+}
+
+.matrix-add-input::placeholder {
+  color: var(--text-tertiary);
+}
+
+.matrix-add-hint {
+  color: var(--warning);
+  font-size: 10px;
+}
+
+/* 提交失败回执：与主快速添加的 .quick-add-note.error 同一语言（danger tint）。 */
+.matrix-add-note {
+  color: var(--danger);
+  font-size: 10px;
+}
+
+.matrix-add-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 9px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-1);
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: default;
+  transition:
+    border-color 0.16s,
+    color 0.16s;
+}
+
+.matrix-add-row:hover {
+  border-color: rgba(var(--accent-rgb), 0.3);
+  color: var(--text);
+}
+
+.matrix-add-row[aria-expanded='true'] {
+  border-color: rgba(var(--accent-rgb), 0.35);
+  color: var(--accent);
+}
+
+.matrix-add-rowlabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.matrix-add-rowvalue {
+  flex: none;
+  max-width: 60%;
+  overflow: hidden;
+  color: var(--text-tertiary);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.matrix-add-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.matrix-add-subpanel {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-1);
+}
+
 /* 日历视图：42 格月矩阵（周一起始），翻月高度恒定；chip 溢出收敛 +N。 */
 .calendar-view {
   display: flex;

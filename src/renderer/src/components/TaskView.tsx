@@ -17,6 +17,7 @@ import { ProgressRing } from './ProgressRing'
 import { QuickAdd } from './QuickAdd'
 import { StatsView } from './StatsView'
 import { MatrixView } from './MatrixView'
+import { MatrixViewMenu } from './matrix/MatrixViewMenu'
 import { CalendarView } from './CalendarView'
 import { TaskItem } from './TaskItem'
 import { TrashItem } from './TrashItem'
@@ -281,11 +282,14 @@ export function TaskView() {
                 <span>{t('views.emptyTrash')}</span>
               </button>
             ) : view === 'stats' || view === 'matrix' || view === 'calendar' ? (
-              <button className="search-trigger" onClick={() => setPaletteOpen(true)}>
-                <Search size={16} strokeWidth={1.8} aria-hidden="true" />
-                <span>{t('common.search')}</span>
-                <kbd>{displayKeys(paletteKeys)}</kbd>
-              </button>
+              <>
+                <button className="search-trigger" onClick={() => setPaletteOpen(true)}>
+                  <Search size={16} strokeWidth={1.8} aria-hidden="true" />
+                  <span>{t('common.search')}</span>
+                  <kbd>{displayKeys(paletteKeys)}</kbd>
+                </button>
+                {view === 'matrix' && <MatrixViewMenu />}
+              </>
             ) : (
               <>
                 <button className="search-trigger" onClick={() => setPaletteOpen(true)}>

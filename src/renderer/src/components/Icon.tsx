@@ -27,6 +27,7 @@ export {
   ListTodo,
   Minus,
   Moon,
+  MoreHorizontal,
   Palette,
   PanelLeftClose,
   PanelLeftOpen,
