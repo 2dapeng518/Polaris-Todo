@@ -1,8 +1,8 @@
 // CSV 导出：纯函数，无 DOM / Node 依赖，主进程与冒烟/纯函数断言共用。
-// 表头 = Csv 规范列 + 本应用扩展列（PROJECT_NAME/TAGS/STATUS），
+// 表头 = 通用规范列 + 本应用扩展列（PROJECT_NAME/TAGS/STATUS），
 // 活任务一键导出供备份/搬家（导入 CSV 功能已移除，导出为单向出口）。
 // 刻意不导出：重复规则、提醒、附件、评论（语义无法可靠对应，文档明示）。
-// 子任务走 Csv 的 INDENT 层级（父 1 / 子 2）。
+// 子任务走通用的 INDENT 层级（父 1 / 子 2）。
 
 export type CsvExportTask = {
   title: string
@@ -15,7 +15,7 @@ export type CsvExportTask = {
   subtasks: string[]
 }
 
-/** 导出表头（顺序即列顺序）：Csv 规范列 + 本应用扩展列。 */
+/** 导出表头（顺序即列顺序）：通用规范列 + 本应用扩展列。 */
 export const CSV_EXPORT_HEADERS = [
   'TYPE',
   'CONTENT',
@@ -45,7 +45,7 @@ export function formatCsvDue(iso: string): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
 }
 
-// Polaris 0-3 → Csv 1-4（4 最高）。
+// Polaris 0-3 → CSV 1-4（4 最高）。
 const toCsvPriority = (priority: number): number =>
   priority === 3 ? 4 : priority === 2 ? 3 : priority === 1 ? 2 : 1
 
@@ -67,9 +67,9 @@ function taskRow(task: CsvExportTask, indent: number, title: string): string {
   return cells.map(csvField).join(',')
 }
 
-/** 活任务（不含回收站）→ Csv 格式 CSV 文本；子任务紧随父任务 INDENT 2。
+/** 活任务（不含回收站）→ 通用 CSV 文本；子任务紧随父任务 INDENT 2。
  *  首字节带 UTF-8 BOM：中文 Windows 的 Excel 对无 BOM 的 CSV 按 GBK 解码必乱码，
- *  BOM 是其识别 UTF-8 的唯一信号；Csv 等解析器惯例剥离 BOM，不受影响。 */
+ *  BOM 是其识别 UTF-8 的唯一信号；常见解析器惯例剥离 BOM，不受影响。 */
 export function buildCsvExport(tasks: CsvExportTask[]): string {
   const lines = [CSV_EXPORT_HEADERS.join(',')]
   for (const task of tasks) {

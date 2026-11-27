@@ -66,7 +66,7 @@ async function captureSettingsScreenshot(filename: string, section: SettingsSect
   }
 }
 
-// 快捷键独立分类页：清单式键帽列表（全局热键 + 应用内快捷键，逐行铅笔改键）。
+// 快捷键独立分类页：键帽式列表（全局热键 + 应用内快捷键，逐行铅笔改键）。
 async function captureHotkeyScreenshot(filename: string): Promise<void> {
   const { mainWindow } = harnessContext()
   if (!mainWindow) return
@@ -424,7 +424,7 @@ async function seedCalendarTasks(): Promise<{ ids: string[]; errors: string[] }>
             { title: 'Monthly review', day: 28, hour: 16, project: 'polaris', priority: 2 }
           ]
         : [
-            { title: '整理同类产品调研笔记', day: 3, hour: 10, project: 'polaris', priority: 1 },
+            { title: '整理市场调研笔记', day: 3, hour: 10, project: 'polaris', priority: 1 },
             { title: '提交报销单', day: 8, hour: 17, project: 'personal', priority: 2 },
             { title: '设计评审会', day: 12, hour: 14, project: 'polaris', priority: 3 },
             { title: '给绿植浇水', day: 15, hour: 9, project: 'personal', priority: 0 },

@@ -228,7 +228,7 @@ export function MonthGrid({
         })}
       >
         <div className="calendar-cell-head">
-          {/* 日期号可点（清单式钻取）：直接落到那天的日视图；格子其余
+          {/* 日期号可点（钻取）：直接落到那天的日视图；格子其余
               区域仍是 roving 选格。tabIndex=-1 不进 Tab 动线（与 chip 一致）。 */}
           <button
             type="button"

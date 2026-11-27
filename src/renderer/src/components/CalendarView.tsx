@@ -22,7 +22,7 @@ import { CalendarFilterMenu } from './calendar/CalendarFilterMenu'
 // 日 / 多日）。锚点日住 useCalendarStore（跨子视图/会话持久），切换视图不丢
 // 锚点；月视图另有本地「可见月」状态（键盘跨月），离开日历时写回锚点。
 
-// 切换器顺序 = 主流待办应用的阅读顺序：月 / 周 / 多周 / 日 / 多日 / 列表 / 看板。
+// 切换器顺序 = 常见的阅读顺序：月 / 周 / 多周 / 日 / 多日 / 列表 / 看板。
 const SWITCHER_MODES = ['month', 'week', 'multiweek', 'day', 'multiday', 'list', 'board'] as const
 type SwitcherMode = (typeof SWITCHER_MODES)[number]
 
@@ -149,7 +149,7 @@ export function CalendarView() {
     setMonth(firstOfMonth(today))
   }
 
-  // 钻取（清单式）：点周视图表头的某天 / 月格的日期号，直接落到那天的
+  // 钻取：点周视图表头的某天 / 月格的日期号，直接落到那天的
   // 日视图——锚点同步更新，切回周视图时该列仍在原位高亮。
   const jumpToDay = (day: Date) => {
     setAnchor(day)
@@ -189,8 +189,8 @@ export function CalendarView() {
     if (!isSameMonth(anchorDay, month)) setMonth(firstOfMonth(anchorDay))
   }, [mode, anchorKey])
 
-  // 时间轴模式的标签（月份标签位置显示它，仍是年月下拉的触发器）。对齐
-  // 主流待办应用：周/多周/多日只显示主体月份（跨月取中点日所在月，不写日期
+  // 时间轴模式的标签（月份标签位置显示它，仍是年月下拉的触发器）。周/
+  // 多周/多日只显示主体月份（跨月取中点日所在月，不写日期
   // 范围），单日显示完整日期——只有一天时只给月份信息量不足。
   const rangeLabel = useMemo(() => {
     if (!timeMode) return ''

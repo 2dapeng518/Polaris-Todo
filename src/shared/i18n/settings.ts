@@ -77,7 +77,7 @@ export const settings = {
   'settings.export': '导出备份',
   'settings.import': '导入备份',
   'settings.csvExport': '导出 CSV',
-  'settings.csvExportTitle': '导出 Csv 格式 CSV（含项目 / 标签 / 子任务 / 完成态）',
+  'settings.csvExportTitle': '导出通用格式 CSV（含项目 / 标签 / 子任务 / 完成态）',
   'settings.csvExported': '已导出 CSV 文件',
   'settings.csvExportFailed': '导出失败：{error}',
   'settings.icsExport': '导出 ICS',

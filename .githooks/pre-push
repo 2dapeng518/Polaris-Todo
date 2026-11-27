@@ -1,0 +1,4 @@
+#!/bin/sh
+# 推送前守卫：扫描受保护品牌词，命中即阻止推送。
+# 安装：npm run hooks:install（或 npm install 的 prepare 阶段自动安装）
+exec node scripts/check-brand-terms.mjs

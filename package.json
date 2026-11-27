@@ -1,7 +1,7 @@
 {
   "name": "polaris-todo",
   "productName": "Polaris",
-  "version": "0.29.1",
+  "version": "0.29.2",
   "description": "Polaris — a premium local-first to-do app for Windows 11",
   "main": "./out/main/index.js",
   "license": "MIT",
@@ -24,9 +24,12 @@
     "verify:themes": "node scripts/verify-theme-contrast.mjs && node scripts/verify-theme-registry.mjs",
     "verify:datetime": "node scripts/verify-datetime.mjs",
     "verify:pure": "node scripts/verify-pure.mjs",
+    "check:brands": "node scripts/check-brand-terms.mjs",
+    "hooks:install": "node scripts/install-hooks.mjs",
     "build:win": "npm run build && electron-builder --win nsis --publish never",
     "build:mac": "npm run build && electron-builder --mac --publish never",
-    "release:win": "npm run build && electron-builder --win nsis --publish always"
+    "release:win": "npm run build && electron-builder --win nsis --publish always",
+    "prepare": "node scripts/install-hooks.mjs"
   },
   "dependencies": {
     "@fontsource-variable/geist-mono": "^5.3.0",

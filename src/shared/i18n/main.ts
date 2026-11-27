@@ -20,7 +20,7 @@ export const main = {
   'native.exportTitle': '导出备份',
   'native.importTitle': '导入备份',
   'native.csvFilter': 'CSV 文件',
-  'native.csvExportTitle': '导出 CSV（Csv 格式）',
+  'native.csvExportTitle': '导出 CSV（通用格式）',
   'native.icsExportTitle': '导出 ICS 日历',
   'native.icsFilter': 'ICS 日历文件',
   'native.jsonFilter': 'Polaris 备份',

@@ -233,7 +233,7 @@ export function TimeGridView({
   const nowMinutes = now.getHours() * 60 + now.getMinutes()
   const nowKey = dayKey(now)
 
-  // 块着色（P4 视觉补齐，对齐主流待办应用）：按所属项目的配色给块上色——背景
+  // 块着色（P4 视觉补齐）：按所属项目的配色给块上色——背景
   // 低透明度 + 左侧实色条 + 边框中透明度；无项目任务保持 accent 中性色。
   // 完成态仍由 .is-done 的整体降透明承担；due-only 虚线块用更浅背景。
   const projectColor = (task: Task): string | null => {
@@ -404,7 +404,7 @@ export function TimeGridView({
     setCreateTitle('')
   }
 
-  // 表头对齐主流待办应用：周几名与日期数字分两行（今天数字吃圆形徽章）。
+  // 表头：周几名与日期数字分两行（今天数字吃圆形徽章）。
   // 多列用两字缩写（周四 / Thu），单日整列放得下全名（星期四 / Thursday）。
   const headWeekday = (day: Date): string =>
     format(day, days.length === 1 ? 'EEEE' : 'EEE', { locale: en ? enUS : zhCN })

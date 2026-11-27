@@ -2869,7 +2869,7 @@ button.calendar-daynum:hover {
   color: var(--accent);
 }
 
-/* 今天数字圆形徽章（月格与多周日格一致，对齐主流待办应用）。 */
+/* 今天数字圆形徽章（月格与多周日格一致）。 */
 .calendar-cell.is-today .calendar-daynum,
 .multiweek-cell.is-today .calendar-daynum {
   display: inline-flex;
@@ -3427,11 +3427,11 @@ button.calendar-daynum:hover {
   background: transparent;
   color: var(--text-secondary);
   font-size: 11px;
-  /* 表头点击即钻取到那天的日视图（清单式），指针提示可点。 */
+  /* 表头点击即钻取到那天的日视图，指针提示可点。 */
   cursor: pointer;
 }
 
-/* 日期数字单独一行，今天吃圆形徽章（对齐主流待办应用）。 */
+/* 日期数字单独一行，今天吃圆形徽章。 */
 .timegrid-dayhead-num {
   display: inline-flex;
   align-items: center;
@@ -6624,7 +6624,7 @@ button.calendar-daynum:hover {
   transform: translateX(16px);
 }
 
-/* ---------- 快捷键页（清单式键帽列表） ---------- */
+/* ---------- 快捷键页（键帽式列表） ---------- */
 /* 一行一个快捷键：左动作名、右键帽、最右编辑铅笔；点铅笔该行进入内联录制。 */
 .shortcut-list-card {
   padding: 4px 16px;

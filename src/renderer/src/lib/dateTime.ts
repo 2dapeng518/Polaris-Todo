@@ -25,7 +25,7 @@ export function weekdayLabels(locale: Locale = DEFAULT_LOCALE): readonly string[
   return locale === 'en' ? EN_WEEKDAY_LABELS : WEEKDAY_LABELS
 }
 
-// 日历套件（月格/多周/时间轴表头）用两字「周日」风格，对齐主流待办应用；
+// 日历套件（月格/多周/时间轴表头）用两字「周日」风格，贴合中文习惯；
 // 迷你月历与日期选择器空间小，仍用上面的单字版。
 const WEEKDAY_LABELS_SHORT = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'] as const
 

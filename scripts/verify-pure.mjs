@@ -744,7 +744,7 @@ console.log('=== 自定义重复：parse/build 往返真值表 ===')
     const one = buildCsvExport([{ ...sample, priority: p, subtasks: [], tags: [], notes: '' }])
     const want = '\uFEFF' + CSV_EXPORT_HEADERS.join(',') + '\r\n' + `task,"圆环任务,带逗号",,${p + 1},1,圆环项目,,active,2026-11-20T09:05:00,en,,\r\n`
     const ok = one === want
-    assert(ok, `优先级 ${p} → Csv ${p + 1}` + (ok ? '' : `（实得 ${JSON.stringify(one)}）`))
+    assert(ok, `优先级 ${p} → CSV ${p + 1}` + (ok ? '' : `（实得 ${JSON.stringify(one)}）`))
   }
   const assembled = csvExportFromBackup({
     projects: [{ id: 'p1', name: '装配项目' }],

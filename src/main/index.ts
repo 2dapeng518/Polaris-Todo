@@ -248,7 +248,7 @@ function buildBackupPayload(): BackupData {
 }
 
 // 自动备份：启动时 + 运行期每小时兜底检查，最新一份超过设定周期（或不存在）
-// 才写一份，复用导出序列化 + 原子写，保留最近 21 份（对齐 Csv 的保留份数）。
+// 才写一份，复用导出序列化 + 原子写，保留最近 21 份（固定份数上限）。
 // 周期可配（meta auto_backup_interval_hours，0 = 关闭），存 meta 表不进迁移；
 // 运行期兜底修掉「托盘长驻几天不重启就不备份」的空窗。失败只留痕，不阻塞启动。
 const AUTO_BACKUP_KEEP = 21
@@ -674,7 +674,7 @@ app.whenReady().then(() => {
   // 重装后 localStorage 为空，渲染层据此回填 meta 权威值（见 ThemeSync）。
   ipcMain.handle('app:get-theme', () => getCurrentTheme())
 
-  // CSV 导出：Csv 规范列 + 本应用扩展列（shared/csvExport），活任务一键
+  // CSV 导出：通用规范列 + 本应用扩展列（shared/csvExport），活任务一键
   // 导出供备份/搬家；回收站不随 CSV 走；子任务走 INDENT 2 紧随父任务。
   ipcMain.handle('data:export-csv', async (event) => {
     try {
