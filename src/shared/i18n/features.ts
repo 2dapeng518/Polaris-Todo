@@ -35,6 +35,7 @@ export const features = {
   'matrix.sort.priority': '优先级',
   'matrix.sort.title': '标题',
   'matrix.sort.created': '创建时间',
+  'matrix.sort.manual': '手动',
   'matrix.order.asc': '从旧到新',
   'matrix.order.desc': '从新到旧',
   'matrix.menu.edit': '编辑',

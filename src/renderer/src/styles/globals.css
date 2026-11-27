@@ -2716,6 +2716,48 @@ textarea {
   gap: 8px;
 }
 
+/* 象限头是卡片拖拽手柄：抓取光标只在可拖区域出现（按钮上由 dragstart 拦掉）。 */
+.matrix-quadrant-head[draggable='true'] {
+  cursor: grab;
+}
+
+.matrix-quadrant-head[draggable='true']:active {
+  cursor: grabbing;
+}
+
+/* 拖拽反馈：目标格描边高亮，被拖的卡片/任务半隐。 */
+.matrix-quadrant.is-drop-target {
+  border-color: rgba(var(--accent-rgb), 0.45);
+  background: rgba(var(--accent-rgb), 0.04);
+}
+
+.matrix-quadrant.is-dragging {
+  opacity: 0.55;
+}
+
+/* 任务行拖拽壳：TaskItem 共用组件不感知拖拽，由这层提供命中区与插入线。 */
+.matrix-row {
+  position: relative;
+  border-radius: 8px;
+}
+
+.matrix-row.is-dragging {
+  opacity: 0.45;
+}
+
+/* 格内手动排序的插入位置：任务行上沿的 accent 细线。 */
+.matrix-row.is-drop-before::before {
+  content: '';
+  position: absolute;
+  top: -4px;
+  left: 2px;
+  right: 2px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--accent);
+  pointer-events: none;
+}
+
 .matrix-quadrant-title {
   font-size: 13px;
   font-weight: 600;
@@ -2738,7 +2780,8 @@ textarea {
   display: flex;
   flex: 1;
   flex-direction: column;
-  gap: 6px;
+  /* 与主列表同档：行间 2px + 任务行自身内边距，矩阵里更紧凑。 */
+  gap: 2px;
   min-height: 0;
   /* 滚动条常驻沟槽，出现/消失时行宽不跳；滚动不传染外层。 */
   overflow-y: auto;
@@ -2941,7 +2984,13 @@ textarea {
 .matrix-quadrant-group {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 2px;
+}
+
+/* 矩阵内的任务行收紧垂直内边距（12→8）：格内空间有限，行距仍保留可读性；
+   水平内边距不动，与象限头文字对齐。其他视图不受影响。 */
+.matrix-row .task-item {
+  padding: 8px 12px;
 }
 
 /* 「编辑象限」弹窗：confirm-overlay/panel 浮层语言 + 表单网格。 */

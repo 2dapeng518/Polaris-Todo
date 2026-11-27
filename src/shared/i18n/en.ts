@@ -499,6 +499,7 @@ export const en: Messages = {
   'matrix.sort.priority': 'Priority',
   'matrix.sort.title': 'Title',
   'matrix.sort.created': 'Created',
+  'matrix.sort.manual': 'Manual',
   'matrix.order.asc': 'Old to new',
   'matrix.order.desc': 'New to old',
   'matrix.menu.edit': 'Edit',

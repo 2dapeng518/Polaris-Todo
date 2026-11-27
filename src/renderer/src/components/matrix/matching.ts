@@ -45,7 +45,7 @@ export type MatrixFilter = {
 }
 
 export type MatrixGroupMode = 'none' | 'time'
-export type MatrixSortMode = 'time' | 'priority' | 'title' | 'created'
+export type MatrixSortMode = 'time' | 'priority' | 'title' | 'created' | 'manual'
 export type MatrixSortDir = 'asc' | 'desc'
 
 export type QuadrantPrefs = {
@@ -60,7 +60,13 @@ export function isMatrixGroupMode(value: unknown): value is MatrixGroupMode {
 }
 
 export function isMatrixSortMode(value: unknown): value is MatrixSortMode {
-  return value === 'time' || value === 'priority' || value === 'title' || value === 'created'
+  return (
+    value === 'time' ||
+    value === 'priority' ||
+    value === 'title' ||
+    value === 'created' ||
+    value === 'manual'
+  )
 }
 
 export function isMatrixSortDir(value: unknown): value is MatrixSortDir {
@@ -230,7 +236,26 @@ export function sortTasks(tasks: Task[], sort: MatrixSortMode, dir: MatrixSortDi
         return collator.compare(a.title, b.title) * sign
       case 'created':
         return (Date.parse(a.createdAt) - Date.parse(b.createdAt)) * sign
+      case 'manual':
+        return 0
     }
   })
   return sorted
+}
+
+// 手动排序：按保存的 id 序列排列；未知 id（新任务、刚从别处拖入）按传入
+// 顺序追加在末尾——新任务不插队。空序列 = 全部按传入顺序（首次切到手动
+// 模式时会先快照当时的可见顺序，见 MatrixView）。
+export function applyManualOrder(tasks: Task[], order: readonly string[]): Task[] {
+  if (order.length === 0) return [...tasks]
+  const rank = new Map<string, number>()
+  order.forEach((id, index) => rank.set(id, index))
+  return [...tasks].sort((a, b) => {
+    const rankA = rank.get(a.id)
+    const rankB = rank.get(b.id)
+    if (rankA === undefined && rankB === undefined) return 0
+    if (rankA === undefined) return 1
+    if (rankB === undefined) return -1
+    return rankA - rankB
+  })
 }

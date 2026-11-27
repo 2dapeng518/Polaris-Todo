@@ -3078,9 +3078,60 @@ export async function runSmokeTest(): Promise<void> {
         const listScrolled = laterList.scrollTop > 0;
         const mainEl = document.querySelector('.main');
         const noOuterScroll = mainEl.scrollHeight <= mainEl.clientHeight + 1;
+        step = 'drag';
+        const TASK_MIME = 'application/x-polaris-matrix-task';
+        const QUAD_MIME = 'application/x-polaris-matrix-quadrant';
+        const dragSeed = await window.polaris.tasks.create({ title: '冒烟拖拽', priority: 0, dueAt: null, projectId: null });
+        window.dispatchEvent(new Event('focus'));
+        if (!(await waitFor(() => document.querySelector('[data-quadrant="later"] [data-matrix-row="' + dragSeed.id + '"]')))) throw new Error('drag seed row missing');
+        const dragRow = document.querySelector('[data-matrix-row="' + dragSeed.id + '"]');
+        const dragDt = new DataTransfer();
+        dragDt.setData(TASK_MIME, dragSeed.id);
+        dragRow.dispatchEvent(new DragEvent('dragstart', { bubbles: true, cancelable: true, dataTransfer: dragDt }));
+        const doSection = document.querySelector('[data-quadrant="do"]');
+        doSection.dispatchEvent(new DragEvent('dragover', { bubbles: true, cancelable: true, dataTransfer: dragDt }));
+        doSection.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: dragDt }));
+        dragRow.dispatchEvent(new DragEvent('dragend', { bubbles: true, dataTransfer: dragDt }));
+        const dragMoved = await waitFor(() => !!document.querySelector('[data-quadrant="do"] [data-matrix-row="' + dragSeed.id + '"]'));
+        const movedTask = (await window.polaris.tasks.list()).find((item) => item.id === dragSeed.id);
+        const dragPriority = Boolean(movedTask && movedTask.priority >= 2);
+        step = 'drag-swap';
+        const swapHead = document.querySelector('[data-quadrant="do"] .matrix-quadrant-head');
+        const laterSection = document.querySelector('[data-quadrant="later"]');
+        const swapDt = new DataTransfer();
+        swapDt.setData(QUAD_MIME, 'do');
+        swapHead.dispatchEvent(new DragEvent('dragstart', { bubbles: true, cancelable: true, dataTransfer: swapDt }));
+        laterSection.dispatchEvent(new DragEvent('dragover', { bubbles: true, cancelable: true, dataTransfer: swapDt }));
+        laterSection.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: swapDt }));
+        swapHead.dispatchEvent(new DragEvent('dragend', { bubbles: true, dataTransfer: swapDt }));
+        const quadrantOrder = () => [...document.querySelectorAll('.matrix-quadrant')].map((el) => el.getAttribute('data-quadrant'));
+        const swapOk = await waitFor(() => quadrantOrder()[0] === 'later' && quadrantOrder()[3] === 'do');
+        step = 'drag-manual';
+        document.querySelector('.matrix-view-menu-trigger').click();
+        const resetRow2 = await waitFor(() => [...document.querySelectorAll('.matrix-menu .matrix-menu-row')].find((el) => el.textContent.includes('恢复默认')));
+        if (!resetRow2) throw new Error('reset row missing (drag)');
+        resetRow2.click();
+        const orderReset = await waitFor(() => quadrantOrder()[0] === 'do' && quadrantOrder()[3] === 'later');
+        document.querySelector('[data-quadrant="later"] [data-matrix-menu="later"]').click();
+        const manualRow = await waitFor(() => [...document.querySelectorAll('.matrix-menu .matrix-menu-row')].find((el) => el.textContent.trim() === '手动'));
+        if (!manualRow) throw new Error('manual sort option missing');
+        manualRow.click();
+        const laterRows = () => [...document.querySelectorAll('[data-quadrant="later"] [data-matrix-row]')].map((el) => el.getAttribute('data-matrix-row'));
+        if (!(await waitFor(() => laterRows().length >= 2))) throw new Error('manual rows missing');
+        const manualBefore = laterRows();
+        const manualDragged = manualBefore[1];
+        const manualRowEl = document.querySelector('[data-matrix-row="' + manualDragged + '"]');
+        const manualFirst = document.querySelector('[data-matrix-row="' + manualBefore[0] + '"]');
+        const manualDt = new DataTransfer();
+        manualDt.setData(TASK_MIME, manualDragged);
+        manualRowEl.dispatchEvent(new DragEvent('dragstart', { bubbles: true, cancelable: true, dataTransfer: manualDt }));
+        manualFirst.dispatchEvent(new DragEvent('dragover', { bubbles: true, cancelable: true, dataTransfer: manualDt }));
+        manualFirst.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: manualDt }));
+        manualRowEl.dispatchEvent(new DragEvent('dragend', { bubbles: true, dataTransfer: manualDt }));
+        const manualOk = await waitFor(() => laterRows()[0] === manualDragged);
         step = 'layout-measured';
         return {
-          ok: added && prefsStored && equalCards && listScrolls && listScrolled && noOuterScroll,
+          ok: added && prefsStored && equalCards && listScrolls && listScrolled && noOuterScroll && dragMoved && dragPriority && swapOk && orderReset && manualOk,
           step,
           prefsStored,
           cascadeMoved: true,
@@ -3088,7 +3139,12 @@ export async function runSmokeTest(): Promise<void> {
           equalCards,
           listScrolls,
           listScrolled,
-          noOuterScroll
+          noOuterScroll,
+          dragMoved,
+          dragPriority,
+          swapOk,
+          orderReset,
+          manualOk
         };
       } catch (error) {
         return { step, error: String(error) };

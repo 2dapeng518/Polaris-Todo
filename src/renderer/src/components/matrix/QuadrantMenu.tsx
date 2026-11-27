@@ -9,12 +9,14 @@ type QuadrantMenuProps = {
   quadrantId: QuadrantId
   /** 菜单里的「编辑」行：打开该象限的编辑弹窗（弹窗由 MatrixView 统一挂载）。 */
   onEdit: () => void
+  /** 切到「手动」排序前快照当前可见顺序（MatrixView 提供）。 */
+  onManualSort: () => void
 }
 
 // 象限头「…」菜单：编辑行 + 分组 / 排序 / 顺序三段单选。仓库没有 flyout
 // 先例，照 CalendarFilterMenu 的「分组头 + menuitemradio 行」单面板分区；
 // 选中即生效并收起（日历两菜单的同款纪律）。
-export function QuadrantMenu({ quadrantId, onEdit }: QuadrantMenuProps) {
+export function QuadrantMenu({ quadrantId, onEdit, onManualSort }: QuadrantMenuProps) {
   const t = useT()
   const [open, setOpen] = useState(false)
   const triggerRef = useRef<HTMLButtonElement>(null)
@@ -48,7 +50,8 @@ export function QuadrantMenu({ quadrantId, onEdit }: QuadrantMenuProps) {
     { value: 'time', label: t('matrix.sort.time') },
     { value: 'priority', label: t('matrix.sort.priority') },
     { value: 'title', label: t('matrix.sort.title') },
-    { value: 'created', label: t('matrix.sort.created') }
+    { value: 'created', label: t('matrix.sort.created') },
+    { value: 'manual', label: t('matrix.sort.manual') }
   ]
   const dirOptions: Array<{ value: MatrixSortDir; label: string }> = [
     { value: 'asc', label: t('matrix.order.asc') },
@@ -126,7 +129,13 @@ export function QuadrantMenu({ quadrantId, onEdit }: QuadrantMenuProps) {
               className={`matrix-menu-row${prefs.sort === option.value ? ' is-active' : ''}`}
               role="menuitemradio"
               aria-checked={prefs.sort === option.value}
-              onClick={() => pickAndClose(() => setSort(quadrantId, option.value))}
+              onClick={() =>
+                pickAndClose(() => {
+                  // 切手动前先按当前可见顺序打底，避免跳回 DB 顺序。
+                  if (option.value === 'manual') onManualSort()
+                  setSort(quadrantId, option.value)
+                })
+              }
             >
               <span className="matrix-menu-name">{option.label}</span>
               {prefs.sort === option.value && <Check size={12} aria-hidden="true" />}
