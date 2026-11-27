@@ -3064,7 +3064,32 @@ export async function runSmokeTest(): Promise<void> {
         input.dispatchEvent(new Event('input', { bubbles: true }));
         input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
         const added = await waitFor(() => titles('later').includes('冒烟象限新增'));
-        return { ok: added && prefsStored, step, prefsStored, cascadeMoved: true };
+        step = 'layout';
+        for (let i = 1; i <= 20; i += 1) {
+          await window.polaris.tasks.create({ title: '冒烟布局' + i, priority: 0, dueAt: null, projectId: null });
+        }
+        window.dispatchEvent(new Event('focus'));
+        if (!(await waitFor(() => document.querySelectorAll('[data-quadrant="later"] .task-item').length > 15))) throw new Error('layout rows missing');
+        const cardHeights = [...document.querySelectorAll('.matrix-quadrant')].map((el) => Math.round(el.getBoundingClientRect().height));
+        const equalCards = Math.max(...cardHeights) - Math.min(...cardHeights) <= 1;
+        const laterList = document.querySelector('[data-quadrant="later"] .matrix-quadrant-list');
+        const listScrolls = laterList.scrollHeight > laterList.clientHeight + 2;
+        laterList.scrollTop = 50;
+        const listScrolled = laterList.scrollTop > 0;
+        const mainEl = document.querySelector('.main');
+        const noOuterScroll = mainEl.scrollHeight <= mainEl.clientHeight + 1;
+        step = 'layout-measured';
+        return {
+          ok: added && prefsStored && equalCards && listScrolls && listScrolled && noOuterScroll,
+          step,
+          prefsStored,
+          cascadeMoved: true,
+          cardHeights,
+          equalCards,
+          listScrolls,
+          listScrolled,
+          noOuterScroll
+        };
       } catch (error) {
         return { step, error: String(error) };
       } finally {

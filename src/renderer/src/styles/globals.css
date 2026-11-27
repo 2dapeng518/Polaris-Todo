@@ -2685,20 +2685,26 @@ textarea {
   flex-shrink: 0;
 }
 
-/* 四象限：2×2 卡片网格，窄屏单列堆叠。克制配色，信号色只留给任务本身。 */
+/* 四象限：2×2 卡片网格，窄屏单列堆叠。克制配色，信号色只留给任务本身。
+   高度链同日历月格：视图吃满主区剩余高度，两行 minmax(0,1fr) 等分，卡片
+   恒等大；任务多时由每个象限的列表内部滚动，外层页面不再滚。 */
 .matrix-view {
   display: grid;
   grid-template-columns: 1fr 1fr;
+  grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
   gap: 12px;
-  align-items: start;
+  align-items: stretch;
+  flex: 1;
+  min-height: 0;
 }
 
 .matrix-quadrant {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  min-height: 120px;
+  min-height: 0;
   padding: 12px;
+  overflow: hidden;
   border: 1px solid var(--line);
   border-radius: 12px;
   background: var(--surface-1);
@@ -2730,19 +2736,43 @@ textarea {
 
 .matrix-quadrant-list {
   display: flex;
+  flex: 1;
   flex-direction: column;
   gap: 6px;
+  min-height: 0;
+  /* 滚动条常驻沟槽，出现/消失时行宽不跳；滚动不传染外层。 */
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  padding-right: 2px;
 }
 
+/* 空态在整格里垂直居中对齐（对齐参考设计）。 */
 .matrix-quadrant-empty {
-  margin: 4px 0;
+  display: grid;
+  flex: 1;
+  place-items: center;
+  margin: 0;
   font-size: 12px;
   color: var(--text-tertiary);
 }
 
+/* 窄窗（主窗口 minWidth 980 不会触发，保留给更窄的宿主）退回自然高度、
+   整体滚动，避免每格被压成一条缝。 */
 @media (max-width: 960px) {
   .matrix-view {
     grid-template-columns: 1fr;
+    grid-template-rows: none;
+    flex: none;
+  }
+
+  .matrix-quadrant {
+    min-height: 120px;
+  }
+
+  .matrix-quadrant-list {
+    flex: none;
+    overflow: visible;
   }
 }
 
@@ -4579,6 +4609,22 @@ button.calendar-daynum:hover {
   .task-list {
     display: block;
     height: auto;
+    max-height: none;
+    overflow: visible;
+  }
+
+  /* 四象限在纸面自然展开：取消等分高度与每格内部滚动，长列表不被裁切。 */
+  .matrix-view {
+    display: grid;
+    grid-template-rows: none;
+    flex: none;
+    height: auto;
+    overflow: visible;
+  }
+
+  .matrix-quadrant,
+  .matrix-quadrant-list {
+    min-height: 0;
     max-height: none;
     overflow: visible;
   }
