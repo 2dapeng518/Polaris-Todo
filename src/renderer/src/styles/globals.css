@@ -2823,7 +2823,8 @@ body.matrix-card-dragging * {
   border-radius: 999px;
   background: var(--hover-soft);
   color: var(--text-tertiary);
-  font-size: 10.5px;
+  /* 与应用其余微字号（11px）对齐：10.5 是全局唯一离格值。 */
+  font-size: 11px;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
@@ -2896,6 +2897,13 @@ body.matrix-card-dragging * {
   color: var(--quadrant-tint, var(--text-tertiary));
   font-size: 12px;
   font-weight: 650;
+}
+
+/* 浅色底上优先级色偏淡：与任务色点同一套校正（见 .meta-dot 规则）。 */
+[data-theme='light'] .matrix-quadrant-num,
+[data-theme='sand'] .matrix-quadrant-num,
+[data-theme='sky'] .matrix-quadrant-num {
+  filter: brightness(0.82) saturate(1.15);
 }
 
 .matrix-quadrant-actions {
