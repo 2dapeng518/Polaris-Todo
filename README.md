@@ -90,7 +90,7 @@ Polaris 面向 Windows 11 桌面，用 Electron 构建，数据落在本机 SQLi
 - **独立设置窗口**：设置不再是主界面里的浮层，而是一扇独立小窗——左侧分类导航（外观 / 常规 / 快捷键 / 数据与备份 / 本地 MCP 服务），「关于」钉在导航末尾，右侧只显示当前分类。它是主窗口的子窗口（始终盖在主窗口上方、非模态，可以开着设置同时干活），单例不叠第二扇，Esc 关窗，托盘「设置」与侧栏按钮打开的是同一扇。
 - **界面语言**：设置窗口「外观」页可在简体中文 / English 之间切换，界面文字、日期格式与托盘菜单立即更新并记住选择；系统通知与原生文件对话框同步使用当前语言。
 - **键盘优先与无障碍**：命令面板（`Ctrl K`）与窄屏详情有焦点陷阱，宽屏详情保持列表可操作；支持 skip link、reduced motion；全应用十处输入框统一柔和聚焦语言（淡边 + 浅光晕），焦点环绝不与填充同色。
-- **设置窗口收纳**：一页只放一个分类，无需在一屏里塞下全部；外观页的六张主题小卡（色样 + 名字，气质在悬浮提示）窄窗自动折成两行三列；令牌自适应短掩码（头尾各随盒宽自适应、保底头 4 尾 4、封顶头 12 尾 12，中段至少藏 37 位）按内容收窄居左、用法说明吃中间余宽、复制 / 重置贴右缘同一行；备份按钮行 2×2 网格、钮内文字永不折行；自动备份列表住「管理…」模态对话框，开关对话框不动页面布局；关于页带星标与版本号、检查更新与状态行、字体 / 图标署名和「打开声明目录」；窗口保留 Windows 原生最小化 / 最大化 / 关闭按钮。
+- **设置窗口收纳**：一页只放一个分类，无需在一屏里塞下全部；外观页的六张主题小卡（色样 + 名字，气质在悬浮提示）窄窗自动折成两行三列；令牌自适应短掩码（头尾各随盒宽自适应、保底头 4 尾 4、封顶头 12 尾 12，中段至少藏 37 位）按内容收窄居左、用法说明吃中间余宽、复制 / 重置贴右缘同一行；本地 MCP 页在令牌行下方还有按客户端切换的配置卡（页签 + 配置文件位置 + 等宽配置块 + 一键复制）；备份按钮行 2×2 网格、钮内文字永不折行；自动备份列表住「管理…」模态对话框，开关对话框不动页面布局；关于页带星标与版本号、检查更新与状态行、字体 / 图标署名和「打开声明目录」；窗口保留 Windows 原生最小化 / 最大化 / 关闭按钮。
 - **关于与署名**：版本号在设置窗口「关于」页的品牌行；显示 MIT 许可与字体 / 图标署名，可一键打开声明目录；完整第三方组件与字体声明随安装包放在 `resources/NOTICE` 与 `resources/licenses/`。
 
 ## 界面预览
@@ -305,7 +305,7 @@ npm run dev
 | `npm run smoke` | 启动真实应用跑冒烟测试（需先 `npm run build`） |
 | `npm run verify:themes` | 主题对比度与注册表不变量校验 |
 | `npm run verify:datetime` | 日期时间纯函数不变量校验（「今天」不落过去等） |
-| `npm run verify:pure` | 快速添加解析 + 回收站保留期真值表校验（纯 Node，不启动 Electron） |
+| `npm run verify:pure` | 快速添加解析 + 回收站保留期 + MCP 客户端配置真值表校验（纯 Node，不启动 Electron） |
 | `npm run preview` | 预览生产构建 |
 | `npm run build:win` | 构建并生成 NSIS 安装包（`--publish never`，不上传） |
 | `npm run build:mac` | 构建并生成 macOS 安装包 |
@@ -320,7 +320,7 @@ npm run dev
 src/
   main/        Electron 主进程、SQLite、IPC、提醒、托盘、自启、热键、更新、MCP
   preload/     contextBridge API
-  shared/      共享类型、主题注册表、重复规则、快速添加解析、CSV 导出
+  shared/      共享类型、主题注册表、重复规则、快速添加解析、MCP 客户端模板、CSV 导出
   renderer/
     index.html
     splash.html    启动页（独立小窗入口）
@@ -340,14 +340,14 @@ build/         应用图标与安装包资源
 
 1. 改代码，用 `npm run dev` 验证交互。
 2. 运行 `npm run typecheck`。
-3. 运行 `npm run build && npm run smoke`；动过主题加跑 `npm run verify:themes`，动过 `lib/dateTime.ts` 加跑 `npm run verify:datetime`，动过 `shared/quickAddParse.ts` / `shared/retention.ts` 先跑秒级的 `npm run verify:pure` 快速反馈。
+3. 运行 `npm run build && npm run smoke`；动过主题加跑 `npm run verify:themes`，动过 `lib/dateTime.ts` 加跑 `npm run verify:datetime`，动过 `shared/quickAddParse.ts` / `shared/retention.ts` / `shared/mcpClients.ts` 先跑秒级的 `npm run verify:pure` 快速反馈。
 4. 需要看视觉结果时，先 `POLARIS_HARNESS=1 npm run build` 带 harness 重建（生产构建会剥离截图代码，直接截会静默无产出），再 `POLARIS_SHOT=<mode> npx electron .` 截图到仓库根目录（模式清单见下方折叠块）；截完跑一次 `npm run build` 恢复生产态；验证时请加 `--user-data-dir` 隔离，避免改写真实配置目录的主题。英文界面截图加 `POLARIS_LOCALE=en`（首启种子与截图选择器随语言切换），归档在 `docs/screenshots/en/`，供 `README.en.md` 引用。
 5. 发布：递增 `package.json` 版本 → 提交并打附注 tag → **先 push main 与 tag**（否则 electron-builder 可能抢先把 tag 建在旧 HEAD 上）→ 设好 `GH_TOKEN` 跑 `npm run release:win`。发完核对 Release 资产三件套齐全：`Polaris-Setup-<版本>.exe`、`.blockmap`、`latest.yml`（electron-builder 上传偶有静默漏传，缺啥用 `gh release upload --clobber` 补）；Release 若停在 DRAFT 用 `gh release edit --draft=false` 转正。
 
 <details>
 <summary><b>POLARIS_SHOT 截图模式清单</b></summary>
 
-模式包括 `detail`、`palette`、`projects`、`reminder`、`reminder-detail`、`settings` / `settings-general` / `settings-data` / `settings-mcp` / `settings-about`（各开设置窗口对应分类页，MCP 那张会临时启用服务拍令牌行再恢复）、`sidebar-collapsed`（收起侧栏）、`theme-menu`、`palette-theme`、`toast`、`recurrence`、`parse`、`parse-past`、`parse-notice`、`parse-blocked`、`due-picker`、`due-clear`、`trash` 及各自的 `light-` 变体，另有仅深色的 `trash-confirm`（回收站的彻底删除确认弹窗）、`narrow`（先把窗口缩到 1100×800 再截详情栏）、`calendar`（自种八条散布当月的任务，含逾期与一条已完成，截完硬删清场）、`matrix` 与 `stats`（用首启示例数据截四象限与统计），以及 `themes`（逐套截取六主题主视图、展开的主题菜单与主题选择器）、`splash`（逐六主题截取启动页，不触碰主窗口主题）。回收站截图会自种两条已删任务、截完硬删清场。README 里的截图归档在 `docs/screenshots/`。
+模式包括 `detail`、`palette`、`projects`、`reminder`、`reminder-detail`、`settings` / `settings-general` / `settings-data` / `settings-mcp` / `settings-about`（各开设置窗口对应分类页，MCP 那张会临时启用服务拍令牌行与客户端配置卡再恢复）、`sidebar-collapsed`（收起侧栏）、`theme-menu`、`palette-theme`、`toast`、`recurrence`、`parse`、`parse-past`、`parse-notice`、`parse-blocked`、`due-picker`、`due-clear`、`trash` 及各自的 `light-` 变体，另有仅深色的 `trash-confirm`（回收站的彻底删除确认弹窗）、`narrow`（先把窗口缩到 1100×800 再截详情栏）、`calendar`（自种八条散布当月的任务，含逾期与一条已完成，截完硬删清场）、`matrix` 与 `stats`（用首启示例数据截四象限与统计），以及 `themes`（逐套截取六主题主视图、展开的主题菜单与主题选择器）、`splash`（逐六主题截取启动页，不触碰主窗口主题）。回收站截图会自种两条已删任务、截完硬删清场。README 里的截图归档在 `docs/screenshots/`。
 
 </details>
 
@@ -375,7 +375,7 @@ npm run check:brands
 - **冒烟测试**（`scripts/smoke.mjs`）启动真实 Electron，通过 `webContents.executeJavaScript` 驱动界面，166 条具名断言覆盖从快速添加到在线更新的全链路；使用临时 userData 配置目录，不碰本机数据，失败时以非零退出码结束并单独打印 `POLARIS_SMOKE_FAILED ["断言名", …]`。
 - **主题校验**检查六套主题的 WCAG 对比度、注册表不变量与跨家族配对。
 - **日期时间校验**直接 import 渲染层纯函数并注入时钟，用字面量期望表加全天 5760 个真实时刻扫描，再覆盖 7 个时区 2026 年的每一次夏令时跳变（共 17280 个真实时刻），钉死「今天」按钮不落过去这类靠跑 UI 撞概率的边界。
-- **纯函数快速校验**（`npm run verify:pure`，CI 已挂）不启动 Electron，直接在 Node 里 import `shared/quickAddParse.ts` 与 `shared/retention.ts`，秒级跑完与冒烟 harness 同源的中文/英文解析真值表、误报反例、撤销状态机与保留期边界表；两处断言表需同步维护（`src/main/harness/assertions.ts` 的原断言保留，E2E 仍跑）。
+- **纯函数快速校验**（`npm run verify:pure`，CI 已挂）不启动 Electron，直接在 Node 里 import `shared/quickAddParse.ts`、`shared/retention.ts` 与 `shared/mcpClients.ts`，秒级跑完与冒烟 harness 同源的中文/英文解析真值表、误报反例、撤销状态机与保留期边界表，以及四种 MCP 客户端配置形状与固定前四后四短掩码表；解析/保留期两处断言表需同步维护（`src/main/harness/assertions.ts` 的原断言保留，E2E 仍跑），MCP 配置表以 `shared/mcpClients.ts` 为唯一来源。
 
 期望值全部写成字面量，不经过被测函数自算；跨进程等待一律走条件轮询而非固定延时。高度断言用亚像素矩形，smoke 以 CDP 仿真 125/150/200% 显示缩放与 1024×536 低分辨率视口；段宽、分隔线、小字号中文等细节仍靠手动。视觉检查通过 `POLARIS_SHOT` 截图完成（需先带 harness 重建，见开发流程第 4 步），截图和冒烟测试需在本地运行。
 
@@ -396,13 +396,13 @@ npm run check:brands
 
 **日历**：命令面板直达、42 格、任务按截止落格、无截止不进日历、翻月标签与格数、今天按钮回本月、chip 点开详情。
 
-**本地 MCP**：真实 HTTP 往返（经 IPC 取 bearer token）——initialize / tools/list / 建任务 / 列任务 / 完成任务 / GET 回 405 / 无 token 与错 token 401 / 重置后旧 token 401、新 token 200 / 关闭后拒连；token 形状钉死 `sk-` 前缀 + 64 位 hex、重复读取同值。
+**本地 MCP**：真实 HTTP 往返（经 IPC 取 bearer token）——initialize / tools/list / 建任务 / 列任务 / 完成任务 / GET 回 405 / 无 token 与错 token 401 / 重置后旧 token 401、新 token 200 / 关闭后拒连；token 形状钉死 `sk-` 前缀 + 64 位 hex、重复读取同值；客户端配置模板（四种客户端的 JSON/TOML 形状与固定前四后四短掩码）由 `verify:pure` 真值表钉住。
 
 **在线更新**：纯函数真值表、开发态手动检查答 unsupported 且不弹窗、合成快照驱动发现→进度→就绪→稍后不再弹→跳过后再推保持安静、跳过持久化与页脚重开、HTML 更新说明富文本渲染（注入 `<script>` 被消毒不执行）、开发态安装守卫报错不杀进程、更新弹窗零抖动守卫（速度 null→有值→null→100% 校验四档快照面板顶边与高度零位移、校验文案落槽、点重启先落「正在重启」反馈且守卫报错不杀进程、带错误快照把按钮重置回可点）。
 
 **托盘与热键**：构建后菜单标签恰为四项、托盘「设置」唤起主窗口并打开设置窗口、手动检查七态气泡文案真值表、开发态检查不弹窗不唤窗；热键默认开启（含自定义组合 meta 缺省断言）、设置往返、冲突降级中文提示、全局改键守卫（探测空闲组合经列表铅笔内联录制换绑落库、默认组合被占的机器上也走得通，收尾还原默认）、视图导航守卫（按 2/3/1 侧栏 active 视图跟随）、应用内改键守卫（view-today 1→9 落库 + focus 重拉生效 + 冲突拒绝 + 还原）、隐藏窗口唤起回「今天」并聚焦输入。
 
-**布局与聚焦**：设置窗口守卫——最小窗档（720×520）× 中英双语 × 六个分类页横向零溢出，MCP 启用最坏态量令牌掩码形状（前缀 + 头尾各 k，4≤k≤12 封顶）、中段隐藏、盒按内容收窄、说明槽居中、复制 / 重置贴右缘同行；布局守卫量左导航右内容、六个分类、「关于」钉导航末尾、关于页版本号与主进程一致；生命周期守卫量单例（侧栏两入口不叠第二扇）、「关于」把已开窗口切页、Esc 关窗、关后能再开；侧栏收窄守卫量 60px 图标栏、文字视觉隐藏但无障碍名称仍在、收起态 title 提示、展开按原宽复位；CSV 守卫钉导出 CSV 独立成钮（四钮 2×2、无分体箭头与浮层残留），并在主进程侧用夹具逐行字面量比对导出文本（escaping/INDENT/优先级/墙钟/完成态）；低分辨率 1024×536 紧凑档生效且侧栏/主区不溢出；页脚钉底守卫以 40 条夹具量顶 / 中 / 底三态滚动状态栏底缘恒钉主区底缘减底 padding（sticky 钉底、滚到底回流零跳变，长列表不再滚丢快捷键提示与版本）；中段滚动时列表行在状态栏上方 40px 条件渐隐带溶进背景（仅下方仍有未滚完内容时点亮，滚到底 / 短内容关闭，resting 态与归档像素不变），守卫同量三态渐隐 opacity 顶 / 中 =1、底 =0；顶边锚定守卫在 1280×843 档验开 / 关关于对话框时面板顶边、页脚顶边、外框高度、内容高度与内容宽度逐像素零位移（对话框零增高契约）；焦点环扫描覆盖主视图、详情栏、日期弹层、主题菜单展开、回收站确认弹窗五种状态，任何环与自身填充/边框同色即失败。
+**布局与聚焦**：设置窗口守卫——最小窗档（720×520）× 中英双语 × 六个分类页横向零溢出，MCP 启用最坏态（含客户端配置卡）量令牌掩码形状（前缀 + 头尾各 k，4≤k≤12 封顶）、中段隐藏、盒按内容收窄、说明槽居中、复制 / 重置贴右缘同行；布局守卫量左导航右内容、六个分类、「关于」钉导航末尾、关于页版本号与主进程一致；生命周期守卫量单例（侧栏两入口不叠第二扇）、「关于」把已开窗口切页、Esc 关窗、关后能再开；侧栏收窄守卫量 60px 图标栏、文字视觉隐藏但无障碍名称仍在、收起态 title 提示、展开按原宽复位；CSV 守卫钉导出 CSV 独立成钮（四钮 2×2、无分体箭头与浮层残留），并在主进程侧用夹具逐行字面量比对导出文本（escaping/INDENT/优先级/墙钟/完成态）；低分辨率 1024×536 紧凑档生效且侧栏/主区不溢出；页脚钉底守卫以 40 条夹具量顶 / 中 / 底三态滚动状态栏底缘恒钉主区底缘减底 padding（sticky 钉底、滚到底回流零跳变，长列表不再滚丢快捷键提示与版本）；中段滚动时列表行在状态栏上方 40px 条件渐隐带溶进背景（仅下方仍有未滚完内容时点亮，滚到底 / 短内容关闭，resting 态与归档像素不变），守卫同量三态渐隐 opacity 顶 / 中 =1、底 =0；顶边锚定守卫在 1280×843 档验开 / 关关于对话框时面板顶边、页脚顶边、外框高度、内容高度与内容宽度逐像素零位移（对话框零增高契约）；焦点环扫描覆盖主视图、详情栏、日期弹层、主题菜单展开、回收站确认弹窗五种状态，任何环与自身填充/边框同色即失败。
 
 **主题**：配对快切连点两次回到原主题（三对逐一校验）、六套主题矩阵的 `data-theme` / 持久化 / 令牌生效、标题栏主题菜单（六行齐全且顺序固定、打开即聚焦当前行、点选落库、菜单卸载后 `aria-expanded` 归位、焦点回到箭头、Esc 只收菜单），以及命令面板输入「主题」命中六条直达并选中生效。
 
