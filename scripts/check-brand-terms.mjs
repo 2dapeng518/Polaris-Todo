@@ -8,7 +8,7 @@
 import { execFileSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 
-const TERMS = JSON.parse(Buffer.from('WyLmu7TnrZQiLCLlmIDll5IiLCJ0aWNrdGljayIsInRpY2sgdGljayIsImRpZGEzNjUiLCJ0b2RvaXN0Iiwi5b6u6L2v5b6F5YqeIiwibWljcm9zb2Z0IHRvIGRvIiwibWljcm9zb2Z0IHRvZG8iLCJ3dW5kZXJsaXN0Iiwib21uaWZvY3VzIiwidGhpbmdzIDMiLCJ0aGluZ3MzIiwi56ue5ZOBIl0=', 'base64').toString('utf8'))
+const TERMS = JSON.parse(Buffer.from('WyLmu7TnrZQiLCLlmIDll5IiLCJ0aWNrdGljayIsInRpY2sgdGljayIsImRpZGEzNjUiLCJ0b2RvaXN0Iiwi5b6u6L2v5b6F5YqeIiwibWljcm9zb2Z0IHRvIGRvIiwibWljcm9zb2Z0IHRvZG8iLCJ3dW5kZXJsaXN0Iiwib21uaWZvY3VzIiwidGhpbmdzIDMiLCJ0aGluZ3MzIiwi56ue5ZOBIiwiY29tcGV0aXRvciIsImNvbXBldGl0aXZlIl0=', 'base64').toString('utf8'))
 const LOWER = TERMS.map((term) => term.toLowerCase())
 
 const hits = []
