@@ -7196,6 +7196,93 @@ button.calendar-daynum:hover {
   text-overflow: ellipsis;
 }
 
+/* 说明：住在服务卡顶部，先讲能力与边界，再让用户决定是否启用。 */
+.mcp-intro {
+  margin: 12px 0 2px;
+  color: var(--text-tertiary);
+  font-size: 11px;
+  line-height: 1.6;
+  text-wrap: pretty;
+}
+
+/* 客户端配置卡：标题+说明在左、复制按钮在右；下面依次是客户端页签、
+   配置文件位置、配置块、掩码/反馈槽。 */
+.mcp-config-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 0 9px;
+}
+
+.mcp-config-head-text {
+  min-width: 0;
+}
+
+.mcp-config-copy {
+  flex: none;
+}
+
+/* 页签沿用日历视图的分段控件语言，不另造一套；窄窗允许换行。 */
+.mcp-client-tabs {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface-1);
+}
+
+.mcp-client-tab {
+  padding: 3px 10px;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: default;
+  transition:
+    background 0.16s,
+    color 0.16s;
+}
+
+.mcp-client-tab:hover {
+  color: var(--text);
+}
+
+.mcp-client-tab.is-active {
+  background: rgba(var(--accent-rgb), 0.14);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* 配置文件位置：紧贴配置块上方的一行小字，与令牌说明同层级。 */
+.mcp-config-path {
+  margin-top: 9px;
+  color: var(--text-tertiary);
+  font-size: 11px;
+  line-height: 1.5;
+  text-wrap: pretty;
+}
+
+/* 配置块：等宽、可横向滚动；自身是滚动容器，不会把设置页撑出横向滚动条。
+   input-bg 在深浅两套主题里都与卡片底色有一档差，边界不靠重描边。 */
+.mcp-config-code {
+  margin: 6px 0 0;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--input-bg);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.6;
+  white-space: pre;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+}
+
 .about-credits {
   display: flex;
   flex-direction: column;

@@ -43,6 +43,7 @@ export const settings = {
   'settings.hotkeyOccupied': '已占用',
   'settings.hotkeyApplyFailed': '未能应用：{error}，换一个组合再试',
   'settings.mcp': '本地 MCP 服务',
+  'settings.mcpIntro': '开启后，本机的 AI 工具可以直接读取和修改 Polaris 里的任务、项目与标签。服务只监听 127.0.0.1，凭下方令牌访问；应用退出即停。复制的配置含明文令牌，别提交到公开仓库。',
   'settings.mcpEnable': '启用服务',
   'settings.mcpOff': '已关闭 · 开启后 AI 本机读写',
   'settings.mcpError': '{error}，关闭占用程序后可重新打开此开关',
@@ -57,6 +58,21 @@ export const settings = {
   'settings.mcpTokenRegenerate': '重置',
   'settings.mcpTokenRegenConfirm': '重置访问令牌？旧令牌立即失效，已配置的 MCP 客户端必须换用新令牌才能继续访问。',
   'settings.mcpTokenRegenerated': '已重置令牌，旧令牌已失效',
+  // 客户端配置卡（仅服务启用时出现）：按客户端切换一段可直接粘贴的配置。
+  // 令牌在屏幕上仍走短掩码，复制时才写入完整值——与令牌盒同一安全契约。
+  'settings.mcpClients': '接入 AI 工具',
+  'settings.mcpClientsDesc': '选一个客户端，把配置粘到它的 MCP 设置里；端点和令牌已经填好。',
+  'settings.mcpClientClaude': 'Claude Code',
+  'settings.mcpClientCursor': 'Cursor',
+  'settings.mcpClientVscode': 'VS Code',
+  'settings.mcpClientCodex': 'Codex',
+  'settings.mcpClientClaudePath': '项目根目录的 .mcp.json（首次使用需在客户端里批准）',
+  'settings.mcpClientCursorPath': '~/.cursor/mcp.json（全局配置）',
+  'settings.mcpClientVscodePath': '~/.copilot/mcp-config.json（Copilot 用户配置）',
+  'settings.mcpClientCodexPath': '~/.codex/config.toml',
+  'settings.mcpConfigCopy': '复制配置',
+  'settings.mcpConfigCopied': '配置已复制（含完整令牌）',
+  'settings.mcpConfigMasked': '屏幕以掩码显示，复制会带上完整令牌；粘贴后重启客户端生效',
   // 数据存放位置行（备份卡内）。状态行显示当前目录
   // （单行 ellipsis，全文进 title）；pendingRestart/错误替换落同一行，零增高。
   'settings.dataLocation': '数据存放位置',

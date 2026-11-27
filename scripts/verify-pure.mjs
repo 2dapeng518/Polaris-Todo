@@ -28,6 +28,7 @@ const { buildCustomRecurrence, nextMonthlyClamped, nextOccurrence, parseCustomRe
 const { CSV_EXPORT_HEADERS, buildCsvExport, csvExportFromBackup, csvField, formatCsvDue } = await import('../src/shared/csvExport.ts')
 const { buildIcsExport, icsDate, icsEscape, icsExportFromBackup, icsFold, icsInstant } = await import('../src/shared/icsExport.ts')
 const { isAutoBackupFileName } = await import('../src/shared/backupNames.ts')
+const { MCP_CLIENT_TEMPLATES, maskMcpTokenForDisplay } = await import('../src/shared/mcpClients.ts')
 
 let fail = 0
 const assert = (cond, msg) => { if (!cond) { fail++; console.log('  FAIL ' + msg) } else console.log('  PASS ' + msg) }
@@ -863,6 +864,61 @@ console.log('=== 自定义重复：parse/build 往返真值表 ===')
   let maxBytes = 0
   for (const line of folded.split('\r\n')) maxBytes = Math.max(maxBytes, new TextEncoder().encode(line).length)
   assert(maxBytes <= 75, '所有行 ≤75 octet（实得最大 ' + maxBytes + '）')
+}
+
+// MCP 客户端配置：设置页一键复制的四种形状。三种 JSON 客户端统一走 mcpServers
+// （VS Code 取当前 Copilot harness 的格式，旧 servers 已随 Local harness 退役）；
+// Codex 是 TOML，按关键行断言。掩码令牌也必须能原样生成配置——屏幕展示走的
+// 就是这条路，复制时才换成完整令牌。
+console.log('\n=== MCP 客户端配置真值表 ===')
+{
+  const endpoint = 'http://127.0.0.1:3737/mcp'
+  const token = 'sk-' + 'a1'.repeat(32)
+  const ids = MCP_CLIENT_TEMPLATES.map((client) => client.id).join(',')
+  assert(ids === 'claude,cursor,vscode,codex', `客户端顺序固定（实得 ${ids}）`)
+  for (const client of MCP_CLIENT_TEMPLATES) {
+    const text = client.build(endpoint, token)
+    assert(text.length > 0, `${client.id} 生成非空配置`)
+    if (client.id === 'codex') {
+      assert(
+        text.includes('[mcp_servers.polaris]') &&
+          text.includes(`url = "${endpoint}"`) &&
+          text.includes(`"Authorization" = "Bearer ${token}"`),
+        'Codex 用 TOML 表 + http_headers 静态 Bearer'
+      )
+    } else {
+      let parsed = null
+      try {
+        parsed = JSON.parse(text)
+      } catch {
+        parsed = null
+      }
+      assert(parsed !== null, `${client.id} 输出合法 JSON`)
+      const server = parsed?.mcpServers?.polaris
+      assert(
+        server?.type === 'http' &&
+          server?.url === endpoint &&
+          server?.headers?.Authorization === `Bearer ${token}`,
+        `${client.id} 是 Streamable HTTP + Bearer 头`
+      )
+      if (client.id === 'vscode') {
+        assert(
+          Array.isArray(server?.tools) && server.tools.length === 1 && server.tools[0] === '*',
+          'VS Code 显式声明 tools: ["*"]'
+        )
+      }
+    }
+    const masked = client.build(endpoint, 'sk-abcdef…uvwxyz')
+    assert(masked.includes('sk-abcdef…uvwxyz'), `${client.id} 掩码令牌原样进入配置`)
+  }
+  // 配置块固定短掩码：前四后四 + 5 个星号，中段永不上屏；旧无前缀 token 不补 sk-。
+  const fullToken = 'sk-' + '1234' + 'a'.repeat(56) + '5678'
+  assert(maskMcpTokenForDisplay(fullToken) === 'sk-1234*****5678', '配置块掩码：sk- + 前四 + 5 星 + 后四')
+  assert(!maskMcpTokenForDisplay(fullToken).includes('a'.repeat(56)), '配置块掩码中段不上屏')
+  assert(
+    maskMcpTokenForDisplay('1234' + 'a'.repeat(56) + '5678') === '1234*****5678',
+    '无前缀旧 token 掩码不补 sk-'
+  )
 }
 
 console.log('\n' + (fail === 0 ? '纯函数真值表全部成立 ✓' : fail + ' 项失败 ✗'))
