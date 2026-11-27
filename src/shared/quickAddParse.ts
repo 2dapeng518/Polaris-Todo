@@ -112,7 +112,9 @@ const FULLWIDTH: Record<string, string> = {
   '９': '9'
 }
 
-const PUNCT = '，,。.;；、：:？?'
+// 句末感叹号必须参与合并：日期 token 只有吞掉紧随的标点才能触到串尾锚点，
+// 否则「Call mom tomorrow!」「交报告 明天！」整段不识别（norm 已把 ！→!）。
+const PUNCT = '，,。.;；、：:？?!！'
 const ZH = '零〇一二两三四五六七八九十'
 const NUM = `(?:[0-9]{1,3}|[${ZH}]{1,4})`
 const NUM3 = `(?:[0-9]{1,2}|[${ZH}]{1,3})`
@@ -201,9 +203,12 @@ const RE_RANGE_CN = new RegExp(
   'g'
 )
 const RE_RANGE_24 = /([0-9]{1,2}):([0-9]{2})\s*(?:到|至|~|—|-)\s*([0-9]{1,2}):([0-9]{2})/g
-const EN_RANGE_CONNECT = '[ \\t]*(?:to|–|—|-)[ \t]*'
+const EN_RANGE_CONNECT = '[ \\t]*(?:to|–|—|-)[ \\t]*'
+// 前导 at 必须属于区间本身：EN_CLOCK_AMPM 也会把「at 3pm」单独收成一个钟点，
+// 两者部分重叠时 Step 3 会把「区间 + 散钟点」一起丢掉。让区间从 at 起算，
+// 散钟点就被完整包含，按「同起点、长者优先」的既有规则出局。
 const RE_RANGE_EN_AMPM = new RegExp(
-  `(?<![A-Za-z0-9])(\\d{1,2})(?::(\\d{2}))?[ \\t]*(am|pm)${EN_RANGE_CONNECT}(\\d{1,2})(?::(\\d{2}))?[ \\t]*(am|pm)?(?![A-Za-z0-9])`,
+  `(?<![A-Za-z0-9])(?:at[ \\t]+)?(\\d{1,2})(?::(\\d{2}))?[ \\t]*(am|pm)${EN_RANGE_CONNECT}(\\d{1,2})(?::(\\d{2}))?[ \\t]*(am|pm)?(?![A-Za-z0-9])`,
   'gi'
 )
 const RE_RANGE_EN_24 = new RegExp(
@@ -383,6 +388,18 @@ function applyPeriod(period: string | null | undefined, hour: number): [number, 
   if (period === '下午' || period === '傍晚') {
     if (hour === 12) return [12, 0]
     if (hour >= 1 && hour <= 11) return [hour + 12, 0]
+    return null
+  }
+  // 夜里时段（晚上 / 夜里 / 半夜 / 夜晚）：1–6 点属于「接下来的那个凌晨」，
+  // 不是当天下午。返回 [24 小时制小时, 天数偏移]，调用方把偏移加到基准日上：
+  // 今晚1点 = 次日 01:00；明晚1点（基准日已是明天）再加一天 = 后天 01:00。
+  // 12/24 是午夜；0 必须返回 null——弱时段「今晚12点」在无时段阶段已把
+  // 12 点解成 [0, 1]，随后以 hour - 12（= 0）再次调用这里，返回 [0, 0]
+  // 会把已算好的次日偏移抹掉。
+  if (period === '晚上' || period === '夜里' || period === '半夜' || period === '夜晚') {
+    if (hour === 12 || hour === 24) return [0, 1]
+    if (hour >= 7 && hour <= 11) return [hour + 12, 0]
+    if (hour >= 1 && hour <= 6) return [hour, 1]
     return null
   }
   if (hour === 12 || hour === 24) return [0, 1]

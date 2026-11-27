@@ -196,9 +196,13 @@ function TaskDetailBody({ task, titleRef, closeRef }: BodyProps) {
     const taskId = task.id
     selectTask(null)
     requestAnimationFrame(() => {
-      document
-        .querySelector<HTMLElement>(`[data-task-id="${taskId}"] .task-open`)
-        ?.focus()
+      // 完成任务后行会退进默认折叠的已完成区并卸载：查不到原行时退回
+      // 快速添加输入框，再退回主区域，绝不能把焦点丢给 body。
+      const row = document.querySelector<HTMLElement>(`[data-task-id="${taskId}"] .task-open`)
+      const fallback =
+        document.querySelector<HTMLElement>('.quick-add input') ??
+        document.querySelector<HTMLElement>('.main')
+      ;(row ?? fallback)?.focus()
     })
   }, [flushAll, selectTask, task.id])
 
@@ -399,7 +403,23 @@ function TaskDetailBody({ task, titleRef, closeRef }: BodyProps) {
           <button
             className="detail-action"
             onClick={() => {
-              void persist({ dueAt: quickDue.value })
+              // 快捷截止与日期弹层同一语义：已有截止和提醒时，提醒按相同偏移
+              // 一起平移；只改 dueAt 会让提醒漂到新截止之后（或之前）。
+              const nextDue = quickDue.value
+              if (!task.dueAt || !task.remindAt) {
+                void persist({ dueAt: nextDue })
+                return
+              }
+              const offset =
+                new Date(task.remindAt).getTime() - new Date(task.dueAt).getTime()
+              if (!Number.isFinite(offset)) {
+                void persist({ dueAt: nextDue })
+                return
+              }
+              void persist({
+                dueAt: nextDue,
+                remindAt: new Date(new Date(nextDue).getTime() + offset).toISOString()
+              })
             }}
           >
             <CalendarDays size={13} strokeWidth={1.8} aria-hidden="true" />

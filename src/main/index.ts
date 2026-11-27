@@ -79,6 +79,14 @@ log.transports.file.maxSize = 1024 * 1024
 // 检查 v1/v2 缺省字段）。类型在编译期擦除，不产生任何运行时反向依赖。
 export type BackupSchema = typeof backupSchema
 
+// 日期字段必须可解析：备份可能被手改或由第三方工具生成，而渲染层直接
+// new Date(...) 后交给 date-fns format，非法值会抛 RangeError 并卸掉整棵
+// React 树；同 ID 重导又会被跳过，应用内再也修不好。这里与 ipc.ts 的
+// dateTimeSchema 同一把尺子：宁可整份拒绝，也不把坏行写进库。
+const backupDateTimeSchema = z
+  .string()
+  .refine((value) => !Number.isNaN(Date.parse(value)), '日期无效')
+
 // 备份文件整体校验：版本号/来源标识 + 项目/任务字段，重复任务必须带截止。
 // 校验通过才落库，非法文件整体拒绝，绝不部分写入。
 const backupTaskSchema = z
@@ -87,20 +95,20 @@ const backupTaskSchema = z
     title: z.string().min(1).max(500),
     notes: z.string().max(20000),
     completed: z.boolean(),
-    completedAt: z.string().nullable(),
-    dueAt: z.string().nullable(),
+    completedAt: backupDateTimeSchema.nullable(),
+    dueAt: backupDateTimeSchema.nullable(),
     // v4 起带计划时间段；v1–v3 旧备份没有这三个字段，缺省即「未设置」。
-    startAt: z.string().nullable().optional().default(null),
-    endAt: z.string().nullable().optional().default(null),
+    startAt: backupDateTimeSchema.nullable().optional().default(null),
+    endAt: backupDateTimeSchema.nullable().optional().default(null),
     allDay: z.boolean().optional().default(false),
-    remindAt: z.string().nullable(),
-    remindedAt: z.string().nullable(),
+    remindAt: backupDateTimeSchema.nullable(),
+    remindedAt: backupDateTimeSchema.nullable(),
     recurrenceRule: z.string().nullable(),
     projectId: z.string().nullable(),
     priority: z.number().int().min(0).max(3),
-    createdAt: z.string(),
-    updatedAt: z.string(),
-    deletedAt: z.string().nullable()
+    createdAt: backupDateTimeSchema,
+    updatedAt: backupDateTimeSchema,
+    deletedAt: backupDateTimeSchema.nullable()
   })
   .refine((task) => !task.recurrenceRule || task.dueAt, '重复任务需要截止时间')
 
@@ -559,7 +567,7 @@ async function revealSettings(): Promise<void> {
 // 弹窗本身仍由渲染层既有的 update:state 推送驱动，这里不另做 UI。
 async function checkUpdatesFromTray(): Promise<void> {
   const result = await manualCheckForUpdates()
-  const feedback = describeTrayCheck(result)
+  const feedback = describeTrayCheck(result, getCurrentLocale())
   showTrayBalloon('Polaris', feedback.balloon)
   if (feedback.surface) showMainWindow()
 }

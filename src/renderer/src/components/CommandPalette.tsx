@@ -24,7 +24,7 @@ import {
 import type { AppView } from '@shared/types'
 import { useTaskStore } from '../stores/useTaskStore'
 import { useShortcutKeys } from '../stores/useShortcutsStore'
-import { eventMatchesKeys } from '../lib/shortcuts'
+import { displayKeys, eventMatchesKeys } from '../lib/shortcuts'
 import { useThemeStore } from '../stores/useThemeStore'
 import { useLocale, useT } from '../stores/useLocaleStore'
 import { THEME_META, THEME_ORDER, partnerTheme, themeFamily } from '@shared/themes'
@@ -81,9 +81,17 @@ export function CommandPalette() {
   useFocusTrap(panelRef, open, inputRef)
 
   const paletteKeys = useShortcutKeys('command-palette')
+  const quickAddKeys = useShortcutKeys('quick-add')
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
+      // 应用内快捷键允许零修饰单键：没有输入态守卫时，把命令面板绑成 P
+      // 会让任何输入框里的 p 被 preventDefault 并弹出面板。与 App/TaskView/
+      // UndoToast 的处理器保持同一道守卫。
+      const target = event.target
+      if (target instanceof HTMLElement && target.closest('input, textarea, [contenteditable="true"]')) {
+        return
+      }
       if (eventMatchesKeys(event, paletteKeys)) {
         event.preventDefault()
         setOpen(true)
@@ -112,7 +120,7 @@ export function CommandPalette() {
         kind: 'command',
         id: 'new-task',
         label: t('palette.newTask'),
-        hint: 'N',
+        hint: displayKeys(quickAddKeys),
         icon: Plus,
         run: () => {
           close()
@@ -173,7 +181,7 @@ export function CommandPalette() {
       { kind: 'command', id: 'view-stats', label: t('nav.view.stats'), icon: BarChart3, run: go('stats') },
       { kind: 'command', id: 'view-trash', label: t('nav.view.trash'), icon: Trash2, run: go('trash') }
     ]
-  }, [setOpen, setView, theme, toggleTheme, setTheme, t, locale])
+  }, [setOpen, setView, theme, toggleTheme, setTheme, t, locale, quickAddKeys])
 
   const items = useMemo<PaletteItem[]>(() => {
     const normalized = query.trim().toLowerCase()

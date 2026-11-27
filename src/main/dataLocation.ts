@@ -10,8 +10,9 @@
 // - 路径完全放开（用户拍板 2026-11-21）：不拦网盘同步文件夹，活跃库被同步
 //   客户端直接同步的损坏风险由用户自担。
 // - 运行期不换库：apply 后写指针 + pendingRestart，主进程延迟 relaunch；
-//   will-quit 时同步 checkpoint + 覆盖复制，收掉「迁移到退出之间」的最后一刻
-//   写入，两个位置的数据永不分叉。
+//   copy 模式在 will-quit 时同步 checkpoint + 覆盖复制，收掉「迁移到退出之间」
+//   的最后一刻写入，两个位置的数据永不分叉；adopt 模式目标库就是要加载的
+//   那一份，退出时绝不覆盖。
 // - 失败绝不半途生效：指针（或删指针）是最后一步，任何复制失败都保持现状，
 //   应用继续在旧位置全功能运行，错误只进状态行。
 import { app } from 'electron'
@@ -58,6 +59,9 @@ let opError: string | null = null
 // 本次会话已 apply，等待重启生效；进程重启后自然归零。
 let pendingRestart = false
 let restartTarget: string | null = null
+// apply 的模式：adopt 是「采用目标目录里已有的库」，重启后要读的是目标文件，
+// 退出兜底绝不能拿当前会话的新库覆盖它；只有 copy 模式才需要收尾复制。
+let restartAdopted = false
 
 const pointerPath = (): string => join(defaultDir, POINTER_NAME)
 
@@ -196,6 +200,7 @@ export async function applyDataDirectory(): Promise<DataLocationState> {
     opError = null
     pendingRestart = true
     restartTarget = target
+    restartAdopted = adopt
     log.info('Polaris data location applied:', target, adopt ? '(adopted)' : '(copied)')
     return getDataLocationState()
   } catch (error) {
@@ -229,6 +234,7 @@ export async function resetDataDirectory(): Promise<DataLocationState> {
     opError = null
     pendingRestart = true
     restartTarget = target
+    restartAdopted = false
     log.info('Polaris data location reset to default:', target)
     return getDataLocationState()
   } catch (error) {
@@ -258,7 +264,9 @@ export function markPointerForTest(directory: string | null): void {
  *  覆盖复制，保证重启后读到的是最后状态。失败只留痕——db.backup 的快照
  *  仍在，最多丢最后几百毫秒的写入，绝不再回滚指针。 */
 export function flushDataLocationOnQuit(): void {
-  if (!pendingRestart || !restartTarget) return
+  // adopt 模式没有复制：目标里的旧库就是要加载的那一份，退出时再覆盖会把
+  // 「采用」变成「销毁」。只有 copy 模式需要收掉迁移到退出之间的最后写入。
+  if (!pendingRestart || !restartTarget || restartAdopted) return
   try {
     checkpointCopyDbSync(join(restartTarget, 'polaris.db'))
     // 最终覆盖复制替换了目标文件，指纹随之刷新——apply 时写的已经过期。

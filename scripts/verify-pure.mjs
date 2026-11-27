@@ -64,6 +64,12 @@ const table = [
   ['明早7点跑步', '跑步', '2026-11-13 07:00', null],
   ['明早开会', '开会', '2026-11-13 07:00', null],
   ['明晚12点睡', '睡', '2026-11-14 00:00', null],
+  ['半夜1点睡觉', '睡觉', '2026-11-13 01:00', null],
+  ['夜里2点喂奶', '喂奶', '2026-11-13 02:00', null],
+  ['晚上3点开会', '开会', '2026-11-13 03:00', null],
+  ['晚上11点交报告', '交报告', '2026-11-12 23:00', null],
+  ['今晚2点', '', '2026-11-13 02:00', null],
+  ['明晚1点', '', '2026-11-14 01:00', null],
   ['今晚24点交报告', '交报告', '2026-11-13 00:00', null],
   ['明早期青花瓷鉴定', '明早期青花瓷鉴定', null, null],
   ['周五交周报', '交周报', '2026-11-13 23:59', null],
@@ -161,6 +167,7 @@ const table = [
   ['明天 交报告 下午3点', '交报告', '2026-11-13 15:00', null],
   ['晚上 明天3点开会', '晚上 开会', '2026-11-13 15:00', null],
   ['交报告。明天。', '交报告', '2026-11-13 23:59', null],
+  ['交报告 明天！', '交报告', '2026-11-13 23:59', null],
   ['明天下午3点', '', '2026-11-13 15:00', null],
   ['#工作', '', null, 'p1'],
   ['买牛奶', '买牛奶', null, null],
@@ -217,7 +224,10 @@ console.log('=== 区间语法：3点到5点 → startAt/endAt（日历套件 P2.
     ['sync 3pm-5pm', 'sync', '2026-11-12 15:00', '2026-11-12 17:00'],
     // 起点 10:00 早于时钟 10:30：无显式日期时按既有规则整体顺延一天。
     ['demo 10am to 12pm', 'demo', '2026-11-13 10:00', '2026-11-13 12:00'],
-    ['standup 10:00-11:30', 'standup', '2026-11-13 10:00', '2026-11-13 11:30']
+    ['standup 10:00-11:30', 'standup', '2026-11-13 10:00', '2026-11-13 11:30'],
+    // 前导 at 属于区间本身：避免与「at 3pm」散钟点部分重叠后两者一起被丢。
+    ['meeting at 3pm to 5pm', 'meeting', '2026-11-12 15:00', '2026-11-12 17:00'],
+    ['at 3:30pm to 4:30pm', '', '2026-11-12 15:30', '2026-11-12 16:30']
   ]
   for (const [input, wantTitle, wantStart, wantEnd] of enRangeTable) {
     const r = parseQuickAdd(input, ctx)
@@ -457,7 +467,8 @@ const enTable = [
   ['fix !med', 'fix', null, 2, false],
   ['fix !medium', 'fix', null, 2, false],
   ['fix !low', 'fix', null, 1, false],
-  ['明天 3pm 开会', '开会', '2026-11-13 15:00', 0, true]
+  ['明天 3pm 开会', '开会', '2026-11-13 15:00', 0, true],
+  ['Call mom tomorrow!', 'Call mom', '2026-11-13 23:59', 0, false]
 ]
 for (const [input, wantTitle, wantDue, wantPriority, wantExplicit] of enTable) {
   const result = parseQuickAdd(input, ctx)
@@ -563,6 +574,15 @@ console.log('=== 重复规则：月度钳制真值表（本地墙钟，期望字
     const got = key(nextMonthlyClamped(due, clampNow))
     assert(got === want, `nextMonthlyClamped(${key(due)}, ${key(clampNow)}) = ${want}` + (got === want ? '' : `（实得 ${got}）`))
   }
+  // 超大 INTERVAL 会把候选月推出 JS Date 上限：必须返回 null，绝不能死循环。
+  assert(
+    nextMonthlyClamped(at(2026, 0, 1), at(2026, 0, 1), 4_000_000) === null,
+    'nextMonthlyClamped 超大 INTERVAL 越界 → null（不死循环）'
+  )
+  assert(
+    nextOccurrence(at(2026, 0, 1).toISOString(), 'FREQ=MONTHLY;INTERVAL=4000000', at(2026, 0, 1)) === null,
+    'nextOccurrence 超大 INTERVAL → null（不死循环）'
+  )
 
   console.log('=== 重复规则：nextOccurrence 注入时钟真值表（逾期 3 年不断链） ===')
   // 核心是「逾期很久不断链」：旧实现从 due 起逐个迭代、1000 次封顶，每天重复
@@ -758,6 +778,19 @@ console.log('=== 自定义重复：parse/build 往返真值表 ===')
     const got = icsEscape(input)
     assert(got === want, `icsEscape(${JSON.stringify(input)}) = ${JSON.stringify(want)}` + (got === want ? '' : `（实得 ${JSON.stringify(got)}）`))
   }
+  // 折行必须按码点推进：21 个中文（8 + 63 = 71 octet）后只剩 3 octet，
+  // UTF-16 码元贪心会停在高代理项之后，emoji 落盘成两个 U+FFFD。
+  const emojiHead = 'SUMMARY:' + '中'.repeat(21) + '😀'
+  const emojiFolded = icsFold('SUMMARY', '中'.repeat(21) + '😀')
+  const emojiSegments = emojiFolded.split('\r\n ')
+  const noLoneSurrogate = emojiSegments.every(
+    (segment) => !/[\uD800-\uDBFF]$/.test(segment) && !/^[\uDC00-\uDFFF]/.test(segment)
+  )
+  assert(
+    noLoneSurrogate && emojiSegments.join('') === emojiHead,
+    'ICS 折行不切断代理对（emoji 不产生 U+FFFD）' +
+      (noLoneSurrogate && emojiSegments.join('') === emojiHead ? '' : `（实得 ${JSON.stringify(emojiSegments)}）`)
+  )
   // UTC 即刻与时区无关（getUTC*）：2026-11-25 09:00 本地（UTC+8）→ 010000Z。
   assert(icsInstant('2026-11-25T09:00:00') === '20261125T010000Z', 'icsInstant UTC 基本格式带 Z')
   assert(icsDate(new Date(2026, 11, 25)) === '20261225', 'icsDate 本地日基本格式')
@@ -795,6 +828,12 @@ console.log('=== 自定义重复：parse/build 往返真值表 ===')
     'END:VCALENDAR'
   ].join('\r\n') + '\r\n'
   assert(text === wantText, 'ICS 全文逐字相等：PRODID/UTC 即刻/优先级 2→5' + (text === wantText ? '' : `（实得 ${JSON.stringify(text)}）`))
+  // CATEGORIES 是逗号分隔的多个 TEXT：分隔逗号必须保持裸逗号，只转义值内部。
+  const tagged = buildIcsExport([mk({ id: 't-tags', tags: ['工作', '重要'] })], stamp)
+  assert(
+    tagged.includes('CATEGORIES:工作,重要') && !tagged.includes('工作\\,重要'),
+    'CATEGORIES 用裸逗号分隔多个标签' + (tagged.includes('CATEGORIES:工作,重要') ? '' : `（实得 ${JSON.stringify(tagged.match(/CATEGORIES:[^\r\n]*/)?.[0])}）`)
+  )
   // 全天：DTEND 排他（两天事件 → 结束日 +1）；优先级 3→1、1→9、0→0；完成标记；无日期过滤。
   const allDayText = buildIcsExport([
     mk({ id: 't-2', title: '全天跨两天', allDay: true, startAt: '2026-11-26T00:00:00', endAt: '2026-11-27T23:59:00', priority: 3 }),

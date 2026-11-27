@@ -171,8 +171,14 @@ export function CalendarView() {
   monthRef.current = month
   const anchorDayRef = useRef(anchorDay)
   anchorDayRef.current = anchorDay
+  const modeRef = useRef(mode)
+  modeRef.current = mode
   useEffect(() => {
     return () => {
+      // 只有月视图的可见月是本地状态、需要写回；周/日/列表/看板里锚点本来
+      // 就是唯一真相（翻页/钻取都直接改锚点），此时写回旧月份会把用户刚
+      // 翻到的周/日覆盖掉。
+      if (modeRef.current !== 'month') return
       useCalendarStore.getState().setAnchor(clampToMonth(monthRef.current, anchorDayRef.current.getDate()))
     }
   }, [])
@@ -197,6 +203,14 @@ export function CalendarView() {
     const mid = days[Math.floor((days.length - 1) / 2)]
     return en ? format(mid, 'MMMM', { locale: enUS }) : format(mid, 'M月', { locale: zhCN })
   }, [timeMode, anchorDay, en])
+
+  // 年月下拉的当前月必须与标签同源：跨月的一周/多周里，标签取可见范围中点
+  // 所在月，下拉若仍传锚点月，会出现「标签写 1 月、下拉高亮 12 月」。
+  const rangeMonth = useMemo(() => {
+    if (!timeMode) return month
+    const days = visibleDaysFor(timeMode, anchorDay)
+    return firstOfMonth(days[Math.floor((days.length - 1) / 2)])
+  }, [timeMode, anchorDay, month])
 
   return (
     // data-calendar-view：月/多周的「格子自适应视口、外层不出滚动条」高度链
@@ -229,7 +243,7 @@ export function CalendarView() {
             </button>
             {/* 翻页播报复用可见的标签本身（标签是年月下拉的触发按钮）。 */}
             <MonthJumpMenu
-              month={timeMode ? firstOfMonth(anchorDay) : month}
+              month={timeMode ? rangeMonth : month}
               onPick={jumpToMonth}
               label={timeMode ? rangeLabel : undefined}
             />

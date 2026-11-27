@@ -519,10 +519,14 @@ function insertSampleTasks(
       sample.startHour === undefined
         ? dueAt
         : at(sample.dayOffset ?? 0, sample.startHour, sample.startMinute ?? 0)
+    // 跨天全天示例只给 endDayOffset、不给 endHour：此时结束时刻按当天 23:59
+// 补齐，否则 endAt 为 null，示例在月格/全天行里只亮一天，与教学文案矛盾。
     const endAt =
-      sample.endHour === undefined
-        ? null
-        : at(sample.endDayOffset ?? sample.dayOffset ?? 0, sample.endHour, sample.endMinute ?? 0)
+      sample.endHour !== undefined
+        ? at(sample.endDayOffset ?? sample.dayOffset ?? 0, sample.endHour, sample.endMinute ?? 0)
+        : sample.endDayOffset !== undefined
+          ? at(sample.endDayOffset, 23, 59)
+          : null
     const remindAt = sample.remind
       ? at(sample.remind.dayOffset, sample.remind.hour, sample.remind.minute ?? 0)
       : null
@@ -1037,7 +1041,7 @@ export function importBackup(data: {
   const taskExists = db.prepare('SELECT 1 FROM tasks WHERE id = ?')
   const subtaskExists = db.prepare('SELECT 1 FROM subtasks WHERE id = ?')
   const tagExists = db.prepare('SELECT 1 FROM tags WHERE id = ?')
-  const tagNameExists = db.prepare('SELECT 1 FROM tags WHERE name = ? COLLATE NOCASE')
+  const tagIdByName = db.prepare('SELECT id FROM tags WHERE name = ? COLLATE NOCASE')
   const taskTagExists = db.prepare('SELECT 1 FROM task_tags WHERE task_id = ? AND tag_id = ?')
   const insertProject = db.prepare(
     'INSERT INTO projects (id, name, color, sort_order, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)'
@@ -1089,26 +1093,40 @@ export function importBackup(data: {
       )
       counts.tasksImported += 1
     }
-    // 标签按 id 去重；id 新的行如果撞上本地同名标签也跳过，避免 UNIQUE 违约。
+    // 标签按 id 去重；同名不同 id 时复用本地标签，并把备份 id 映射到本地 id——
+    // 只跳过标签行、不建映射的话，后面所有 taskTags 都会因「备份 id 不存在」
+    // 被静默丢掉，任务导入成功却没了标签。
+    const tagIdMap = new Map<string, string>()
     for (const tag of data.tags ?? []) {
-      if (tagExists.get(tag.id) || tagNameExists.get(tag.name)) {
+      if (tagExists.get(tag.id)) {
+        tagIdMap.set(tag.id, tag.id)
+        counts.tagsSkipped += 1
+        continue
+      }
+      const sameName = tagIdByName.get(tag.name) as { id: string } | undefined
+      if (sameName) {
+        tagIdMap.set(tag.id, sameName.id)
         counts.tagsSkipped += 1
         continue
       }
       insertTag.run(tag.id, tag.name, tag.createdAt)
+      tagIdMap.set(tag.id, tag.id)
       counts.tagsImported += 1
     }
-    // 标签关联依赖任务与标签两侧：任一侧缺失（含刚被上面跳过的同名标签）就跳过。
+    // 标签关联依赖任务与标签两侧：标签侧优先用映射（同名复用），没有映射时
+    // 回退到「本地已存在同 id」（备份省略 tags 数组的旧文件）。
     for (const link of data.taskTags ?? []) {
+      const mappedTagId =
+        tagIdMap.get(link.tagId) ?? (tagExists.get(link.tagId) ? link.tagId : null)
       if (
-        taskTagExists.get(link.taskId, link.tagId) ||
-        !taskExists.get(link.taskId) ||
-        !tagExists.get(link.tagId)
+        !mappedTagId ||
+        taskTagExists.get(link.taskId, mappedTagId) ||
+        !taskExists.get(link.taskId)
       ) {
         counts.taskTagsSkipped += 1
         continue
       }
-      insertTaskTag.run(link.taskId, link.tagId)
+      insertTaskTag.run(link.taskId, mappedTagId)
       counts.taskTagsImported += 1
     }
     // 子任务依赖父任务：父任务已存在（本地原有或本轮刚插入）才恢复；

@@ -31,3 +31,10 @@ export function closeTopOverlay(): boolean {
   close()
   return true
 }
+
+/** 当前是否有模态浮层（ConfirmDialog / UpdateDialog 等）挂着。全局快捷键
+ *  处理器在事件发生时读这个值，把 N / Ctrl+Z / 视图导航 / 全局热键让给模态——
+ *  它们不一定在任务 store 的 trashConfirm 里（项目删除确认就是组件局部状态）。 */
+export function hasOpenOverlay(): boolean {
+  return stack.length > 0
+}

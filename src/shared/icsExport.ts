@@ -64,14 +64,18 @@ export function icsFold(name: string, value: string): string {
   const lines: string[] = []
   let rest = head
   while (encoder.encode(rest).length > LINE_OCTETS) {
-    let take = 1
-    // 贪心找到不超预算的最长前缀（逐字符推进；单字符 ≤4 字节，循环有界）。
-    while (
-      take < rest.length &&
-      encoder.encode(rest.slice(0, take + 1)).length <= LINE_OCTETS
-    ) {
-      take += 1
+    // 按码点而不是 UTF-16 码元推进：emoji 的高低代理项分开编码时各自算 3 字节
+    // 的 U+FFFD，贪心会正好停在代理对中间，落盘后 emoji 变成两个替换字符。
+    let take = 0
+    let bytes = 0
+    for (const char of rest) {
+      const size = encoder.encode(char).length
+      if (bytes + size > LINE_OCTETS) break
+      bytes += size
+      take += char.length
     }
+    // 预算 74 > 单个码点最大 4 字节，take 至少能装下首字符；兜底防死循环。
+    if (take === 0) take = 1
     lines.push(rest.slice(0, take))
     rest = rest.slice(take)
   }
@@ -115,7 +119,10 @@ function vevent({ task, stamp }: EventLines): string[] {
   if (task.notes) lines.push(icsFold('DESCRIPTION', icsEscape(task.notes)))
   if (task.projectName) lines.push(icsFold('LOCATION', icsEscape(task.projectName)))
   if (task.tags.length > 0) {
-    lines.push(icsFold('CATEGORIES', icsEscape(task.tags.join(','))))
+    // CATEGORIES 是逗号分隔的多个 TEXT：分隔逗号必须保持裸逗号，只转义每个
+    // 标签自身的特殊字符。先 join 再整体 escape 会得到「工作\,重要」——外部
+    // 日历把它当成一个名字里带逗号的分类。
+    lines.push(icsFold('CATEGORIES', task.tags.map((tag) => icsEscape(tag)).join(',')))
   }
   lines.push(icsFold('PRIORITY', String(toRfcPriority(task.priority))))
   lines.push(icsFold('STATUS', 'CONFIRMED'))

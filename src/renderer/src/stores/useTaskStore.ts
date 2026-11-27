@@ -103,8 +103,10 @@ type TaskState = {
   paletteOpen: boolean
   loading: boolean
   // 最近一次成功全量 load 的写修订号盖章（迁移 7 触发器维护）。null = 从未
-  // 同步过，focus 必拉。load() 用「读 list 之前」取的号盖章；自有写入成功落定
-  // 后 fire-and-forget 刷新（见 stampRevision），失败路径不盖。
+  // 同步过，focus 必拉。load() 用「读 list 之前」取的号盖章。自有写入不再
+  // 刷新盖章：写成功意味着全局号已前进，下次 focus 会多拉一次——这是有意的
+  // 安全方向。绝不能拿全局号盖章求安静：那个号可能包含 store 尚未拉到的外部
+  // 写入（MCP/导入），盖上去会让那行在整个会话里不可见（2026-11-27 修复）。
   lastSyncedRevision: number | null
   pendingDeletion: Task | null
   trashConfirm: TrashConfirm | null
@@ -154,22 +156,6 @@ type TaskState = {
 }
 
 export const useTaskStore = create<TaskState>((set, get) => {
-  // 自有写入成功落定后的盖章刷新（fire-and-forget）：避免「自己刚写完 → 下次
-  // focus 必然多拉一次」。失败路径不调用——盖章留在旧值，号不同必拉。漏盖
-  // （取号失败/进程忙）最多多拉一次，正确性由门控的「号不同必拉」保证。
-  // 固有边界（与 runUpdate 的同字段并发残余同类）：写提交与本次取号之间有
-  // 毫秒级间隙，外部写入（MCP）恰好落在间隙里时，取回的号已包含它而 store
-  // 尚未见到那一行——该外部变更会推迟到下一次任何变更后的 focus 才可见。
-  // 彻底消除需要每个写通道回传落定修订号，本轮按选定方案接受此边界。
-  const stampRevision = async (): Promise<void> => {
-    try {
-      const revision = await window.polaris.data.getRevision()
-      set({ lastSyncedRevision: revision })
-    } catch {
-      // 取号失败不盖：旧盖章 + 新修订号 → 下次 focus 多拉一次，安全方向。
-    }
-  }
-
   // load 序号：mount 与 focus（或设置页导入后的刷新）可能并发触发 load，只允许
   // 最新一次落数据与盖章——晚到的旧快照若覆盖新数据还盖上新号，门控会漏拉。
   // 过期的成功/失败都直接丢弃，由最新一次给出权威结果。
@@ -224,8 +210,6 @@ export const useTaskStore = create<TaskState>((set, get) => {
         ],
         ...clearError()
       }))
-      // 自有写入已落定：刷新盖章，下次 focus 不为自己的写入多拉一次。
-      void stampRevision()
       return result
     } catch (error) {
       // 只覆盖 preCall 快照里的字段（本次 patch 的键 + 派生 tags + 乐观
@@ -363,7 +347,6 @@ export const useTaskStore = create<TaskState>((set, get) => {
         },
         ...clearError()
       }))
-      void stampRevision()
     } catch (error) {
       console.error('Failed to add subtask:', error)
       // add 类回滚不需要字段级快照：回滚对象是「独立行的插入」，不是字段竞态。
@@ -446,7 +429,6 @@ export const useTaskStore = create<TaskState>((set, get) => {
           ...clearError()
         }
       })
-      void stampRevision()
     } catch (error) {
       console.error('Failed to update subtask:', error)
       set((state) => {
@@ -494,7 +476,6 @@ export const useTaskStore = create<TaskState>((set, get) => {
     try {
       await window.polaris.subtasks.remove(id)
       set(clearError())
-      void stampRevision()
     } catch (error) {
       console.error('Failed to remove subtask:', error)
       // remove 类回滚不需要字段级快照：回滚对象是「独立行的存在性」。行缺席
@@ -759,7 +740,6 @@ export const useTaskStore = create<TaskState>((set, get) => {
         delete subtasksByTask[id]
         return { subtasksByTask, ...clearError() }
       })
-      void stampRevision()
     } catch (error) {
       console.error('Failed to delete task forever:', error)
       set((state) => {
@@ -785,7 +765,6 @@ export const useTaskStore = create<TaskState>((set, get) => {
         for (const task of current) delete subtasksByTask[task.id]
         return { subtasksByTask, ...clearError() }
       })
-      void stampRevision()
     } catch (error) {
       console.error('Failed to empty trash:', error)
       // 完整回滚：撤销槽也还原，否则失败后用户丢失原本可用的撤销。

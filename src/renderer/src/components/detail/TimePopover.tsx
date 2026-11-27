@@ -33,6 +33,14 @@ export function TimePopover({ task, onPatch, onClose }: DetailPopoverProps) {
       })
       return
     }
+    if (endIso && !startIso) {
+      // 结束分段可以先单独写 endAt；此时开始必须夹在结束之前，否则会落出
+      // startAt > endAt（时间轴按 endMs <= startMs 直接不渲染整块）。
+      const endMs = new Date(endIso).getTime()
+      const nextMs = Math.min(new Date(iso).getTime(), endMs - MINIMUM_SLICE_MS)
+      onPatch({ startAt: new Date(nextMs).toISOString() })
+      return
+    }
     onPatch({ startAt: iso })
   }
 

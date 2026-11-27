@@ -81,7 +81,16 @@ export function useFocusTrap(
       document.removeEventListener('keydown', onKeyDown)
       const index = trapStack.indexOf(token)
       if (index >= 0) trapStack.splice(index, 1)
-      if (previous?.isConnected) previous.focus()
+      // 命令类浮层会在关闭的同时把焦点送到别处（命令面板「新建任务」→
+      // 快速添加输入框）：此时不能再把焦点抢回触发者。只有焦点仍在浮层里、
+      // 或落到 body（点遮罩关闭）时才恢复。
+      const current = document.activeElement
+      if (
+        previous?.isConnected &&
+        (!current || current === document.body || container.contains(current))
+      ) {
+        previous.focus()
+      }
     }
   }, [active, containerRef, initialFocusRef])
 }

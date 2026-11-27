@@ -27,6 +27,12 @@ files:
   - "!design-system/**/*"
   - "!.claude/**/*"
   - "!.kilo/**/*"
+  # 本机工作目录（agent 会话快照 / 本地工具 / 截图脚本）绝不进安装包：
+  # "**/*" 默认会连点目录一起打包，发布版曾可能带上 ~100MB 的 .alma-snapshots。
+  - "!.alma-snapshots/**/*"
+  - "!.zcode/**/*"
+  - "!scratch/**/*"
+  - "!*.log"
   - "!polaris-packaged-debug.log"
   # 字体是运行时资产，故列在 dependencies；但 Vite 已把用到的 woff2 打进
   # out/renderer/assets，整包 node_modules 再带一份会让字体体积翻倍。

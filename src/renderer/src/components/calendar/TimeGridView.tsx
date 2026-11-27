@@ -69,15 +69,25 @@ function blockForDay(task: Task, day: Date): DayBlock | null {
       ? new Date(task.endAt).getTime() - startDate.getTime()
       : DEFAULT_BLOCK_MINUTES * 60000
   const endDate = new Date(startDate.getTime() + Math.max(0, durationMs))
-  const dayStart = startOfDay(day).getTime()
-  const startMs = Math.max(startDate.getTime(), dayStart)
-  const endMs = Math.min(endDate.getTime(), dayStart + DAY_MINUTES * 60000)
-  if (endMs <= startMs) return null
-  return {
-    task,
-    startMin: (startMs - dayStart) / 60000,
-    endMin: (endMs - dayStart) / 60000
-  }
+  if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) return null
+
+  // 坐标必须是墙钟分钟，不是 epoch 差值：时间轴按 00–24 的固定 48px/小时
+  // 绘制，DST 当天的「真实经过时长」是 23/25 小时。按 epoch 差摆块会让换钟点
+  // 之后的块整体偏移一小时，25 小时日的最后一个小时还会被 1440 的固定窗口
+  // 裁掉；按本地时分摆放则与轴标签、now 线、拖拽换算始终同一坐标系。
+  const wallMinutes = (date: Date): number =>
+    date.getHours() * 60 +
+    date.getMinutes() +
+    date.getSeconds() / 60 +
+    date.getMilliseconds() / 60000
+  const targetStart = startOfDay(day).getTime()
+  const startDay = startOfDay(startDate).getTime()
+  const endDay = startOfDay(endDate).getTime()
+  if (startDay > targetStart || endDay < targetStart) return null
+  const startMin = startDay < targetStart ? 0 : wallMinutes(startDate)
+  const endMin = endDay > targetStart ? DAY_MINUTES : wallMinutes(endDate)
+  if (endMin <= startMin) return null
+  return { task, startMin, endMin }
 }
 
 // 全天任务出现在某一列：allDay 且 [start日, end日] 覆盖该列。
@@ -189,6 +199,14 @@ export function TimeGridView({
     const timer = window.setTimeout(() => createInputRef.current?.focus(), 30)
     return () => window.clearTimeout(timer)
   }, [createDraft])
+
+  // 模式/锚点一变，草稿所在日期可能已经不在可见列里：输入框不再渲染，但
+  // beginDrag 还会因 createDraft 提前返回，新建/移动/拉伸全部静默失灵且没有
+  // 取消入口。这里直接丢弃草稿（它的日期已不在用户眼前）。
+  useEffect(() => {
+    setCreateDraft(null)
+    setCreateTitle('')
+  }, [mode, anchorKey])
 
   const byDay = useMemo(() => {
     const blocks = new Map<string, DayBlock[]>()

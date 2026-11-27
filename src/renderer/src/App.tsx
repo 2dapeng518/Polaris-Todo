@@ -13,6 +13,7 @@ import { useTaskStore } from './stores/useTaskStore'
 import { useShortcutsStore } from './stores/useShortcutsStore'
 import { APP_SHORTCUTS } from '@shared/shortcuts'
 import { eventMatchesKeys } from './lib/shortcuts'
+import { hasOpenOverlay } from './lib/useOverlayClose'
 import { useSidebarStore } from './stores/useSidebarStore'
 import { useT } from './stores/useLocaleStore'
 import { subscribeUpdateStore } from './stores/useUpdateStore'
@@ -64,7 +65,8 @@ export default function App() {
       const target = event.target
       if (target instanceof HTMLElement && target.closest('input, textarea, [contenteditable="true"]')) return
       const { paletteOpen, trashConfirm } = useTaskStore.getState()
-      if (paletteOpen || trashConfirm) return
+      // 项目删除确认等模态不在 trashConfirm 里，统一走浮层栈让位。
+      if (paletteOpen || trashConfirm || hasOpenOverlay()) return
       for (const def of APP_SHORTCUTS) {
         if (!def.view) continue
         const keys = shortcutOverrides[def.id] ?? def.defaultKeys

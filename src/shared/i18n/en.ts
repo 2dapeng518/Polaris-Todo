@@ -403,6 +403,7 @@ export const en: Messages = {
   'reminder.missing': 'Task no longer exists',
   'reminder.missingDesc': 'The task for this reminder may have been deleted',
   'reminder.closeAction': 'Close',
+  'reminder.saveFailed': 'Couldn’t save. Please try again.',
   'palette.title': 'Command palette',
   'palette.placeholder': 'Search tasks or type a command…',
   'palette.empty': 'No matches',

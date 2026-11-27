@@ -37,6 +37,7 @@ import { getMcpState, MCP_ENDPOINT, MCP_PORT, setMcpEnabled } from '../mcp'
 import {
   applyDataDirectory,
   cancelDataDirectoryOffer,
+  flushDataLocationOnQuit,
   getDataLocationState,
   markPointerForTest,
   resetDataDirectory,
@@ -797,9 +798,23 @@ export async function runSmokeTest(): Promise<void> {
       // 真实失焦路径：程序化 .click() 不派发 mousedown，永远走不到 onBlur，
       // 所以这里显式失焦一次，把曾经偶发的场景变成必测路径。半截 '1' 必须被丢弃。
       hourInput().blur();
-      await sleep(300);
-      const blurDue = new Date(await storedDue());
-      const pickerBlurKeepsHour = hourInput().value === '19' && blurDue.getHours() === 19;
+      // 收敛断言：字段回填与 19:20 落库是两条异步链（React effect + IPC），
+      // 固定 300ms 在机器忙时会超前读数（本机复跑偶发红）。等到「字段回到 19
+      // 且库里小时为 19」或超时；端态仍是断言本身，真回归照样红。
+      const blurDeadline = Date.now() + 2000;
+      let blurHour = -1;
+      while (Date.now() < blurDeadline) {
+        await sleep(50);
+        blurHour = new Date(await storedDue()).getHours();
+        if (hourInput().value === '19' && blurHour === 19) break;
+      }
+      const pickerBlurKeepsHour = hourInput().value === '19' && blurHour === 19;
+      const pickerBlurDetail = {
+        field: hourInput().value,
+        storedHour: blurHour,
+        ariaHour: hourInput().getAttribute('aria-valuenow'),
+        ariaMinute: minuteInput().getAttribute('aria-valuenow')
+      };
       document.querySelectorAll('.dp-step')[1].click();
       await sleep(400);
       const syncDue = new Date(await storedDue());
@@ -1056,6 +1071,7 @@ export async function runSmokeTest(): Promise<void> {
         pickerStepSemantics,
         pickerTextSync,
         pickerBlurKeepsHour,
+        pickerBlurDetail,
         pickerEscRestores,
         pickerTodayFuture,
         pickerClearWorks,
@@ -2648,7 +2664,8 @@ export async function runSmokeTest(): Promise<void> {
     // 主进程侧计数探针：tasks:list / tasks:list-deleted 包一层计数，行为与生产
     // 一致（list-deleted 保留 purge 语义），照 resetTaskIpc 的摘装手法恢复。
     // 三段：无变化 focus 不重拉；DB 直写（与 MCP/备份外部写入同一条触发器路径）
-    // 后 focus 重拉且 UI 可见；自有 UI 写成功盖章后 focus 不多拉。
+    // 后 focus 重拉且 UI 可见；外部写入之后再做自有 UI 写，focus 仍必须重拉并
+    // 显示那行外部任务（自有写入不再拿全局号盖章，免得把未拉取的写入盖住）。
     let focusRevisionGate = false
     let focusGateListCalls = 0
     let focusGateTrashCalls = 0
@@ -2694,8 +2711,10 @@ export async function runSmokeTest(): Promise<void> {
           return Boolean(await waitFor(() => findRow('冒烟修订门 探针')));
         })()`)
         const gateExternalPulled = focusGateListCalls > baseList && focusGateTrashCalls > baseTrash
-        // 3) 自有 UI 写（勾选探针 → runUpdate 成功盖章）后 focus：不多拉。
-        // 行完成后进入默认折叠的已完成区，从活动列表消失即乐观落定。
+        // 3) 外部写入（直接 DB 建行）之后再做一个自有 UI 写（勾选探针）：
+        //    旧实现会在自有写成功后拿全局号盖章，把刚写入的外部行一并盖住，
+        //    后续 focus 永远跳过。现在 focus 必须重拉并显示这行。
+        const gateHidden = createTask({ title: '冒烟修订门 外部行', dueAt: gateDue.toISOString() })
         await wc.executeJavaScript(`(async () => {
           ${pageHelpers}
           findRow('冒烟修订门 探针').querySelector('.task-check').click();
@@ -2704,21 +2723,24 @@ export async function runSmokeTest(): Promise<void> {
         })()`)
         const baseList2 = focusGateListCalls
         const baseTrash2 = focusGateTrashCalls
-        await wc.executeJavaScript(`(async () => {
+        const gateHiddenShown = await wc.executeJavaScript(`(async () => {
           ${pageHelpers}
           window.dispatchEvent(new Event('focus'));
-          await sleep(450);
+          return Boolean(await waitFor(() => findRow('冒烟修订门 外部行')));
         })()`)
-        const gateOwnWriteQuiet = focusGateListCalls === baseList2 && focusGateTrashCalls === baseTrash2
-        focusRevisionGate = gateStaysClosed && Boolean(gateExternalShown) && gateExternalPulled && gateOwnWriteQuiet
+        const gateOwnWritePulls = focusGateListCalls > baseList2 && focusGateTrashCalls > baseTrash2
+        focusRevisionGate =
+          gateStaysClosed && Boolean(gateExternalShown) && gateExternalPulled && Boolean(gateHiddenShown) && gateOwnWritePulls
         if (!focusRevisionGate) {
           console.error('FOCUS_GATE_FAIL', JSON.stringify({
-            gateStaysClosed, gateExternalShown: Boolean(gateExternalShown), gateExternalPulled, gateOwnWriteQuiet
+            gateStaysClosed, gateExternalShown: Boolean(gateExternalShown), gateExternalPulled, gateHiddenShown: Boolean(gateHiddenShown), gateOwnWritePulls
           }))
         }
-        // 清场：探针软删 + 硬删，focus 同步（号跳会拉，属预期行为）。
+        // 清场：两行探针软删 + 硬删，focus 同步（号跳会拉，属预期行为）。
         deleteTask(gateProbe.id)
         deleteTaskForever(gateProbe.id)
+        deleteTask(gateHidden.id)
+        deleteTaskForever(gateHidden.id)
         await wc.executeJavaScript(`(async () => {
           ${pageHelpers}
           window.dispatchEvent(new Event('focus'));
@@ -3252,8 +3274,15 @@ export async function runSmokeTest(): Promise<void> {
       backupFixtureIds.push(orphanId)
       const orphanTask = listTasks().find((t) => t.id === orphanId)
       const orphanOk = orphanResult.tasksImported === 1 && orphanTask?.projectId === null
-      backupRoundTripWorks = idempotent && insertOk && orphanOk
-      if (!backupRoundTripWorks) console.error('BACKUP_ROUNDTRIP_FAIL', JSON.stringify({ idempotent, insertOk, orphanOk, reimport, imported }))
+      // 非法日期必须在 schema 层被整份拒绝：放行会把坏行写进库，渲染层
+      // formatDue(new Date('GARBAGE')) 抛 RangeError，整棵 React 树卸载。
+      const badDate = backupSchema.safeParse({
+        ...backup,
+        tasks: backup.tasks.map((t) => (t.id === task.id ? { ...t, dueAt: 'GARBAGE' } : t))
+      })
+      const dateRejected = badDate.success === false
+      backupRoundTripWorks = idempotent && insertOk && orphanOk && dateRejected
+      if (!backupRoundTripWorks) console.error('BACKUP_ROUNDTRIP_FAIL', JSON.stringify({ idempotent, insertOk, orphanOk, dateRejected, reimport, imported }))
     } catch (error) {
       console.error('BACKUP_ROUNDTRIP_ERROR', error)
     } finally {
@@ -3536,6 +3565,9 @@ export async function runSmokeTest(): Promise<void> {
       const adoptedBefore = await readFile(adoptedDb)
       const offerB = setDataDirectoryOffer(targetB)
       const adoptApplied = await applyDataDirectory()
+      // 退出兜底只属于 copy 模式：adopt 结束后调用一次 flush，被采用的库必须
+      // 一个字节都不能变（没修之前这里会被当前会话的新库覆盖）。
+      flushDataLocationOnQuit()
       const adoptedAfter = await readFile(adoptedDb)
       let adoptBackupsUntouched = true
       try {
@@ -3795,6 +3827,7 @@ export async function runSmokeTest(): Promise<void> {
     const tagFixtureIds: string[] = []
     let tagFixtureProjectId: string | null = null
     let tagFixtureId: string | null = null
+    let tagMapFixtureId: string | null = null
     try {
       const tag = createTag({ name: '冒烟继承标签' })
       tagFixtureId = tag.id
@@ -3849,10 +3882,33 @@ export async function runSmokeTest(): Promise<void> {
       })
       const v2Ok = v2.success && v2.data.tags.length === 0 && v2.data.taskTags.length === 0
       const legacyImport = importBackup({ projects: [], tasks: [] })
+      // 同名不同 ID：备份里的标签行应被跳过，但备份 id 必须映射到本地同名
+      // 标签，随后 taskTags 才能落到本地 id 上，而不是被静默丢掉。
+      const sameNameTag = createTag({ name: '冒烟同名映射' })
+      tagMapFixtureId = sameNameTag.id
+      const mappedTaskId = 'smoke-tag-map-task'
+      const mappedBackupTagId = 'smoke-tag-map-tag'
+      const mappedSource = backup.tasks.find((item) => item.id === backupTask.id)!
+      const mappedImport = importBackup({
+        projects: [],
+        tasks: [{ ...mappedSource, id: mappedTaskId, title: '冒烟同名映射任务', projectId: null }],
+        tags: [{ id: mappedBackupTagId, name: '冒烟同名映射', createdAt: new Date().toISOString() }],
+        taskTags: [{ taskId: mappedTaskId, tagId: mappedBackupTagId }]
+      })
+      tagFixtureIds.push(mappedTaskId)
+      const mappedTask = getTask(mappedTaskId)
+      const tagMappingWorks =
+        mappedImport.tagsSkipped === 1 &&
+        mappedImport.taskTagsImported === 1 &&
+        Boolean(mappedTask?.tags.some((item) => item.id === sameNameTag.id))
       tagBackupWorks =
-        exportOk && v2Ok && legacyImport.tagsImported === 0 && legacyImport.taskTagsImported === 0
+        exportOk &&
+        v2Ok &&
+        legacyImport.tagsImported === 0 &&
+        legacyImport.taskTagsImported === 0 &&
+        tagMappingWorks
       if (!tagBackupWorks) {
-        console.error('TAG_BACKUP_FAIL', JSON.stringify({ exportOk, v2Ok, legacyImport }))
+        console.error('TAG_BACKUP_FAIL', JSON.stringify({ exportOk, v2Ok, legacyImport, tagMappingWorks, mappedImport }))
       }
     } catch (error) {
       console.error('TAG_MAIN_ERROR', error)
@@ -3862,6 +3918,7 @@ export async function runSmokeTest(): Promise<void> {
         deleteTaskForever(id)
       }
       if (tagFixtureId) deleteTag(tagFixtureId)
+      if (tagMapFixtureId) deleteTag(tagMapFixtureId)
       if (tagFixtureProjectId) deleteProject(tagFixtureProjectId)
     }
 
@@ -4627,12 +4684,22 @@ export async function runSmokeTest(): Promise<void> {
         third.tasksAdded === 1 &&
         Boolean(refilled?.startAt && refilled?.endAt) &&
         refilled?.allDay === false
+      // 跨天全天示例只给 endDayOffset：加载器必须补出 endAt，否则月格/全天行
+      // 只亮一天，与示例文案矛盾。
+      const multiDay = getTask('sample-task-11')
+      const multiDayStart = multiDay?.startAt ? new Date(multiDay.startAt) : null
+      const multiDayEnd = multiDay?.endAt ? new Date(multiDay.endAt) : null
+      const multiDayOk =
+        multiDay?.allDay === true &&
+        multiDayStart !== null &&
+        multiDayEnd !== null &&
+        multiDayEnd.getDate() !== multiDayStart.getDate()
       const projectsStable = listProjects().length === projectsBefore
-      sampleLoadWorks = mergeOk && idempotent && refilledOk && projectsStable
+      sampleLoadWorks = mergeOk && idempotent && refilledOk && multiDayOk && projectsStable
       if (!sampleLoadWorks) {
         console.error(
           'SAMPLE_LOAD_FAIL',
-          JSON.stringify({ before, first, second, third, refilledOk, projectsStable, afterFirst })
+          JSON.stringify({ before, first, second, third, refilledOk, multiDayOk, projectsStable, afterFirst })
         )
       }
       // 清场：示例行软删+硬删，不污染后续守卫（trash 空态断言等）。
@@ -5664,6 +5731,9 @@ export async function runSmokeTest(): Promise<void> {
     // 只筛 result 里 value === false 是不够的 —— afterAdd / afterDelete /
     // commandCount 是数值比较，版本号是字符串比较，它们失败时 JSON 里
     // 一个 false 都没有，排查会得出「没有失败项」的假结论。
+    if (result.pickerBlurKeepsHour !== true) {
+      console.error('PICKER_BLUR_FAIL', JSON.stringify(result.pickerBlurDetail))
+    }
     const checks: Record<string, boolean> = {
       brand: result.brand === 'Polaris',
       viewTitle: result.viewTitle === '今天',

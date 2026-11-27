@@ -6,8 +6,10 @@ import type { MessageKey } from '@shared/i18n'
 import { TRASH_RETENTION_DAYS } from '@shared/retention'
 import { useTaskStore } from '../stores/useTaskStore'
 import { useShortcutKeys } from '../stores/useShortcutsStore'
-import { eventMatchesKeys } from '../lib/shortcuts'
+import { displayKeys, eventMatchesKeys } from '../lib/shortcuts'
 import { useAppVersion } from '../stores/useAppVersion'
+import { useMinuteTick } from '../lib/useMinuteTick'
+import { hasOpenOverlay } from '../lib/useOverlayClose'
 import { useT, useLocale } from '../stores/useLocaleStore'
 import { ConfirmDialog } from './ConfirmDialog'
 import { EmptyState } from './EmptyState'
@@ -87,6 +89,9 @@ export function TaskView() {
   // 已完成区默认折叠：组件内状态，不持久化——每次启动回到折叠。
   // 勾选完成不自动展开（防抢焦点）：行从活动区退场，只有计数 +1。
   const [completedExpanded, setCompletedExpanded] = useState(false)
+  // 跨午夜重算「今天/即将到来」：常驻托盘整夜无写库时，focus 的修订号门控
+  // 会跳过全量拉取，只有分钟 tick 能让派生列表重新判断日界。
+  const nowTick = useMinuteTick()
 
   const quickAddRef = useRef<HTMLInputElement>(null)
   // 确认后的焦点落点：undefined = 取消（trap 自己还焦点），null = 主区域，
@@ -101,8 +106,12 @@ export function TaskView() {
 
   useEffect(() => {
     const focusQuickAdd = (event: Event) => {
-      // 确认弹窗开着时不路由：模态期间背景视图不该被切走。
-      if (trashConfirm) return
+      // 确认弹窗或命令面板开着时不路由：模态期间背景视图不该被切走，
+      // 更不能把焦点送到遮罩背后的输入框（全局热键也会派发这个事件）。
+      // 必须读实时 store：命令面板的「新建任务」是先 setOpen(false) 再同步
+      // 派发事件，闭包里的 paletteOpen 还是旧值，会把这条命令自己挡掉。
+      const live = useTaskStore.getState()
+      if (live.trashConfirm || live.paletteOpen || hasOpenOverlay()) return
       // 全局热键要求无论当前在哪个视图都回「今天」；N 键不带 detail，行为不变。
       const forceToday =
         (event as CustomEvent<{ forceToday?: boolean } | undefined>).detail?.forceToday === true
@@ -115,18 +124,25 @@ export function TaskView() {
         quickAddRef.current.focus()
         return
       }
-      // 回收站与统计页不挂输入框：路由回「今天」再聚焦。N、面板「新建任务」
-      // 和 footer 提示都走这一条事件路径，提示不是假 affordance。
-      if (view === 'trash' || view === 'stats' || view === 'matrix' || view === 'calendar') {
+      // 回收站/已完成与统计等派生页不挂输入框：路由回「今天」再聚焦。
+      // N、面板「新建任务」和 footer 提示都走这一条事件路径，提示不是假 affordance。
+      if (
+        view === 'trash' ||
+        view === 'completed' ||
+        view === 'stats' ||
+        view === 'matrix' ||
+        view === 'calendar'
+      ) {
         setView('today')
         requestAnimationFrame(() => quickAddRef.current?.focus())
       }
     }
     window.addEventListener('polaris:quick-add', focusQuickAdd)
     return () => window.removeEventListener('polaris:quick-add', focusQuickAdd)
-  }, [view, setView, trashConfirm])
+  }, [view, setView, trashConfirm, paletteOpen])
 
   const quickAddKeys = useShortcutKeys('quick-add')
+  const paletteKeys = useShortcutKeys('command-palette')
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -138,6 +154,7 @@ export function TaskView() {
         !selectedTaskId &&
         !paletteOpen &&
         !trashConfirm &&
+        !hasOpenOverlay() &&
         eventMatchesKeys(event, quickAddKeys)
       ) {
         event.preventDefault()
@@ -191,7 +208,7 @@ export function TaskView() {
       totalToday: todayActive.length + todayDone.length,
       doneToday: todayDone.length
     }
-  }, [tasks, trashedTasks, view, projectFilter, tagFilter])
+  }, [tasks, trashedTasks, view, projectFilter, tagFilter, nowTick])
 
   const projectName = projectFilter
     ? projects.find((project) => project.id === projectFilter)?.name
@@ -267,14 +284,14 @@ export function TaskView() {
               <button className="search-trigger" onClick={() => setPaletteOpen(true)}>
                 <Search size={16} strokeWidth={1.8} aria-hidden="true" />
                 <span>{t('common.search')}</span>
-                <kbd>Ctrl K</kbd>
+                <kbd>{displayKeys(paletteKeys)}</kbd>
               </button>
             ) : (
               <>
                 <button className="search-trigger" onClick={() => setPaletteOpen(true)}>
                   <Search size={16} strokeWidth={1.8} aria-hidden="true" />
                   <span>{t('common.search')}</span>
-                  <kbd>Ctrl K</kbd>
+                  <kbd>{displayKeys(paletteKeys)}</kbd>
                 </button>
                 <ProgressRing value={progress} label={`${doneToday}/${totalToday}`} />
               </>
@@ -362,10 +379,10 @@ export function TaskView() {
 
         <div className="view-footer">
           <span>
-            <kbd>N</kbd> {t('views.footer.newTask')}
+            <kbd>{displayKeys(quickAddKeys)}</kbd> {t('views.footer.newTask')}
           </span>
           <span>
-            <kbd>Ctrl K</kbd> {t('views.footer.palette')}
+            <kbd>{displayKeys(paletteKeys)}</kbd> {t('views.footer.palette')}
           </span>
           <span className="footer-brand">
             Polaris

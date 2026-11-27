@@ -102,8 +102,10 @@ export function nextMonthlyClamped(due: Date, now: Date, interval = 1): Date | n
 
   // 答案至多在首个对齐序列月或再下一格：对齐月的钳制日若不晚于 now，
   // 下一格序列月整月晚于锚点月（now 就在锚点月里），必然晚于 now。
-  // 循环天然在一两步内终止，无需迭代上限——旧的 60 次上限是防御性冗余。
-  for (;;) {
+  // 但极端 INTERVAL（导入的备份可带任意数字）或贴近 JS Date 上限的 due 会把
+  // new Date 推出合法范围，candidate 变成 Invalid Date，两个比较恒为 false，
+  // 无上限循环就永远不返回。显式判 NaN 并给一道远大于真实用量的迭代上限。
+  for (let guard = 0; guard < 1200; guard += 1) {
     const total = due.getFullYear() * 12 + due.getMonth() + k * step
     const year = Math.floor(total / 12)
     const month = total % 12
@@ -118,13 +120,16 @@ export function nextMonthlyClamped(due: Date, now: Date, interval = 1): Date | n
       seconds,
       milliseconds
     )
+    const candidateMs = candidate.getTime()
+    if (!Number.isFinite(candidateMs)) return null
 
-    if (candidate.getTime() > due.getTime() && candidate.getTime() > now.getTime()) {
+    if (candidateMs > due.getTime() && candidateMs > now.getTime()) {
       return candidate
     }
 
     k += 1
   }
+  return null
 }
 
 // now 可注入（默认取当前时刻）：真值表用固定时钟钉死逾期多年的场景。

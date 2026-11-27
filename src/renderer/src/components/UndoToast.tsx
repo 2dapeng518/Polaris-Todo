@@ -3,7 +3,8 @@ import { AnimatePresence, motion } from 'motion/react'
 import { Repeat2, Trash2, TriangleAlert, X } from './Icon'
 import { useTaskStore } from '../stores/useTaskStore'
 import { useShortcutKeys } from '../stores/useShortcutsStore'
-import { eventMatchesKeys } from '../lib/shortcuts'
+import { displayKeys, eventMatchesKeys } from '../lib/shortcuts'
+import { hasOpenOverlay } from '../lib/useOverlayClose'
 import { formatDue } from '../lib/dates'
 import { useLocale, useT } from '../stores/useLocaleStore'
 
@@ -43,8 +44,9 @@ export function UndoToast() {
     const onKeyDown = (event: KeyboardEvent) => {
       if (!eventMatchesKeys(event, undoKeys)) return
       // 破坏性确认弹窗开着时不响应撤销：否则被确认的行会被悄悄恢复，
-      // 确认按钮变成静默空操作。
-      if (useTaskStore.getState().trashConfirm) return
+      // 确认按钮变成静默空操作。项目删除确认在组件局部状态里，不在
+      // trashConfirm，必须走统一的浮层栈。
+      if (useTaskStore.getState().trashConfirm || hasOpenOverlay()) return
       const target = event.target as HTMLElement | null
       if (target?.closest('input, textarea, [contenteditable="true"]')) return
       event.preventDefault()
@@ -99,7 +101,7 @@ export function UndoToast() {
           >
             <Trash2 size={14} aria-hidden="true" />
             <span className="toast-message">{t('views.toast.deleted', { title: pending.title })}</span>
-            <kbd className="toast-key">Ctrl Z</kbd>
+            <kbd className="toast-key">{displayKeys(undoKeys)}</kbd>
             <button className="toast-action" onClick={() => void undoDelete()}>
               {t('common.undo')}
             </button>

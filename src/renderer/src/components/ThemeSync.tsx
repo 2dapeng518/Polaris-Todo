@@ -5,6 +5,10 @@ import { useThemeStore } from '../stores/useThemeStore'
 export function ThemeSync() {
   const theme = useThemeStore((state) => state.theme)
   const mounted = useRef(false)
+  // 全新 profile（localStorage 为空）时，首帧主题只是系统偏好的兜底；meta
+  // （随数据库走）才是权威。先推本地值会把随数据目录迁过来的主题覆盖掉，
+  // 后面再读 meta 读到的已经是自己刚写的值。等回填后的主题变化再推。
+  const skipInitialPush = useRef(false)
 
   useEffect(() => {
     const apply = () => {
@@ -24,6 +28,16 @@ export function ThemeSync() {
     mounted.current = true
     const themeColor = document.querySelector('meta[name="theme-color"]')
     themeColor?.setAttribute('content', THEME_WINDOW_BG[theme])
+    let stored: string | null = null
+    try {
+      stored = localStorage.getItem('polaris-theme')
+    } catch {
+      stored = null
+    }
+    if (stored === null && !skipInitialPush.current) {
+      skipInitialPush.current = true
+      return
+    }
     void window.polaris.app.setTheme(theme).catch((error) => {
       console.error('Failed to apply theme to the window:', error)
     })

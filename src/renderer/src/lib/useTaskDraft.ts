@@ -39,6 +39,11 @@ export function useTaskDraft({ title: taskTitle, notes: taskNotes, persist }: Us
   const notesDirty = useRef(false)
   const titleLatest = useRef(taskTitle)
   const notesLatest = useRef(taskNotes)
+  // 已确认落库的基线，绝不能拿「store 当前值」代替：store 的乐观写入会在 IPC
+  // 结果之前先把 taskTitle 改成草稿值，用它判「不需要保存」会把 dirty 提前清掉；
+  // 写失败回滚后外部同步就会用旧值覆盖用户刚输入的内容（且重试再也发不出去）。
+  const titleSaved = useRef(taskTitle)
+  const notesSaved = useRef(taskNotes)
 
   const changeTitle = useCallback((value: string) => {
     titleDirty.current = true
@@ -57,12 +62,14 @@ export function useTaskDraft({ title: taskTitle, notes: taskNotes, persist }: Us
   useEffect(() => {
     if (titleDirty.current || titleComposing) return
     titleLatest.current = taskTitle
+    titleSaved.current = taskTitle
     setTitle(taskTitle)
   }, [taskTitle, titleComposing])
 
   useEffect(() => {
     if (notesDirty.current || notesComposing) return
     notesLatest.current = taskNotes
+    notesSaved.current = taskNotes
     setNotes(taskNotes)
   }, [taskNotes, notesComposing])
 
@@ -71,33 +78,46 @@ export function useTaskDraft({ title: taskTitle, notes: taskNotes, persist }: Us
     if (!value) {
       // 空标题不落库：回退到权威值（保持旧 flushAll 的行为）。
       titleLatest.current = taskTitle
+      titleSaved.current = taskTitle
       setTitle(taskTitle)
       titleDirty.current = false
       return true
     }
-    if (value === taskTitle) {
-      // 用户改回原值：没有待写内容，清 dirty 让外部同步恢复工作。
+    if (value === titleSaved.current) {
+      // 与「已确认落库」的值相同：没有待写内容，清 dirty 让外部同步恢复工作。
       titleDirty.current = false
       return true
     }
     const ok = await persist({ title: value })
-    // 保存期间用户可能继续输入：只有草稿仍等于本次提交值才清 dirty，
-    // 否则保持 dirty，交给防抖把更新的内容再存一次。
-    if (ok && titleLatest.current.replace(/\r?\n/g, ' ').trim() === value) {
-      titleDirty.current = false
+    if (ok) {
+      titleSaved.current = value
+      // 保存期间用户可能继续输入：只有草稿仍等于本次提交值才清 dirty，
+      // 否则保持 dirty，交给防抖把更新的内容再存一次。
+      if (titleLatest.current.replace(/\r?\n/g, ' ').trim() === value) {
+        titleDirty.current = false
+      }
+    } else {
+      // 写失败必须保持 dirty：乐观写入可能已在失败前让草稿 === store 值而
+      // 清掉 dirty，这里不补回来的话外部同步会覆盖草稿，重试也无内容可发。
+      titleDirty.current = true
     }
     return ok
   }, [persist, taskTitle])
 
   const saveNotes = useCallback(async (): Promise<boolean> => {
     const value = notesLatest.current
-    if (value === taskNotes) {
+    if (value === notesSaved.current) {
       notesDirty.current = false
       return true
     }
     const ok = await persist({ notes: value })
-    if (ok && notesLatest.current === value) {
-      notesDirty.current = false
+    if (ok) {
+      notesSaved.current = value
+      if (notesLatest.current === value) {
+        notesDirty.current = false
+      }
+    } else {
+      notesDirty.current = true
     }
     return ok
   }, [persist, taskNotes])
@@ -108,7 +128,7 @@ export function useTaskDraft({ title: taskTitle, notes: taskNotes, persist }: Us
     if (!titleDirty.current || titleComposing) return
     const value = title.replace(/\r?\n/g, ' ').trim()
     if (!value) return
-    if (value === taskTitle) {
+    if (value === titleSaved.current) {
       titleDirty.current = false
       return
     }
@@ -120,7 +140,7 @@ export function useTaskDraft({ title: taskTitle, notes: taskNotes, persist }: Us
 
   useEffect(() => {
     if (!notesDirty.current || notesComposing) return
-    if (notes === taskNotes) {
+    if (notes === notesSaved.current) {
       notesDirty.current = false
       return
     }

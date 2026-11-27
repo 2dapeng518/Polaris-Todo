@@ -10,7 +10,7 @@
 
 深色墨黑界面 · 青绿信号色 · 原生窗口控件 · 数据默认只保存在本机
 
-[![版本](https://img.shields.io/badge/version-0.16.4-0F766E?style=flat-square)](https://github.com/2dapeng518/Polaris-Todo/releases/latest)
+[![版本](https://img.shields.io/badge/version-0.29.1-0F766E?style=flat-square)](https://github.com/2dapeng518/Polaris-Todo/releases/latest)
 [![平台](https://img.shields.io/badge/platform-Windows%2011-334155?style=flat-square)](#安装)
 [![许可证](https://img.shields.io/badge/license-MIT-0F766E?style=flat-square)](LICENSE)
 [![下载](https://img.shields.io/github/downloads/2dapeng518/Polaris-Todo/total?style=flat-square&color=0F766E&label=downloads)](https://github.com/2dapeng518/Polaris-Todo/releases)

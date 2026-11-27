@@ -21,6 +21,7 @@ import type { MessageKey } from '@shared/i18n'
 import { useTaskStore } from '../stores/useTaskStore'
 import { useT } from '../stores/useLocaleStore'
 import { isTodayOrOverdue, isUpcoming } from '../lib/dates'
+import { useMinuteTick } from '../lib/useMinuteTick'
 import { useSidebarStore } from '../stores/useSidebarStore'
 import { ConfirmDialog } from './ConfirmDialog'
 
@@ -87,6 +88,8 @@ export function Sidebar() {
   // 计数只在 tasks/trashedTasks 变化时重算：侧栏每次渲染（切视图、开设置、
   // 编辑项目表单的每次击键）都跑 8 次全表 filter 是白烧 CPU。
   const activeTasks = useMemo(() => tasks.filter((task) => !task.completed), [tasks])
+  // 「今天 / 即将到来」同样按真实时钟现算：跨午夜后没有写库时也要重算计数。
+  const nowTick = useMinuteTick()
   const counts = useMemo<Record<AppView, number>>(() => {
     const completedCount = tasks.length - activeTasks.length
     return {
@@ -99,7 +102,7 @@ export function Sidebar() {
       matrix: activeTasks.length,
       trash: trashedTasks.length
     }
-  }, [tasks, activeTasks, trashedTasks])
+  }, [tasks, activeTasks, trashedTasks, nowTick])
 
   // 项目/标签计数各一趟遍历建 Map：原来是每个项目、每个标签各扫一遍全表，
   // 标签计数是 O(tags×tasks)，任务多时侧栏渲染被拖慢。

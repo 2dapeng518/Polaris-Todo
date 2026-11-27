@@ -26,6 +26,7 @@ export const dialogs = {
   'reminder.missing': '任务已不存在',
   'reminder.missingDesc': '这条提醒对应的任务可能已被删除',
   'reminder.closeAction': '关闭',
+  'reminder.saveFailed': '保存失败，请重试',
   'palette.title': '命令面板',
   'palette.placeholder': '搜索任务，或输入命令…',
   'palette.empty': '没有匹配结果',

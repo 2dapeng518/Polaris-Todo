@@ -62,6 +62,12 @@ export function runParseAssertions(): {
     ['明早7点跑步', '跑步', '2026-11-13 07:00', null],
     ['明早开会', '开会', '2026-11-13 07:00', null],
     ['明晚12点睡', '睡', '2026-11-14 00:00', null],
+    ['半夜1点睡觉', '睡觉', '2026-11-13 01:00', null],
+    ['夜里2点喂奶', '喂奶', '2026-11-13 02:00', null],
+    ['晚上3点开会', '开会', '2026-11-13 03:00', null],
+    ['晚上11点交报告', '交报告', '2026-11-12 23:00', null],
+    ['今晚2点', '', '2026-11-13 02:00', null],
+    ['明晚1点', '', '2026-11-14 01:00', null],
     ['今晚24点交报告', '交报告', '2026-11-13 00:00', null],
     ['明早期青花瓷鉴定', '明早期青花瓷鉴定', null, null],
     ['周五交周报', '交周报', '2026-11-13 23:59', null],
@@ -159,6 +165,7 @@ export function runParseAssertions(): {
     ['明天 交报告 下午3点', '交报告', '2026-11-13 15:00', null],
     ['晚上 明天3点开会', '晚上 开会', '2026-11-13 15:00', null],
     ['交报告。明天。', '交报告', '2026-11-13 23:59', null],
+    ['交报告 明天！', '交报告', '2026-11-13 23:59', null],
     ['明天下午3点', '', '2026-11-13 15:00', null],
     ['#工作', '', null, 'p1'],
     ['买牛奶', '买牛奶', null, null],
@@ -230,7 +237,10 @@ export function runParseAssertions(): {
     ['sync 3pm-5pm', 'sync', '2026-11-12 15:00', '2026-11-12 17:00'],
     // 起点 10:00 早于时钟 10:30：无显式日期时按既有规则整体顺延一天。
     ['demo 10am to 12pm', 'demo', '2026-11-13 10:00', '2026-11-13 12:00'],
-    ['standup 10:00-11:30', 'standup', '2026-11-13 10:00', '2026-11-13 11:30']
+    ['standup 10:00-11:30', 'standup', '2026-11-13 10:00', '2026-11-13 11:30'],
+    // 前导 at 属于区间本身：避免与「at 3pm」散钟点部分重叠后两者一起被丢。
+    ['meeting at 3pm to 5pm', 'meeting', '2026-11-12 15:00', '2026-11-12 17:00'],
+    ['at 3:30pm to 4:30pm', '', '2026-11-12 15:30', '2026-11-12 16:30']
   ]
   for (const [input, wantTitle, wantStart, wantEnd] of enRangeTable) {
     const result = parseQuickAdd(input, ctx)
@@ -505,7 +515,8 @@ export function runParseAssertions(): {
     ['fix !med', 'fix', null, 2, false],
     ['fix !medium', 'fix', null, 2, false],
     ['fix !low', 'fix', null, 1, false],
-    ['明天 3pm 开会', '开会', '2026-11-13 15:00', 0, true]
+    ['明天 3pm 开会', '开会', '2026-11-13 15:00', 0, true],
+    ['Call mom tomorrow!', 'Call mom', '2026-11-13 23:59', 0, false]
   ]
   let english = true
   for (const [input, wantTitle, wantDue, wantPriority, wantExplicit] of enTable) {
@@ -685,6 +696,15 @@ export function runRecurrenceAssertions(): boolean {
       ok = false
       console.error('RECURRENCE_CASE_FAIL', JSON.stringify({ due: key(due), now: key(now), got, want }))
     }
+  }
+  // 超大 INTERVAL 会把候选月推出 JS Date 上限：必须返回 null，绝不能死循环。
+  if (nextMonthlyClamped(at(2026, 0, 1), at(2026, 0, 1), 4_000_000) !== null) {
+    ok = false
+    console.error('RECURRENCE_OVERFLOW_FAIL', JSON.stringify({ case: 'nextMonthlyClamped' }))
+  }
+  if (nextOccurrence(at(2026, 0, 1).toISOString(), 'FREQ=MONTHLY;INTERVAL=4000000', at(2026, 0, 1)) !== null) {
+    ok = false
+    console.error('RECURRENCE_OVERFLOW_FAIL', JSON.stringify({ case: 'nextOccurrence' }))
   }
 
   // nextOccurrence 注入时钟的确定性真值表：核心是「逾期很久不断链」——

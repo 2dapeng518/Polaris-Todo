@@ -10,7 +10,7 @@
 
 Deep ink-dark UI · teal signal color · native window controls · your data stays on your machine by default
 
-[![Version](https://img.shields.io/badge/version-0.16.4-0F766E?style=flat-square)](https://github.com/2dapeng518/Polaris-Todo/releases/latest)
+[![Version](https://img.shields.io/badge/version-0.29.1-0F766E?style=flat-square)](https://github.com/2dapeng518/Polaris-Todo/releases/latest)
 [![Platform](https://img.shields.io/badge/platform-Windows%2011-334155?style=flat-square)](#installation)
 [![License](https://img.shields.io/badge/license-MIT-0F766E?style=flat-square)](LICENSE)
 [![Downloads](https://img.shields.io/github/downloads/2dapeng518/Polaris-Todo/total?style=flat-square&color=0F766E&label=downloads)](https://github.com/2dapeng518/Polaris-Todo/releases)

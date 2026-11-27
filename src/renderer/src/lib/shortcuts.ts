@@ -12,7 +12,19 @@ export function eventMatchesKeys(event: KeyboardEvent, keys: string): boolean {
   if (event.altKey !== mods.includes('Alt')) return false
   if (event.metaKey !== mods.includes('Super')) return false
   if (event.shiftKey !== mods.includes('Shift')) return false
-  return event.key.toLowerCase() === main.toLowerCase()
+  const lower = main.toLowerCase()
+  if (event.key.toLowerCase() === lower) return true
+  // 录制器按 event.code 记物理键：Shift+数字的 key 是上屏字符（Shift+1 → '!'），
+  // 非 QWERTY 布局的 key 也与物理键名不符。用同一套 code→键名兜底，否则这类
+  // 绑定能存能显示却永远触发不了。
+  const codeName = keyNameFromCode(event.code)
+  return codeName !== null && codeName.toLowerCase() === lower
+}
+
+/** 键串 → 界面提示形：'Ctrl+K' → 'Ctrl K'，'N' → 'N'。所有可见提示必须
+ *  经过这里读生效绑定，不能在 JSX 里写死默认值——改键后提示会与按键脱节。 */
+export function displayKeys(keys: string): string {
+  return parseKeys(keys).join(' ')
 }
 
 /** e.code → 录制用键名：字母 KeyX、数字 DigitN、F1–F24；其余（标点 / 小键盘 /

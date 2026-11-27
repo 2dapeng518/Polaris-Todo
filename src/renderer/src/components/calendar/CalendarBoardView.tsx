@@ -55,13 +55,22 @@ export function CalendarBoardView({ tasks, now }: { tasks: Task[]; now: Date }) 
     const task = tasks.find((candidate) => candidate.id === id)
     if (!task) return
     if (column.kind === 'noDate') {
-      // 归入无日期 = 清空整套日程（截止 + 计划时间段一起退场）。
-      void updateTask(id, { dueAt: null, startAt: null, endAt: null, allDay: false })
+      // 归入无日期 = 清空整套日程（截止 + 计划时间段一起退场）。重复规则必须
+      // 一并清掉：DB 拒绝「有规则却没有截止」，否则这个手势对重复任务必然
+      // 失败，还会弹出与磁盘无关的「保存失败」。store 已负责 toast，这里吞掉
+      // rejection，避免未处理的 Promise 噪声。
+      void updateTask(id, {
+        dueAt: null,
+        startAt: null,
+        endAt: null,
+        allDay: false,
+        recurrenceRule: null
+      }).catch(() => {})
       return
     }
     if (column.day) {
       // 只动 dueAt（日历分组的锚点）；计划时间段原样保留，由详情/时间轴细调。
-      void updateTask(id, { dueAt: dueAtForDay(task, column.day) })
+      void updateTask(id, { dueAt: dueAtForDay(task, column.day) }).catch(() => {})
     }
   }
 

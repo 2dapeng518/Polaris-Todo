@@ -5017,6 +5017,12 @@ button.calendar-daynum:hover {
   font-size: 11px;
 }
 
+/* 写失败的可见槽：与 meta 同行高，颜色用 warning，不新增行高。 */
+.reminder-meta.reminder-error {
+  color: var(--warning);
+  font-weight: 600;
+}
+
 .reminder-actions {
   display: flex;
   flex: none;

@@ -14,6 +14,9 @@ export function ReminderView({ taskId }: { taskId: string }) {
   const load = useTaskStore((state) => state.load)
   const updateTask = useTaskStore((state) => state.updateTask)
   const [snoozeOpen, setSnoozeOpen] = useState(false)
+  // 写失败必须留在窗内可见并允许重试；提醒窗不挂 UndoToast，静默关窗会让
+  // 用户以为任务已完成，而 reminded_at 已写过，这次提醒也不会再弹。
+  const [saveFailed, setSaveFailed] = useState(false)
 
   useEffect(() => {
     void load()
@@ -30,17 +33,19 @@ export function ReminderView({ taskId }: { taskId: string }) {
 
   const complete = async () => {
     if (!task) return
+    setSaveFailed(false)
     try {
       await updateTask(task.id, { completed: true })
       dismiss()
     } catch (error) {
       console.error('Failed to complete reminder task:', error)
-      dismiss()
+      setSaveFailed(true)
     }
   }
 
   const snooze = async (minutes: number) => {
     if (!task) return
+    setSaveFailed(false)
     try {
       await updateTask(task.id, {
         remindAt: new Date(Date.now() + minutes * 60 * 1000).toISOString()
@@ -48,7 +53,7 @@ export function ReminderView({ taskId }: { taskId: string }) {
       dismiss()
     } catch (error) {
       console.error('Failed to snooze reminder:', error)
-      dismiss()
+      setSaveFailed(true)
     }
   }
 
@@ -78,15 +83,22 @@ export function ReminderView({ taskId }: { taskId: string }) {
         ) : task ? (
           <>
             <div className="reminder-title">{task.title}</div>
-            <div className="reminder-meta">
-              <span>{formatDue(task.dueAt, locale)}</span>
-              {project && (
-                <span className="meta-project">
-                  <span className="meta-dot" style={{ background: project.color }} />
-                  <span className="meta-project-name">{project.name}</span>
-                </span>
-              )}
-            </div>
+            {saveFailed ? (
+              // 与 meta 同一行高，替换而不是追加：420×212 的窗口没有多余行预算。
+              <div className="reminder-meta reminder-error" role="alert">
+                {t('reminder.saveFailed')}
+              </div>
+            ) : (
+              <div className="reminder-meta">
+                <span>{formatDue(task.dueAt, locale)}</span>
+                {project && (
+                  <span className="meta-project">
+                    <span className="meta-dot" style={{ background: project.color }} />
+                    <span className="meta-project-name">{project.name}</span>
+                  </span>
+                )}
+              </div>
+            )}
             <div className="reminder-actions">
               {snoozeOpen ? (
                 <>
