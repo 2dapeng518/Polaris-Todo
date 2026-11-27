@@ -2832,8 +2832,8 @@ body.matrix-card-dragging * {
   display: flex;
   flex: 1;
   flex-direction: column;
-  /* 与主列表同档：行间 2px + 任务行自身内边距，矩阵里更紧凑。 */
-  gap: 2px;
+  /* 行间不留缝：密度的调节交给行内 padding（0 间距让列表更像连续清单）。 */
+  gap: 0;
   min-height: 0;
   /* 滚动条常驻沟槽，出现/消失时行宽不跳；滚动不传染外层。 */
   overflow-y: auto;
@@ -3086,10 +3086,15 @@ body.matrix-card-dragging * {
   gap: 2px;
 }
 
-/* 矩阵内的任务行收紧垂直内边距（12→8）：格内空间有限，行距仍保留可读性；
-   水平内边距不动，与象限头文字对齐。其他视图不受影响。 */
+/* 矩阵内的任务行收紧垂直内边距（12→5）与 meta 上边距（4→2）：格内空间
+   有限，任务之间只留约 12px 空白；水平内边距不动，与象限头文字对齐。
+   其他视图不受影响。 */
 .matrix-row .task-item {
-  padding: 8px 12px;
+  padding: 5px 12px;
+}
+
+.matrix-row .task-meta {
+  margin-top: 2px;
 }
 
 /* 「编辑象限」弹窗：confirm-overlay/panel 浮层语言 + 表单网格。 */
